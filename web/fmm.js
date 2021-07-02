@@ -2,28 +2,11 @@
 
 window.onload = main;
 
-// Buffer for accumulating geometry to be sent for rendering
-// Position: four vertices per quad, four components per position (x, y, s, t)
-
 const maxQuads = 4096;
-const vertexPositions = new Float32Array(maxQuads * 16);
-let numQuads = 0;
-
-// Projection matrix memory
-
-const projectionMatrix = new Float32Array(16);
 
 // Functions
 
 function main() {
-
-	// The projection matrix mostly stays as zeroes
-
-	projectionMatrix.fill(0);
-	projectionMatrix[10] = 1;
-	projectionMatrix[12] = -1;
-	projectionMatrix[13] = -1;
-	projectionMatrix[15] = 1;
 
 	const canvas = document.querySelector("#canvas");
 	const gl = canvas.getContext("webgl", { alpha: false, antialias: false, depth: false });
@@ -55,16 +38,14 @@ function initGlResources(gl) {
 	const fsSource = `
 		varying highp vec2 vTextureCoord;
 
-		uniform sampler2D uSampler;
+		uniform sampler2D uContour;
 
 		void main() {
-			gl_FragColor = texture2D(uSampler, vTextureCoord);
+			gl_FragColor = texture2D(uContour, vTextureCoord);
 		}
 	`;
 
 	const program = initShaderProgram(gl, vsSource, fsSource);
-
-	const buffers = initBuffers(gl);
 
 	const glResources = {
 		program: program,
@@ -73,36 +54,45 @@ function initGlResources(gl) {
 		},
 		uniformLocations: {
 			projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
-			uSampler: gl.getUniformLocation(program, 'uSampler'),
+			uContour: gl.getUniformLocation(program, 'uContour'),
 		},
-		buffers: buffers,
-		contourTexture: makeStripeTexture(gl),
+		vertexPositions: new Float32Array(maxQuads * 16),
+		numQuads: 0,
+		vertexPositionsBuffer: gl.createBuffer(),
+		vertexIndices: createElementBuffer(gl),
+		contourTexture: createStripeTexture(gl),
+		projectionMatrix: createProjectionMatrix(),
 	};
 
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 	gl.enable(gl.BLEND);
 	gl.clearColor(0, 0, 0, 1.0);
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
+	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.vertexPositionsBuffer);
 	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(glResources.attribLocations.vertexPosition);
 
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glResources.buffers.indices);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glResources.vertexIndices);
 
 	gl.useProgram(glResources.program);
 
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, glResources.contourTexture);
-	gl.uniform1i(glResources.uniformLocations.uSampler, 0);
+	gl.uniform1i(glResources.uniformLocations.uContour, 0);
 
 	return glResources;
 }
 
-function initBuffers(gl) {
-	return {
-		position: gl.createBuffer(),
-		indices: createElementBuffer(gl),
-	};
+function createProjectionMatrix() {
+	const projectionMatrix = new Float32Array(16);
+
+	projectionMatrix.fill(0);
+	projectionMatrix[10] = 1;
+	projectionMatrix[12] = -1;
+	projectionMatrix[13] = -1;
+	projectionMatrix[15] = 1;
+
+	return projectionMatrix;
 }
 
 function createElementBuffer(gl) {
@@ -133,12 +123,12 @@ function drawScreen(gl, glResources) {
 	const screenY = gl.canvas.clientHeight;
 	gl.viewport(0, 0, screenX, screenY);
 
-	projectionMatrix[0] = 2 / screenX;
-	projectionMatrix[5] = 2 / screenY;
+	glResources.projectionMatrix[0] = 2 / screenX;
+	glResources.projectionMatrix[5] = 2 / screenY;
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
-	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, projectionMatrix);
+	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, glResources.projectionMatrix);
 
 	addQuad(gl, glResources, 0, 0, screenX, screenY, 0, 16, 16, 32);
 	renderQuads(gl, glResources);
@@ -186,53 +176,53 @@ function loadShader(gl, type, source) {
 }
 
 function renderQuads(gl, glResources) {
-	if (numQuads > 0) {
-		gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
-		gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.DYNAMIC_DRAW);
+	if (glResources.numQuads > 0) {
+		gl.bindBuffer(gl.ARRAY_BUFFER, glResources.vertexPositionsBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, glResources.vertexPositions, gl.DYNAMIC_DRAW);
 
-		gl.drawElements(gl.TRIANGLES, 6 * numQuads, gl.UNSIGNED_SHORT, 0);
+		gl.drawElements(gl.TRIANGLES, 6 * glResources.numQuads, gl.UNSIGNED_SHORT, 0);
 	}
-	numQuads = 0;
+	glResources.numQuads = 0;
 }
 
 function addQuad(gl, glResources, x0, y0, x1, y1, s00, s10, s01, s11) {
-	if (numQuads >= maxQuads) {
+	if (glResources.numQuads >= maxQuads) {
 		// Buffer is full; render
 		renderQuads(gl, glResources);
 	}
 
 	// Append four vertices to the position/texcoord array
 
-	const i = numQuads * 16;
+	const i = glResources.numQuads * 16;
 
-	vertexPositions[i+0] = x0;
-	vertexPositions[i+1] = y0;
-	vertexPositions[i+2] = s00;
-	vertexPositions[i+3] = 0;
+	glResources.vertexPositions[i+0] = x0;
+	glResources.vertexPositions[i+1] = y0;
+	glResources.vertexPositions[i+2] = s00;
+	glResources.vertexPositions[i+3] = 0;
 
-	vertexPositions[i+4] = x1;
-	vertexPositions[i+5] = y0;
-	vertexPositions[i+6] = s10;
-	vertexPositions[i+7] = 0;
+	glResources.vertexPositions[i+4] = x1;
+	glResources.vertexPositions[i+5] = y0;
+	glResources.vertexPositions[i+6] = s10;
+	glResources.vertexPositions[i+7] = 0;
 
-	vertexPositions[i+8] = x0;
-	vertexPositions[i+9] = y1;
-	vertexPositions[i+10] = s01;
-	vertexPositions[i+11] = 0;
+	glResources.vertexPositions[i+8] = x0;
+	glResources.vertexPositions[i+9] = y1;
+	glResources.vertexPositions[i+10] = s01;
+	glResources.vertexPositions[i+11] = 0;
 
-	vertexPositions[i+12] = x1;
-	vertexPositions[i+13] = y1;
-	vertexPositions[i+14] = s11;
-	vertexPositions[i+15] = 0;
+	glResources.vertexPositions[i+12] = x1;
+	glResources.vertexPositions[i+13] = y1;
+	glResources.vertexPositions[i+14] = s11;
+	glResources.vertexPositions[i+15] = 0;
 
-	++numQuads;
+	++glResources.numQuads;
 }
 
-function makeStripeTexture(gl) {
-	const stripe_image_width = 64;
-	const stripe_image = new Uint8Array(stripe_image_width);
-	for (let j = 0; j < stripe_image_width; ++j) {
-		stripe_image[j] = (j < 128) ? (224 + j/4) : 255;
+function createStripeTexture(gl) {
+	const stripeImageWidth = 64;
+	const stripeImage = new Uint8Array(stripeImageWidth);
+	for (let j = 0; j < stripeImageWidth; ++j) {
+		stripeImage[j] = (j < 128) ? (224 + j/4) : 255;
 	}
 
 	const texture = gl.createTexture();
@@ -247,8 +237,53 @@ function makeStripeTexture(gl) {
 	const internalFormat = gl.LUMINANCE;
 	const srcFormat = gl.LUMINANCE;
 	const srcType = gl.UNSIGNED_BYTE;
-	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, stripe_image_width, 1, 0, srcFormat, srcType, stripe_image);
+	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, stripeImageWidth, 1, 0, srcFormat, srcType, stripeImage);
 	gl.generateMipmap(gl.TEXTURE_2D);
 
 	return texture;
+}
+
+function createDistanceTexture(gl) {
+	const textureSizeX = 64;
+	const textureSizeY = 64;
+	const textureImage = new Float32Array(textureSizeX * textureSizeY);
+	for (let x = 0; x < textureSizeX; ++x) {
+		for (let y = 0; y < textureSizeY; ++y) {
+			textureImage[y * textureSizeX + x] = Math.sqrt(x^2 + y^2);
+		}
+	}
+
+	const texture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+	const level = 0;
+	const internalFormat = gl.LUMINANCE;
+	const srcFormat = gl.LUMINANCE;
+	const srcType = gl.FLOAT;
+	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, textureSizeX, textureSizeY, 0, srcFormat, srcType, textureImage);
+
+	return texture;
+}
+
+function generateMap() {
+	const gridSizeX = 32;
+	const gridSizeY = 32;
+
+	const gridImage = new Float32Array(gridSizeX * gridSizeY);
+
+	for (let x = 0; x < gridSizeX; ++x) {
+		for (let y = 0; y < gridSizeY; ++y) {
+			gridImage[y * gridSizeX + x] = Math.random();
+		}
+	}
+
+	return {
+		sizeX: gridSizeX,
+		sizeY: gridSizeY,
+		data: gridImage,
+	}
 }
