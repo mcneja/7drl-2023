@@ -21,26 +21,26 @@ function main() {
 
 function initGlResources(gl) {
 	const vsSource = `
-		attribute vec2 aPosition;
-		attribute vec3 aDistance;
+		attribute vec2 vPosition;
+		attribute vec3 vDistance;
 		
 		uniform mat4 uProjectionMatrix;
 
-		varying highp vec3 vDistance;
+		varying highp vec3 fDistance;
 
 		void main() {
-			gl_Position = uProjectionMatrix * vec4(aPosition.xy, 0, 1);
-			vDistance = aDistance;
+			gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+			fDistance = vDistance;
 		}
 	`;
 
 	const fsSource = `
-		varying highp vec3 vDistance;
+		varying highp vec3 fDistance;
 
 		uniform sampler2D uContour;
 
 		void main() {
-			highp float z = mix(vDistance.x, vDistance.y, vDistance.z);
+			highp float z = mix(fDistance.x, fDistance.y, fDistance.z);
 			gl_FragColor = texture2D(uContour, vec2(z, 0));
 		}
 	`;
@@ -53,8 +53,8 @@ function initGlResources(gl) {
 	const glResources = {
 		program: program,
 		attribLocations: {
-			vertexPosition: gl.getAttribLocation(program, 'aPosition'),
-			vertexDistance: gl.getAttribLocation(program, 'aDistance'),
+			vertexPosition: gl.getAttribLocation(program, 'vPosition'),
+			vertexDistance: gl.getAttribLocation(program, 'vDistance'),
 		},
 		uniformLocations: {
 			projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
