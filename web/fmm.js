@@ -21,25 +21,27 @@ function main() {
 
 function initGlResources(gl) {
 	const vsSource = `
-		attribute vec3 aVertexPosition;
+		attribute vec2 aPosition;
+		attribute vec3 aDistance;
 		
 		uniform mat4 uProjectionMatrix;
 
-		varying highp float vTextureCoord;
+		varying highp vec3 vDistance;
 
 		void main() {
-			gl_Position = uProjectionMatrix * vec4(aVertexPosition.xy, 0, 1);
-			vTextureCoord = aVertexPosition.z;
+			gl_Position = uProjectionMatrix * vec4(aPosition.xy, 0, 1);
+			vDistance = aDistance;
 		}
 	`;
 
 	const fsSource = `
-		varying highp float vTextureCoord;
+		varying highp vec3 vDistance;
 
 		uniform sampler2D uContour;
 
 		void main() {
-			gl_FragColor = texture2D(uContour, vec2(vTextureCoord, 0));
+			highp float z = mix(vDistance.x, vDistance.y, vDistance.z);
+			gl_FragColor = texture2D(uContour, vec2(z, 0));
 		}
 	`;
 
@@ -51,7 +53,8 @@ function initGlResources(gl) {
 	const glResources = {
 		program: program,
 		attribLocations: {
-			vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
+			vertexPosition: gl.getAttribLocation(program, 'aPosition'),
+			vertexDistance: gl.getAttribLocation(program, 'aDistance'),
 		},
 		uniformLocations: {
 			projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
@@ -64,13 +67,16 @@ function initGlResources(gl) {
 		projectionMatrix: createProjectionMatrix(),
 	};
 
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-	gl.enable(gl.BLEND);
+//	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+//	gl.enable(gl.BLEND);
 	gl.clearColor(0, 0, 0, 1.0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.vertexBuffer);
-	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+	const stride = 20; // five 4-byte floats
+	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 2, gl.FLOAT, false, stride, 0);
+	gl.vertexAttribPointer(glResources.attribLocations.vertexDistance, 3, gl.FLOAT, false, stride, 8);
 	gl.enableVertexAttribArray(glResources.attribLocations.vertexPosition);
+	gl.enableVertexAttribArray(glResources.attribLocations.vertexDistance);
 
 	gl.useProgram(glResources.program);
 
@@ -104,23 +110,29 @@ function createVertexBuffer(gl, sizeX, sizeY) {
 }
 
 function createVertexInfo(sizeX, sizeY) {
-	const v = new Float32Array(3 * 6 * sizeX * sizeY);
+	const v = new Float32Array(5 * 6 * sizeX * sizeY);
 	let i = 0;
 
-	function makeVert(x, y) {
+	function distance(x, y) {
+		return Math.sqrt(x*x + y*y);
+	}
+
+	function makeVert(x, y, d0, d1, d2) {
 		v[i++] = x;
 		v[i++] = y;
-		v[i++] = Math.sqrt(x*x + y*y);
+		v[i++] = d0;
+		v[i++] = d1;
+		v[i++] = d2;
 	}
 
 	for (let x = 0; x < sizeX; ++x) {
 		for (let y = 0; y < sizeY; ++y) {
-			makeVert(x, y);
-			makeVert(x+1, y);
-			makeVert(x, y+1);
-			makeVert(x, y+1);
-			makeVert(x+1, y);
-			makeVert(x+1, y+1);
+			makeVert(x, y, distance(x, y), distance(x, y+1), 0);
+			makeVert(x+1, y, distance(x+1, y), distance(x+1, y+1), 0);
+			makeVert(x, y+1, distance(x, y), distance(x, y+1), 1);
+			makeVert(x, y+1, distance(x, y), distance(x, y+1), 1);
+			makeVert(x+1, y, distance(x+1, y), distance(x+1, y+1), 0);
+			makeVert(x+1, y+1, distance(x+1, y), distance(x+1, y+1), 1);
 		}
 	}
 
@@ -135,11 +147,9 @@ function drawScreen(gl, glResources) {
 
 	glResources.projectionMatrix[0] = 2 / glResources.gridSizeX;
 	glResources.projectionMatrix[5] = 2 / glResources.gridSizeY;
-
-	gl.clear(gl.COLOR_BUFFER_BIT);
-
 	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, glResources.projectionMatrix);
 
+	gl.clear(gl.COLOR_BUFFER_BIT);
 	gl.drawArrays(gl.TRIANGLES, 0, glResources.gridSizeX * glResources.gridSizeY * 6);
 }
 
