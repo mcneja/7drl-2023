@@ -29,7 +29,7 @@ function initGlResources(gl) {
 		varying highp vec3 fDistance;
 
 		void main() {
-			gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+			gl_Position = uProjectionMatrix * vec4(vPosition, 0, 1);
 			fDistance = vDistance;
 		}
 	`;
@@ -40,8 +40,8 @@ function initGlResources(gl) {
 		uniform sampler2D uContour;
 
 		void main() {
-			highp float z = mix(fDistance.x, fDistance.y, fDistance.z);
-			gl_FragColor = texture2D(uContour, vec2(z, 0));
+			highp float distance = mix(fDistance.x, fDistance.y, fDistance.z);
+			gl_FragColor = texture2D(uContour, vec2(distance, 0));
 		}
 	`;
 
@@ -127,12 +127,16 @@ function createVertexInfo(sizeX, sizeY) {
 
 	for (let x = 0; x < sizeX; ++x) {
 		for (let y = 0; y < sizeY; ++y) {
-			makeVert(x, y, distance(x, y), distance(x, y+1), 0);
-			makeVert(x+1, y, distance(x+1, y), distance(x+1, y+1), 0);
-			makeVert(x, y+1, distance(x, y), distance(x, y+1), 1);
-			makeVert(x, y+1, distance(x, y), distance(x, y+1), 1);
-			makeVert(x+1, y, distance(x+1, y), distance(x+1, y+1), 0);
-			makeVert(x+1, y+1, distance(x+1, y), distance(x+1, y+1), 1);
+			const dist00 = distance(x, y);
+			const dist10 = distance(x+1, y);
+			const dist01 = distance(x, y+1);
+			const dist11 = distance(x+1, y+1);
+			makeVert(x, y, dist00, dist01, 0);
+			makeVert(x+1, y, dist10, dist11, 0);
+			makeVert(x, y+1, dist00, dist01, 1);
+			makeVert(x, y+1, dist00, dist01, 1);
+			makeVert(x+1, y, dist10, dist11, 0);
+			makeVert(x+1, y+1, dist10, dist11, 1);
 		}
 	}
 
