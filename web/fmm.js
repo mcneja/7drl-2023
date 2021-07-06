@@ -149,6 +149,7 @@ function createSpeedField(sizeX, sizeY) {
 	rect(7, 7, sizeX - 7, sizeY - 7, 1);
 	rect(xc - 2, sizeY - 7, xc + 2, sizeY - 6, 1);
 	rect(xc - 3, sizeY - 16, xc - 2, sizeY - 7, 1000);
+	rect(xc - 3, sizeY - 17, xc + 4, sizeY - 16, 1000);
 
 	return speed;
 }
