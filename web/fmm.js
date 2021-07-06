@@ -47,17 +47,20 @@ function initGlResources(gl) {
 		uniform sampler2D uContour;
 
 		void main() {
+			highp float gamma = 2.2;
 			highp float distance = mix(fDistance.x, fDistance.y, fYBlend);
 			highp float speed = mix(fSpeed.x, fSpeed.y, fYBlend);
-			highp float b = 0.5 * speed + 0.5;
-			gl_FragColor = texture2D(uContour, vec2(distance, 0)) * vec4(1, b, b, 1);
+			highp vec3 speedColorLinear = vec3(1, speed, speed);
+			highp vec3 distanceColorLinear = pow(texture2D(uContour, vec2(distance, 0)).rgb, vec3(gamma));
+			highp vec3 colorLinear = speedColorLinear * distanceColorLinear;
+			gl_FragColor.rgb = pow(colorLinear, vec3(1.0/gamma));
 		}
 	`;
 
 	const program = initShaderProgram(gl, vsSource, fsSource);
 
-	const gridSizeX = 16;
-	const gridSizeY = 16;
+	const gridSizeX = 32;
+	const gridSizeY = 32;
 
 	const glResources = {
 		program: program,
@@ -121,17 +124,45 @@ function createVertexBuffer(gl, sizeX, sizeY) {
 	return vertexBuffer;
 }
 
+function createSpeedField(sizeX, sizeY) {
+	const speed = Array(sizeX).fill().map(() => Array(sizeY).fill(1));
+
+	function rect(x0, y0, x1, y1, value) {
+		x0 = Math.max(x0, 0);
+		x1 = Math.min(x1, sizeX);
+		y0 = Math.max(y0, 0);
+		y1 = Math.min(y1, sizeY);
+
+		for (let x = x0; x < x1; ++x) {
+			for (let y = y0; y < y1; ++y) {
+				speed[x][y] = value;
+			}
+		}
+	}
+
+	rect(0, 0, sizeX, sizeY, 1);
+	rect(6, 6, sizeX - 6, sizeY - 6, 0.001);
+	const xc = Math.floor(sizeX / 2);
+	rect(7, 7, sizeX - 7, sizeY - 7, 1);
+	rect(xc - 2, sizeY - 7, xc + 2, sizeY - 6, 1);
+
+	return speed;
+}
+
 function createVertexInfo(sizeX, sizeY) {
-	const v = new Float32Array(7 * 6 * sizeX * sizeY);
+	const speedField = createSpeedField(sizeX, sizeY);
+	const field = Array(sizeX).fill().map(() => Array(sizeY).fill(Infinity));
+	testFastMarchFill(field, speedField);
+
+	const v = new Float32Array(7 * 6 * (sizeX - 1) * (sizeY - 1));
 	let i = 0;
 
 	function distance(x, y) {
-		return Math.sqrt(x*x + y*y);
+		return field[x][y];
 	}
 
 	function speed(x, y) {
-		let z = ((x & 7) == 0 || (y & 7) == 0) ? 0 : 1;
-		return z;
+		return speedField[x][y];
 	}
 
 	function makeVert(x, y, s, d0, d1, c0, c1) {
@@ -144,8 +175,8 @@ function createVertexInfo(sizeX, sizeY) {
 		v[i++] = c1;
 	}
 
-	for (let x = 0; x < sizeX; ++x) {
-		for (let y = 0; y < sizeY; ++y) {
+	for (let x = 0; x < sizeX - 1; ++x) {
+		for (let y = 0; y < sizeY - 1; ++y) {
 			const dist00 = distance(x, y);
 			const dist10 = distance(x+1, y);
 			const dist01 = distance(x, y+1);
@@ -172,12 +203,12 @@ function drawScreen(gl, glResources) {
 	const screenY = gl.canvas.clientHeight;
 	gl.viewport(0, 0, screenX, screenY);
 
-	glResources.projectionMatrix[0] = 2 / glResources.gridSizeX;
-	glResources.projectionMatrix[5] = 2 / glResources.gridSizeY;
+	glResources.projectionMatrix[0] = 2 / (glResources.gridSizeX - 1);
+	glResources.projectionMatrix[5] = 2 / (glResources.gridSizeY - 1);
 	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, glResources.projectionMatrix);
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
-	gl.drawArrays(gl.TRIANGLES, 0, glResources.gridSizeX * glResources.gridSizeY * 6);
+	gl.drawArrays(gl.TRIANGLES, 0, (glResources.gridSizeX - 1) * (glResources.gridSizeY - 1) * 6);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
@@ -244,4 +275,104 @@ function createStripeTexture(gl) {
 	gl.generateMipmap(gl.TEXTURE_2D);
 
 	return texture;
+}
+
+function priorityQueuePop(q) {
+	const x = q[0];
+	q[0] = q[q.length - 1]; // q.at(-1);
+	q.pop();
+	let i = 0;
+	const c = q.length;
+	while (true) {
+		let iChild = i;
+		const iChild0 = 2*i + 1;
+		if (iChild0 < c && q[iChild0].priority < q[iChild].priority) {
+			iChild = iChild0;
+		}
+		const iChild1 = iChild0 + 1;
+		if (iChild1 < c && q[iChild1].priority < q[iChild].priority) {
+			iChild = iChild1;
+		}
+		if (iChild == i) {
+			break;
+		}
+		[q[i], q[iChild]] = [q[iChild], q[i]];
+		i = iChild;
+	}
+	return x;
+}
+
+function priorityQueuePush(q, x) {
+	q.push(x);
+	let i = q.length - 1;
+	while (i > 0) {
+		const iParent = Math.floor((i - 1) / 2);
+		if (q[i].priority >= q[iParent].priority) {
+			break;
+		}
+		[q[i], q[iParent]] = [q[iParent], q[i]];
+		i = iParent;
+	}
+}
+
+function testFastMarchFill(field, speed) {
+	let toVisit = [{priority: 0, x: 0, y: 0}];
+	fastMarchFill(field, toVisit, (x, y) => estimatedDistanceWithSpeed(field, speed, x, y));
+}
+
+function fastMarchFill(field, toVisit, estimatedDistance) {
+	while (toVisit.length > 0) {
+		const {priority, x, y} = priorityQueuePop(toVisit);
+		if (field[x][y] <= priority) {
+			continue;
+		}
+
+		field[x][y] = priority;
+
+		if (x < field.length - 1) {
+			const d = estimatedDistance(x + 1, y);
+			if (d < field[x+1][y]) {
+				priorityQueuePush(toVisit, {priority: d, x: x+1, y: y});
+			}
+		}
+
+		if (x > 0) {
+			const d = estimatedDistance(x - 1, y);
+			if (d < field[x-1][y]) {
+				priorityQueuePush(toVisit, {priority: d, x: x-1, y: y});
+			}
+		}
+
+		if (y < field[x].length - 1) {
+			const d = estimatedDistance(x, y + 1);
+			if (d < field[x][y+1]) {
+				priorityQueuePush(toVisit, {priority: d, x: x, y: y+1});
+			}
+		}
+
+		if (y > 0) {
+			const d = estimatedDistance(x, y - 1);
+			if (d < field[x][y-1]) {
+				priorityQueuePush(toVisit, {priority: d, x: x, y: y-1});
+			}
+		}
+	}
+}
+
+function estimatedDistanceWithSpeed(field, speed, x, y) {
+	const dXNeg = (x > 0) ? field[x-1][y] : Infinity;
+	const dXPos = (x < field.length - 1) ? field[x+1][y] : Infinity;
+	const dYNeg = (y > 0) ? field[x][y-1] : Infinity;
+	const dYPos = (y < field[x].length - 1) ? field[x][y+1] : Infinity;
+
+	const dXMin = Math.min(dXNeg, dXPos);
+	const dYMin = Math.min(dYNeg, dYPos);
+
+	const timeHorizontal = 1 / speed[x][y];
+
+	const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
+		((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
+		Math.min(dXMin, dYMin) + timeHorizontal;
+
+	return d;
 }
