@@ -3,12 +3,18 @@
 body {
   color: black;
   font-family: arial;
-  flex-direction: column;
   background-color: #f0f0f0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 2em;
+  flex-direction: column;
+}
+.column {
+  max-width: 840px;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+}
+.center {
+  align-self: center;
 }
 canvas {
   background: #a6a6a6;
@@ -19,12 +25,15 @@ canvas {
 <head profile="http://www.w3.org/2005/10/profile">
 <link rel="icon" type="image/ico" href="favicon.ico"/>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fast Marching Method Playground</title>
 </head>
 <body>
-<h2>Fast Marching Method Playground</h2>
-<p><canvas id="canvas" width="800" height="800"></canvas></p>
-<p>Look at the pretty colors</p>
+<div class="column">
+<h2 class="center">Fast Marching Method Playground</h2>
+<p class="center"><canvas id="canvas" width="800" height="800"></canvas></p>
+<p class="center">Look at the pretty colors</p>
+</div>
 </body>
 <script src="fmm.js"></script>
 </html>
