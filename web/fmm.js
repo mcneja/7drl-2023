@@ -16,7 +16,7 @@ function main() {
 
 	const glResources = initGlResources(gl);
 
-	requestAnimationFrame(now => drawScreen(gl, glResources));
+	requestAnimationFrame(now => updateAndRender(now, gl, glResources));
 }
 
 function initGlResources(gl) {
@@ -44,6 +44,7 @@ function initGlResources(gl) {
 		varying highp vec2 fDistance;
 		varying highp vec2 fSpeed;
 
+		uniform highp float uScroll;
 		uniform sampler2D uContour;
 
 		void main() {
@@ -51,7 +52,8 @@ function initGlResources(gl) {
 			highp float distance = mix(fDistance.x, fDistance.y, fYBlend);
 			highp float speed = mix(fSpeed.x, fSpeed.y, fYBlend);
 			highp vec3 speedColorLinear = vec3(1, speed, speed);
-			highp vec3 distanceColorLinear = pow(texture2D(uContour, vec2(distance, 0)).rgb, vec3(gamma));
+			highp float s = distance + uScroll;
+			highp vec3 distanceColorLinear = pow(texture2D(uContour, vec2(s, 0)).rgb, vec3(gamma));
 			highp vec3 colorLinear = speedColorLinear * distanceColorLinear;
 			gl_FragColor.rgb = pow(colorLinear, vec3(1.0/gamma));
 		}
@@ -71,6 +73,7 @@ function initGlResources(gl) {
 		},
 		uniformLocations: {
 			projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
+			uScroll: gl.getUniformLocation(program, 'uScroll'),
 			uContour: gl.getUniformLocation(program, 'uContour'),
 		},
 		gridSizeX: gridSizeX,
@@ -141,10 +144,11 @@ function createSpeedField(sizeX, sizeY) {
 	}
 
 	rect(0, 0, sizeX, sizeY, 1);
-	rect(6, 6, sizeX - 6, sizeY - 6, 0.001);
+	rect(6, 6, sizeX - 6, sizeY - 6, 1000);
 	const xc = Math.floor(sizeX / 2);
 	rect(7, 7, sizeX - 7, sizeY - 7, 1);
 	rect(xc - 2, sizeY - 7, xc + 2, sizeY - 6, 1);
+	rect(xc - 3, sizeY - 16, xc - 2, sizeY - 7, 1000);
 
 	return speed;
 }
@@ -162,7 +166,7 @@ function createVertexInfo(sizeX, sizeY) {
 	}
 
 	function speed(x, y) {
-		return speedField[x][y];
+		return 1 / speedField[x][y];
 	}
 
 	function makeVert(x, y, s, d0, d1, c0, c1) {
@@ -197,7 +201,15 @@ function createVertexInfo(sizeX, sizeY) {
 	return v;
 }
 
-function drawScreen(gl, glResources) {
+function updateAndRender(now, gl, glResources) {
+	const t = now / 1000;
+	const uScroll = t - Math.floor(t);
+	drawScreen(uScroll, gl, glResources);
+
+	requestAnimationFrame(now => updateAndRender(now, gl, glResources));
+}
+
+function drawScreen(uScroll, gl, glResources) {
 	resizeCanvasToDisplaySize(gl.canvas);
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
@@ -206,6 +218,8 @@ function drawScreen(gl, glResources) {
 	glResources.projectionMatrix[0] = 2 / (glResources.gridSizeX - 1);
 	glResources.projectionMatrix[5] = 2 / (glResources.gridSizeY - 1);
 	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, glResources.projectionMatrix);
+
+	gl.uniform1f(glResources.uniformLocations.uScroll, uScroll);
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
 	gl.drawArrays(gl.TRIANGLES, 0, (glResources.gridSizeX - 1) * (glResources.gridSizeY - 1) * 6);
@@ -316,7 +330,7 @@ function priorityQueuePush(q, x) {
 }
 
 function testFastMarchFill(field, speed) {
-	let toVisit = [{priority: 0, x: 0, y: 0}];
+	let toVisit = [{priority: 0, x: 2, y: 7}];
 	fastMarchFill(field, toVisit, (x, y) => estimatedDistanceWithSpeed(field, speed, x, y));
 }
 
@@ -368,7 +382,7 @@ function estimatedDistanceWithSpeed(field, speed, x, y) {
 	const dXMin = Math.min(dXNeg, dXPos);
 	const dYMin = Math.min(dYNeg, dYPos);
 
-	const timeHorizontal = 1 / speed[x][y];
+	const timeHorizontal = speed[x][y];
 
 	const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
 		((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
