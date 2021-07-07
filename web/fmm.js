@@ -203,7 +203,7 @@ function createVertexInfo(sizeX, sizeY) {
 }
 
 function updateAndRender(now, gl, glResources) {
-	const t = now / 1000;
+	const t = now / 2000;
 	const uScroll = t - Math.floor(t);
 	drawScreen(uScroll, gl, glResources);
 
@@ -271,7 +271,7 @@ function createStripeTexture(gl) {
 	const stripeImageWidth = 64;
 	const stripeImage = new Uint8Array(stripeImageWidth);
 	for (let j = 0; j < stripeImageWidth; ++j) {
-		stripeImage[j] = (j < 128) ? (224 + j/4) : 255;
+		stripeImage[j] = 224 + (stripeImageWidth - j) / 4;
 	}
 
 	const texture = gl.createTexture();
