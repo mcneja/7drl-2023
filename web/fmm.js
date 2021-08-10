@@ -14,19 +14,16 @@ function main() {
 		return;
 	}
 
-	const glResources = initGlResources(gl);
-
 	const state = initState();
+
+	const glResources = initGlResources(gl, state.gridSizeX, state.gridSizeY, state.speedField, state.distanceField);
 
 	requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
-function initGlResources(gl) {
-	const gridSizeX = 32;
-	const gridSizeY = 32;
-
+function initGlResources(gl, gridSizeX, gridSizeY, speedField, distanceField) {
 	const glResources = {
-		renderField: createFieldRenderer(gl, gridSizeX, gridSizeY),
+		renderField: createFieldRenderer(gl, gridSizeX, gridSizeY, speedField, distanceField),
 		renderDiscs: createDiscRenderer(gl),
 	};
 
@@ -38,7 +35,20 @@ function initGlResources(gl) {
 }
 
 function initState() {
+
+	const gridSizeX = 32;
+	const gridSizeY = 32;
+
+	const speedField = createSpeedField(gridSizeX, gridSizeY);
+
+	const distanceField = Array(gridSizeX).fill().map(() => Array(gridSizeY).fill(Infinity));
+	testFastMarchFill(distanceField, speedField);
+
 	return {
+		gridSizeX: gridSizeX,
+		gridSizeY: gridSizeY,
+		speedField: speedField,
+		distanceField: distanceField,
 		uScroll: 0,
 		discs: [
 			{ radius: 0.05, position: { x: 0, y: 0 }, color: { r: 0.8, g: 0.9, b: 1 } },
@@ -47,7 +57,7 @@ function initState() {
 	};
 }
 
-function createFieldRenderer(gl, gridSizeX, gridSizeY) {
+function createFieldRenderer(gl, gridSizeX, gridSizeY, speedField, distanceField) {
 	const vsSource = `
 		attribute vec3 vPosition;
 		attribute vec2 vDistance;
@@ -111,7 +121,7 @@ function createFieldRenderer(gl, gridSizeX, gridSizeY) {
 		uContour: gl.getUniformLocation(program, 'uContour'),
 	};
 
-	const vertexBuffer = createFieldVertexBuffer(gl, gridSizeX, gridSizeY);
+	const vertexBuffer = createFieldVertexBuffer(gl, gridSizeX, gridSizeY, speedField, distanceField);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 	const stride = 28; // seven 4-byte floats
@@ -216,8 +226,8 @@ function createDiscRenderer(gl) {
 	};
 }
 
-function createFieldVertexBuffer(gl, sizeX, sizeY) {
-	const vertexInfo = createVertexInfo(sizeX, sizeY);
+function createFieldVertexBuffer(gl, sizeX, sizeY, speedField, distanceField) {
+	const vertexInfo = createVertexInfo(sizeX, sizeY, speedField, distanceField);
 
 	const vertexBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -277,16 +287,12 @@ function createSpeedField(sizeX, sizeY) {
 	return speed;
 }
 
-function createVertexInfo(sizeX, sizeY) {
-	const speedField = createSpeedField(sizeX, sizeY);
-	const field = Array(sizeX).fill().map(() => Array(sizeY).fill(Infinity));
-	testFastMarchFill(field, speedField);
-
+function createVertexInfo(sizeX, sizeY, speedField, distanceField) {
 	const v = new Float32Array(7 * 6 * (sizeX - 1) * (sizeY - 1));
 	let i = 0;
 
 	function distance(x, y) {
-		return field[x][y];
+		return distanceField[x][y];
 	}
 
 	function speed(x, y) {
