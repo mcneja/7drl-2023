@@ -16,10 +16,38 @@ function main() {
 
 	const glResources = initGlResources(gl);
 
-	requestAnimationFrame(now => updateAndRender(now, gl, glResources));
+	const state = initState();
+
+	requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
 function initGlResources(gl) {
+	const gridSizeX = 32;
+	const gridSizeY = 32;
+
+	const glResources = {
+		renderField: createFieldRenderer(gl, gridSizeX, gridSizeY),
+		renderDiscs: createDiscRenderer(gl),
+	};
+
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	gl.enable(gl.BLEND);
+	gl.clearColor(0, 0, 0, 1.0);
+
+	return glResources;
+}
+
+function initState() {
+	return {
+		uScroll: 0,
+		discs: [
+			{ radius: 0.05, position: { x: 0, y: 0 }, color: { r: 0.8, g: 0.9, b: 1 } },
+			{ radius: 0.02, position: { x: 0.2, y: 0 }, color: { r: 0.25, g: 1, b: 0 } },
+		],
+	};
+}
+
+function createFieldRenderer(gl, gridSizeX, gridSizeY) {
 	const vsSource = `
 		attribute vec3 vPosition;
 		attribute vec2 vDistance;
@@ -56,73 +84,167 @@ function initGlResources(gl) {
 			highp vec3 distanceColorLinear = pow(texture2D(uContour, vec2(s, 0)).rgb, vec3(gamma));
 			highp vec3 colorLinear = speedColorLinear * distanceColorLinear;
 			gl_FragColor.rgb = pow(colorLinear, vec3(1.0/gamma));
+			gl_FragColor.a = 1.0;
 		}
 	`;
 
-	const program = initShaderProgram(gl, vsSource, fsSource);
-
-	const gridSizeX = 32;
-	const gridSizeY = 32;
-
-	const glResources = {
-		program: program,
-		attribLocations: {
-			vertexPosition: gl.getAttribLocation(program, 'vPosition'),
-			vertexDistance: gl.getAttribLocation(program, 'vDistance'),
-			vertexSpeed: gl.getAttribLocation(program, 'vSpeed'),
-		},
-		uniformLocations: {
-			projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
-			uScroll: gl.getUniformLocation(program, 'uScroll'),
-			uContour: gl.getUniformLocation(program, 'uContour'),
-		},
-		gridSizeX: gridSizeX,
-		gridSizeY: gridSizeY,
-		vertexBuffer: createVertexBuffer(gl, gridSizeX, gridSizeY),
-		contourTexture: createStripeTexture(gl),
-		projectionMatrix: createProjectionMatrix(),
-	};
-
-//	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-//	gl.enable(gl.BLEND);
-	gl.clearColor(0, 0, 0, 1.0);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.vertexBuffer);
-	const stride = 28; // seven 4-byte floats
-	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 3, gl.FLOAT, false, stride, 0);
-	gl.vertexAttribPointer(glResources.attribLocations.vertexDistance, 2, gl.FLOAT, false, stride, 12);
-	gl.vertexAttribPointer(glResources.attribLocations.vertexSpeed, 2, gl.FLOAT, false, stride, 20);
-	gl.enableVertexAttribArray(glResources.attribLocations.vertexPosition);
-	gl.enableVertexAttribArray(glResources.attribLocations.vertexDistance);
-	gl.enableVertexAttribArray(glResources.attribLocations.vertexSpeed);
-
-	gl.useProgram(glResources.program);
-
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, glResources.contourTexture);
-	gl.uniform1i(glResources.uniformLocations.uContour, 0);
-
-	return glResources;
-}
-
-function createProjectionMatrix() {
 	const projectionMatrix = new Float32Array(16);
-
 	projectionMatrix.fill(0);
+	projectionMatrix[0] = 2 / (gridSizeX - 1);
+	projectionMatrix[5] = 2 / (gridSizeY - 1);
 	projectionMatrix[10] = 1;
 	projectionMatrix[12] = -1;
 	projectionMatrix[13] = -1;
 	projectionMatrix[15] = 1;
 
-	return projectionMatrix;
+	const program = initShaderProgram(gl, vsSource, fsSource);
+
+	const vertexAttributeLoc = {
+		position: gl.getAttribLocation(program, 'vPosition'),
+		distance: gl.getAttribLocation(program, 'vDistance'),
+		speed: gl.getAttribLocation(program, 'vSpeed'),
+	};
+
+	const uniformLoc = {
+		projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
+		uScroll: gl.getUniformLocation(program, 'uScroll'),
+		uContour: gl.getUniformLocation(program, 'uContour'),
+	};
+
+	const vertexBuffer = createFieldVertexBuffer(gl, gridSizeX, gridSizeY);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	const stride = 28; // seven 4-byte floats
+	gl.vertexAttribPointer(vertexAttributeLoc.position, 3, gl.FLOAT, false, stride, 0);
+	gl.vertexAttribPointer(vertexAttributeLoc.distance, 2, gl.FLOAT, false, stride, 12);
+	gl.vertexAttribPointer(vertexAttributeLoc.speed, 2, gl.FLOAT, false, stride, 20);
+
+	const contourTexture = createStripeTexture(gl);
+
+	return (uScroll) => {
+		gl.useProgram(program);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+		gl.enableVertexAttribArray(vertexAttributeLoc.position);
+		gl.enableVertexAttribArray(vertexAttributeLoc.distance);
+		gl.enableVertexAttribArray(vertexAttributeLoc.speed);
+		const stride = 28; // seven 4-byte floats
+		gl.vertexAttribPointer(vertexAttributeLoc.position, 3, gl.FLOAT, false, stride, 0);
+		gl.vertexAttribPointer(vertexAttributeLoc.distance, 2, gl.FLOAT, false, stride, 12);
+		gl.vertexAttribPointer(vertexAttributeLoc.speed, 2, gl.FLOAT, false, stride, 20);
+	
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, contourTexture);
+	
+		gl.uniform1i(uniformLoc.uContour, 0);
+
+		gl.uniformMatrix4fv(uniformLoc.projectionMatrix, false, projectionMatrix);
+	
+		gl.uniform1f(uniformLoc.uScroll, uScroll);
+	
+		gl.drawArrays(gl.TRIANGLES, 0, (gridSizeX - 1) * (gridSizeY - 1) * 6);
+	
+		gl.disableVertexAttribArray(vertexAttributeLoc.speed);
+		gl.disableVertexAttribArray(vertexAttributeLoc.distance);
+		gl.disableVertexAttribArray(vertexAttributeLoc.position);
+	};
 }
 
-function createVertexBuffer(gl, sizeX, sizeY) {
+function createDiscRenderer(gl) {
+	const vsSource = `
+		attribute vec2 vPosition;
+		
+		uniform mat4 uProjectionMatrix;
+
+		varying highp vec2 fPosition;
+
+		void main() {
+			fPosition = vPosition;
+			gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+		}
+	`;
+
+	const fsSource = `
+		varying highp vec2 fPosition;
+
+		uniform highp vec3 uColor;
+
+		void main() {
+			highp float r = length(fPosition);
+			highp float opacity = step(-1.0, -r);
+
+			gl_FragColor = vec4(uColor, opacity);
+		}
+	`;
+
+	const projectionMatrix = new Float32Array(16);
+	projectionMatrix.fill(0);
+	projectionMatrix[10] = 1;
+	projectionMatrix[15] = 1;
+
+	const program = initShaderProgram(gl, vsSource, fsSource);
+
+	const vertexPositionLoc = gl.getAttribLocation(program, 'vPosition');
+	const projectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+	const colorLoc = gl.getUniformLocation(program, 'uColor');
+	const vertexBuffer = createDiscVertexBuffer(gl);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	const stride = 8; // two 4-byte floats
+	gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, stride, 0);
+
+	return discs => {
+		gl.useProgram(program);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+		gl.enableVertexAttribArray(vertexPositionLoc);
+		gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+		for (const disc of discs) {
+			gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
+
+			projectionMatrix[0] = disc.radius;
+			projectionMatrix[5] = disc.radius;
+			projectionMatrix[12] = disc.position.x;
+			projectionMatrix[13] = disc.position.y;
+			gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
+
+			gl.drawArrays(gl.TRIANGLES, 0, 6);
+		}
+	
+		gl.disableVertexAttribArray(vertexPositionLoc);
+	};
+}
+
+function createFieldVertexBuffer(gl, sizeX, sizeY) {
 	const vertexInfo = createVertexInfo(sizeX, sizeY);
 
 	const vertexBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, vertexInfo, gl.STATIC_DRAW);
+
+	return vertexBuffer;
+}
+
+function createDiscVertexBuffer(gl) {
+	const v = new Float32Array(6 * 2);
+	let i = 0;
+
+	function makeVert(x, y) {
+		v[i++] = x;
+		v[i++] = y;
+	}
+
+	makeVert(-1, -1);
+	makeVert( 1, -1);
+	makeVert( 1,  1);
+	makeVert( 1,  1);
+	makeVert(-1,  1);
+	makeVert(-1, -1);
+
+	const vertexBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, v, gl.STATIC_DRAW);
 
 	return vertexBuffer;
 }
@@ -150,6 +272,7 @@ function createSpeedField(sizeX, sizeY) {
 	rect(xc - 2, sizeY - 7, xc + 2, sizeY - 6, 1);
 	rect(xc - 3, sizeY - 16, xc - 2, sizeY - 7, 1000);
 	rect(xc - 3, sizeY - 17, xc + 4, sizeY - 16, 1000);
+	rect(6, sizeY - 6, 14, sizeY, 3);
 
 	return speed;
 }
@@ -202,28 +325,25 @@ function createVertexInfo(sizeX, sizeY) {
 	return v;
 }
 
-function updateAndRender(now, gl, glResources) {
+function updateAndRender(now, gl, glResources, state) {
 	const t = now / 2000;
-	const uScroll = t - Math.floor(t);
-	drawScreen(uScroll, gl, glResources);
+	state.uScroll = t - Math.floor(t);
+	drawScreen(gl, glResources, state);
 
-	requestAnimationFrame(now => updateAndRender(now, gl, glResources));
+	requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
-function drawScreen(uScroll, gl, glResources) {
+function drawScreen(gl, glResources, state) {
 	resizeCanvasToDisplaySize(gl.canvas);
+
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
+
 	gl.viewport(0, 0, screenX, screenY);
-
-	glResources.projectionMatrix[0] = 2 / (glResources.gridSizeX - 1);
-	glResources.projectionMatrix[5] = 2 / (glResources.gridSizeY - 1);
-	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, glResources.projectionMatrix);
-
-	gl.uniform1f(glResources.uniformLocations.uScroll, uScroll);
-
 	gl.clear(gl.COLOR_BUFFER_BIT);
-	gl.drawArrays(gl.TRIANGLES, 0, (glResources.gridSizeX - 1) * (glResources.gridSizeY - 1) * 6);
+
+	glResources.renderField(state.uScroll);
+	glResources.renderDiscs(state.discs);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
