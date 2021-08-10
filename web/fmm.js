@@ -342,7 +342,7 @@ function createVertexInfo(sizeX, sizeY, speedField, distanceField) {
 
 function updateAndRender(now, gl, glResources, state) {
     const t = now / 1000;
-    const dt = t - state.tLast;
+    const dt = Math.min(1/30, t - state.tLast);
     state.tLast = t;
     state.uScroll = t/2 - Math.floor(t/2);
     for (const disc of state.discs) {
