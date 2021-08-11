@@ -7,7 +7,7 @@ window.onload = main;
 function main() {
 
     const canvas = document.querySelector("#canvas");
-    const gl = canvas.getContext("webgl", { alpha: false, antialias: false, depth: false });
+    const gl = canvas.getContext("webgl", { alpha: false, depth: false });
 
     if (gl == null) {
         alert("Unable to initialize WebGL. Your browser or machine may not support it.");
@@ -30,6 +30,8 @@ function main() {
 }
 
 function initGlResources(gl, gridSizeX, gridSizeY, speedField, distanceField) {
+    gl.getExtension('OES_standard_derivatives');
+
     const glResources = {
         renderField: createFieldRenderer(gl, gridSizeX, gridSizeY, speedField, distanceField),
         renderDiscs: createDiscRenderer(gl),
@@ -53,7 +55,7 @@ function initState() {
     testFastMarchFill(distanceField, speedField);
 
     const color = { r: 0, g: 0.25, b: 0.85 };
-    const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.02, position: { x: Math.random(), y: Math.random() }, color: color } });
+    const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.025, position: { x: Math.random(), y: Math.random() }, color: color } });
 
     return {
         gridSizeX: gridSizeX,
@@ -184,14 +186,16 @@ function createDiscRenderer(gl) {
     `;
 
     const fsSource = `
+        #extension GL_OES_standard_derivatives : enable
+
         varying highp vec2 fPosition;
 
         uniform highp vec3 uColor;
 
         void main() {
             highp float r = length(fPosition);
-            highp float opacity = step(-1.0, -r);
-
+            highp float aaf = fwidth(r);
+            highp float opacity = 1.0 - smoothstep(1.0 - aaf, 1.0, r);
             gl_FragColor = vec4(uColor, opacity);
         }
     `;
