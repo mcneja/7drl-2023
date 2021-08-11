@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <style>
 body {
@@ -6,20 +7,26 @@ body {
   background-color: #f0f0f0;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 .column {
-  max-width: 840px;
-  align-self: center;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
-.center {
-  align-self: center;
-}
-canvas {
-  background: #a6a6a6;
+.container {
+  width: 90vmin;
+  box-sizing: border-box;
   border: 2px solid gray;
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+.contained {
+  position: relative;
+  height: 0;
+  padding-bottom: 100%;
+}
+canvas {
+  position: absolute;
 }
 </style>
 <head profile="http://www.w3.org/2005/10/profile">
@@ -30,9 +37,13 @@ canvas {
 </head>
 <body>
 <div class="column">
-<h2 class="center">Fast Marching Method Playground</h2>
-<p class="center"><canvas id="canvas" width="800" height="800"></canvas></p>
-<p class="center">Blue discs follow the gradient to the goal.</p>
+<h2>Fast Marching Method Playground</h2>
+<div class="container">
+<div class="contained">
+<canvas id="canvas"></canvas>
+</div>
+</div>
+<p>Blue discs follow the gradient to the goal.</p>
 </div>
 </body>
 <script src="fmm.js"></script>

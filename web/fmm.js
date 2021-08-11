@@ -385,11 +385,10 @@ function drawScreen(gl, glResources, state) {
 }
 
 function resizeCanvasToDisplaySize(canvas) {
-    const displayWidth  = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
-    if (canvas.width  !== displayWidth || canvas.height !== displayHeight) {
-        canvas.width  = displayWidth;
-        canvas.height = displayHeight;
+    const rect = canvas.parentNode.getBoundingClientRect();
+    if (canvas.width !== rect.width || canvas.height !== rect.height) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
     }
 }
 
