@@ -2,8 +2,6 @@
 
 window.onload = main;
 
-// Functions
-
 function main() {
 
     const canvas = document.querySelector("#canvas");
@@ -22,7 +20,7 @@ function main() {
         const t = now / 1000;
         state.tLast = t;
         state.uScroll = t/2 - Math.floor(t/2);
-    
+
         drawScreen(gl, glResources, state);
 
         requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
@@ -46,13 +44,11 @@ function initGlResources(gl, gridSizeX, gridSizeY, speedField, distanceField) {
 
 function initState() {
 
-    const gridSizeX = 32;
-    const gridSizeY = 32;
+    const gridSizeX = 33;
+    const gridSizeY = 33;
 
     const speedField = createSpeedField(gridSizeX, gridSizeY);
-
-    const distanceField = Array(gridSizeX).fill().map(() => Array(gridSizeY).fill(Infinity));
-    testFastMarchFill(distanceField, speedField);
+    const distanceField = createDistanceField(speedField);
 
     const color = { r: 0, g: 0.25, b: 0.85 };
     const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.025, position: { x: Math.random(), y: Math.random() }, color: color } });
@@ -367,7 +363,7 @@ function updateDisc(gridSizeX, gridSizeY, distanceField, dt, disc) {
 
         const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
 
-        const speed = 4 / gridSizeX;
+        const speed = 0.125;
         const dist = speed * dt / Math.max(1e-8, gradientLen);
     
         disc.position.x -= gradient.x * dist;
@@ -492,14 +488,19 @@ function priorityQueuePush(q, x) {
     }
 }
 
-function testFastMarchFill(field, speed) {
+function createDistanceField(speedField) {
+    const distanceField = Array(speedField.length).fill().map(() => Array(speedField[0].length).fill(Infinity));
+
     let toVisit = [{priority: 0, x: 2, y: 7}];
-    fastMarchFill(field, toVisit, (x, y) => estimatedDistanceWithSpeed(field, speed, x, y));
+    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, speedField, x, y));
+
+    return distanceField;
 }
 
 function fastMarchFill(field, toVisit, estimatedDistance) {
     while (toVisit.length > 0) {
         const {priority, x, y} = priorityQueuePop(toVisit);
+
         if (field[x][y] <= priority) {
             continue;
         }
