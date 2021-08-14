@@ -14,7 +14,7 @@ function main() {
 
     const state = initState();
 
-    const glResources = initGlResources(gl, state.gridSizeX, state.gridSizeY, state.speedField, state.distanceField);
+    const glResources = initGlResources(gl, state.gridSizeX, state.gridSizeY, state.costRateField, state.distanceField);
 
     requestAnimationFrame(now => {
         const t = now / 1000;
@@ -27,11 +27,11 @@ function main() {
     });
 }
 
-function initGlResources(gl, gridSizeX, gridSizeY, speedField, distanceField) {
+function initGlResources(gl, gridSizeX, gridSizeY, costRateField, distanceField) {
     gl.getExtension('OES_standard_derivatives');
 
     const glResources = {
-        renderField: createFieldRenderer(gl, gridSizeX, gridSizeY, speedField, distanceField),
+        renderField: createFieldRenderer(gl, gridSizeX, gridSizeY, costRateField, distanceField),
         renderDiscs: createDiscRenderer(gl),
     };
 
@@ -44,11 +44,14 @@ function initGlResources(gl, gridSizeX, gridSizeY, speedField, distanceField) {
 
 function initState() {
 
-    const gridSizeX = 33;
-    const gridSizeY = 33;
+    const gridSizeX = 64;
+    const gridSizeY = 64;
 
-    const speedField = createSpeedField(gridSizeX, gridSizeY);
-    const distanceField = createDistanceField(speedField);
+    const goal = [32, 16];//[2, 7];
+    const costRateField = createCostRateField(gridSizeX, gridSizeY);
+    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
+    const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
+    const distanceField = createDistanceField(costRateFieldSmooth, goal);
 
     const color = { r: 0, g: 0.25, b: 0.85 };
     const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.025, position: { x: Math.random(), y: Math.random() }, color: color } });
@@ -56,7 +59,8 @@ function initState() {
     return {
         gridSizeX: gridSizeX,
         gridSizeY: gridSizeY,
-        speedField: speedField,
+        goal: goal,
+        costRateField: costRateFieldSmooth,
         distanceField: distanceField,
         tLast: 0,
         uScroll: 0,
@@ -64,7 +68,7 @@ function initState() {
     };
 }
 
-function createFieldRenderer(gl, gridSizeX, gridSizeY, speedField, distanceField) {
+function createFieldRenderer(gl, gridSizeX, gridSizeY, costRateField, distanceField) {
     const vsSource = `
         attribute vec3 vPosition;
         attribute vec2 vDistance;
@@ -128,7 +132,7 @@ function createFieldRenderer(gl, gridSizeX, gridSizeY, speedField, distanceField
         uContour: gl.getUniformLocation(program, 'uContour'),
     };
 
-    const vertexBuffer = createFieldVertexBuffer(gl, gridSizeX, gridSizeY, speedField, distanceField);
+    const vertexBuffer = createFieldVertexBuffer(gl, gridSizeX, gridSizeY, costRateField, distanceField);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     const stride = 28; // seven 4-byte floats
@@ -235,8 +239,8 @@ function createDiscRenderer(gl) {
     };
 }
 
-function createFieldVertexBuffer(gl, sizeX, sizeY, speedField, distanceField) {
-    const vertexInfo = createVertexInfo(sizeX, sizeY, speedField, distanceField);
+function createFieldVertexBuffer(gl, sizeX, sizeY, costRateField, distanceField) {
+    const vertexInfo = createVertexInfo(sizeX, sizeY, costRateField, distanceField);
 
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -268,35 +272,7 @@ function createDiscVertexBuffer(gl) {
     return vertexBuffer;
 }
 
-function createSpeedField(sizeX, sizeY) {
-    const speed = Array(sizeX).fill().map(() => Array(sizeY).fill(1));
-
-    function rect(x0, y0, x1, y1, value) {
-        x0 = Math.max(x0, 0);
-        x1 = Math.min(x1, sizeX);
-        y0 = Math.max(y0, 0);
-        y1 = Math.min(y1, sizeY);
-
-        for (let x = x0; x < x1; ++x) {
-            for (let y = y0; y < y1; ++y) {
-                speed[x][y] = value;
-            }
-        }
-    }
-
-    rect(0, 0, sizeX, sizeY, 1);
-    rect(6, 6, sizeX - 6, sizeY - 6, 1000);
-    const xc = Math.floor(sizeX / 2);
-    rect(7, 7, sizeX - 7, sizeY - 7, 1);
-    rect(xc - 2, sizeY - 7, xc + 2, sizeY - 6, 1);
-    rect(xc - 3, sizeY - 16, xc - 2, sizeY - 7, 1000);
-    rect(xc - 3, sizeY - 17, xc + 4, sizeY - 16, 1000);
-    rect(6, sizeY - 6, 14, sizeY, 3);
-
-    return speed;
-}
-
-function createVertexInfo(sizeX, sizeY, speedField, distanceField) {
+function createVertexInfo(sizeX, sizeY, costRateField, distanceField) {
     const v = new Float32Array(7 * 6 * (sizeX - 1) * (sizeY - 1));
     let i = 0;
 
@@ -305,7 +281,7 @@ function createVertexInfo(sizeX, sizeY, speedField, distanceField) {
     }
 
     function speed(x, y) {
-        return 1 / speedField[x][y];
+        return 1 / costRateField[x][y];
     }
 
     function makeVert(x, y, s, d0, d1, c0, c1) {
@@ -363,7 +339,7 @@ function updateDisc(gridSizeX, gridSizeY, distanceField, dt, disc) {
 
         const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
 
-        const speed = 0.125;
+        const speed = 0.0625;//0.125;
         const dist = speed * dt / Math.max(1e-8, gradientLen);
     
         disc.position.x -= gradient.x * dist;
@@ -487,12 +463,78 @@ function priorityQueuePush(q, x) {
     }
 }
 
-function createDistanceField(speedField) {
-    const distanceField = Array(speedField.length).fill().map(() => Array(speedField[0].length).fill(Infinity));
+function createCostRateField(sizeX, sizeY) {
+    const costRate = Array(sizeX).fill().map(() => Array(sizeY).fill(1));
 
-    let toVisit = [{priority: 0, x: 2, y: 7}];
-    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, speedField, x, y));
+    function rect(x0, y0, x1, y1, value) {
+        x0 = Math.max(x0, 0);
+        x1 = Math.min(x1, sizeX);
+        y0 = Math.max(y0, 0);
+        y1 = Math.min(y1, sizeY);
 
+        for (let x = x0; x < x1; ++x) {
+            for (let y = y0; y < y1; ++y) {
+                costRate[x][y] = value;
+            }
+        }
+    }
+
+    const r = Math.floor(sizeX / 6);
+    const s = r + 1;
+    const t = Math.floor(sizeX / 8);
+    const xc = Math.floor(sizeX / 2);
+
+    rect(0, 0, sizeX, sizeY, 1);
+    rect(r, r, sizeX - r, sizeY - r, 1000);
+    rect(s, s, sizeX - s, sizeY - s, 1);
+    rect(xc - t, sizeY - s, xc + t, sizeY - r, 1);
+    rect(xc - 3, sizeY - 16, xc - 2, sizeY - 7, 1000);
+    rect(xc - 3, sizeY - 17, xc + 4, sizeY - 16, 1000);
+//    rect(6, sizeY - 6, 14, sizeY, 3);
+
+    return costRate;
+}
+
+function createSmoothedCostRateField(distanceFromWallsField) {
+    const sizeX = distanceFromWallsField.length;
+    const sizeY = distanceFromWallsField[0].length;
+
+    const costRateFieldSmooth = Array(sizeX).fill().map(() => Array(sizeY).fill(1));
+
+    for (let x = 0; x < sizeX; ++x) {
+        for (let y = 0; y < sizeY; ++y) {
+            const distance = distanceFromWallsField[x][y];
+
+            const costRate = 1.0 + Math.min(1e6, 1.5 / distance);
+
+            costRateFieldSmooth[x][y] = costRate;
+        }
+    }
+    return costRateFieldSmooth;
+}
+
+function createDistanceFromWallsField(costRateField) {
+    const sizeX = costRateField.length;
+    const sizeY = costRateField[0].length;
+    const toVisit = [];
+    for (let x = 0; x < sizeX; ++x) {
+        for (let y = 0; y < sizeY; ++y) {
+            if (costRateField[x][y] > 1.0) {
+                toVisit.push({priority: 0, x: x, y: y});
+            }
+        }
+    }
+
+    const distanceField = Array(costRateField.length).fill().map(() => Array(costRateField[0].length).fill(Infinity));
+    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(distanceField, x, y));
+
+    return distanceField;
+}
+
+function createDistanceField(costRateField, goal) {
+    const distanceField = Array(costRateField.length).fill().map(() => Array(costRateField[0].length).fill(Infinity));
+    let toVisit = [{priority: 0, x: goal[0], y: goal[1]}];
+    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
     return distanceField;
 }
 
@@ -534,6 +576,24 @@ function fastMarchFill(field, toVisit, estimatedDistance) {
             }
         }
     }
+}
+
+function estimatedDistance(field, x, y) {
+    const dXNeg = (x > 0) ? field[x-1][y] : Infinity;
+    const dXPos = (x < field.length - 1) ? field[x+1][y] : Infinity;
+    const dYNeg = (y > 0) ? field[x][y-1] : Infinity;
+    const dYPos = (y < field[x].length - 1) ? field[x][y+1] : Infinity;
+
+    const dXMin = Math.min(dXNeg, dXPos);
+    const dYMin = Math.min(dYNeg, dYPos);
+
+    const timeHorizontal = 1.0;
+
+    const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
+        ((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
+        Math.min(dXMin, dYMin) + timeHorizontal;
+
+    return d;
 }
 
 function estimatedDistanceWithSpeed(field, speed, x, y) {
