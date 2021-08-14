@@ -505,7 +505,7 @@ function createSmoothedCostRateField(distanceFromWallsField) {
         for (let y = 0; y < sizeY; ++y) {
             const distance = distanceFromWallsField[x][y];
 
-            const costRate = 1.0 + Math.min(1e6, 1.5 / distance);
+            const costRate = 1 + Math.min(1e6, 0.55 / distance**2);
 
             costRateFieldSmooth[x][y] = costRate;
         }
