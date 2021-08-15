@@ -40,7 +40,7 @@ function main() {
 
     const state = initState();
 
-    const glResources = initGlResources(gl, state.gridSizeX, state.gridSizeY, state.costRateField, state.distanceField);
+    const glResources = initGlResources(gl, state.costRateField, state.distanceField);
 
     function lockChangeAlert() {
         if (document.pointerLockElement === canvas || document.mozPointerLockElement === canvas) {
@@ -75,11 +75,11 @@ function updatePosition(state, e) {
     state.player.velocity.y -= e.movementY / 250;
 }
 
-function initGlResources(gl, gridSizeX, gridSizeY, costRateField, distanceField) {
+function initGlResources(gl, costRateField, distanceField) {
     gl.getExtension('OES_standard_derivatives');
 
     const glResources = {
-        renderField: createFieldRenderer(gl, gridSizeX, gridSizeY, costRateField, distanceField),
+        renderField: createFieldRenderer(gl, costRateField, distanceField),
         renderDiscs: createDiscRenderer(gl),
     };
 
@@ -111,8 +111,6 @@ function initState() {
     const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.025, position: { x: Math.random(), y: Math.random() }, color: color } });
 
     return {
-        gridSizeX: gridSizeX,
-        gridSizeY: gridSizeY,
         costRateField: costRateFieldSmooth,
         distanceField: distanceField,
         tLast: 0,
@@ -122,7 +120,7 @@ function initState() {
     };
 }
 
-function createFieldRenderer(gl, gridSizeX, gridSizeY, costRateField, distanceField) {
+function createFieldRenderer(gl, costRateField, distanceField) {
     const vsSource = `
         attribute vec3 vPosition;
         attribute vec2 vDistance;
@@ -162,6 +160,9 @@ function createFieldRenderer(gl, gridSizeX, gridSizeY, costRateField, distanceFi
             gl_FragColor.a = 1.0;
         }
     `;
+
+    const gridSizeX = costRateField.sizeX;
+    const gridSizeY = costRateField.sizeY;
 
     const projectionMatrix = new Float32Array(16);
     projectionMatrix.fill(0);
