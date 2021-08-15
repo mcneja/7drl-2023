@@ -12,9 +12,31 @@ function main() {
         return;
     }
 
+    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+    canvas.exitPointerLock = canvas.exitPointerLock || canvas.mozExitPointerLock;
+
+    canvas.onclick = () => canvas.requestPointerLock();
+
     const state = initState();
 
     const glResources = initGlResources(gl, state.gridSizeX, state.gridSizeY, state.costRateField, state.distanceField);
+
+    function lockChangeAlert() {
+        if (document.pointerLockElement === canvas || document.mozPointerLockElement === canvas) {
+            document.addEventListener("mousemove", onUpdatePosition, false);
+        } else {
+            document.removeEventListener("mousemove", onUpdatePosition, false);
+            state.player.velocity.x = 0;
+            state.player.velocity.y = 0;
+        }
+    }
+
+    function onUpdatePosition(e) {
+        updatePosition(state, e);
+    }
+
+    document.addEventListener('pointerlockchange', lockChangeAlert, false);
+    document.addEventListener('mozpointerlockchange', lockChangeAlert, false);
 
     requestAnimationFrame(now => {
         const t = now / 1000;
@@ -25,6 +47,11 @@ function main() {
 
         requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
     });
+}
+
+function updatePosition(state, e) {
+    state.player.velocity.x += e.movementX / 250;
+    state.player.velocity.y -= e.movementY / 250;
 }
 
 function initGlResources(gl, gridSizeX, gridSizeY, costRateField, distanceField) {
@@ -47,11 +74,17 @@ function initState() {
     const gridSizeX = 64;
     const gridSizeY = 64;
 
-    const goal = [32, 16];//[2, 7];
+    const player = {
+        radius: 0.025,
+        position: { x: 0.5, y: 0.5 },
+        velocity: { x: 0, y: 0 },
+        color: { r: 0.8, g: 0.6, b: 0 },
+    };
+
     const costRateField = createCostRateField(gridSizeX, gridSizeY);
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
     const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
-    const distanceField = createDistanceField(costRateFieldSmooth, goal);
+    const distanceField = createDistanceField(costRateFieldSmooth, player.position);
 
     const color = { r: 0, g: 0.25, b: 0.85 };
     const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.025, position: { x: Math.random(), y: Math.random() }, color: color } });
@@ -59,12 +92,12 @@ function initState() {
     return {
         gridSizeX: gridSizeX,
         gridSizeY: gridSizeY,
-        goal: goal,
         costRateField: costRateFieldSmooth,
         distanceField: distanceField,
         tLast: 0,
         uScroll: 0,
         discs: discs,
+        player: player,
     };
 }
 
@@ -321,6 +354,24 @@ function updateAndRender(now, gl, glResources, state) {
     const dt = Math.min(1/30, t - state.tLast);
     state.tLast = t;
     state.uScroll = t/2 - Math.floor(t/2);
+
+    state.player.position.x += state.player.velocity.x * dt;
+    state.player.position.y += state.player.velocity.y * dt;
+    if (state.player.position.x < state.player.radius) {
+        state.player.position.x = state.player.radius;
+        state.player.velocity.x = 0;
+    } else if (state.player.position.x > 1 - state.player.radius) {
+        state.player.position.x = 1 - state.player.radius;
+        state.player.velocity.x = 0;
+    }
+    if (state.player.position.y < state.player.radius) {
+        state.player.position.y = state.player.radius;
+        state.player.velocity.y = 0;
+    } else if (state.player.position.y > 1 - state.player.radius) {
+        state.player.position.y = 1 - state.player.radius;
+        state.player.velocity.y = 0;
+    }
+
     for (const disc of state.discs) {
         updateDisc(state.gridSizeX, state.gridSizeY, state.distanceField, dt, disc);
     }
@@ -358,6 +409,7 @@ function drawScreen(gl, glResources, state) {
 
     glResources.renderField(state.uScroll);
     glResources.renderDiscs(state.discs);
+    glResources.renderDiscs([state.player]);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
@@ -505,7 +557,7 @@ function createSmoothedCostRateField(distanceFromWallsField) {
         for (let y = 0; y < sizeY; ++y) {
             const distance = distanceFromWallsField[x][y];
 
-            const costRate = 1 + Math.min(1e6, 0.55 / distance**2);
+            const costRate = 1 + Math.min(1e6, 10 / distance**2);
 
             costRateFieldSmooth[x][y] = costRate;
         }
@@ -528,13 +580,22 @@ function createDistanceFromWallsField(costRateField) {
     const distanceField = Array(costRateField.length).fill().map(() => Array(costRateField[0].length).fill(Infinity));
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(distanceField, x, y));
 
+    const scale = 128 / costRateField.length;
+    distanceField.forEach(col => col.forEach((x, i, d) => d[i] *= scale));
+
     return distanceField;
 }
 
 function createDistanceField(costRateField, goal) {
     const distanceField = Array(costRateField.length).fill().map(() => Array(costRateField[0].length).fill(Infinity));
-    let toVisit = [{priority: 0, x: goal[0], y: goal[1]}];
+    const goalX = Math.floor(goal.x * (costRateField.length - 1));
+    const goalY = Math.floor(goal.y * (costRateField[0].length - 1));
+    let toVisit = [{priority: 0, x: goalX, y: goalY}];
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
+
+    const scale = 32 / costRateField.length;
+    distanceField.forEach(col => col.forEach((x, i, d) => d[i] *= scale));
+
     return distanceField;
 }
 
