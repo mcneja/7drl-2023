@@ -2,6 +2,27 @@
 
 window.onload = main;
 
+class Float64Grid {
+    constructor(sizeX, sizeY, initialValue) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.values = new Float64Array(sizeX * sizeY);
+        this.fill(initialValue);
+    }
+
+    fill(value) {
+        this.values.fill(value);
+    }
+
+    get(x, y) {
+        return this.values[this.sizeX * y + x];
+    }
+
+    set(x, y, value) {
+        this.values[this.sizeX * y + x] = value;
+    }
+}
+
 function main() {
 
     const canvas = document.querySelector("#canvas");
@@ -310,11 +331,11 @@ function createVertexInfo(sizeX, sizeY, costRateField, distanceField) {
     let i = 0;
 
     function distance(x, y) {
-        return distanceField[x][y];
+        return distanceField.get(x, y);
     }
 
     function speed(x, y) {
-        return 1 / costRateField[x][y];
+        return 1 / costRateField.get(x, y);
     }
 
     function makeVert(x, y, s, d0, d1, c0, c1) {
@@ -373,20 +394,20 @@ function updateAndRender(now, gl, glResources, state) {
     }
 
     for (const disc of state.discs) {
-        updateDisc(state.gridSizeX, state.gridSizeY, state.distanceField, dt, disc);
+        updateDisc(state.distanceField, dt, disc);
     }
     drawScreen(gl, glResources, state);
 
     requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
-function updateDisc(gridSizeX, gridSizeY, distanceField, dt, disc) {
-    const dist = estimateDistance(gridSizeX, gridSizeY, distanceField, disc.position.x, disc.position.y);
+function updateDisc(distanceField, dt, disc) {
+    const dist = estimateDistance(distanceField, disc.position.x, disc.position.y);
     if (dist < 0.1) {
         disc.position.x = Math.random();
         disc.position.y = Math.random();
     } else {
-        const gradient = estimateGradient(gridSizeX, gridSizeY, distanceField, disc.position.x, disc.position.y);
+        const gradient = estimateGradient(distanceField, disc.position.x, disc.position.y);
 
         const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
 
@@ -516,7 +537,7 @@ function priorityQueuePush(q, x) {
 }
 
 function createCostRateField(sizeX, sizeY) {
-    const costRate = Array(sizeX).fill().map(() => Array(sizeY).fill(1));
+    const costRate = new Float64Grid(sizeX, sizeY, 1);
 
     function rect(x0, y0, x1, y1, value) {
         x0 = Math.max(x0, 0);
@@ -524,9 +545,9 @@ function createCostRateField(sizeX, sizeY) {
         y0 = Math.max(y0, 0);
         y1 = Math.min(y1, sizeY);
 
-        for (let x = x0; x < x1; ++x) {
-            for (let y = y0; y < y1; ++y) {
-                costRate[x][y] = value;
+        for (let y = y0; y < y1; ++y) {
+            for (let x = x0; x < x1; ++x) {
+                costRate.set(x, y, value);
             }
         }
     }
@@ -548,53 +569,55 @@ function createCostRateField(sizeX, sizeY) {
 }
 
 function createSmoothedCostRateField(distanceFromWallsField) {
-    const sizeX = distanceFromWallsField.length;
-    const sizeY = distanceFromWallsField[0].length;
+    const sizeX = distanceFromWallsField.sizeX;
+    const sizeY = distanceFromWallsField.sizeY;
 
-    const costRateFieldSmooth = Array(sizeX).fill().map(() => Array(sizeY).fill(1));
+    const costRateFieldSmooth = new Float64Grid(sizeX, sizeY, 1);
 
-    for (let x = 0; x < sizeX; ++x) {
-        for (let y = 0; y < sizeY; ++y) {
-            const distance = distanceFromWallsField[x][y];
+    for (let y = 0; y < sizeY; ++y) {
+        for (let x = 0; x < sizeX; ++x) {
+            const distance = distanceFromWallsField.get(x, y);
 
             const costRate = 1 + Math.min(1e6, 10 / distance**2);
 
-            costRateFieldSmooth[x][y] = costRate;
+            costRateFieldSmooth.set(x, y, costRate);
         }
     }
     return costRateFieldSmooth;
 }
 
 function createDistanceFromWallsField(costRateField) {
-    const sizeX = costRateField.length;
-    const sizeY = costRateField[0].length;
+    const sizeX = costRateField.sizeX;
+    const sizeY = costRateField.sizeY;
     const toVisit = [];
-    for (let x = 0; x < sizeX; ++x) {
-        for (let y = 0; y < sizeY; ++y) {
-            if (costRateField[x][y] > 1.0) {
+    for (let y = 0; y < sizeY; ++y) {
+        for (let x = 0; x < sizeX; ++x) {
+            if (costRateField.get(x, y) > 1.0) {
                 toVisit.push({priority: 0, x: x, y: y});
             }
         }
     }
 
-    const distanceField = Array(costRateField.length).fill().map(() => Array(costRateField[0].length).fill(Infinity));
+    const distanceField = new Float64Grid(sizeX, sizeY, Infinity);
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(distanceField, x, y));
 
-    const scale = 128 / costRateField.length;
-    distanceField.forEach(col => col.forEach((x, i, d) => d[i] *= scale));
+    const scale = 128 / sizeX;
+    distanceField.values.forEach((x, i, d) => d[i] *= scale);
 
     return distanceField;
 }
 
 function createDistanceField(costRateField, goal) {
-    const distanceField = Array(costRateField.length).fill().map(() => Array(costRateField[0].length).fill(Infinity));
-    const goalX = Math.floor(goal.x * (costRateField.length - 1));
-    const goalY = Math.floor(goal.y * (costRateField[0].length - 1));
+    const sizeX = costRateField.sizeX;
+    const sizeY = costRateField.sizeY;
+    const distanceField = new Float64Grid(sizeX, sizeY, Infinity);
+    const goalX = Math.floor(goal.x * (sizeX - 1));
+    const goalY = Math.floor(goal.y * (sizeY - 1));
     let toVisit = [{priority: 0, x: goalX, y: goalY}];
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
 
-    const scale = 32 / costRateField.length;
-    distanceField.forEach(col => col.forEach((x, i, d) => d[i] *= scale));
+    const scale = 32 / sizeX;
+    distanceField.values.forEach((x, i, d) => d[i] *= scale);
 
     return distanceField;
 }
@@ -603,36 +626,36 @@ function fastMarchFill(field, toVisit, estimatedDistance) {
     while (toVisit.length > 0) {
         const {priority, x, y} = priorityQueuePop(toVisit);
 
-        if (field[x][y] <= priority) {
+        if (field.get(x, y) <= priority) {
             continue;
         }
 
-        field[x][y] = priority;
+        field.set(x, y, priority);
 
-        if (x < field.length - 1) {
+        if (x < field.sizeX - 1) {
             const d = estimatedDistance(x + 1, y);
-            if (d < field[x+1][y]) {
+            if (d < field.get(x+1, y)) {
                 priorityQueuePush(toVisit, {priority: d, x: x+1, y: y});
             }
         }
 
         if (x > 0) {
             const d = estimatedDistance(x - 1, y);
-            if (d < field[x-1][y]) {
+            if (d < field.get(x-1, y)) {
                 priorityQueuePush(toVisit, {priority: d, x: x-1, y: y});
             }
         }
 
-        if (y < field[x].length - 1) {
+        if (y < field.sizeY - 1) {
             const d = estimatedDistance(x, y + 1);
-            if (d < field[x][y+1]) {
+            if (d < field.get(x, y+1)) {
                 priorityQueuePush(toVisit, {priority: d, x: x, y: y+1});
             }
         }
 
         if (y > 0) {
             const d = estimatedDistance(x, y - 1);
-            if (d < field[x][y-1]) {
+            if (d < field.get(x, y-1)) {
                 priorityQueuePush(toVisit, {priority: d, x: x, y: y-1});
             }
         }
@@ -640,10 +663,10 @@ function fastMarchFill(field, toVisit, estimatedDistance) {
 }
 
 function estimatedDistance(field, x, y) {
-    const dXNeg = (x > 0) ? field[x-1][y] : Infinity;
-    const dXPos = (x < field.length - 1) ? field[x+1][y] : Infinity;
-    const dYNeg = (y > 0) ? field[x][y-1] : Infinity;
-    const dYPos = (y < field[x].length - 1) ? field[x][y+1] : Infinity;
+    const dXNeg = (x > 0) ? field.get(x-1, y) : Infinity;
+    const dXPos = (x < field.sizeX - 1) ? field.get(x+1, y) : Infinity;
+    const dYNeg = (y > 0) ? field.get(x, y-1) : Infinity;
+    const dYPos = (y < field.sizeY - 1) ? field.get(x, y+1) : Infinity;
 
     const dXMin = Math.min(dXNeg, dXPos);
     const dYMin = Math.min(dYNeg, dYPos);
@@ -658,15 +681,15 @@ function estimatedDistance(field, x, y) {
 }
 
 function estimatedDistanceWithSpeed(field, speed, x, y) {
-    const dXNeg = (x > 0) ? field[x-1][y] : Infinity;
-    const dXPos = (x < field.length - 1) ? field[x+1][y] : Infinity;
-    const dYNeg = (y > 0) ? field[x][y-1] : Infinity;
-    const dYPos = (y < field[x].length - 1) ? field[x][y+1] : Infinity;
+    const dXNeg = (x > 0) ? field.get(x-1, y) : Infinity;
+    const dXPos = (x < field.sizeX - 1) ? field.get(x+1, y) : Infinity;
+    const dYNeg = (y > 0) ? field.get(x, y-1) : Infinity;
+    const dYPos = (y < field.sizeY - 1) ? field.get(x, y+1) : Infinity;
 
     const dXMin = Math.min(dXNeg, dXPos);
     const dYMin = Math.min(dYNeg, dYPos);
 
-    const timeHorizontal = speed[x][y];
+    const timeHorizontal = speed.get(x, y);
 
     const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
         ((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
@@ -675,17 +698,17 @@ function estimatedDistanceWithSpeed(field, speed, x, y) {
     return d;
 }
 
-function safeDistance(gridSizeX, gridSizeY, distanceField, x, y) {
-    if (x < 0 || y < 0 || x >= (gridSizeX - 1) || y >= (gridSizeY - 1))
+function safeDistance(distanceField, x, y) {
+    if (x < 0 || y < 0 || x >= distanceField.sizeX || y >= distanceField.sizeY)
         return 1e4;
 
-    return distanceField[x][y];
+    return distanceField.get(x, y);
 }
 
-function estimateGradient(gridSizeX, gridSizeY, distanceField, x, y) {
+function estimateGradient(distanceField, x, y) {
 
-    x *= (gridSizeX - 1);
-    y *= (gridSizeY - 1);
+    x *= (distanceField.sizeX - 1);
+    y *= (distanceField.sizeY - 1);
 
     const uX = x - Math.floor(x);
     const uY = y - Math.floor(y);
@@ -693,10 +716,10 @@ function estimateGradient(gridSizeX, gridSizeY, distanceField, x, y) {
     const gridX = Math.floor(x);
     const gridY = Math.floor(y);
 
-    const d00 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX, gridY);
-    const d10 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX + 1, gridY);
-    const d01 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX, gridY + 1);
-    const d11 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX + 1, gridY + 1);
+    const d00 = safeDistance(distanceField, gridX, gridY);
+    const d10 = safeDistance(distanceField, gridX + 1, gridY);
+    const d01 = safeDistance(distanceField, gridX, gridY + 1);
+    const d11 = safeDistance(distanceField, gridX + 1, gridY + 1);
 
     const gradX = (d10 - d00) * (1 - uY) + (d11 - d01) * uY;
     const gradY = (d01 - d00) * (1 - uX) + (d11 - d10) * uX;
@@ -704,10 +727,10 @@ function estimateGradient(gridSizeX, gridSizeY, distanceField, x, y) {
     return { x: gradX, y: gradY };
 }
 
-function estimateDistance(gridSizeX, gridSizeY, distanceField, x, y) {
+function estimateDistance(distanceField, x, y) {
 
-    x *= (gridSizeX - 1);
-    y *= (gridSizeY - 1);
+    x *= (distanceField.sizeX - 1);
+    y *= (distanceField.sizeY - 1);
 
     const uX = x - Math.floor(x);
     const uY = y - Math.floor(y);
@@ -715,10 +738,10 @@ function estimateDistance(gridSizeX, gridSizeY, distanceField, x, y) {
     const gridX = Math.floor(x);
     const gridY = Math.floor(y);
 
-    const d00 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX, gridY);
-    const d10 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX + 1, gridY);
-    const d01 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX, gridY + 1);
-    const d11 = safeDistance(gridSizeX, gridSizeY, distanceField, gridX + 1, gridY + 1);
+    const d00 = safeDistance(distanceField, gridX, gridY);
+    const d10 = safeDistance(distanceField, gridX + 1, gridY);
+    const d01 = safeDistance(distanceField, gridX, gridY + 1);
+    const d11 = safeDistance(distanceField, gridX + 1, gridY + 1);
 
     const d0 = d00 + (d10 - d00) * uX;
     const d1 = d01 + (d11 - d01) * uX;
