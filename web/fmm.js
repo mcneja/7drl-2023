@@ -40,7 +40,7 @@ function main() {
 
     const state = initState();
 
-    const glResources = initGlResources(gl, state.costRateField, state.distanceField);
+    const glResources = initGlResources(gl);
 
     function lockChangeAlert() {
         if (document.pointerLockElement === canvas || document.mozPointerLockElement === canvas) {
@@ -75,11 +75,11 @@ function updatePosition(state, e) {
     state.player.velocity.y -= e.movementY / 250;
 }
 
-function initGlResources(gl, costRateField, distanceField) {
+function initGlResources(gl) {
     gl.getExtension('OES_standard_derivatives');
 
     const glResources = {
-        renderField: createFieldRenderer(gl, costRateField, distanceField),
+        renderField: createFieldRenderer(gl),
         renderDiscs: createDiscRenderer(gl),
     };
 
@@ -120,7 +120,7 @@ function initState() {
     };
 }
 
-function createFieldRenderer(gl, costRateField, distanceField) {
+function createFieldRenderer(gl) {
     const vsSource = `
         attribute vec3 vPosition;
         attribute vec2 vDistance;
@@ -161,13 +161,10 @@ function createFieldRenderer(gl, costRateField, distanceField) {
         }
     `;
 
-    const gridSizeX = costRateField.sizeX;
-    const gridSizeY = costRateField.sizeY;
-
     const projectionMatrix = new Float32Array(16);
     projectionMatrix.fill(0);
-    projectionMatrix[0] = 2 / (gridSizeX - 1);
-    projectionMatrix[5] = 2 / (gridSizeY - 1);
+    projectionMatrix[0] = 1;
+    projectionMatrix[5] = 1;
     projectionMatrix[10] = 1;
     projectionMatrix[12] = -1;
     projectionMatrix[13] = -1;
@@ -187,7 +184,7 @@ function createFieldRenderer(gl, costRateField, distanceField) {
         uContour: gl.getUniformLocation(program, 'uContour'),
     };
 
-    const vertexBuffer = createFieldVertexBuffer(gl, gridSizeX, gridSizeY, costRateField, distanceField);
+    const vertexBuffer = gl.createBuffer();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     const stride = 28; // seven 4-byte floats
@@ -197,10 +194,14 @@ function createFieldRenderer(gl, costRateField, distanceField) {
 
     const contourTexture = createStripeTexture(gl);
 
-    return (uScroll) => {
+    return (costRateField, distanceField, uScroll) => {
         gl.useProgram(program);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+        const vertexInfo = createVertexInfo(costRateField, distanceField);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexInfo, gl.DYNAMIC_DRAW);
+
         gl.enableVertexAttribArray(vertexAttributeLoc.position);
         gl.enableVertexAttribArray(vertexAttributeLoc.distance);
         gl.enableVertexAttribArray(vertexAttributeLoc.speed);
@@ -214,6 +215,11 @@ function createFieldRenderer(gl, costRateField, distanceField) {
     
         gl.uniform1i(uniformLoc.uContour, 0);
 
+        const gridSizeX = costRateField.sizeX;
+        const gridSizeY = costRateField.sizeY;
+
+        projectionMatrix[0] = 2 / (gridSizeX - 1);
+        projectionMatrix[5] = 2 / (gridSizeY - 1);
         gl.uniformMatrix4fv(uniformLoc.projectionMatrix, false, projectionMatrix);
     
         gl.uniform1f(uniformLoc.uScroll, uScroll);
@@ -294,16 +300,6 @@ function createDiscRenderer(gl) {
     };
 }
 
-function createFieldVertexBuffer(gl, sizeX, sizeY, costRateField, distanceField) {
-    const vertexInfo = createVertexInfo(sizeX, sizeY, costRateField, distanceField);
-
-    const vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexInfo, gl.STATIC_DRAW);
-
-    return vertexBuffer;
-}
-
 function createDiscVertexBuffer(gl) {
     const v = new Float32Array(6 * 2);
     let i = 0;
@@ -327,7 +323,9 @@ function createDiscVertexBuffer(gl) {
     return vertexBuffer;
 }
 
-function createVertexInfo(sizeX, sizeY, costRateField, distanceField) {
+function createVertexInfo(costRateField, distanceField) {
+    const sizeX = costRateField.sizeX;
+    const sizeY = costRateField.sizeY;
     const v = new Float32Array(7 * 6 * (sizeX - 1) * (sizeY - 1));
     let i = 0;
 
@@ -394,6 +392,8 @@ function updateAndRender(now, gl, glResources, state) {
         state.player.velocity.y = 0;
     }
 
+    updateDistanceField(state.costRateField, state.distanceField, state.player.position);
+
     for (const disc of state.discs) {
         updateDisc(state.distanceField, dt, disc);
     }
@@ -429,7 +429,7 @@ function drawScreen(gl, glResources, state) {
     gl.viewport(0, 0, screenX, screenY);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    glResources.renderField(state.uScroll);
+    glResources.renderField(state.costRateField, state.distanceField, state.uScroll);
     glResources.renderDiscs(state.discs);
     glResources.renderDiscs([state.player]);
 }
@@ -611,16 +611,22 @@ function createDistanceFromWallsField(costRateField) {
 function createDistanceField(costRateField, goal) {
     const sizeX = costRateField.sizeX;
     const sizeY = costRateField.sizeY;
-    const distanceField = new Float64Grid(sizeX, sizeY, Infinity);
-    const goalX = Math.floor(goal.x * (sizeX - 1));
-    const goalY = Math.floor(goal.y * (sizeY - 1));
+    const distanceField = new Float64Grid(costRateField.sizeX, costRateField.sizeY, Infinity);
+    updateDistanceField(costRateField, distanceField, goal);
+    return distanceField;
+}
+
+function updateDistanceField(costRateField, distanceField, goal) {
+    const sizeX = costRateField.sizeX;
+    const sizeY = costRateField.sizeY;
+    const goalX = Math.floor(goal.x * (sizeX - 1) + 0.5);
+    const goalY = Math.floor(goal.y * (sizeY - 1) + 0.5);
     let toVisit = [{priority: 0, x: goalX, y: goalY}];
+    distanceField.fill(Infinity);
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
 
     const scale = 32 / sizeX;
     distanceField.values.forEach((x, i, d) => d[i] *= scale);
-
-    return distanceField;
 }
 
 function fastMarchFill(field, toVisit, estimatedDistance) {
