@@ -96,7 +96,7 @@ function initState() {
     const gridSizeY = 64;
 
     const player = {
-        radius: 0.025,
+        radius: 0.0125,
         position: { x: 0.5, y: 0.5 },
         velocity: { x: 0, y: 0 },
         color: { r: 0.8, g: 0.6, b: 0 },
@@ -108,7 +108,7 @@ function initState() {
     const distanceField = createDistanceField(costRateFieldSmooth, player.position);
 
     const color = { r: 0, g: 0.25, b: 0.85 };
-    const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.025, position: { x: Math.random(), y: Math.random() }, color: color } });
+    const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.0125, position: { x: Math.random(), y: Math.random() }, color: color } });
 
     return {
         costRateField: costRateFieldSmooth,
@@ -281,8 +281,8 @@ function createDiscRenderer(gl) {
         for (const disc of discs) {
             gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
 
-            projectionMatrix[0] = disc.radius;
-            projectionMatrix[5] = disc.radius;
+            projectionMatrix[0] = 2 * disc.radius;
+            projectionMatrix[5] = 2 * disc.radius;
             projectionMatrix[12] = 2 * disc.position.x - 1;
             projectionMatrix[13] = 2 * disc.position.y - 1;
             gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
@@ -349,8 +349,8 @@ function createVertexInfo(sizeX, sizeY, costRateField, distanceField) {
         v[i++] = c1;
     }
 
-    for (let x = 0; x < sizeX - 1; ++x) {
-        for (let y = 0; y < sizeY - 1; ++y) {
+    for (let y = 0; y < sizeY - 1; ++y) {
+        for (let x = 0; x < sizeX - 1; ++x) {
             const dist00 = distance(x, y);
             const dist10 = distance(x+1, y);
             const dist01 = distance(x, y+1);
