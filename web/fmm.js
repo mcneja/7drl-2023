@@ -429,7 +429,7 @@ function drawScreen(gl, glResources, state) {
     gl.viewport(0, 0, screenX, screenY);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    glResources.renderField(state.costRateField, state.distanceField, state.uScroll);
+    glResources.renderField(state.costRateField, state.distanceField, 0); //state.uScroll);
     glResources.renderDiscs(state.discs);
     glResources.renderDiscs([state.player]);
 }
@@ -619,9 +619,25 @@ function createDistanceField(costRateField, goal) {
 function updateDistanceField(costRateField, distanceField, goal) {
     const sizeX = costRateField.sizeX;
     const sizeY = costRateField.sizeY;
-    const goalX = Math.floor(goal.x * (sizeX - 1) + 0.5);
-    const goalY = Math.floor(goal.y * (sizeY - 1) + 0.5);
-    let toVisit = [{priority: 0, x: goalX, y: goalY}];
+    const goalX = goal.x * (sizeX - 1);
+    const goalY = goal.y * (sizeY - 1);
+    const xMin = Math.min(sizeX - 1, Math.max(0, Math.floor(goalX + 0.5) - 1));
+    const yMin = Math.min(sizeY - 1, Math.max(0, Math.floor(goalY + 0.5) - 1));
+    const xMax = Math.min(sizeX, xMin + 3);
+    const yMax = Math.min(sizeY, yMin + 3);
+
+    let toVisit = [];
+    for (let y = yMin; y < yMax; ++y) {
+        for (let x = xMin; x < xMax; ++x) {
+            const dx = x - goalX;
+            const dy = y - goalY;
+            const dist = Math.sqrt(dx**2 + dy**2);
+            const costRate = costRateField.get(x, y);
+            const cost = dist * costRate;
+            priorityQueuePush(toVisit, {priority: cost, x: x, y: y});
+        }
+    }
+
     distanceField.fill(Infinity);
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
 
