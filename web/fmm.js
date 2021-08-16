@@ -395,16 +395,18 @@ function updateAndRender(now, gl, glResources, state) {
     updateDistanceField(state.costRateField, state.distanceField, state.player.position);
 
     for (const disc of state.discs) {
-        updateDisc(state.distanceField, dt, disc);
+        updateDisc(state.distanceField, dt, state.player, disc);
     }
     drawScreen(gl, glResources, state);
 
     requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
-function updateDisc(distanceField, dt, disc) {
-    const dist = estimateDistance(distanceField, disc.position.x, disc.position.y);
-    if (dist < 0.1) {
+function updateDisc(distanceField, dt, player, disc) {
+    const dx = disc.position.x - player.position.x;
+    const dy = disc.position.y - player.position.y;
+    const dist = Math.sqrt(dx**2 + dy**2);
+    if (dist < player.radius + disc.radius) {
         disc.position.x = Math.random();
         disc.position.y = Math.random();
     } else {
@@ -621,12 +623,14 @@ function updateDistanceField(costRateField, distanceField, goal) {
     const sizeY = costRateField.sizeY;
     const goalX = goal.x * (sizeX - 1);
     const goalY = goal.y * (sizeY - 1);
-    const xMin = Math.min(sizeX - 1, Math.max(0, Math.floor(goalX + 0.5) - 1));
-    const yMin = Math.min(sizeY - 1, Math.max(0, Math.floor(goalY + 0.5) - 1));
-    const xMax = Math.min(sizeX, xMin + 3);
-    const yMax = Math.min(sizeY, yMin + 3);
+    const r = 2;
+    const xMin = Math.min(sizeX - 1, Math.max(0, Math.floor(goalX + 0.5) - r));
+    const yMin = Math.min(sizeY - 1, Math.max(0, Math.floor(goalY + 0.5) - r));
+    const xMax = Math.min(sizeX, xMin + 2*r+1);
+    const yMax = Math.min(sizeY, yMin + 2*r+1);
 
-    let toVisit = [];
+    distanceField.fill(Infinity);
+
     for (let y = yMin; y < yMax; ++y) {
         for (let x = xMin; x < xMax; ++x) {
             const dx = x - goalX;
@@ -634,11 +638,20 @@ function updateDistanceField(costRateField, distanceField, goal) {
             const dist = Math.sqrt(dx**2 + dy**2);
             const costRate = costRateField.get(x, y);
             const cost = dist * costRate;
-            priorityQueuePush(toVisit, {priority: cost, x: x, y: y});
+            distanceField.set(x, y, cost);
         }
     }
 
-    distanceField.fill(Infinity);
+    let toVisit = [];
+    for (let y = Math.max(0, yMin - 1); y < Math.min(sizeY, yMax + 1); ++y) {
+        for (let x = Math.max(0, xMin - 1); x < Math.min(sizeX, xMax + 1); ++x) {
+            if (distanceField.get(x, y) === Infinity) {
+                const cost = estimatedDistanceWithSpeed(distanceField, costRateField, x, y);
+                priorityQueuePush(toVisit, {priority: cost, x: x, y: y});
+            }
+        }
+    }
+
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
 
     const scale = 32 / sizeX;
