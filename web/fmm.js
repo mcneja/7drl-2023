@@ -444,23 +444,10 @@ function updateAndRender(now, gl, glResources, state) {
     state.player.position.y += state.player.velocity.y * dt;
 
     for (const obstacle of state.obstacles) {
-        fixupFirstPosition(state.player, obstacle);
+        fixupPositionAndVelocityAgainstDisc(state.player, obstacle);
     }
 
-    if (state.player.position.x < state.player.radius) {
-        state.player.position.x = state.player.radius;
-        state.player.velocity.x = 0;
-    } else if (state.player.position.x > 1 - state.player.radius) {
-        state.player.position.x = 1 - state.player.radius;
-        state.player.velocity.x = 0;
-    }
-    if (state.player.position.y < state.player.radius) {
-        state.player.position.y = state.player.radius;
-        state.player.velocity.y = 0;
-    } else if (state.player.position.y > 1 - state.player.radius) {
-        state.player.position.y = 1 - state.player.radius;
-        state.player.velocity.y = 0;
-    }
+    fixupPositionAndVelocityAgainstBoundary(state.player);
 
     state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
 
@@ -473,12 +460,14 @@ function updateAndRender(now, gl, glResources, state) {
     for (let k = 0; k < 3; ++k) {
         for (let i = 0; i < state.discs.length; ++i) {
             for (let j = i + 1; j < state.discs.length; ++j) {
-                fixupPositions(state.discs[i], state.discs[j]);
+                fixupDiscPairPositions(state.discs[i], state.discs[j]);
             }
 
             for (const obstacle of state.obstacles) {
-                fixupFirstPosition(state.discs[i], obstacle);
+                fixupPositionAgainstDisc(state.discs[i], obstacle);
             }
+
+            fixupPositionAgainstBoundary(state.discs[i]);
         }
     }
 
@@ -507,7 +496,7 @@ function updateDisc(distanceField, dt, player, disc) {
     }
 }
 
-function fixupPositions(disc0, disc1) {
+function fixupDiscPairPositions(disc0, disc1) {
     let dx = disc1.position.x - disc0.position.x;
     let dy = disc1.position.y - disc0.position.y;
     const d = Math.sqrt(dx**2 + dy**2);
@@ -523,17 +512,63 @@ function fixupPositions(disc0, disc1) {
     }
 }
 
-function fixupFirstPosition(disc0, disc1) {
-    let dx = disc1.position.x - disc0.position.x;
-    let dy = disc1.position.y - disc0.position.y;
+function fixupPositionAgainstBoundary(disc) {
+    if (disc.position.x < disc.radius) {
+        disc.position.x = disc.radius;
+    } else if (disc.position.x > 1 - disc.radius) {
+        disc.position.x = 1 - disc.radius;
+    }
+    if (disc.position.y < disc.radius) {
+        disc.position.y = disc.radius;
+    } else if (disc.position.y > 1 - disc.radius) {
+        disc.position.y = 1 - disc.radius;
+    }
+}
+
+function fixupPositionAndVelocityAgainstBoundary(disc) {
+    if (disc.position.x < disc.radius) {
+        disc.position.x = disc.radius;
+        disc.velocity.x = 0;
+    } else if (disc.position.x > 1 - disc.radius) {
+        disc.position.x = 1 - disc.radius;
+        disc.velocity.x = 0;
+    }
+    if (disc.position.y < disc.radius) {
+        disc.position.y = disc.radius;
+        disc.velocity.y = 0;
+    } else if (disc.position.y > 1 - disc.radius) {
+        disc.position.y = 1 - disc.radius;
+        disc.velocity.y = 0;
+    }
+}
+
+function fixupPositionAgainstDisc(disc, obstacle) {
+    const dx = disc.position.x - obstacle.position.x;
+    const dy = disc.position.y - obstacle.position.y;
     const d = Math.sqrt(dx**2 + dy**2);
-    const dist = d - (disc0.radius + disc1.radius);
+    const dist = d - (disc.radius + obstacle.radius);
 
     if (dist < 0) {
-        dx *= dist / d;
-        dy *= dist / d;
-        disc0.position.x += dx;
-        disc0.position.y += dy;
+        disc.position.x -= dx * dist / d;
+        disc.position.y -= dy * dist / d;
+    }
+}
+
+function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
+    const dx = disc.position.x - obstacle.position.x;
+    const dy = disc.position.y - obstacle.position.y;
+    const d = Math.sqrt(dx**2 + dy**2);
+    const dist = d - (disc.radius + obstacle.radius);
+
+    if (dist < 0) {
+        disc.position.x -= dx * dist / d;
+        disc.position.y -= dy * dist / d;
+
+        const vn = disc.velocity.x * dx + disc.velocity.y * dy;
+        if (vn < 0) {
+            disc.velocity.x -= vn * dx / d**2;
+            disc.velocity.y -= vn * dy / d**2;
+        }
     }
 }
 
