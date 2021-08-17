@@ -88,8 +88,10 @@ function main() {
 }
 
 function updatePosition(state, e) {
-    state.player.velocity.x += e.movementX / 250;
-    state.player.velocity.y -= e.movementY / 250;
+    if (!state.player.dead) {
+        state.player.velocity.x += e.movementX / 250;
+        state.player.velocity.y -= e.movementY / 250;
+    }
 }
 
 function initGlResources(gl) {
@@ -122,6 +124,7 @@ function resetState(state) {
         position: { x: 0.5, y: 0.5 },
         velocity: { x: 0, y: 0 },
         color: { r: 0.8, g: 0.6, b: 0 },
+        dead: false,
     };
 
     const obstacles = createObstacles(player.position);
@@ -135,6 +138,7 @@ function resetState(state) {
     state.costRateField = costRateFieldSmooth;
     state.distanceField = distanceField;
     state.paused = true;
+    state.gameOver = false;
     state.tLast = undefined;
     state.discs = discs;
     state.obstacles = obstacles;
@@ -160,6 +164,7 @@ function createEnemies(obstacles, playerPosition) {
                 y: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
             },
             color: enemyColor,
+            dead: false,
         };
         const dx = enemy.position.x - 0.5;
         const dy = enemy.position.y - 0.5;
@@ -505,6 +510,13 @@ function updateAndRender(now, gl, glResources, state) {
 }
 
 function updateState(state, dt) {
+
+    if (state.player.dead) {
+        const r = Math.exp(-dt);
+        state.player.velocity.x *= r;
+        state.player.velocity.y *= r;
+    }
+
     state.player.position.x += state.player.velocity.x * dt;
     state.player.position.y += state.player.velocity.y * dt;
 
@@ -515,13 +527,31 @@ function updateState(state, dt) {
     fixupPositionAndVelocityAgainstBoundary(state.player);
 
     state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
+    if (state.collectibles.length <= 0) {
+        state.gameOver = true;
+    }
 
     updateDistanceField(state.costRateField, state.distanceField, state.player.position);
 
     const discSpeed = 0.2 - 0.15 * Math.min(state.collectibles.length, 80) / 80;
 
+    let enemyDied = false;
     for (const disc of state.discs) {
-        updateDisc(state.distanceField, dt, discSpeed, state.player, disc);
+        updateEnemy(state.distanceField, dt, discSpeed, state.player, disc);
+        if (disc.dead) {
+            enemyDied = true;
+            if (!state.gameOver) {
+                state.player.dead = true;
+                state.player.color.r *= 0.5;
+                state.player.color.g *= 0.5;
+                state.player.color.b *= 0.5;
+                state.gameOver = true;
+            }
+        }
+    }
+
+    if (enemyDied) {
+        state.discs = state.discs.filter(disc => !disc.dead);
     }
 
     for (let k = 0; k < 3; ++k) {
@@ -539,23 +569,20 @@ function updateState(state, dt) {
     }
 }
 
-function updateDisc(distanceField, dt, discSpeed, player, disc) {
-    const dx = disc.position.x - player.position.x;
-    const dy = disc.position.y - player.position.y;
-    const dist = Math.sqrt(dx**2 + dy**2);
-    if (dist < player.radius + disc.radius) {
-        disc.position.x = Math.random();
-        disc.position.y = Math.random();
-    } else {
-        const gradient = estimateGradient(distanceField, disc.position.x, disc.position.y);
-
-        const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
-
-        const dist = discSpeed * dt / Math.max(1e-8, gradientLen);
-    
-        disc.position.x -= gradient.x * dist;
-        disc.position.y -= gradient.y * dist;
+function updateEnemy(distanceField, dt, discSpeed, player, disc) {
+    if (discsOverlap(disc, player)) {
+        disc.dead = true;
+        return;
     }
+
+    const gradient = estimateGradient(distanceField, disc.position.x, disc.position.y);
+
+    const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
+
+    const dist = discSpeed * dt / Math.max(1e-8, gradientLen);
+
+    disc.position.x -= gradient.x * dist;
+    disc.position.y -= gradient.y * dist;
 }
 
 function fixupDiscPairPositions(disc0, disc1) {
