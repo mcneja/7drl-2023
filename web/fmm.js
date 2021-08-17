@@ -102,7 +102,8 @@ function initState() {
         color: { r: 0.8, g: 0.6, b: 0 },
     };
 
-    const costRateField = createCostRateField(gridSizeX, gridSizeY);
+    const obstacles = createObstacles();
+    const costRateField = createCostRateField(gridSizeX, gridSizeY, obstacles);
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
     const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
     const distanceField = createDistanceField(costRateFieldSmooth, player.position);
@@ -116,8 +117,41 @@ function initState() {
         tLast: 0,
         uScroll: 0,
         discs: discs,
+        obstacles: obstacles,
         player: player,
     };
+}
+
+function createObstacles() {
+    const obstacles = [];
+    const radius = 0.05;
+    const separation = -0.02;
+    const color = { r: 0.25, g: 0.25, b: 0.25 };
+    for (let i = 0; i < 1000 && obstacles.length < 16; ++i) {
+        const obstacle = {
+            radius: radius,
+            position: {
+                x: radius + (1 - 2*radius) * Math.random(),
+                y: radius + (1 - 2*radius) * Math.random(),
+            },
+            color: color,
+        };
+        if (!discOverlapsDiscs(obstacle, obstacles, separation)) {
+            obstacles.push(obstacle);
+        }
+    }
+    return obstacles;
+}
+
+function discOverlapsDiscs(disc, discs, minSeparation) {
+    for (const disc2 of discs) {
+        const dx = disc2.position.x - disc.position.x;
+        const dy = disc2.position.y - disc.position.y;
+        if (dx**2 + dy**2 < (disc2.radius + disc.radius + minSeparation)**2) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function createFieldRenderer(gl) {
@@ -377,6 +411,11 @@ function updateAndRender(now, gl, glResources, state) {
 
     state.player.position.x += state.player.velocity.x * dt;
     state.player.position.y += state.player.velocity.y * dt;
+
+    for (const obstacle of state.obstacles) {
+        fixupFirstPosition(state.player, obstacle);
+    }
+
     if (state.player.position.x < state.player.radius) {
         state.player.position.x = state.player.radius;
         state.player.velocity.x = 0;
@@ -397,6 +436,19 @@ function updateAndRender(now, gl, glResources, state) {
     for (const disc of state.discs) {
         updateDisc(state.distanceField, dt, state.player, disc);
     }
+
+    for (let k = 0; k < 3; ++k) {
+        for (let i = 0; i < state.discs.length; ++i) {
+            for (let j = i + 1; j < state.discs.length; ++j) {
+                fixupPositions(state.discs[i], state.discs[j]);
+            }
+
+            for (const obstacle of state.obstacles) {
+                fixupFirstPosition(state.discs[i], obstacle);
+            }
+        }
+    }
+
     drawScreen(gl, glResources, state);
 
     requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
@@ -422,6 +474,36 @@ function updateDisc(distanceField, dt, player, disc) {
     }
 }
 
+function fixupPositions(disc0, disc1) {
+    let dx = disc1.position.x - disc0.position.x;
+    let dy = disc1.position.y - disc0.position.y;
+    const d = Math.sqrt(dx**2 + dy**2);
+    const dist = d - (disc0.radius + disc1.radius);
+
+    if (dist < 0) {
+        dx *= dist / (2 * d);
+        dy *= dist / (2 * d);
+        disc0.position.x += dx;
+        disc0.position.y += dy;
+        disc1.position.x -= dx;
+        disc1.position.y -= dy;
+    }
+}
+
+function fixupFirstPosition(disc0, disc1) {
+    let dx = disc1.position.x - disc0.position.x;
+    let dy = disc1.position.y - disc0.position.y;
+    const d = Math.sqrt(dx**2 + dy**2);
+    const dist = d - (disc0.radius + disc1.radius);
+
+    if (dist < 0) {
+        dx *= dist / d;
+        dy *= dist / d;
+        disc0.position.x += dx;
+        disc0.position.y += dy;
+    }
+}
+
 function drawScreen(gl, glResources, state) {
     resizeCanvasToDisplaySize(gl.canvas);
 
@@ -432,6 +514,7 @@ function drawScreen(gl, glResources, state) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     glResources.renderField(state.costRateField, state.distanceField, 0); //state.uScroll);
+    glResources.renderDiscs(state.obstacles);
     glResources.renderDiscs(state.discs);
     glResources.renderDiscs([state.player]);
 }
@@ -539,34 +622,29 @@ function priorityQueuePush(q, x) {
     }
 }
 
-function createCostRateField(sizeX, sizeY) {
+function createCostRateField(sizeX, sizeY, obstacles) {
     const costRate = new Float64Grid(sizeX, sizeY, 1);
 
-    function rect(x0, y0, x1, y1, value) {
-        x0 = Math.max(x0, 0);
-        x1 = Math.min(x1, sizeX);
-        y0 = Math.max(y0, 0);
-        y1 = Math.min(y1, sizeY);
-
-        for (let y = y0; y < y1; ++y) {
-            for (let x = x0; x < x1; ++x) {
-                costRate.set(x, y, value);
-            }
+    function dist(x, y) {
+        let minDist = Infinity;
+        x /= sizeX - 1;
+        y /= sizeY - 1;
+        for (const obstacle of obstacles) {
+            const dx = x - obstacle.position.x;
+            const dy = y - obstacle.position.y;
+            const dist = Math.sqrt(dx**2 + dy**2) - obstacle.radius;
+            minDist = Math.min(minDist, dist);
         }
+        minDist = Math.max(0, minDist);
+        return minDist * (sizeX - 1);
     }
 
-    const r = Math.floor(sizeX / 6);
-    const s = r + 1;
-    const t = Math.floor(sizeX / 8);
-    const xc = Math.floor(sizeX / 2);
-
-    rect(0, 0, sizeX, sizeY, 1);
-    rect(r, r, sizeX - r, sizeY - r, 1000);
-    rect(s, s, sizeX - s, sizeY - s, 1);
-    rect(xc - t, sizeY - s, xc + t, sizeY - r, 1);
-    rect(xc - 3, sizeY - 16, xc - 2, sizeY - 7, 1000);
-    rect(xc - 3, sizeY - 17, xc + 4, sizeY - 16, 1000);
-//    rect(6, sizeY - 6, 14, sizeY, 3);
+    for (let y = 0; y < sizeY; ++y) {
+        for (let x = 0; x < sizeX; ++x) {
+            const d = dist(x, y);
+            costRate.set(x, y, (d <= 0) ? 1000 : 1);
+        }
+    }
 
     return costRate;
 }
