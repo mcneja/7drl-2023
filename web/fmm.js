@@ -108,9 +108,7 @@ function initState() {
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
     const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
     const distanceField = createDistanceField(costRateFieldSmooth, player.position);
-
-    const color = { r: 0, g: 0.25, b: 0.85 };
-    const discs = Array.from({length: 32}, (_, index) => { return { radius: 0.0125, position: { x: Math.random(), y: Math.random() }, color: color } });
+    const discs = createEnemies(obstacles, player.position);
 
     return {
         costRateField: costRateFieldSmooth,
@@ -122,6 +120,40 @@ function initState() {
         collectibles: collectibles,
         player: player,
     };
+}
+
+function createEnemies(obstacles, playerPosition) {
+    const enemies = [];
+    const enemyRadius = 0.0125;
+    const separationFromObstacle = 0.02 + enemyRadius;
+    const separationFromAlly = 0.05;
+    const enemyColor = { r: 0, g: 0.25, b: 0.85 };
+    const playerDisc = { radius: 0.25, position: playerPosition };
+    const angle = Math.random() * Math.PI * 2;
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+    for (let i = 0; i < 1000 && enemies.length < 128; ++i) {
+        const enemy = {
+            radius: enemyRadius,
+            position: {
+                x: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
+                y: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
+            },
+            color: enemyColor,
+        };
+        const dx = enemy.position.x - 0.5;
+        const dy = enemy.position.y - 0.5;
+        const d = dirX * dx + dirY * dy;
+        if (d < 0) {
+            continue;
+        }
+        if (!discOverlapsDiscs(enemy, obstacles, separationFromObstacle - enemyRadius) &&
+            !discOverlapsDiscs(enemy, enemies, separationFromAlly) &&
+            !discsOverlap(enemy, playerDisc)) {
+            enemies.push(enemy);
+        }
+    }
+    return enemies;
 }
 
 function createObstacles() {
@@ -453,8 +485,10 @@ function updateAndRender(now, gl, glResources, state) {
 
     updateDistanceField(state.costRateField, state.distanceField, state.player.position);
 
+    const discSpeed = 0.2 - 0.15 * Math.min(state.collectibles.length, 80) / 80;
+
     for (const disc of state.discs) {
-        updateDisc(state.distanceField, dt, state.player, disc);
+        updateDisc(state.distanceField, dt, discSpeed, state.player, disc);
     }
 
     for (let k = 0; k < 3; ++k) {
@@ -476,7 +510,7 @@ function updateAndRender(now, gl, glResources, state) {
     requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
-function updateDisc(distanceField, dt, player, disc) {
+function updateDisc(distanceField, dt, discSpeed, player, disc) {
     const dx = disc.position.x - player.position.x;
     const dy = disc.position.y - player.position.y;
     const dist = Math.sqrt(dx**2 + dy**2);
@@ -488,8 +522,7 @@ function updateDisc(distanceField, dt, player, disc) {
 
         const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
 
-        const speed = 0.0625;//0.125;
-        const dist = speed * dt / Math.max(1e-8, gradientLen);
+        const dist = discSpeed * dt / Math.max(1e-8, gradientLen);
     
         disc.position.x -= gradient.x * dist;
         disc.position.y -= gradient.y * dist;
