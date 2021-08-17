@@ -163,6 +163,10 @@ function createEnemies(obstacles, playerPosition) {
                 x: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
                 y: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
             },
+            velocity: {
+                x: 0,
+                y: 0,
+            },
             color: enemyColor,
             dead: false,
         };
@@ -579,10 +583,30 @@ function updateEnemy(distanceField, dt, discSpeed, player, disc) {
 
     const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
 
-    const dist = discSpeed * dt / Math.max(1e-8, gradientLen);
+    const dist = discSpeed / Math.max(1e-8, gradientLen);
 
-    disc.position.x -= gradient.x * dist;
-    disc.position.y -= gradient.y * dist;
+    const vxPrev = disc.velocity.x;
+    const vyPrev = disc.velocity.y;
+
+    const vxTarget = gradient.x * -dist;
+    const vyTarget = gradient.y * -dist;
+
+    let dvx = vxTarget - disc.velocity.x;
+    let dvy = vyTarget - disc.velocity.y;
+    const dv = Math.sqrt(dvx**2 + dvy**2);
+
+    const maxDv = 1 * dt;
+
+    if (dv > maxDv) {
+        dvx *= maxDv / dv;
+        dvy *= maxDv / dv;
+    }
+
+    disc.velocity.x += dvx;
+    disc.velocity.y += dvy;
+
+    disc.position.x += (vxPrev + disc.velocity.x) * dt / 2;
+    disc.position.y += (vyPrev + disc.velocity.y) * dt / 2;
 }
 
 function fixupDiscPairPositions(disc0, disc1) {
