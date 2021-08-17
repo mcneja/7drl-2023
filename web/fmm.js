@@ -33,22 +33,37 @@ function main() {
         return;
     }
 
-    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
-    canvas.exitPointerLock = canvas.exitPointerLock || canvas.mozExitPointerLock;
-
-    canvas.onclick = () => canvas.requestPointerLock();
-
+    const glResources = initGlResources(gl);
     const state = initState();
 
-    const glResources = initGlResources(gl);
+    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+    document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
+
+    canvas.onclick = () => {
+        if (state.paused) {
+            canvas.requestPointerLock();
+        } else {
+            resetState(state);
+            document.exitPointerLock();
+        }
+    };
 
     function lockChangeAlert() {
-        if (document.pointerLockElement === canvas || document.mozPointerLockElement === canvas) {
+        const mouseCaptured =
+            document.pointerLockElement === canvas ||
+            document.mozPointerLockElement === canvas;
+        if (mouseCaptured) {
             document.addEventListener("mousemove", onUpdatePosition, false);
+            if (state.paused) {
+                state.paused = false;
+                state.tLast = undefined;
+                state.player.velocity.x = 0;
+                state.player.velocity.y = 0;
+                requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+            }
         } else {
             document.removeEventListener("mousemove", onUpdatePosition, false);
-            state.player.velocity.x = 0;
-            state.player.velocity.y = 0;
+            state.paused = true;
         }
     }
 
@@ -59,15 +74,7 @@ function main() {
     document.addEventListener('pointerlockchange', lockChangeAlert, false);
     document.addEventListener('mozpointerlockchange', lockChangeAlert, false);
 
-    requestAnimationFrame(now => {
-        const t = now / 1000;
-        state.tLast = t;
-        state.uScroll = t/2 - Math.floor(t/2);
-
-        drawScreen(gl, glResources, state);
-
-        requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
-    });
+    requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
 function updatePosition(state, e) {
@@ -91,7 +98,12 @@ function initGlResources(gl) {
 }
 
 function initState() {
+    const state = {};
+    resetState(state);
+    return state;
+}
 
+function resetState(state) {
     const gridSizeX = 64;
     const gridSizeY = 64;
 
@@ -110,16 +122,14 @@ function initState() {
     const distanceField = createDistanceField(costRateFieldSmooth, player.position);
     const discs = createEnemies(obstacles, player.position);
 
-    return {
-        costRateField: costRateFieldSmooth,
-        distanceField: distanceField,
-        tLast: 0,
-        uScroll: 0,
-        discs: discs,
-        obstacles: obstacles,
-        collectibles: collectibles,
-        player: player,
-    };
+    state.costRateField = costRateFieldSmooth;
+    state.distanceField = distanceField;
+    state.paused = true;
+    state.tLast = undefined;
+    state.discs = discs;
+    state.obstacles = obstacles;
+    state.collectibles = collectibles;
+    state.player = player;
 }
 
 function createEnemies(obstacles, playerPosition) {
@@ -468,10 +478,21 @@ function createVertexInfo(costRateField, distanceField) {
 
 function updateAndRender(now, gl, glResources, state) {
     const t = now / 1000;
-    const dt = Math.min(1/30, t - state.tLast);
+    const dt = (state.paused || state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
     state.tLast = t;
-    state.uScroll = t/2 - Math.floor(t/2);
 
+    if (dt > 0) {
+        updateState(state, dt);
+    }
+
+    drawScreen(gl, glResources, state);
+
+    if (!state.paused) {
+        requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+    }
+}
+
+function updateState(state, dt) {
     state.player.position.x += state.player.velocity.x * dt;
     state.player.position.y += state.player.velocity.y * dt;
 
@@ -504,10 +525,6 @@ function updateAndRender(now, gl, glResources, state) {
             fixupPositionAgainstBoundary(state.discs[i]);
         }
     }
-
-    drawScreen(gl, glResources, state);
-
-    requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
 }
 
 function updateDisc(distanceField, dt, discSpeed, player, disc) {
@@ -614,7 +631,7 @@ function drawScreen(gl, glResources, state) {
     gl.viewport(0, 0, screenX, screenY);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    glResources.renderField(state.costRateField, state.distanceField, 0); //state.uScroll);
+    glResources.renderField(state.costRateField, state.distanceField, 0);
     glResources.renderDiscs(state.obstacles);
     glResources.renderDiscs(state.collectibles);
     glResources.renderDiscs(state.discs);
