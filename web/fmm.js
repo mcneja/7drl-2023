@@ -48,33 +48,43 @@ function main() {
         }
     };
 
-    function lockChangeAlert() {
+    function requestUpdateAndRender() {
+        requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+    }
+
+    function onLockChanged() {
         const mouseCaptured =
             document.pointerLockElement === canvas ||
             document.mozPointerLockElement === canvas;
         if (mouseCaptured) {
-            document.addEventListener("mousemove", onUpdatePosition, false);
+            document.addEventListener("mousemove", onMouseMoved, false);
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
                 state.player.velocity.x = 0;
                 state.player.velocity.y = 0;
-                requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+                requestUpdateAndRender();
             }
         } else {
-            document.removeEventListener("mousemove", onUpdatePosition, false);
+            document.removeEventListener("mousemove", onMouseMoved, false);
             state.paused = true;
         }
     }
 
-    function onUpdatePosition(e) {
+    function onMouseMoved(e) {
         updatePosition(state, e);
     }
 
-    document.addEventListener('pointerlockchange', lockChangeAlert, false);
-    document.addEventListener('mozpointerlockchange', lockChangeAlert, false);
+    function onWindowResized() {
+        requestUpdateAndRender();
+    }
 
-    requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+    document.addEventListener('pointerlockchange', onLockChanged, false);
+    document.addEventListener('mozpointerlockchange', onLockChanged, false);
+
+    window.addEventListener('resize', onWindowResized);
+
+    requestUpdateAndRender();
 }
 
 function updatePosition(state, e) {
@@ -114,7 +124,7 @@ function resetState(state) {
         color: { r: 0.8, g: 0.6, b: 0 },
     };
 
-    const obstacles = createObstacles();
+    const obstacles = createObstacles(player.position);
     const collectibles = createCollectibles(obstacles);
     const costRateField = createCostRateField(gridSizeX, gridSizeY, obstacles);
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
@@ -166,10 +176,11 @@ function createEnemies(obstacles, playerPosition) {
     return enemies;
 }
 
-function createObstacles() {
+function createObstacles(playerPosition) {
     const obstacles = [];
     const radius = 0.05;
     const separation = -0.02;
+    const playerDisc = { radius: 0.05, position: playerPosition };
     const color = { r: 0.25, g: 0.25, b: 0.25 };
     for (let i = 0; i < 1000 && obstacles.length < 16; ++i) {
         const obstacle = {
@@ -180,7 +191,8 @@ function createObstacles() {
             },
             color: color,
         };
-        if (!discOverlapsDiscs(obstacle, obstacles, separation)) {
+        if (!discOverlapsDiscs(obstacle, obstacles, separation) &&
+            !discsOverlap(obstacle, playerDisc)) {
             obstacles.push(obstacle);
         }
     }
