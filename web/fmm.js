@@ -103,6 +103,7 @@ function initState() {
     };
 
     const obstacles = createObstacles();
+    const collectibles = createCollectibles(obstacles);
     const costRateField = createCostRateField(gridSizeX, gridSizeY, obstacles);
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
     const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
@@ -118,6 +119,7 @@ function initState() {
         uScroll: 0,
         discs: discs,
         obstacles: obstacles,
+        collectibles: collectibles,
         player: player,
     };
 }
@@ -143,6 +145,29 @@ function createObstacles() {
     return obstacles;
 }
 
+function createCollectibles(obstacles) {
+    const collectibles = [];
+    const radius = 0.01;
+    const separationFromObstacle = 0.02;
+    const separationFromCollectible = 0.05;
+    const color = { r: 0, g: 0.9, b: 0 };
+    for (let i = 0; i < 1000 && collectibles.length < 128; ++i) {
+        const collectible = {
+            radius: radius,
+            position: {
+                x: radius + separationFromObstacle + (1 - 2*(radius + separationFromObstacle)) * Math.random(),
+                y: radius + separationFromObstacle + (1 - 2*(radius + separationFromObstacle)) * Math.random(),
+            },
+            color: color,
+        };
+        if (!discOverlapsDiscs(collectible, obstacles, separationFromObstacle) &&
+            !discOverlapsDiscs(collectible, collectibles, separationFromCollectible)) {
+            collectibles.push(collectible);
+        }
+    }
+    return collectibles;
+}
+
 function discOverlapsDiscs(disc, discs, minSeparation) {
     for (const disc2 of discs) {
         const dx = disc2.position.x - disc.position.x;
@@ -152,6 +177,12 @@ function discOverlapsDiscs(disc, discs, minSeparation) {
         }
     }
     return false;
+}
+
+function discsOverlap(disc0, disc1) {
+    const dx = disc1.position.x - disc0.position.x;
+    const dy = disc1.position.y - disc0.position.y;
+    return dx**2 + dy**2 < (disc1.radius + disc0.radius)**2;
 }
 
 function createFieldRenderer(gl) {
@@ -431,6 +462,8 @@ function updateAndRender(now, gl, glResources, state) {
         state.player.velocity.y = 0;
     }
 
+    state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
+
     updateDistanceField(state.costRateField, state.distanceField, state.player.position);
 
     for (const disc of state.discs) {
@@ -515,6 +548,7 @@ function drawScreen(gl, glResources, state) {
 
     glResources.renderField(state.costRateField, state.distanceField, 0); //state.uScroll);
     glResources.renderDiscs(state.obstacles);
+    glResources.renderDiscs(state.collectibles);
     glResources.renderDiscs(state.discs);
     glResources.renderDiscs([state.player]);
 }
