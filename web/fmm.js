@@ -104,7 +104,7 @@ function initGlResources(gl) {
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
-    gl.clearColor(0, 0, 0, 1.0);
+    gl.clearColor(0.95, 0.94, 0.94, 1);
 
     return glResources;
 }
@@ -127,13 +127,15 @@ function resetState(state) {
         dead: false,
     };
 
+    const enemyRadius = 0.0125;
+
     const obstacles = createObstacles(player.position);
     const collectibles = createCollectibles(obstacles);
-    const costRateField = createCostRateField(gridSizeX, gridSizeY, obstacles);
+    const costRateField = createCostRateField(gridSizeX, gridSizeY, enemyRadius, obstacles);
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
     const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
     const distanceField = createDistanceField(costRateFieldSmooth, player.position);
-    const discs = createEnemies(obstacles, player.position);
+    const discs = createEnemies(obstacles, enemyRadius, player.position);
 
     state.costRateField = costRateFieldSmooth;
     state.distanceField = distanceField;
@@ -146,9 +148,8 @@ function resetState(state) {
     state.player = player;
 }
 
-function createEnemies(obstacles, playerPosition) {
+function createEnemies(obstacles, enemyRadius, playerPosition) {
     const enemies = [];
-    const enemyRadius = 0.0125;
     const separationFromObstacle = 0.02 + enemyRadius;
     const separationFromAlly = 0.05;
     const enemyColor = { r: 0, g: 0.25, b: 0.85 };
@@ -561,14 +562,14 @@ function updateState(state, dt) {
     for (let k = 0; k < 3; ++k) {
         for (let i = 0; i < state.discs.length; ++i) {
             for (let j = i + 1; j < state.discs.length; ++j) {
-                fixupDiscPairPositions(state.discs[i], state.discs[j]);
+                fixupDiscPairs(state.discs[i], state.discs[j]);
             }
 
             for (const obstacle of state.obstacles) {
-                fixupPositionAgainstDisc(state.discs[i], obstacle);
+                fixupPositionAndVelocityAgainstDisc(state.discs[i], obstacle);
             }
 
-            fixupPositionAgainstBoundary(state.discs[i]);
+            fixupPositionAndVelocityAgainstBoundary(state.discs[i]);
         }
     }
 }
@@ -583,19 +584,19 @@ function updateEnemy(distanceField, dt, discSpeed, player, disc) {
 
     const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
 
-    const dist = discSpeed / Math.max(1e-8, gradientLen);
+    const scale = discSpeed / Math.max(1e-8, gradientLen);
 
     const vxPrev = disc.velocity.x;
     const vyPrev = disc.velocity.y;
 
-    const vxTarget = gradient.x * -dist;
-    const vyTarget = gradient.y * -dist;
+    const vxTarget = gradient.x * -scale;
+    const vyTarget = gradient.y * -scale;
 
     let dvx = vxTarget - disc.velocity.x;
     let dvy = vyTarget - disc.velocity.y;
     const dv = Math.sqrt(dvx**2 + dvy**2);
 
-    const maxDv = 1 * dt;
+    const maxDv = 25 * (discSpeed**2) * dt;
 
     if (dv > maxDv) {
         dvx *= maxDv / dv;
@@ -609,32 +610,27 @@ function updateEnemy(distanceField, dt, discSpeed, player, disc) {
     disc.position.y += (vyPrev + disc.velocity.y) * dt / 2;
 }
 
-function fixupDiscPairPositions(disc0, disc1) {
-    let dx = disc1.position.x - disc0.position.x;
-    let dy = disc1.position.y - disc0.position.y;
+function fixupDiscPairs(disc0, disc1) {
+    const dx = disc1.position.x - disc0.position.x;
+    const dy = disc1.position.y - disc0.position.y;
     const d = Math.sqrt(dx**2 + dy**2);
     const dist = d - (disc0.radius + disc1.radius);
 
     if (dist < 0) {
-        dx *= dist / (2 * d);
-        dy *= dist / (2 * d);
-        disc0.position.x += dx;
-        disc0.position.y += dy;
-        disc1.position.x -= dx;
-        disc1.position.y -= dy;
-    }
-}
+        disc0.position.x += dx * dist / (2 * d);
+        disc0.position.y += dy * dist / (2 * d);
+        disc1.position.x -= dx * dist / (2 * d);
+        disc1.position.y -= dy * dist / (2 * d);
 
-function fixupPositionAgainstBoundary(disc) {
-    if (disc.position.x < disc.radius) {
-        disc.position.x = disc.radius;
-    } else if (disc.position.x > 1 - disc.radius) {
-        disc.position.x = 1 - disc.radius;
-    }
-    if (disc.position.y < disc.radius) {
-        disc.position.y = disc.radius;
-    } else if (disc.position.y > 1 - disc.radius) {
-        disc.position.y = 1 - disc.radius;
+        const vx = disc1.velocity.x - disc0.velocity.x;
+        const vy = disc1.velocity.y - disc0.velocity.y;
+        const vn = vx * dx + vy * dy;
+        if (vn < 0) {
+            disc0.velocity.x += vn * dx / (2 * d**2);
+            disc0.velocity.y += vn * dy / (2 * d**2);
+            disc1.velocity.x -= vn * dx / (2 * d**2);
+            disc1.velocity.y -= vn * dy / (2 * d**2);
+        }
     }
 }
 
@@ -652,18 +648,6 @@ function fixupPositionAndVelocityAgainstBoundary(disc) {
     } else if (disc.position.y > 1 - disc.radius) {
         disc.position.y = 1 - disc.radius;
         disc.velocity.y = 0;
-    }
-}
-
-function fixupPositionAgainstDisc(disc, obstacle) {
-    const dx = disc.position.x - obstacle.position.x;
-    const dy = disc.position.y - obstacle.position.y;
-    const d = Math.sqrt(dx**2 + dy**2);
-    const dist = d - (disc.radius + obstacle.radius);
-
-    if (dist < 0) {
-        disc.position.x -= dx * dist / d;
-        disc.position.y -= dy * dist / d;
     }
 }
 
@@ -804,7 +788,7 @@ function priorityQueuePush(q, x) {
     }
 }
 
-function createCostRateField(sizeX, sizeY, obstacles) {
+function createCostRateField(sizeX, sizeY, enemyRadius, obstacles) {
     const costRate = new Float64Grid(sizeX, sizeY, 1);
 
     function dist(x, y) {
@@ -814,7 +798,7 @@ function createCostRateField(sizeX, sizeY, obstacles) {
         for (const obstacle of obstacles) {
             const dx = x - obstacle.position.x;
             const dy = y - obstacle.position.y;
-            const dist = Math.sqrt(dx**2 + dy**2) - obstacle.radius;
+            const dist = Math.sqrt(dx**2 + dy**2) - (obstacle.radius + enemyRadius);
             minDist = Math.min(minDist, dist);
         }
         minDist = Math.max(0, minDist);
