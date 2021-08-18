@@ -89,8 +89,9 @@ function main() {
 
 function updatePosition(state, e) {
     if (!state.player.dead) {
-        state.player.velocity.x += e.movementX / 250;
-        state.player.velocity.y -= e.movementY / 250;
+        const sensitivity = 0.002;
+        state.player.velocity.x += e.movementX * sensitivity;
+        state.player.velocity.y -= e.movementY * sensitivity;
     }
 }
 
