@@ -15,7 +15,7 @@ body {
   align-items: center;
 }
 .container {
-  width: 90vmin;
+  width: 85vmin;
   box-sizing: border-box;
   border: 2px solid gray;
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
@@ -33,17 +33,19 @@ canvas {
 <link rel="icon" type="image/ico" href="favicon.ico"/>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fast Marching Method Playground</title>
+<title>Fast Marching Method Game</title>
 </head>
 <body>
 <div class="column">
-<h2>Fast Marching Method Playground</h2>
+<h2>Fast Marching Method Game</h2>
 <div class="container">
 <div class="contained">
 <canvas id="canvas"></canvas>
 </div>
 </div>
-<p>Click on play area to control yellow disc with the mouse. Esc to exit.</p>
+<p>Click on play area to move the yellow dot with the mouse. Esc to pause.
+Collect green dots; don&rsquo;t let blue dots touch you. Grey discs are obstacles.</p>
+<p class="center"><a href="../index.html">Back</a></p>
 </div>
 </body>
 <script src="fmm.js"></script>
