@@ -532,7 +532,9 @@ function updateState(state, dt) {
 
     fixupPositionAndVelocityAgainstBoundary(state.player);
 
-    state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
+    if (!state.gameOver) {
+        state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
+    }
     if (state.collectibles.length <= 0) {
         state.gameOver = true;
     }
