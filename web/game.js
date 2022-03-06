@@ -1,6 +1,6 @@
 "use strict";
 
-window.onload = main;
+window.onload = loadResourcesThenRun;
 
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
@@ -37,7 +37,7 @@ function main(fontImage) {
         return;
     }
 
-    const renderer = createRenderer(gl);
+    const renderer = createRenderer(gl, fontImage);
     const state = initState();
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
@@ -91,14 +91,13 @@ function main(fontImage) {
     requestUpdateAndRender();
 }
 
-function loadImage(src) {
+const loadImage = src =>
     new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
         img.onerror = reject;
         img.src = src;
     });
-}
 
 function updatePosition(state, e) {
     if (!state.player.dead) {
@@ -108,18 +107,19 @@ function updatePosition(state, e) {
     }
 }
 
-function createRenderer(gl) {
+function createRenderer(gl, fontImage) {
     gl.getExtension('OES_standard_derivatives');
 
     const renderer = {
         beginFrame: createBeginFrame(gl),
         renderField: createFieldRenderer(gl),
         renderDiscs: createDiscRenderer(gl),
+        renderGlyphs: createGlyphRenderer(gl, fontImage),
     };
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
-    gl.clearColor(0.95, 0.94, 0.94, 1);
+    gl.clearColor(0.95, 0.95, 0.95, 1);
 
     return renderer;
 }
@@ -525,6 +525,169 @@ function createVertexInfo(costRateField, distanceField) {
     return v;
 }
 
+function createGlyphRenderer(gl, fontImage) {
+    const vsSource = `
+        attribute vec4 vPositionTexcoord;
+        attribute vec4 vColor;
+
+        uniform mat4 uProjectionMatrix;
+
+        varying highp vec2 fTexcoord;
+        varying highp vec4 fColor;
+
+        void main() {
+            fTexcoord = vPositionTexcoord.zw;
+            fColor = vColor;
+            gl_Position = uProjectionMatrix * vec4(vPositionTexcoord.xy, 0, 1);
+        }
+    `;
+
+    const fsSource = `
+        varying highp vec2 fTexcoord;
+        varying highp vec4 fColor;
+
+        uniform sampler2D uOpacity;
+
+        void main() {
+            gl_FragColor = fColor * vec4(1, 1, 1, texture2D(uOpacity, fTexcoord));
+        }
+    `;
+
+    const fontTexture = createTextureFromImage(gl, fontImage);
+
+    const projectionMatrixData = new Float32Array(16);
+    projectionMatrixData.fill(0);
+    projectionMatrixData[0] = 1;
+    projectionMatrixData[5] = 1;
+    projectionMatrixData[10] = 1;
+    projectionMatrixData[15] = 1;
+
+    const program = initShaderProgram(gl, vsSource, fsSource);
+
+    const vPositionTexcoordLoc = gl.getAttribLocation(program, 'vPositionTexcoord');
+    const vColorLoc = gl.getAttribLocation(program, 'vColor');
+
+    const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const uOpacityLoc = gl.getUniformLocation(program, 'uOpacity');
+
+    const maxQuads = 4096;
+    const numVertices = 4 * maxQuads;
+    const bytesPerVertex = 4 * Float32Array.BYTES_PER_ELEMENT + Uint32Array.BYTES_PER_ELEMENT;
+    const wordsPerQuad = bytesPerVertex;
+
+    const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
+
+    const vertexBuffer = gl.createBuffer();
+
+    const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
+    const vertexDataAsFloat32 = new Float32Array(vertexData);
+    const vertexDataAsUint32 = new Uint32Array(vertexData);
+
+    let numQuads = 0;
+
+    function addQuad(x0, y0, x1, y1, s0, t0, s1, t1, color) {
+        if (numQuads >= maxQuads) {
+            flushQuads();
+        }
+
+        let i = numQuads * wordsPerQuad;
+
+        vertexDataAsFloat32[i+0] = x0;
+        vertexDataAsFloat32[i+1] = y0;
+        vertexDataAsFloat32[i+2] = s0;
+        vertexDataAsFloat32[i+3] = t0;
+        vertexDataAsUint32[i+4] = color;
+
+        vertexDataAsFloat32[i+5] = x1;
+        vertexDataAsFloat32[i+6] = y0;
+        vertexDataAsFloat32[i+7] = s1;
+        vertexDataAsFloat32[i+8] = t0;
+        vertexDataAsUint32[i+9] = color;
+
+        vertexDataAsFloat32[i+10] = x0;
+        vertexDataAsFloat32[i+11] = y1;
+        vertexDataAsFloat32[i+12] = s0;
+        vertexDataAsFloat32[i+13] = t1;
+        vertexDataAsUint32[i+14] = color;
+
+        vertexDataAsFloat32[i+15] = x1;
+        vertexDataAsFloat32[i+16] = y1;
+        vertexDataAsFloat32[i+17] = s1;
+        vertexDataAsFloat32[i+18] = t1;
+        vertexDataAsUint32[i+19] = color;
+
+        ++numQuads;
+    }
+
+    function flushQuads() {
+        if (numQuads <= 0) {
+            return;
+        }
+
+        gl.useProgram(program);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, fontTexture);
+        gl.uniform1i(uOpacityLoc, 0);
+
+        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, projectionMatrixData);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+        gl.vertexAttribPointer(vPositionTexcoordLoc, 4, gl.FLOAT, false, bytesPerVertex, 0);
+        gl.vertexAttribPointer(vColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
+        gl.enableVertexAttribArray(vPositionTexcoordLoc);
+        gl.enableVertexAttribArray(vColorLoc);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+        gl.drawElements(gl.TRIANGLES, 6 * numQuads, gl.UNSIGNED_SHORT, 0);
+
+        numQuads = 0;
+    }
+
+    return {
+        add: addQuad,
+        flush: flushQuads,
+    };
+}
+
+function createGlyphIndexBuffer(gl, maxQuads) {
+    const indices = new Uint16Array(maxQuads * 6);
+
+    for (let i = 0; i < maxQuads; ++i) {
+        let j = 6*i;
+        let k = 4*i;
+        indices[j+0] = k+0;
+        indices[j+1] = k+1;
+        indices[j+2] = k+2;
+        indices[j+3] = k+2;
+        indices[j+4] = k+1;
+        indices[j+5] = k+3;
+    }
+
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+    return indexBuffer;
+}
+
+function createTextureFromImage(gl, image) {
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    return texture;
+}
+
 function updateAndRender(now, renderer, state) {
     const t = now / 1000;
     const dt = (state.paused || state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
@@ -705,6 +868,8 @@ function drawScreen(renderer, state) {
     renderer.renderDiscs(state.collectibles);
     renderer.renderDiscs(state.discs);
     renderer.renderDiscs([state.player]);
+    renderer.renderGlyphs.add(-0.25, -0.5, 0.25, 0.5, 0, 1, 1, 0, 0xffffffff);
+    renderer.renderGlyphs.flush();
 }
 
 function resizeCanvasToDisplaySize(canvas) {
