@@ -5,28 +5,29 @@ a {
   color: #ddd;
 }
 body {
-  color: #ddd;
-  font-family: arial;
-  background-color: #444;
+  margin-left: 1rem;
+  margin-right: 1rem;
+  margin-top: 0;
+  margin-bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  font-family: sans-serif;
+  background-color: #444;
+  color: #ddd;
 }
 .column {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.container {
-  width: 85vmin;
-  box-sizing: border-box;
-  border: none;
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-}
-.contained {
-  position: relative;
-  height: 0;
-  padding-bottom: 100%;
+.canvas-container {
+  width: 100%;
+  max-width: 95vmin;
+  aspect-ratio: 4/3;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.2);
+  background-color: #222;
 }
 canvas {
   position: absolute;
@@ -41,10 +42,8 @@ canvas {
 <body>
 <div class="column">
 <h2>2022 7DRL</h2>
-<div class="container">
-<div class="contained">
+<div class="canvas-container">
 <canvas id="canvas"></canvas>
-</div>
 </div>
 <p>Click on play area to move the yellow dot with the mouse. Esc to pause.
 Collect green dots; don&rsquo;t let blue dots touch you. Grey discs are obstacles.</p>
