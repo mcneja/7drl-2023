@@ -119,7 +119,7 @@ function createRenderer(gl, fontImage) {
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
-    gl.clearColor(0.95, 0.95, 0.95, 1);
+    gl.clearColor(0, 0, 0, 1);
 
     return renderer;
 }
@@ -138,7 +138,7 @@ function resetState(state) {
         radius: 0.0125,
         position: { x: 0.5, y: 0.5 },
         velocity: { x: 0, y: 0 },
-        color: { r: 0.8, g: 0.6, b: 0 },
+        color: { r: 0.125, g: 0.125, b: 0.125 },
         dead: false,
     };
 
@@ -167,7 +167,7 @@ function createEnemies(obstacles, enemyRadius, playerPosition) {
     const enemies = [];
     const separationFromObstacle = 0.02 + enemyRadius;
     const separationFromAlly = 0.05;
-    const enemyColor = { r: 0, g: 0.25, b: 0.85 };
+    const enemyColor = { r: 0.0625, g: 0.0625, b: 0.0625 };
     const playerDisc = { radius: 0.25, position: playerPosition };
     const angle = Math.random() * Math.PI * 2;
     const dirX = Math.cos(angle);
@@ -229,7 +229,7 @@ function createCollectibles(obstacles) {
     const radius = 0.01;
     const separationFromObstacle = 0.02;
     const separationFromCollectible = 0.05;
-    const color = { r: 0, g: 0.9, b: 0 };
+    const color = { r: 0.125, g: 0.125, b: 0.125 };
     for (let i = 0; i < 1000 && collectibles.length < 128; ++i) {
         const collectible = {
             radius: radius,
@@ -681,10 +681,11 @@ function createTextureFromImage(gl, image) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     return texture;
 }
 
@@ -863,12 +864,34 @@ function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
 
 function drawScreen(renderer, state) {
     renderer.beginFrame();
-    renderer.renderField(state.costRateField, state.distanceField, 0);
+//    renderer.renderField(state.costRateField, state.distanceField, 0);
     renderer.renderDiscs(state.obstacles);
-    renderer.renderDiscs(state.collectibles);
-    renderer.renderDiscs(state.discs);
-    renderer.renderDiscs([state.player]);
-    renderer.renderGlyphs.add(-0.25, -0.5, 0.25, 0.5, 0, 1, 1, 0, 0xffffffff);
+//    renderer.renderDiscs(state.collectibles);
+//    renderer.renderDiscs(state.discs);
+//    renderer.renderDiscs([state.player]);
+
+    const r = 0.0125 * 1.2;
+    const rx = r;
+    const ry = r * 2;
+    const tx = 0.0625;
+    const ty = 0.0625;
+
+    for (const c of state.collectibles) {
+        const x = c.position.x * 2 - 1;
+        const y = c.position.y * 2 - 1;
+        renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 15*tx, ty, 16*tx, 0, 0xff00ffff);
+    }
+
+    for (const d of state.discs) {
+        const x = d.position.x * 2 - 1;
+        const y = d.position.y * 2 - 0.995;
+        renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 7*tx, 7*ty, 8*tx, 6*ty, 0xff00a000);
+    }
+
+//    renderer.renderGlyphs.add(-0.25, -0.5, 0.25, 0.5, 0, 1, 1, 0, 0xffffffff);
+    const x = state.player.position.x * 2 - 1;
+    const y = state.player.position.y * 2 - 1;
+    renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 1*tx, ty, 2*tx, 0, 0xff00ffff);
     renderer.renderGlyphs.flush();
 }
 
