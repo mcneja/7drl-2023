@@ -23,7 +23,11 @@ class Float64Grid {
     }
 }
 
-function main() {
+function loadResourcesThenRun() {
+    loadImage('font.png').then((fontImage) => { main(fontImage); });
+}
+
+function main(fontImage) {
 
     const canvas = document.querySelector("#canvas");
     const gl = canvas.getContext("webgl", { alpha: false, depth: false });
@@ -33,7 +37,7 @@ function main() {
         return;
     }
 
-    const glResources = initGlResources(gl);
+    const renderer = createRenderer(gl);
     const state = initState();
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
@@ -49,7 +53,7 @@ function main() {
     };
 
     function requestUpdateAndRender() {
-        requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+        requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
 
     function onLockChanged() {
@@ -87,6 +91,15 @@ function main() {
     requestUpdateAndRender();
 }
 
+function loadImage(src) {
+    new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
+
 function updatePosition(state, e) {
     if (!state.player.dead) {
         const sensitivity = 0.002;
@@ -95,10 +108,11 @@ function updatePosition(state, e) {
     }
 }
 
-function initGlResources(gl) {
+function createRenderer(gl) {
     gl.getExtension('OES_standard_derivatives');
 
-    const glResources = {
+    const renderer = {
+        beginFrame: createBeginFrame(gl),
         renderField: createFieldRenderer(gl),
         renderDiscs: createDiscRenderer(gl),
     };
@@ -107,7 +121,7 @@ function initGlResources(gl) {
     gl.enable(gl.BLEND);
     gl.clearColor(0.95, 0.94, 0.94, 1);
 
-    return glResources;
+    return renderer;
 }
 
 function initState() {
@@ -248,6 +262,18 @@ function discsOverlap(disc0, disc1) {
     const dx = disc1.position.x - disc0.position.x;
     const dy = disc1.position.y - disc0.position.y;
     return dx**2 + dy**2 < (disc1.radius + disc0.radius)**2;
+}
+
+function createBeginFrame(gl) {
+    return () => {
+        resizeCanvasToDisplaySize(gl.canvas);
+
+        const screenX = gl.canvas.clientWidth;
+        const screenY = gl.canvas.clientHeight;
+    
+        gl.viewport(0, 0, screenX, screenY);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    }
 }
 
 function createFieldRenderer(gl) {
@@ -499,7 +525,7 @@ function createVertexInfo(costRateField, distanceField) {
     return v;
 }
 
-function updateAndRender(now, gl, glResources, state) {
+function updateAndRender(now, renderer, state) {
     const t = now / 1000;
     const dt = (state.paused || state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
     state.tLast = t;
@@ -508,10 +534,10 @@ function updateAndRender(now, gl, glResources, state) {
         updateState(state, dt);
     }
 
-    drawScreen(gl, glResources, state);
+    drawScreen(renderer, state);
 
     if (!state.paused) {
-        requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
+        requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
 }
 
@@ -672,20 +698,13 @@ function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
     }
 }
 
-function drawScreen(gl, glResources, state) {
-    resizeCanvasToDisplaySize(gl.canvas);
-
-    const screenX = gl.canvas.clientWidth;
-    const screenY = gl.canvas.clientHeight;
-
-    gl.viewport(0, 0, screenX, screenY);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    glResources.renderField(state.costRateField, state.distanceField, 0);
-    glResources.renderDiscs(state.obstacles);
-    glResources.renderDiscs(state.collectibles);
-    glResources.renderDiscs(state.discs);
-    glResources.renderDiscs([state.player]);
+function drawScreen(renderer, state) {
+    renderer.beginFrame();
+    renderer.renderField(state.costRateField, state.distanceField, 0);
+    renderer.renderDiscs(state.obstacles);
+    renderer.renderDiscs(state.collectibles);
+    renderer.renderDiscs(state.discs);
+    renderer.renderDiscs([state.player]);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
