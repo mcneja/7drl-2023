@@ -1471,7 +1471,7 @@ function createLevel() {
                 continue;
             }
 
-            const edgeCorridorWidth = edge.span ? corridorWidth : 4;
+            const edgeCorridorWidth = corridorWidth;
 
             const room0 = rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
@@ -1527,7 +1527,7 @@ function createLevel() {
                 continue;
             }
 
-            const edgeCorridorWidth = edge.span ? corridorWidth : 4;
+            const edgeCorridorWidth = corridorWidth;
 
             const room0 = rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
