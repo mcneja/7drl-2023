@@ -23,6 +23,27 @@ class Float64Grid {
     }
 }
 
+class Level {
+    constructor(sizeX, sizeY, initialValue) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.values = new Uint8Array(sizeX * sizeY);
+        this.values.fill(initialValue);
+    }
+
+    fill(value) {
+        this.values.fill(value);
+    }
+
+    get(x, y) {
+        return this.values[this.sizeX * y + x];
+    }
+
+    set(x, y, value) {
+        this.values[this.sizeX * y + x] = value;
+    }
+}
+
 function loadResourcesThenRun() {
     loadImage('font.png').then((fontImage) => { main(fontImage); });
 }
@@ -115,6 +136,7 @@ function createRenderer(gl, fontImage) {
         renderField: createFieldRenderer(gl),
         renderDiscs: createDiscRenderer(gl),
         renderGlyphs: createGlyphRenderer(gl, fontImage),
+        renderColoredTriangles: createColoredTriangleRenderer(gl),
     };
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -138,19 +160,19 @@ function resetState(state) {
         radius: 0.0125,
         position: { x: 0.5, y: 0.5 },
         velocity: { x: 0, y: 0 },
-        color: { r: 0.125, g: 0.125, b: 0.125 },
+        color: { r: 0.25, g: 0.25, b: 0.25 },
         dead: false,
     };
 
     const enemyRadius = 0.0125;
 
-    const obstacles = createObstacles(player.position);
-    const collectibles = createCollectibles(obstacles);
+    const obstacles = []; // createObstacles(player.position);
+    const collectibles = []; // createCollectibles(obstacles);
     const costRateField = createCostRateField(gridSizeX, gridSizeY, enemyRadius, obstacles);
     const distanceFromWallsField = createDistanceFromWallsField(costRateField);
     const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
     const distanceField = createDistanceField(costRateFieldSmooth, player.position);
-    const discs = createEnemies(obstacles, enemyRadius, player.position);
+    const discs = []; // createEnemies(obstacles, enemyRadius, player.position);
 
     state.costRateField = costRateFieldSmooth;
     state.distanceField = distanceField;
@@ -161,13 +183,14 @@ function resetState(state) {
     state.obstacles = obstacles;
     state.collectibles = collectibles;
     state.player = player;
+    state.level = createLevel();
 }
 
 function createEnemies(obstacles, enemyRadius, playerPosition) {
     const enemies = [];
     const separationFromObstacle = 0.02 + enemyRadius;
     const separationFromAlly = 0.05;
-    const enemyColor = { r: 0.0625, g: 0.0625, b: 0.0625 };
+    const enemyColor = { r: 0.25, g: 0.25, b: 0.25 };
     const playerDisc = { radius: 0.25, position: playerPosition };
     const angle = Math.random() * Math.PI * 2;
     const dirX = Math.cos(angle);
@@ -226,10 +249,10 @@ function createObstacles(playerPosition) {
 
 function createCollectibles(obstacles) {
     const collectibles = [];
-    const radius = 0.01;
+    const radius = 0.0125;
     const separationFromObstacle = 0.02;
     const separationFromCollectible = 0.05;
-    const color = { r: 0.125, g: 0.125, b: 0.125 };
+    const color = { r: 0.25, g: 0.25, b: 0.25 };
     for (let i = 0; i < 1000 && collectibles.length < 128; ++i) {
         const collectible = {
             radius: radius,
@@ -705,6 +728,71 @@ function updateAndRender(now, renderer, state) {
     }
 }
 
+function createColoredTriangleRenderer(gl) {
+    const vsSource = `
+        attribute vec2 vPosition;
+        attribute vec4 vColor;
+
+        uniform mat4 uProjectionMatrix;
+
+        varying highp vec4 fColor;
+
+        void main() {
+            fColor = vColor;
+            gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+        }
+    `;
+
+    const fsSource = `
+        varying highp vec4 fColor;
+        void main() {
+            gl_FragColor = fColor;
+        }
+    `;
+
+    const projectionMatrix = new Float32Array(16);
+    projectionMatrix.fill(0);
+    projectionMatrix[10] = 1;
+    projectionMatrix[12] = -1;
+    projectionMatrix[13] = -1;
+    projectionMatrix[15] = 1;
+
+    const program = initShaderProgram(gl, vsSource, fsSource);
+
+    const vertexPositionLoc = gl.getAttribLocation(program, 'vPosition');
+    const vertexColorLoc = gl.getAttribLocation(program, 'vColor');
+    const projectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+
+    const vertexBuffer = gl.createBuffer();
+
+    const bytesPerVertex = 12; // two 4-byte floats and one 32-bit color
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
+    gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
+
+    return (worldSizeX, worldSizeY, vertexData) => {
+        const numVerts = Math.floor(vertexData.byteLength / bytesPerVertex);
+
+        gl.useProgram(program);
+
+        projectionMatrix[0] = 2 / worldSizeX;
+        projectionMatrix[5] = 2 / worldSizeY;
+        gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(vertexPositionLoc);
+        gl.enableVertexAttribArray(vertexColorLoc);
+        gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
+        gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
+    
+        gl.drawArrays(gl.TRIANGLES, 0, numVerts);
+
+        gl.disableVertexAttribArray(vertexColorLoc);
+        gl.disableVertexAttribArray(vertexPositionLoc);
+    };
+}
+
 function updateState(state, dt) {
 
     if (state.player.dead) {
@@ -864,8 +952,9 @@ function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
 
 function drawScreen(renderer, state) {
     renderer.beginFrame();
+    renderer.renderColoredTriangles(state.level.worldSizeX, state.level.worldSizeY, state.level.vertexData);
 //    renderer.renderField(state.costRateField, state.distanceField, 0);
-    renderer.renderDiscs(state.obstacles);
+//    renderer.renderDiscs(state.obstacles);
 //    renderer.renderDiscs(state.collectibles);
 //    renderer.renderDiscs(state.discs);
 //    renderer.renderDiscs([state.player]);
@@ -1238,4 +1327,311 @@ function estimateDistance(distanceField, x, y) {
     const d = d0 + (d1 - d0) * uY;
 
     return d;
+}
+
+function randomInRange(n) {
+    return Math.floor(Math.random() * n);
+}
+
+// The output level data structure consists of dimensions and
+// a byte array with the tile for each square. The starting
+// position is also returned.
+
+const ttSolid = 0;
+const ttRoom = 1;
+const ttHall = 2;
+const ttWall = 3;
+
+function createLevel() {
+    const mapSizeX = 96;
+    const mapSizeY = 72;
+
+    const numCellsX = 3;
+    const numCellsY = 3;
+    const corridorWidth = 3;
+
+    const squaresPerBlockX = Math.floor((mapSizeX + corridorWidth) / numCellsX);
+    const squaresPerBlockY = Math.floor((mapSizeY + corridorWidth) / numCellsY);
+
+    const minRoomSize = corridorWidth + 2;
+
+    // Create some rooms.
+
+    const rooms = [];
+
+    for (let roomY = 0; roomY < numCellsY; ++roomY) {
+        for (let roomX = 0; roomX < numCellsX; ++roomX) {
+            const cellMinX = roomX * squaresPerBlockX + 1;
+            const cellMinY = roomY * squaresPerBlockY + 1;
+            const cellMaxX = (roomX + 1) * squaresPerBlockX - (1 + corridorWidth);
+            const cellMaxY = (roomY + 1) * squaresPerBlockY - (1 + corridorWidth);
+            const maxRoomSizeX = cellMaxX - cellMinX;
+            const maxRoomSizeY = cellMaxY - cellMinY;
+            const halfRoomSizeRangeX = Math.floor((maxRoomSizeX + 1 - minRoomSize) / 2);
+            const halfRoomSizeRangeY = Math.floor((maxRoomSizeY + 1 - minRoomSize) / 2);
+
+            const roomSizeX = 2 * randomInRange(halfRoomSizeRangeX) + minRoomSize;
+            const roomSizeY = 2 * randomInRange(halfRoomSizeRangeY) + minRoomSize;
+
+            const roomMinX = randomInRange(maxRoomSizeX - roomSizeX) + cellMinX;
+            const roomMinY = randomInRange(maxRoomSizeY - roomSizeY) + cellMinY;
+
+            rooms.push({
+                minX: roomMinX,
+                minY: roomMinY,
+                sizeX: roomSizeX,
+                sizeY: roomSizeY,
+            });
+        }
+    }
+
+    // Generate the graph of connections between rooms
+
+    const potentialEdges = [];
+    for (let roomY = 0; roomY < numCellsY; ++roomY) {
+        for (let roomX = 1; roomX < numCellsX; ++roomX) {
+            const room1 = roomY * numCellsX + roomX;
+            const room0 = room1 - 1;
+            potentialEdges.push([room0, room1]);
+        }
+    }
+
+    for (let roomY = 1; roomY < numCellsY; ++roomY) {
+        for (let roomX = 0; roomX < numCellsX; ++roomX) {
+            const room1 = roomY * numCellsX + roomX;
+            const room0 = room1 - numCellsX;
+            potentialEdges.push([room0, room1]);
+        }
+    }
+
+    shuffleArray(potentialEdges);
+
+    const numRooms = numCellsX * numCellsY;
+    const roomGroup = [];
+    for (let i = 0; i < numRooms; ++i) {
+        roomGroup.push(i);
+    }
+
+    const edges = [];
+    for (const edge of potentialEdges) {
+        const group0 = roomGroup[edge[0]];
+        const group1 = roomGroup[edge[1]];
+        if (group0 != group1 || Math.random() < 0.3333) {
+            edges.push(edge);
+            for (let i = 0; i < numRooms; ++i) {
+                if (roomGroup[i] === group1) {
+                    roomGroup[i] = group0;
+                }
+            }
+        }
+    }
+
+    // Plot rooms into a grid
+
+    const level = new Level(mapSizeX, mapSizeY, ttSolid);
+
+    for (const room of rooms) {
+        for (let y = 0; y < room.sizeY; ++y) {
+            for (let x = 0; x < room.sizeX; ++x) {
+                level.set(x + room.minX, y + room.minY, ttRoom);
+            }
+        }
+
+        for (let x = 0; x < room.sizeX; ++x) {
+            level.set(x + room.minX, room.minY - 1, ttWall);
+            level.set(x + room.minX, room.minY + room.sizeY, ttWall);
+        }
+
+        for (let y = 0; y < room.sizeY + 2; ++y) {
+            level.set(room.minX - 1, y + room.minY - 1, ttWall);
+            level.set(room.minX + room.sizeX, y + room.minY - 1, ttWall);
+        }
+    }
+
+    // Plot corridors into grid
+
+    for (let roomY = 0; roomY < numCellsY; ++roomY) {
+        for (let roomX = 0; roomX < (numCellsX - 1); ++roomX) {
+            const roomIndex0 = roomY * numCellsX + roomX;
+            const roomIndex1 = roomIndex0 + 1;
+
+            if (!edges.some(edge => edge[0] === roomIndex0 && edge[1] === roomIndex1)) {
+                continue;
+            }
+
+            const room0 = rooms[roomIndex0];
+            const room1 = rooms[roomIndex1];
+
+            const xMin = room0.minX + room0.sizeX;
+            const xMax = room1.minX;
+//            const xMid = randomInRange(xMax - (xMin + 1 + corridorWidth)) + xMin + 1;
+            const xMid = Math.floor((xMax - (xMin + 1 + corridorWidth)) / 2) + xMin + 1;
+
+            const yMinIntersect = Math.max(room0.minY, room1.minY) + 1;
+            const yMaxIntersect = Math.min(room0.minY + room0.sizeY, room1.minY + room1.sizeY) - 1;
+            const yRangeIntersect = yMaxIntersect - yMinIntersect;
+
+            let yMinLeft, yMinRight;
+            if (yRangeIntersect >= corridorWidth) {
+                yMinLeft = yMinRight = randomInRange(yRangeIntersect + 1 - corridorWidth) + yMinIntersect;
+            } else {
+                yMinLeft = Math.floor((room0.sizeY - corridorWidth) / 2) + room0.minY;
+                yMinRight = Math.floor((room1.sizeY - corridorWidth) / 2) + room1.minY;
+                // yMinLeft = randomInRange(room0.sizeY - (1 + corridorWidth)) + room0.minY + 1;
+                // yMinRight = randomInRange(room1.sizeY - (1 + corridorWidth)) + room1.minY + 1;
+            }
+
+            for (let x = xMin; x < xMid; ++x) {
+                for (let y = 0; y < corridorWidth; ++y) {
+                    level.set(x, yMinLeft + y, ttHall);
+                }
+            }
+
+            for (let x = xMid + corridorWidth; x < xMax; ++x) {
+                for (let y = 0; y < corridorWidth; ++y) {
+                    level.set(x, yMinRight + y, ttHall);
+                }
+            }
+
+            const yMin = Math.min(yMinLeft, yMinRight);
+            const yMax = Math.max(yMinLeft, yMinRight);
+            for (let y = yMin; y < yMax + corridorWidth; ++y) {
+                for (let x = 0; x < corridorWidth; ++x) {
+                    level.set(xMid + x, y, ttHall);
+                }
+            }
+        }
+    }
+
+    for (let roomY = 0; roomY < (numCellsY - 1); ++roomY) {
+        for (let roomX = 0; roomX < numCellsX; ++roomX) {
+            const roomIndex0 = roomY * numCellsX + roomX;
+            const roomIndex1 = roomIndex0 + numCellsX;
+
+            if (!edges.some(edge => edge[0] === roomIndex0 && edge[1] === roomIndex1)) {
+                continue;
+            }
+
+            const room0 = rooms[roomIndex0];
+            const room1 = rooms[roomIndex1];
+
+            const xMinIntersect = Math.max(room0.minX, room1.minX) + 1;
+            const xMaxIntersect = Math.min(room0.minX + room0.sizeX, room1.minX + room1.sizeX) - 1;
+            const xRangeIntersect = xMaxIntersect - xMinIntersect;
+
+            let xMinLower, xMinUpper;
+            if (xRangeIntersect >= corridorWidth) {
+                xMinLower = xMinUpper = randomInRange(xRangeIntersect + 1 - corridorWidth) + xMinIntersect;
+            } else {
+                xMinLower = Math.floor((room0.sizeX - corridorWidth) / 2) + room0.minX;
+                xMinUpper = Math.floor((room1.sizeX - corridorWidth) / 2) + room1.minX;
+                // xMinLower = randomInRange(room0.sizeX - (1 + corridorWidth)) + room0.minX + 1;
+                // xMinUpper = randomInRange(room1.sizeX - (1 + corridorWidth)) + room1.minX + 1;
+            }
+
+            const yMin = room0.minY + room0.sizeY;
+            const yMax = room1.minY;
+//            const yMid = randomInRange(yMax - (yMin + 1 + corridorWidth)) + yMin + 1;
+            const yMid = Math.floor((yMax - (yMin + 1 + corridorWidth)) / 2) + yMin + 1;
+
+            for (let y = yMin; y < yMid; ++y) {
+                for (let x = 0; x < corridorWidth; ++x) {
+                    level.set(xMinLower + x, y, ttHall);
+                }
+            }
+
+            for (let y = yMid + corridorWidth; y < yMax; ++y) {
+                for (let x = 0; x < corridorWidth; ++x) {
+                    level.set(xMinUpper + x, y, ttHall);
+                }
+            }
+
+            const xMin = Math.min(xMinLower, xMinUpper);
+            const xMax = Math.max(xMinLower, xMinUpper);
+            for (let x = xMin; x < xMax + corridorWidth; ++x) {
+                for (let y = 0; y < corridorWidth; ++y) {
+                    level.set(x, yMid + y, ttHall);
+                }
+            }
+        }
+    }
+
+    // Convert to colored squares.
+
+    const roomColor = 0xff808080;
+    const hallColor = 0xff404040;
+    const wallColor = 0xff0055aa;
+
+    const squares = [];
+    for (let y = 0; y < level.sizeY; ++y) {
+        for (let x = 0; x < level.sizeX; ++x) {
+            const type = level.get(x, y);
+            if (type == ttRoom) {
+                squares.push({x: x, y: y, color: roomColor});
+            } else if (type == ttHall) {
+                squares.push({x: x, y: y, color: hallColor});
+            } else if (type == ttWall) {
+                squares.push({x: x, y: y, color: wallColor});
+            }
+        }
+    }
+
+    // Convert squares to triangles
+
+    const numVertices = squares.length * 6;
+    const bytesPerVertex = 12;
+
+    const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
+    const vertexDataAsFloat32 = new Float32Array(vertexData);
+    const vertexDataAsUint32 = new Uint32Array(vertexData);
+
+    const scale = 1 / 80;
+
+    for (let i = 0; i < squares.length; ++i) {
+        const j = 18 * i;
+        const color = squares[i].color;
+        const x0 = squares[i].x * scale;
+        const y0 = squares[i].y * scale;
+        const x1 = x0 + scale;
+        const y1 = y0 + scale;
+
+        vertexDataAsFloat32[j+0] = x0;
+        vertexDataAsFloat32[j+1] = y0;
+        vertexDataAsUint32[j+2] = color;
+
+        vertexDataAsFloat32[j+3] = x1;
+        vertexDataAsFloat32[j+4] = y0;
+        vertexDataAsUint32[j+5] = color;
+
+        vertexDataAsFloat32[j+6] = x0;
+        vertexDataAsFloat32[j+7] = y1;
+        vertexDataAsUint32[j+8] = color;
+
+        vertexDataAsFloat32[j+9] = x0;
+        vertexDataAsFloat32[j+10] = y1;
+        vertexDataAsUint32[j+11] = color;
+
+        vertexDataAsFloat32[j+12] = x1;
+        vertexDataAsFloat32[j+13] = y0;
+        vertexDataAsUint32[j+14] = color;
+
+        vertexDataAsFloat32[j+15] = x1;
+        vertexDataAsFloat32[j+16] = y1;
+        vertexDataAsUint32[j+17] = color;
+    }
+
+    return {
+        worldSizeX: level.sizeX * scale,
+        worldSizeY: level.sizeY * scale,
+        vertexData: vertexData,
+    };
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; --i) {
+        let j = randomInRange(i + 1);
+        let temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
 }
