@@ -2,6 +2,8 @@
 
 window.onload = loadResourcesThenRun;
 
+const {mat2, mat3, mat4, vec2, vec3, vec4} = glMatrix;
+
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
@@ -122,7 +124,7 @@ const loadImage = src =>
 
 function updatePosition(state, e) {
     if (!state.player.dead) {
-        const sensitivity = 0.002;
+        const sensitivity = 0.05;
         state.player.velocity.x += e.movementX * sensitivity;
         state.player.velocity.y -= e.movementY * sensitivity;
     }
@@ -153,37 +155,44 @@ function initState() {
 }
 
 function resetState(state) {
-    const gridSizeX = 64;
-    const gridSizeY = 64;
+    const level = createLevel();
 
     const player = {
-        radius: 0.0125,
-        position: { x: 0.5, y: 0.5 },
+        radius: 0.52,
+        position: { x: level.playerStartX, y: level.playerStartY },
         velocity: { x: 0, y: 0 },
-        color: { r: 0.25, g: 0.25, b: 0.25 },
+        color: { r: 0, g: 0, b: 0 },
         dead: false,
     };
 
-    const enemyRadius = 0.0125;
+    const camera = {
+        position: vec2.fromValues(player.position.x, player.position.y),
+        velocity: vec2.fromValues(0, 0),
+    };
 
-    const obstacles = []; // createObstacles(player.position);
-    const collectibles = []; // createCollectibles(obstacles);
-    const costRateField = createCostRateField(gridSizeX, gridSizeY, enemyRadius, obstacles);
-    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
-    const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
-    const distanceField = createDistanceField(costRateFieldSmooth, player.position);
-    const discs = []; // createEnemies(obstacles, enemyRadius, player.position);
+    const gridSizeX = 64;
+    const gridSizeY = 64;
 
-    state.costRateField = costRateFieldSmooth;
-    state.distanceField = distanceField;
+//    const enemyRadius = 0.0125;
+//    const obstacles = []; // createObstacles(player.position);
+//    const collectibles = []; // createCollectibles(obstacles);
+//    const costRateField = createCostRateField(gridSizeX, gridSizeY, enemyRadius, obstacles);
+//    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
+//    const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
+//    const distanceField = createDistanceField(costRateFieldSmooth, player.position);
+//    const discs = []; // createEnemies(obstacles, enemyRadius, player.position);
+
+//    state.costRateField = costRateFieldSmooth;
+//    state.distanceField = distanceField;
     state.paused = true;
     state.gameOver = false;
     state.tLast = undefined;
-    state.discs = discs;
-    state.obstacles = obstacles;
-    state.collectibles = collectibles;
+//    state.discs = discs;
+//    state.obstacles = obstacles;
+//    state.collectibles = collectibles;
     state.player = player;
-    state.level = createLevel();
+    state.camera = camera;
+    state.level = level;
 }
 
 function createEnemies(obstacles, enemyRadius, playerPosition) {
@@ -288,7 +297,7 @@ function discsOverlap(disc0, disc1) {
 }
 
 function createBeginFrame(gl) {
-    return () => {
+    return (screenSize) => {
         resizeCanvasToDisplaySize(gl.canvas);
 
         const screenX = gl.canvas.clientWidth;
@@ -296,6 +305,8 @@ function createBeginFrame(gl) {
     
         gl.viewport(0, 0, screenX, screenY);
         gl.clear(gl.COLOR_BUFFER_BIT);
+
+        vec2.set(screenSize, screenX, screenY);
     }
 }
 
@@ -415,13 +426,13 @@ function createDiscRenderer(gl) {
     const vsSource = `
         attribute vec2 vPosition;
         
-        uniform mat4 uProjectionMatrix;
+        uniform mat4 uMatScreenFromDisc;
 
         varying highp vec2 fPosition;
 
         void main() {
             fPosition = vPosition;
-            gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+            gl_Position = uMatScreenFromDisc * vec4(vPosition.xy, 0, 1);
         }
     `;
 
@@ -440,15 +451,14 @@ function createDiscRenderer(gl) {
         }
     `;
 
-    const projectionMatrix = new Float32Array(16);
-    projectionMatrix.fill(0);
-    projectionMatrix[10] = 1;
-    projectionMatrix[15] = 1;
+
+    const matWorldFromDisc = mat4.create();
+    const matScreenFromDisc = mat4.create();
 
     const program = initShaderProgram(gl, vsSource, fsSource);
 
     const vertexPositionLoc = gl.getAttribLocation(program, 'vPosition');
-    const projectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const projectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromDisc');
     const colorLoc = gl.getUniformLocation(program, 'uColor');
     const vertexBuffer = createDiscVertexBuffer(gl);
 
@@ -456,7 +466,7 @@ function createDiscRenderer(gl) {
     const stride = 8; // two 4-byte floats
     gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, stride, 0);
 
-    return discs => {
+    return (matScreenFromWorld, discs) => {
         gl.useProgram(program);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -466,11 +476,14 @@ function createDiscRenderer(gl) {
         for (const disc of discs) {
             gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
 
-            projectionMatrix[0] = 2 * disc.radius;
-            projectionMatrix[5] = 2 * disc.radius;
-            projectionMatrix[12] = 2 * disc.position.x - 1;
-            projectionMatrix[13] = 2 * disc.position.y - 1;
-            gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
+            matWorldFromDisc[0] = disc.radius;
+            matWorldFromDisc[5] = disc.radius;
+            matWorldFromDisc[12] = disc.position.x;
+            matWorldFromDisc[13] = disc.position.y;
+
+            mat4.multiply(matScreenFromDisc, matScreenFromWorld, matWorldFromDisc);
+
+            gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromDisc);
 
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
@@ -553,7 +566,7 @@ function createGlyphRenderer(gl, fontImage) {
         attribute vec4 vPositionTexcoord;
         attribute vec4 vColor;
 
-        uniform mat4 uProjectionMatrix;
+        uniform mat4 uMatScreenFromWorld;
 
         varying highp vec2 fTexcoord;
         varying highp vec4 fColor;
@@ -561,7 +574,7 @@ function createGlyphRenderer(gl, fontImage) {
         void main() {
             fTexcoord = vPositionTexcoord.zw;
             fColor = vColor;
-            gl_Position = uProjectionMatrix * vec4(vPositionTexcoord.xy, 0, 1);
+            gl_Position = uMatScreenFromWorld * vec4(vPositionTexcoord.xy, 0, 1);
         }
     `;
 
@@ -578,19 +591,12 @@ function createGlyphRenderer(gl, fontImage) {
 
     const fontTexture = createTextureFromImage(gl, fontImage);
 
-    const projectionMatrixData = new Float32Array(16);
-    projectionMatrixData.fill(0);
-    projectionMatrixData[0] = 1;
-    projectionMatrixData[5] = 1;
-    projectionMatrixData[10] = 1;
-    projectionMatrixData[15] = 1;
-
     const program = initShaderProgram(gl, vsSource, fsSource);
 
     const vPositionTexcoordLoc = gl.getAttribLocation(program, 'vPositionTexcoord');
     const vColorLoc = gl.getAttribLocation(program, 'vColor');
 
-    const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromWorld');
     const uOpacityLoc = gl.getUniformLocation(program, 'uOpacity');
 
     const maxQuads = 4096;
@@ -642,7 +648,7 @@ function createGlyphRenderer(gl, fontImage) {
         ++numQuads;
     }
 
-    function flushQuads() {
+    function flushQuads(matScreenFromWorld) {
         if (numQuads <= 0) {
             return;
         }
@@ -653,7 +659,7 @@ function createGlyphRenderer(gl, fontImage) {
         gl.bindTexture(gl.TEXTURE_2D, fontTexture);
         gl.uniform1i(uOpacityLoc, 0);
 
-        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, projectionMatrixData);
+        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorld);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
@@ -721,7 +727,7 @@ function updateAndRender(now, renderer, state) {
         updateState(state, dt);
     }
 
-    drawScreen(renderer, state);
+    renderScene(renderer, state);
 
     if (!state.paused) {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
@@ -750,13 +756,6 @@ function createColoredTriangleRenderer(gl) {
         }
     `;
 
-    const projectionMatrix = new Float32Array(16);
-    projectionMatrix.fill(0);
-    projectionMatrix[10] = 1;
-    projectionMatrix[12] = -1;
-    projectionMatrix[13] = -1;
-    projectionMatrix[15] = 1;
-
     const program = initShaderProgram(gl, vsSource, fsSource);
 
     const vertexPositionLoc = gl.getAttribLocation(program, 'vPosition');
@@ -770,14 +769,12 @@ function createColoredTriangleRenderer(gl) {
     gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
     gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
 
-    return (worldSizeX, worldSizeY, vertexData) => {
+    return (matScreenFromWorld, vertexData) => {
         const numVerts = Math.floor(vertexData.byteLength / bytesPerVertex);
 
         gl.useProgram(program);
 
-        projectionMatrix[0] = 2 / worldSizeX;
-        projectionMatrix[5] = 2 / worldSizeY;
-        gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
+        gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromWorld);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
@@ -804,11 +801,31 @@ function updateState(state, dt) {
     state.player.position.x += state.player.velocity.x * dt;
     state.player.position.y += state.player.velocity.y * dt;
 
+    fixupPositionAndVelocityAgainstLevel(state.player, state.level.grid);
+
+    const posError = vec2.fromValues(state.player.position.x, state.player.position.y);
+    vec2.subtract(posError, posError, state.camera.position);
+
+    const velError = vec2.fromValues(state.player.velocity.x, state.player.velocity.y);
+    vec2.subtract(velError, velError, state.camera.velocity);
+
+    const kSpring = 3; // spring constant, radians/sec
+
+    const acc = vec2.create();
+    vec2.scale(acc, posError, kSpring**2);
+    vec2.scaleAndAdd(acc, acc, velError, 2*kSpring);
+
+    const velNew = vec2.create();
+    vec2.scaleAndAdd(velNew, state.camera.velocity, acc, dt);
+
+    vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
+    vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
+    vec2.copy(state.camera.velocity, velNew);
+
+    /*
     for (const obstacle of state.obstacles) {
         fixupPositionAndVelocityAgainstDisc(state.player, obstacle);
     }
-
-    fixupPositionAndVelocityAgainstBoundary(state.player);
 
     if (!state.gameOver) {
         state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
@@ -853,6 +870,7 @@ function updateState(state, dt) {
             fixupPositionAndVelocityAgainstBoundary(state.discs[i]);
         }
     }
+    */
 }
 
 function updateEnemy(distanceField, dt, discSpeed, player, disc) {
@@ -915,21 +933,52 @@ function fixupDiscPairs(disc0, disc1) {
     }
 }
 
-function fixupPositionAndVelocityAgainstBoundary(disc) {
-    if (disc.position.x < disc.radius) {
-        disc.position.x = disc.radius;
+function fixupPositionAndVelocityAgainstLevel(disc, level) {
+
+    for (let i = 0; i < 4; ++i) {
+        const gridMinX = Math.max(0, Math.floor(disc.position.x - disc.radius));
+        const gridMinY = Math.max(0, Math.floor(disc.position.y - disc.radius));
+        const gridMaxX = Math.min(level.sizeX, Math.floor(disc.position.x + disc.radius + 1));
+        const gridMaxY = Math.min(level.sizeY, Math.floor(disc.position.y + disc.radius + 1));
+
+        for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
+            for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
+                const tileType = level.get(gridX, gridY);
+                if (tileType != ttRoom && tileType != ttHall) {
+                    continue;
+                }
+                const dx = 0.5 + gridX - disc.position.x;
+                const dy = 0.5 + gridY - disc.position.y;
+            }
+        }
+    }
+
+    const xMin = disc.radius;
+    const yMin = disc.radius;
+    const xMax = level.sizeX - disc.radius;
+    const yMax = level.sizeY - disc.radius;
+
+    if (disc.position.x < xMin) {
+        disc.position.x = xMin;
         disc.velocity.x = 0;
-    } else if (disc.position.x > 1 - disc.radius) {
-        disc.position.x = 1 - disc.radius;
+    } else if (disc.position.x > xMax) {
+        disc.position.x = xMax;
         disc.velocity.x = 0;
     }
-    if (disc.position.y < disc.radius) {
-        disc.position.y = disc.radius;
+    if (disc.position.y < yMin) {
+        disc.position.y = yMin;
         disc.velocity.y = 0;
-    } else if (disc.position.y > 1 - disc.radius) {
-        disc.position.y = 1 - disc.radius;
+    } else if (disc.position.y > yMax) {
+        disc.position.y = yMax;
         disc.velocity.y = 0;
     }
+}
+
+function separatingCorrection(dx, dy, r) {
+    dx = Math.max(dx - 0.5, 0, dx + 0.5);
+    dy = Math.max(dy - 0.5, 0, dy + 0.5);
+    const d = Math.sqrt(dx*dx + dy*dy) - r;
+    return {x: dx, y: dy};
 }
 
 function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
@@ -950,20 +999,35 @@ function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
     }
 }
 
-function drawScreen(renderer, state) {
-    renderer.beginFrame();
-    renderer.renderColoredTriangles(state.level.worldSizeX, state.level.worldSizeY, state.level.vertexData);
+function renderScene(renderer, state) {
+    const screenSize = vec2.create();
+    renderer.beginFrame(screenSize);
+
+    const matScreenFromWorld = mat4.create();
+    {
+        const cx = state.camera.position[0];
+        const cy = state.camera.position[1];
+        const r = 18;
+        let rx, ry;
+        if (screenSize[0] < screenSize[1]) {
+            rx = r;
+            ry = r * screenSize[1] / screenSize[0];
+        } else {
+            ry = r;
+            rx = r * screenSize[0] / screenSize[1];
+        }
+
+        mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
+    }
+
 //    renderer.renderField(state.costRateField, state.distanceField, 0);
+    renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 //    renderer.renderDiscs(state.obstacles);
 //    renderer.renderDiscs(state.collectibles);
 //    renderer.renderDiscs(state.discs);
-//    renderer.renderDiscs([state.player]);
+    renderer.renderDiscs(matScreenFromWorld, [state.player]);
 
-    const r = 0.0125 * 1.2;
-    const rx = r;
-    const ry = r * 2;
-    const tx = 0.0625;
-    const ty = 0.0625;
+/*
 
     for (const c of state.collectibles) {
         const x = c.position.x * 2 - 1;
@@ -976,12 +1040,20 @@ function drawScreen(renderer, state) {
         const y = d.position.y * 2 - 0.995;
         renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 7*tx, 7*ty, 8*tx, 6*ty, 0xff00a000);
     }
+*/
 
 //    renderer.renderGlyphs.add(-0.25, -0.5, 0.25, 0.5, 0, 1, 1, 0, 0xffffffff);
-    const x = state.player.position.x * 2 - 1;
-    const y = state.player.position.y * 2 - 1;
-    renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 1*tx, ty, 2*tx, 0, 0xff00ffff);
-    renderer.renderGlyphs.flush();
+    {
+        const tx = 0.0625;
+        const ty = 0.0625;
+
+        const x = state.player.position.x;
+        const y = state.player.position.y;
+        const rx = 0.25;
+        const ry = 0.5;
+        renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 1*tx, ty, 2*tx, 0, 0xff00ffff);
+        renderer.renderGlyphs.flush(matScreenFromWorld);
+    }
 }
 
 function resizeCanvasToDisplaySize(canvas) {
@@ -1353,12 +1425,12 @@ const ttHall = 2;
 const ttWall = 3;
 
 function createLevel() {
-    const mapSizeX = 96;
-    const mapSizeY = 72;
+    const mapSizeX = 128;
+    const mapSizeY = 96;
 
     const numCellsX = 4;
     const numCellsY = 3;
-    const corridorWidth = 5;
+    const corridorWidth = 3;
 
     const squaresPerBlockX = Math.floor((mapSizeX + corridorWidth) / numCellsX);
     const squaresPerBlockY = Math.floor((mapSizeY + corridorWidth) / numCellsY);
@@ -1471,46 +1543,44 @@ function createLevel() {
                 continue;
             }
 
-            const edgeCorridorWidth = corridorWidth;
-
             const room0 = rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
 
             const xMin = room0.minX + room0.sizeX;
             const xMax = room1.minX;
-//            const xMid = randomInRange(xMax - (xMin + 1 + edgeCorridorWidth)) + xMin + 1;
-            const xMid = Math.floor((xMax - (xMin + 1 + edgeCorridorWidth)) / 2) + xMin + 1;
+//            const xMid = randomInRange(xMax - (xMin + 1 + corridorWidth)) + xMin + 1;
+            const xMid = Math.floor((xMax - (xMin + 1 + corridorWidth)) / 2) + xMin + 1;
 
             const yMinIntersect = Math.max(room0.minY, room1.minY) + 1;
             const yMaxIntersect = Math.min(room0.minY + room0.sizeY, room1.minY + room1.sizeY) - 1;
             const yRangeIntersect = yMaxIntersect - yMinIntersect;
 
             let yMinLeft, yMinRight;
-            if (yRangeIntersect >= edgeCorridorWidth) {
-                yMinLeft = yMinRight = randomInRange(1 + yRangeIntersect - edgeCorridorWidth) + yMinIntersect;
+            if (yRangeIntersect >= corridorWidth) {
+                yMinLeft = yMinRight = randomInRange(1 + yRangeIntersect - corridorWidth) + yMinIntersect;
             } else {
-                yMinLeft = Math.floor((room0.sizeY - edgeCorridorWidth) / 2) + room0.minY;
-                yMinRight = Math.floor((room1.sizeY - edgeCorridorWidth) / 2) + room1.minY;
-                // yMinLeft = randomInRange(room0.sizeY - (1 + edgeCorridorWidth)) + room0.minY + 1;
-                // yMinRight = randomInRange(room1.sizeY - (1 + edgeCorridorWidth)) + room1.minY + 1;
+                yMinLeft = Math.floor((room0.sizeY - corridorWidth) / 2) + room0.minY;
+                yMinRight = Math.floor((room1.sizeY - corridorWidth) / 2) + room1.minY;
+                // yMinLeft = randomInRange(room0.sizeY - (1 + corridorWidth)) + room0.minY + 1;
+                // yMinRight = randomInRange(room1.sizeY - (1 + corridorWidth)) + room1.minY + 1;
             }
 
             for (let x = xMin; x < xMid; ++x) {
-                for (let y = 0; y < edgeCorridorWidth; ++y) {
+                for (let y = 0; y < corridorWidth; ++y) {
                     level.set(x, yMinLeft + y, ttHall);
                 }
             }
 
-            for (let x = xMid + edgeCorridorWidth; x < xMax; ++x) {
-                for (let y = 0; y < edgeCorridorWidth; ++y) {
+            for (let x = xMid + corridorWidth; x < xMax; ++x) {
+                for (let y = 0; y < corridorWidth; ++y) {
                     level.set(x, yMinRight + y, ttHall);
                 }
             }
 
             const yMin = Math.min(yMinLeft, yMinRight);
             const yMax = Math.max(yMinLeft, yMinRight);
-            for (let y = yMin; y < yMax + edgeCorridorWidth; ++y) {
-                for (let x = 0; x < edgeCorridorWidth; ++x) {
+            for (let y = yMin; y < yMax + corridorWidth; ++y) {
+                for (let x = 0; x < corridorWidth; ++x) {
                     level.set(xMid + x, y, ttHall);
                 }
             }
@@ -1527,8 +1597,6 @@ function createLevel() {
                 continue;
             }
 
-            const edgeCorridorWidth = corridorWidth;
-
             const room0 = rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
 
@@ -1537,36 +1605,36 @@ function createLevel() {
             const xRangeIntersect = xMaxIntersect - xMinIntersect;
 
             let xMinLower, xMinUpper;
-            if (xRangeIntersect >= edgeCorridorWidth) {
-                xMinLower = xMinUpper = randomInRange(1 + xRangeIntersect - edgeCorridorWidth) + xMinIntersect;
+            if (xRangeIntersect >= corridorWidth) {
+                xMinLower = xMinUpper = randomInRange(1 + xRangeIntersect - corridorWidth) + xMinIntersect;
             } else {
-                xMinLower = Math.floor((room0.sizeX - edgeCorridorWidth) / 2) + room0.minX;
-                xMinUpper = Math.floor((room1.sizeX - edgeCorridorWidth) / 2) + room1.minX;
-                // xMinLower = randomInRange(room0.sizeX - (1 + edgeCorridorWidth)) + room0.minX + 1;
-                // xMinUpper = randomInRange(room1.sizeX - (1 + edgeCorridorWidth)) + room1.minX + 1;
+                xMinLower = Math.floor((room0.sizeX - corridorWidth) / 2) + room0.minX;
+                xMinUpper = Math.floor((room1.sizeX - corridorWidth) / 2) + room1.minX;
+                // xMinLower = randomInRange(room0.sizeX - (1 + corridorWidth)) + room0.minX + 1;
+                // xMinUpper = randomInRange(room1.sizeX - (1 + corridorWidth)) + room1.minX + 1;
             }
 
             const yMin = room0.minY + room0.sizeY;
             const yMax = room1.minY;
-//            const yMid = randomInRange(yMax - (yMin + 1 + edgeCorridorWidth)) + yMin + 1;
-            const yMid = Math.floor((yMax - (yMin + 1 + edgeCorridorWidth)) / 2) + yMin + 1;
+//            const yMid = randomInRange(yMax - (yMin + 1 + corridorWidth)) + yMin + 1;
+            const yMid = Math.floor((yMax - (yMin + 1 + corridorWidth)) / 2) + yMin + 1;
 
             for (let y = yMin; y < yMid; ++y) {
-                for (let x = 0; x < edgeCorridorWidth; ++x) {
+                for (let x = 0; x < corridorWidth; ++x) {
                     level.set(xMinLower + x, y, ttHall);
                 }
             }
 
-            for (let y = yMid + edgeCorridorWidth; y < yMax; ++y) {
-                for (let x = 0; x < edgeCorridorWidth; ++x) {
+            for (let y = yMid + corridorWidth; y < yMax; ++y) {
+                for (let x = 0; x < corridorWidth; ++x) {
                     level.set(xMinUpper + x, y, ttHall);
                 }
             }
 
             const xMin = Math.min(xMinLower, xMinUpper);
             const xMax = Math.max(xMinLower, xMinUpper);
-            for (let x = xMin; x < xMax + edgeCorridorWidth; ++x) {
-                for (let y = 0; y < edgeCorridorWidth; ++y) {
+            for (let x = xMin; x < xMax + corridorWidth; ++x) {
+                for (let y = 0; y < corridorWidth; ++y) {
                     level.set(x, yMid + y, ttHall);
                 }
             }
@@ -1602,15 +1670,13 @@ function createLevel() {
     const vertexDataAsFloat32 = new Float32Array(vertexData);
     const vertexDataAsUint32 = new Uint32Array(vertexData);
 
-    const scale = 1 / 80;
-
     for (let i = 0; i < squares.length; ++i) {
         const j = 18 * i;
         const color = squares[i].color;
-        const x0 = squares[i].x * scale;
-        const y0 = squares[i].y * scale;
-        const x1 = x0 + scale;
-        const y1 = y0 + scale;
+        const x0 = squares[i].x;
+        const y0 = squares[i].y;
+        const x1 = x0 + 1;
+        const y1 = y0 + 1;
 
         vertexDataAsFloat32[j+0] = x0;
         vertexDataAsFloat32[j+1] = y0;
@@ -1637,9 +1703,16 @@ function createLevel() {
         vertexDataAsUint32[j+17] = color;
     }
 
+    // Pick a random room as the start position
+
+    const startRoom = rooms[randomInRange(rooms.length)];
+    const startX = randomInRange(startRoom.sizeX) + startRoom.minX;
+    const startY = randomInRange(startRoom.sizeY) + startRoom.minY;
+
     return {
-        worldSizeX: level.sizeX * scale,
-        worldSizeY: level.sizeY * scale,
+        grid: level,
+        playerStartX: startX,
+        playerStartY: startY,
         vertexData: vertexData,
     };
 }
