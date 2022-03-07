@@ -811,10 +811,10 @@ function updateState(state, dt) {
     const posError = vec2.fromValues(state.player.position.x, state.player.position.y);
     vec2.subtract(posError, posError, state.camera.position);
 
-    const velError = vec2.fromValues(state.player.velocity.x, state.player.velocity.y);
+    const velError = vec2.fromValues(0, 0); // (state.player.velocity.x, state.player.velocity.y);
     vec2.subtract(velError, velError, state.camera.velocity);
 
-    const kSpring = 3; // spring constant, radians/sec
+    const kSpring = 8; // spring constant, radians/sec
 
     const acc = vec2.create();
     vec2.scale(acc, posError, kSpring**2);
@@ -1089,7 +1089,8 @@ function renderScene(renderer, state) {
         const y = state.player.position.y;
         const rx = 0.25;
         const ry = 0.5;
-        renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 1*tx, ty, 2*tx, 0, 0xff00ffff);
+        const yOffset = -0.06;
+        renderer.renderGlyphs.add(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1*tx, ty, 2*tx, 0, 0xff00ffff);
         renderer.renderGlyphs.flush(matScreenFromWorld);
     }
 }
