@@ -1337,6 +1337,16 @@ function randomInRange(n) {
 // a byte array with the tile for each square. The starting
 // position is also returned.
 
+function coinFlips(total) {
+    let count = 0;
+    while (total > 0) {
+        if (Math.random() < 0.5)
+            ++count;
+        --total;
+    }
+    return count;
+}
+
 const ttSolid = 0;
 const ttRoom = 1;
 const ttHall = 2;
@@ -1346,9 +1356,9 @@ function createLevel() {
     const mapSizeX = 96;
     const mapSizeY = 72;
 
-    const numCellsX = 3;
+    const numCellsX = 4;
     const numCellsY = 3;
-    const corridorWidth = 3;
+    const corridorWidth = 5;
 
     const squaresPerBlockX = Math.floor((mapSizeX + corridorWidth) / numCellsX);
     const squaresPerBlockY = Math.floor((mapSizeY + corridorWidth) / numCellsY);
@@ -1370,11 +1380,11 @@ function createLevel() {
             const halfRoomSizeRangeX = Math.floor((maxRoomSizeX + 1 - minRoomSize) / 2);
             const halfRoomSizeRangeY = Math.floor((maxRoomSizeY + 1 - minRoomSize) / 2);
 
-            const roomSizeX = 2 * randomInRange(halfRoomSizeRangeX) + minRoomSize;
-            const roomSizeY = 2 * randomInRange(halfRoomSizeRangeY) + minRoomSize;
+            const roomSizeX = 2 * coinFlips(halfRoomSizeRangeX) + minRoomSize;
+            const roomSizeY = 2 * coinFlips(halfRoomSizeRangeY) + minRoomSize;
 
-            const roomMinX = randomInRange(maxRoomSizeX - roomSizeX) + cellMinX;
-            const roomMinY = randomInRange(maxRoomSizeY - roomSizeY) + cellMinY;
+            const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
+            const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
 
             rooms.push({
                 minX: roomMinX,
@@ -1416,8 +1426,9 @@ function createLevel() {
     for (const edge of potentialEdges) {
         const group0 = roomGroup[edge[0]];
         const group1 = roomGroup[edge[1]];
-        if (group0 != group1 || Math.random() < 0.3333) {
-            edges.push(edge);
+        const span = group0 != group1;
+        if (span || Math.random() < 0.5) {
+            edges.push({edge: edge, span: span});
             for (let i = 0; i < numRooms; ++i) {
                 if (roomGroup[i] === group1) {
                     roomGroup[i] = group0;
@@ -1455,48 +1466,51 @@ function createLevel() {
             const roomIndex0 = roomY * numCellsX + roomX;
             const roomIndex1 = roomIndex0 + 1;
 
-            if (!edges.some(edge => edge[0] === roomIndex0 && edge[1] === roomIndex1)) {
+            const edge = edges.find(edge => edge.edge[0] === roomIndex0 && edge.edge[1] === roomIndex1);
+            if (edge === undefined) {
                 continue;
             }
+
+            const edgeCorridorWidth = edge.span ? corridorWidth : 4;
 
             const room0 = rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
 
             const xMin = room0.minX + room0.sizeX;
             const xMax = room1.minX;
-//            const xMid = randomInRange(xMax - (xMin + 1 + corridorWidth)) + xMin + 1;
-            const xMid = Math.floor((xMax - (xMin + 1 + corridorWidth)) / 2) + xMin + 1;
+//            const xMid = randomInRange(xMax - (xMin + 1 + edgeCorridorWidth)) + xMin + 1;
+            const xMid = Math.floor((xMax - (xMin + 1 + edgeCorridorWidth)) / 2) + xMin + 1;
 
             const yMinIntersect = Math.max(room0.minY, room1.minY) + 1;
             const yMaxIntersect = Math.min(room0.minY + room0.sizeY, room1.minY + room1.sizeY) - 1;
             const yRangeIntersect = yMaxIntersect - yMinIntersect;
 
             let yMinLeft, yMinRight;
-            if (yRangeIntersect >= corridorWidth) {
-                yMinLeft = yMinRight = randomInRange(yRangeIntersect + 1 - corridorWidth) + yMinIntersect;
+            if (yRangeIntersect >= edgeCorridorWidth) {
+                yMinLeft = yMinRight = randomInRange(1 + yRangeIntersect - edgeCorridorWidth) + yMinIntersect;
             } else {
-                yMinLeft = Math.floor((room0.sizeY - corridorWidth) / 2) + room0.minY;
-                yMinRight = Math.floor((room1.sizeY - corridorWidth) / 2) + room1.minY;
-                // yMinLeft = randomInRange(room0.sizeY - (1 + corridorWidth)) + room0.minY + 1;
-                // yMinRight = randomInRange(room1.sizeY - (1 + corridorWidth)) + room1.minY + 1;
+                yMinLeft = Math.floor((room0.sizeY - edgeCorridorWidth) / 2) + room0.minY;
+                yMinRight = Math.floor((room1.sizeY - edgeCorridorWidth) / 2) + room1.minY;
+                // yMinLeft = randomInRange(room0.sizeY - (1 + edgeCorridorWidth)) + room0.minY + 1;
+                // yMinRight = randomInRange(room1.sizeY - (1 + edgeCorridorWidth)) + room1.minY + 1;
             }
 
             for (let x = xMin; x < xMid; ++x) {
-                for (let y = 0; y < corridorWidth; ++y) {
+                for (let y = 0; y < edgeCorridorWidth; ++y) {
                     level.set(x, yMinLeft + y, ttHall);
                 }
             }
 
-            for (let x = xMid + corridorWidth; x < xMax; ++x) {
-                for (let y = 0; y < corridorWidth; ++y) {
+            for (let x = xMid + edgeCorridorWidth; x < xMax; ++x) {
+                for (let y = 0; y < edgeCorridorWidth; ++y) {
                     level.set(x, yMinRight + y, ttHall);
                 }
             }
 
             const yMin = Math.min(yMinLeft, yMinRight);
             const yMax = Math.max(yMinLeft, yMinRight);
-            for (let y = yMin; y < yMax + corridorWidth; ++y) {
-                for (let x = 0; x < corridorWidth; ++x) {
+            for (let y = yMin; y < yMax + edgeCorridorWidth; ++y) {
+                for (let x = 0; x < edgeCorridorWidth; ++x) {
                     level.set(xMid + x, y, ttHall);
                 }
             }
@@ -1508,9 +1522,12 @@ function createLevel() {
             const roomIndex0 = roomY * numCellsX + roomX;
             const roomIndex1 = roomIndex0 + numCellsX;
 
-            if (!edges.some(edge => edge[0] === roomIndex0 && edge[1] === roomIndex1)) {
+            const edge = edges.find(edge => edge.edge[0] === roomIndex0 && edge.edge[1] === roomIndex1);
+            if (edge === undefined) {
                 continue;
             }
+
+            const edgeCorridorWidth = edge.span ? corridorWidth : 4;
 
             const room0 = rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
@@ -1520,36 +1537,36 @@ function createLevel() {
             const xRangeIntersect = xMaxIntersect - xMinIntersect;
 
             let xMinLower, xMinUpper;
-            if (xRangeIntersect >= corridorWidth) {
-                xMinLower = xMinUpper = randomInRange(xRangeIntersect + 1 - corridorWidth) + xMinIntersect;
+            if (xRangeIntersect >= edgeCorridorWidth) {
+                xMinLower = xMinUpper = randomInRange(1 + xRangeIntersect - edgeCorridorWidth) + xMinIntersect;
             } else {
-                xMinLower = Math.floor((room0.sizeX - corridorWidth) / 2) + room0.minX;
-                xMinUpper = Math.floor((room1.sizeX - corridorWidth) / 2) + room1.minX;
-                // xMinLower = randomInRange(room0.sizeX - (1 + corridorWidth)) + room0.minX + 1;
-                // xMinUpper = randomInRange(room1.sizeX - (1 + corridorWidth)) + room1.minX + 1;
+                xMinLower = Math.floor((room0.sizeX - edgeCorridorWidth) / 2) + room0.minX;
+                xMinUpper = Math.floor((room1.sizeX - edgeCorridorWidth) / 2) + room1.minX;
+                // xMinLower = randomInRange(room0.sizeX - (1 + edgeCorridorWidth)) + room0.minX + 1;
+                // xMinUpper = randomInRange(room1.sizeX - (1 + edgeCorridorWidth)) + room1.minX + 1;
             }
 
             const yMin = room0.minY + room0.sizeY;
             const yMax = room1.minY;
-//            const yMid = randomInRange(yMax - (yMin + 1 + corridorWidth)) + yMin + 1;
-            const yMid = Math.floor((yMax - (yMin + 1 + corridorWidth)) / 2) + yMin + 1;
+//            const yMid = randomInRange(yMax - (yMin + 1 + edgeCorridorWidth)) + yMin + 1;
+            const yMid = Math.floor((yMax - (yMin + 1 + edgeCorridorWidth)) / 2) + yMin + 1;
 
             for (let y = yMin; y < yMid; ++y) {
-                for (let x = 0; x < corridorWidth; ++x) {
+                for (let x = 0; x < edgeCorridorWidth; ++x) {
                     level.set(xMinLower + x, y, ttHall);
                 }
             }
 
-            for (let y = yMid + corridorWidth; y < yMax; ++y) {
-                for (let x = 0; x < corridorWidth; ++x) {
+            for (let y = yMid + edgeCorridorWidth; y < yMax; ++y) {
+                for (let x = 0; x < edgeCorridorWidth; ++x) {
                     level.set(xMinUpper + x, y, ttHall);
                 }
             }
 
             const xMin = Math.min(xMinLower, xMinUpper);
             const xMax = Math.max(xMinLower, xMinUpper);
-            for (let x = xMin; x < xMax + corridorWidth; ++x) {
-                for (let y = 0; y < corridorWidth; ++y) {
+            for (let x = xMin; x < xMax + edgeCorridorWidth; ++x) {
+                for (let y = 0; y < edgeCorridorWidth; ++y) {
                     level.set(x, yMid + y, ttHall);
                 }
             }
