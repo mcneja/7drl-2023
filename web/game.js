@@ -9,6 +9,9 @@ const ttWall = 1;
 const ttHall = 2;
 const ttRoom = 3;
 
+const playerRadius = 0.5;
+const bulletRadius = 0.25;
+
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
@@ -75,8 +78,7 @@ function main(fontImage) {
         if (state.paused) {
             canvas.requestPointerLock();
         } else {
-            resetState(state);
-            document.exitPointerLock();
+            shootBullet(state);
         }
     };
 
@@ -93,8 +95,6 @@ function main(fontImage) {
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
-                state.player.velocity.x = 0;
-                state.player.velocity.y = 0;
                 requestUpdateAndRender();
             }
         } else {
@@ -128,11 +128,65 @@ const loadImage = src =>
     });
 
 function updatePosition(state, e) {
-    if (!state.player.dead) {
-        const sensitivity = 0.05;
-        state.player.velocity.x += e.movementX * sensitivity;
-        state.player.velocity.y -= e.movementY * sensitivity;
+    if (state.player.dead) {
+        return;
     }
+
+    const sensitivity = 0.05;
+    const movement = vec2.fromValues(e.movementX, -e.movementY);
+    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, sensitivity);
+}
+
+function shootBullet(state) {
+    const pos = vec2.create();
+    vec2.copy(pos, state.player.position);
+    const vel = vec2.create();
+    vec2.scale(vel, state.player.velocity, 2);
+
+    state.playerShots.push({
+        position: pos,
+        velocity: vel,
+        timeRemaining: 2,
+    });
+}
+
+function updateBullets(state, dt) {
+    for (const bullet of state.playerShots) {
+        vec2.scaleAndAdd(bullet.position, bullet.position, bullet.velocity, dt);
+        bullet.timeRemaining -= dt;
+    }
+
+    filterInPlace(state.playerShots, bullet =>
+        bullet.timeRemaining > 0 &&
+        !isDiscTouchingLevel(bullet.position, bulletRadius, state.level.grid)
+    );
+}
+
+function filterInPlace(array, condition) {
+    let i = 0, j = 0;
+
+    while (i < array.length) {
+        const val = array[i];
+        if (condition(val, i, array)) {
+            array[j] = val;
+            ++j;
+        }
+        ++i;
+    };
+
+    array.length = j;
+    return array;
+}
+
+function renderBullets(state, renderer, matScreenFromWorld) {
+    const color = { r: 0.25, g: 1, b: 1 };
+    const discs = state.playerShots.map(bullet => ({
+        position: bullet.position,
+        color: color,
+        radius: bulletRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
 function createRenderer(gl, fontImage) {
@@ -163,17 +217,23 @@ function resetState(state) {
     const level = createLevel();
 
     const player = {
-        radius: 0.52,
-        position: { x: level.playerStartX, y: level.playerStartY },
-        velocity: { x: 0, y: 0 },
+        radius: playerRadius,
+        position: vec2.create(),
+        velocity: vec2.create(),
         color: { r: 0, g: 0, b: 0 },
         dead: false,
     };
 
+    vec2.copy(player.position, level.playerStartPos);
+    vec2.zero(player.velocity);
+
     const camera = {
-        position: vec2.fromValues(player.position.x, player.position.y),
-        velocity: vec2.fromValues(0, 0),
+        position: vec2.create(),
+        velocity: vec2.create(),
     };
+
+    vec2.copy(camera.position, player.position);
+    vec2.zero(camera.velocity);
 
     const gridSizeX = 64;
     const gridSizeY = 64;
@@ -196,6 +256,7 @@ function resetState(state) {
 //    state.obstacles = obstacles;
 //    state.collectibles = collectibles;
     state.player = player;
+    state.playerShots = [];
     state.camera = camera;
     state.level = level;
 }
@@ -483,8 +544,8 @@ function createDiscRenderer(gl) {
 
             matWorldFromDisc[0] = disc.radius;
             matWorldFromDisc[5] = disc.radius;
-            matWorldFromDisc[12] = disc.position.x;
-            matWorldFromDisc[13] = disc.position.y;
+            matWorldFromDisc[12] = disc.position[0];
+            matWorldFromDisc[13] = disc.position[1];
 
             mat4.multiply(matScreenFromDisc, matScreenFromWorld, matWorldFromDisc);
 
@@ -799,20 +860,19 @@ function updateState(state, dt) {
 
     if (state.player.dead) {
         const r = Math.exp(-dt);
-        state.player.velocity.x *= r;
-        state.player.velocity.y *= r;
+        vec2.scale(state.player.velocity, state.player.velocity, r);
     }
 
-    state.player.position.x += state.player.velocity.x * dt;
-    state.player.position.y += state.player.velocity.y * dt;
+    vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
-    fixupPositionAndVelocityAgainstLevel(state.player, state.level.grid);
+    fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.grid);
 
-    const posError = vec2.fromValues(state.player.position.x, state.player.position.y);
-    vec2.subtract(posError, posError, state.camera.position);
+    const posError = vec2.create();
+    vec2.subtract(posError, state.player.position, state.camera.position);
 
-    const velError = vec2.fromValues(0, 0); // (state.player.velocity.x, state.player.velocity.y);
-    vec2.subtract(velError, velError, state.camera.velocity);
+    const velError = vec2.create();
+//    vec2.subtract(velError, state.player.velocity, state.camera.velocity);
+    vec2.negate(velError, state.camera.velocity);
 
     const kSpring = 8; // spring constant, radians/sec
 
@@ -826,6 +886,8 @@ function updateState(state, dt) {
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
     vec2.copy(state.camera.velocity, velNew);
+
+    updateBullets(state, dt);
 
     /*
     for (const obstacle of state.obstacles) {
@@ -938,15 +1000,42 @@ function fixupDiscPairs(disc0, disc1) {
     }
 }
 
-function fixupPositionAndVelocityAgainstLevel(disc, level) {
+function isDiscTouchingLevel(discPos, discRadius, level) {
+    const gridMinX = Math.max(0, Math.floor(discPos[0] - discRadius));
+    const gridMinY = Math.max(0, Math.floor(discPos[1] - discRadius));
+    const gridMaxX = Math.min(level.sizeX, Math.floor(discPos[0] + discRadius + 1));
+    const gridMaxY = Math.min(level.sizeY, Math.floor(discPos[1] + discRadius + 1));
+
+    for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
+        for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
+            const tileType = level.get(gridX, gridY);
+            if (tileType == ttRoom || tileType == ttHall) {
+                continue;
+            }
+            let dx = discPos[0] - gridX;
+            let dy = discPos[1] - gridY;
+
+            dx = Math.max(-dx, 0, dx - 1);
+            dy = Math.max(-dy, 0, dy - 1);
+            const d = Math.sqrt(dx*dx + dy*dy);
+            if (d < discRadius) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level) {
 
     for (let i = 0; i < 4; ++i) {
-        const gridMinX = Math.max(0, Math.floor(disc.position.x - disc.radius));
-        const gridMinY = Math.max(0, Math.floor(disc.position.y - disc.radius));
-        const gridMaxX = Math.min(level.sizeX, Math.floor(disc.position.x + disc.radius + 1));
-        const gridMaxY = Math.min(level.sizeY, Math.floor(disc.position.y + disc.radius + 1));
+        const gridMinX = Math.max(0, Math.floor(position[0] - radius));
+        const gridMinY = Math.max(0, Math.floor(position[1] - radius));
+        const gridMaxX = Math.min(level.sizeX, Math.floor(position[0] + radius + 1));
+        const gridMaxY = Math.min(level.sizeY, Math.floor(position[1] + radius + 1));
 
-        let smallestSeparatingAxis = {x: 0, y: 0, d: disc.radius};
+        let smallestSeparatingAxis = {unitDir: vec2.fromValues(0, 0), d: radius};
 
         for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
             for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
@@ -954,10 +1043,10 @@ function fixupPositionAndVelocityAgainstLevel(disc, level) {
                 if (tileType == ttRoom || tileType == ttHall) {
                     continue;
                 }
-                const dx = disc.position.x - (0.5 + gridX);
-                const dy = disc.position.y - (0.5 + gridY);
+                const dx = position[0] - (0.5 + gridX);
+                const dy = position[1] - (0.5 + gridY);
 
-                const axis = separatingAxis(dx, dy, disc.radius);
+                const axis = separatingAxis(dx, dy);
 
                 if (axis.d < smallestSeparatingAxis.d) {
                     smallestSeparatingAxis = axis;
@@ -965,35 +1054,33 @@ function fixupPositionAndVelocityAgainstLevel(disc, level) {
             }
         }
 
-        smallestSeparatingAxis.d -= disc.radius;
+        smallestSeparatingAxis.d -= radius;
 
         if (smallestSeparatingAxis.d < 0) {
-            disc.position.x -= smallestSeparatingAxis.x * smallestSeparatingAxis.d;
-            disc.position.y -= smallestSeparatingAxis.y * smallestSeparatingAxis.d;
-            const vNormal = smallestSeparatingAxis.x * disc.velocity.x + smallestSeparatingAxis.y * disc.velocity.y;
-            disc.velocity.x -= smallestSeparatingAxis.x * vNormal;
-            disc.velocity.y -= smallestSeparatingAxis.y * vNormal;
+            vec2.scaleAndAdd(position, position, smallestSeparatingAxis.unitDir, -smallestSeparatingAxis.d);
+            const vNormal = vec2.dot(smallestSeparatingAxis.unitDir, velocity);
+            vec2.scaleAndAdd(velocity, velocity, smallestSeparatingAxis.unitDir, -vNormal);
         }
     }
 
-    const xMin = disc.radius;
-    const yMin = disc.radius;
-    const xMax = level.sizeX - disc.radius;
-    const yMax = level.sizeY - disc.radius;
+    const xMin = radius;
+    const yMin = radius;
+    const xMax = level.sizeX - radius;
+    const yMax = level.sizeY - radius;
 
-    if (disc.position.x < xMin) {
-        disc.position.x = xMin;
-        disc.velocity.x = 0;
-    } else if (disc.position.x > xMax) {
-        disc.position.x = xMax;
-        disc.velocity.x = 0;
+    if (position[0] < xMin) {
+        position[0] = xMin;
+        velocity[0] = 0;
+    } else if (position[0] > xMax) {
+        position[0] = xMax;
+        velocity[0] = 0;
     }
-    if (disc.position.y < yMin) {
-        disc.position.y = yMin;
-        disc.velocity.y = 0;
-    } else if (disc.position.y > yMax) {
-        disc.position.y = yMax;
-        disc.velocity.y = 0;
+    if (position[1] < yMin) {
+        position[1] = yMin;
+        velocity[1] = 0;
+    } else if (position[1] > yMax) {
+        position[1] = yMax;
+        velocity[1] = 0;
     }
 }
 
@@ -1005,16 +1092,16 @@ function separatingAxis(dx, dy) {
     if (ax > ay) {
         if (ay > 0) {
             const d = Math.sqrt(ax**2 + ay**2);
-            return {x: sx * ax / d, y: sy * ay / d, d: d};
+            return {unitDir: vec2.fromValues(sx * ax / d, sy * ay / d), d: d};
         } else {
-            return {x: sx, y: 0, d: ax};
+            return {unitDir: vec2.fromValues(sx, 0), d: ax};
         }
     } else {
         if (ax > 0) {
             const d = Math.sqrt(ax**2 + ay**2);
-            return {x: sx * ax / d, y: sy * ay / d, d: d};
+            return {unitDir: vec2.fromValues(sx * ax / d, sy * ay / d), d: d};
         } else {
-            return {x: 0, y: sy, d: ay};
+            return {unitDir: vec2.fromValues(0, sy), d: ay};
         }
     }
 }
@@ -1060,6 +1147,9 @@ function renderScene(renderer, state) {
 
 //    renderer.renderField(state.costRateField, state.distanceField, 0);
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
+
+    renderBullets(state, renderer, matScreenFromWorld);
+
 //    renderer.renderDiscs(state.obstacles);
 //    renderer.renderDiscs(state.collectibles);
 //    renderer.renderDiscs(state.discs);
@@ -1085,8 +1175,8 @@ function renderScene(renderer, state) {
         const tx = 0.0625;
         const ty = 0.0625;
 
-        const x = state.player.position.x;
-        const y = state.player.position.y;
+        const x = state.player.position[0];
+        const y = state.player.position[1];
         const rx = 0.25;
         const ry = 0.5;
         const yOffset = -0.06;
@@ -1740,13 +1830,12 @@ function createLevel() {
     // Pick a random room as the start position
 
     const startRoom = rooms[randomInRange(rooms.length)];
-    const startX = randomInRange(startRoom.sizeX) + startRoom.minX;
-    const startY = randomInRange(startRoom.sizeY) + startRoom.minY;
+    const startX = randomInRange(startRoom.sizeX - 2*playerRadius) + startRoom.minX + playerRadius;
+    const startY = randomInRange(startRoom.sizeY - 2*playerRadius) + startRoom.minY + playerRadius;
 
     return {
         grid: level,
-        playerStartX: startX,
-        playerStartY: startY,
+        playerStartPos: vec2.fromValues(startX, startY),
         vertexData: vertexData,
     };
 }
