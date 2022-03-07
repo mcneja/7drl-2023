@@ -4,6 +4,11 @@ window.onload = loadResourcesThenRun;
 
 const {mat2, mat3, mat4, vec2, vec3, vec4} = glMatrix;
 
+const ttSolid = 0;
+const ttWall = 1;
+const ttHall = 2;
+const ttRoom = 3;
+
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
@@ -941,15 +946,33 @@ function fixupPositionAndVelocityAgainstLevel(disc, level) {
         const gridMaxX = Math.min(level.sizeX, Math.floor(disc.position.x + disc.radius + 1));
         const gridMaxY = Math.min(level.sizeY, Math.floor(disc.position.y + disc.radius + 1));
 
+        let smallestSeparatingAxis = {x: 0, y: 0, d: disc.radius};
+
         for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
             for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
                 const tileType = level.get(gridX, gridY);
-                if (tileType != ttRoom && tileType != ttHall) {
+                if (tileType == ttRoom || tileType == ttHall) {
                     continue;
                 }
-                const dx = 0.5 + gridX - disc.position.x;
-                const dy = 0.5 + gridY - disc.position.y;
+                const dx = disc.position.x - (0.5 + gridX);
+                const dy = disc.position.y - (0.5 + gridY);
+
+                const axis = separatingAxis(dx, dy, disc.radius);
+
+                if (axis.d < smallestSeparatingAxis.d) {
+                    smallestSeparatingAxis = axis;
+                }
             }
+        }
+
+        smallestSeparatingAxis.d -= disc.radius;
+
+        if (smallestSeparatingAxis.d < 0) {
+            disc.position.x -= smallestSeparatingAxis.x * smallestSeparatingAxis.d;
+            disc.position.y -= smallestSeparatingAxis.y * smallestSeparatingAxis.d;
+            const vNormal = smallestSeparatingAxis.x * disc.velocity.x + smallestSeparatingAxis.y * disc.velocity.y;
+            disc.velocity.x -= smallestSeparatingAxis.x * vNormal;
+            disc.velocity.y -= smallestSeparatingAxis.y * vNormal;
         }
     }
 
@@ -974,11 +997,26 @@ function fixupPositionAndVelocityAgainstLevel(disc, level) {
     }
 }
 
-function separatingCorrection(dx, dy, r) {
-    dx = Math.max(dx - 0.5, 0, dx + 0.5);
-    dy = Math.max(dy - 0.5, 0, dy + 0.5);
-    const d = Math.sqrt(dx*dx + dy*dy) - r;
-    return {x: dx, y: dy};
+function separatingAxis(dx, dy) {
+    const ax = Math.abs(dx) - 0.5;
+    const ay = Math.abs(dy) - 0.5;
+    const sx = Math.sign(dx);
+    const sy = Math.sign(dy);
+    if (ax > ay) {
+        if (ay > 0) {
+            const d = Math.sqrt(ax**2 + ay**2);
+            return {x: sx * ax / d, y: sy * ay / d, d: d};
+        } else {
+            return {x: sx, y: 0, d: ax};
+        }
+    } else {
+        if (ax > 0) {
+            const d = Math.sqrt(ax**2 + ay**2);
+            return {x: sx * ax / d, y: sy * ay / d, d: d};
+        } else {
+            return {x: 0, y: sy, d: ay};
+        }
+    }
 }
 
 function fixupPositionAndVelocityAgainstDisc(disc, obstacle) {
@@ -1418,11 +1456,6 @@ function coinFlips(total) {
     }
     return count;
 }
-
-const ttSolid = 0;
-const ttRoom = 1;
-const ttHall = 2;
-const ttWall = 3;
 
 function createLevel() {
     const mapSizeX = 128;
