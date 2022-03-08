@@ -286,21 +286,51 @@ function updateTurrets(state, dt) {
     }
 }
 
-function renderTurrets(turrets, renderer, matScreenFromWorld) {
-    const colorAlive = { r: 0.34375, g: 0.25, b: 0.25 };
-    const colorDead = { r: 0.42, g: 0.375, b: 0.375 };
-    const discs = turrets.map(turret => ({
+function renderDeadTurrets(turrets, renderer, matScreenFromWorld) {
+    const color = { r: 0.45, g: 0.45, b: 0.45 };
+    const discs = turrets.filter(turret => turret.dead).map(turret => ({
         position: turret.position,
-        color: turret.dead ? colorDead : colorAlive,
+        color: color,
         radius: turretRadius,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
 
-    const rect = glyphRect(116);
+    const rect = glyphRect(119);
     const rx = 0.25;
     const ry = 0.5;
-    const yOffset = -0.06;
+    const yOffset = 0;
+    const turretGlyphColor = 0xff808080;
+
+    for (const turret of turrets) {
+        if (turret.dead) {
+            const x = turret.position[0];
+            const y = turret.position[1];
+            renderer.renderGlyphs.add(
+                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                turretGlyphColor
+            );
+        }
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function renderAliveTurrets(turrets, renderer, matScreenFromWorld) {
+    const color = { r: 0.34375, g: 0.25, b: 0.25 };
+    const discs = turrets.filter(turret => !turret.dead).map(turret => ({
+        position: turret.position,
+        color: color,
+        radius: turretRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(119);
+    const rx = 0.25;
+    const ry = 0.5;
+    const yOffset = 0;
     const turretGlyphColor = 0xff8080b0;
 
     for (const turret of turrets) {
@@ -1337,7 +1367,8 @@ function renderScene(renderer, state) {
 //    renderer.renderField(state.costRateField, state.distanceField, 0);
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
-    renderTurrets(state.level.turrets, renderer, matScreenFromWorld);
+    renderDeadTurrets(state.level.turrets, renderer, matScreenFromWorld);
+    renderAliveTurrets(state.level.turrets, renderer, matScreenFromWorld);
 
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
