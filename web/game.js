@@ -16,9 +16,6 @@ const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
 
-const mapSizeX = 128;
-const mapSizeY = 96;
-
 const numCellsX = 4;
 const numCellsY = 3;
 const corridorWidth = 3;
@@ -97,7 +94,15 @@ function main(fontImage) {
         if (e.code == 'KeyR') {
             e.preventDefault();
             resetState(state);
-            requestUpdateAndRender();
+            if (state.paused) {
+                requestUpdateAndRender();
+            }
+        } else if (e.code == 'KeyM') {
+            e.preventDefault();
+            state.showMap = !state.showMap;
+            if (state.paused) {
+                requestUpdateAndRender();
+            }
         }
     });
 
@@ -256,10 +261,26 @@ function renderTurretBullets(bullets, renderer, matScreenFromWorld) {
 }
 
 function updateTurrets(state, dt) {
+
+    const velocityUnused = vec2.create();
+
     for (const turret of state.level.turrets) {
         if (turret.dead) {
             continue;
         }
+
+        /*
+        const dposToTarget = vec2.create();
+        vec2.subtract(dposToTarget, turret.position, state.player.position);
+        const distToTarget = vec2.length(dposToTarget);
+    
+        if (distToTarget < 16) {
+            moveDownGradient(state.distanceField, turret.position, 1 * dt);
+        }
+
+        vec2.zero(velocityUnused);
+        fixupPositionAndVelocityAgainstLevel(turret.position, velocityUnused, turretRadius, state.level.grid);
+        */
 
         turret.timeToFire -= dt;
         if (turret.timeToFire <= 0) {
@@ -284,6 +305,37 @@ function updateTurrets(state, dt) {
             }
         }
     }
+
+    // Fix up turret positions relative to each other.
+
+    /*
+    for (let i = 0; i < state.level.turrets.length; ++i)
+    {
+        const turret0 = state.level.turrets[i];
+        if (turret0.dead)
+            continue;
+
+        for (let j = i + 1; j < state.level.turrets.length; ++j)
+        {
+            const turret1 = state.level.turrets[j];
+            if (turret1.dead)
+                continue;
+
+            fixupDiscPairs(turret0.position, turretRadius, turret1.position, turretRadius);
+        }
+    }
+    */
+}
+
+function moveDownGradient(distanceField, position, distance) {
+    const gradient = vec2.create();
+    estimateGradient(distanceField, position, gradient);
+
+    const gradientLen = vec2.length(gradient);
+
+    const scale = -distance / Math.max(1e-8, gradientLen);
+
+    vec2.scaleAndAdd(position, position, gradient, scale);
 }
 
 function renderDeadTurrets(turrets, renderer, matScreenFromWorld) {
@@ -399,6 +451,7 @@ function createRenderer(gl, fontImage) {
 function initState() {
     const state = {
         paused: true,
+        showMap: false,
     };
     resetState(state);
     return state;
@@ -426,22 +479,17 @@ function resetState(state) {
     vec2.copy(camera.position, player.position);
     vec2.zero(camera.velocity);
 
-    const gridSizeX = 64;
-    const gridSizeY = 64;
-
 //    const enemyRadius = 0.0125;
-//    const collectibles = []; // createCollectibles(obstacles);
-//    const costRateField = createCostRateField(gridSizeX, gridSizeY, enemyRadius, obstacles);
-//    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
-//    const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
-//    const distanceField = createDistanceField(costRateFieldSmooth, player.position);
-//    const discs = []; // createEnemies(obstacles, enemyRadius, player.position);
+//    const discs = createEnemies(obstacles, enemyRadius, player.position);
+    const costRateField = createCostRateField(level);
+    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
+    const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
+    const distanceField = createDistanceField(costRateFieldSmooth, player.position);
 
-//    state.costRateField = costRateFieldSmooth;
-//    state.distanceField = distanceField;
+    state.costRateField = costRateFieldSmooth;
+    state.distanceField = distanceField;
     state.tLast = undefined;
 //    state.discs = discs;
-//    state.collectibles = collectibles;
     state.player = player;
     state.playerBullets = [];
     state.turretBullets = [];
@@ -582,14 +630,11 @@ function createFieldRenderer(gl) {
         }
     `;
 
-    const projectionMatrix = new Float32Array(16);
-    projectionMatrix.fill(0);
-    projectionMatrix[0] = 1;
-    projectionMatrix[5] = 1;
-    projectionMatrix[10] = 1;
-    projectionMatrix[12] = -1;
-    projectionMatrix[13] = -1;
-    projectionMatrix[15] = 1;
+    const matWorldFromMap = mat4.create();
+    matWorldFromMap[12] = 0.5;
+    matWorldFromMap[13] = 0.5;
+
+    const matScreenFromMap = mat4.create();
 
     const program = initShaderProgram(gl, vsSource, fsSource);
 
@@ -615,7 +660,13 @@ function createFieldRenderer(gl) {
 
     const contourTexture = createStripeTexture(gl);
 
-    return (costRateField, distanceField, uScroll) => {
+    return (matScreenFromWorld, costRateField, distanceField, uScroll) => {
+
+        const gridSizeX = costRateField.sizeX;
+        const gridSizeY = costRateField.sizeY;
+
+        mat4.multiply(matScreenFromMap, matScreenFromWorld, matWorldFromMap);
+
         gl.useProgram(program);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -636,12 +687,7 @@ function createFieldRenderer(gl) {
     
         gl.uniform1i(uniformLoc.uContour, 0);
 
-        const gridSizeX = costRateField.sizeX;
-        const gridSizeY = costRateField.sizeY;
-
-        projectionMatrix[0] = 2 / (gridSizeX - 1);
-        projectionMatrix[5] = 2 / (gridSizeY - 1);
-        gl.uniformMatrix4fv(uniformLoc.projectionMatrix, false, projectionMatrix);
+        gl.uniformMatrix4fv(uniformLoc.projectionMatrix, false, matScreenFromMap);
     
         gl.uniform1f(uniformLoc.uScroll, uScroll);
     
@@ -1034,9 +1080,11 @@ function updateState(state, dt) {
 
     fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.grid);
 
-    for (const turret of state.level.turrets) {
-        if (!turret.dead) {
-            fixupPositionAndVelocityAgainstDisc(state.player.position, state.player.velocity, playerRadius, turret.position, turretRadius);
+    if (!state.player.dead) {
+        for (const turret of state.level.turrets) {
+            if (!turret.dead) {
+                fixupPositionAndVelocityAgainstDisc(state.player.position, state.player.velocity, playerRadius, turret.position, turretRadius);
+            }
         }
     }
 
@@ -1077,9 +1125,11 @@ function updateState(state, dt) {
     if (state.collectibles.length <= 0) {
         state.gameOver = true;
     }
+    */
 
     updateDistanceField(state.costRateField, state.distanceField, state.player.position);
 
+    /*
     const discSpeed = 0.2 - 0.15 * Math.min(state.collectibles.length, 80) / 80;
 
     let enemyDied = false;
@@ -1153,27 +1203,16 @@ function updateEnemy(distanceField, dt, discSpeed, player, disc) {
     disc.position.y += (vyPrev + disc.velocity.y) * dt / 2;
 }
 
-function fixupDiscPairs(disc0, disc1) {
-    const dx = disc1.position.x - disc0.position.x;
-    const dy = disc1.position.y - disc0.position.y;
-    const d = Math.sqrt(dx**2 + dy**2);
-    const dist = d - (disc0.radius + disc1.radius);
+function fixupDiscPairs(position0, radius0, position1, radius1) {
+    const dpos = vec2.create();
+    vec2.subtract(dpos, position1, position0);
+    const d = vec2.length(dpos);
+    const dist = d - (radius0 + radius1);
 
     if (dist < 0) {
-        disc0.position.x += dx * dist / (2 * d);
-        disc0.position.y += dy * dist / (2 * d);
-        disc1.position.x -= dx * dist / (2 * d);
-        disc1.position.y -= dy * dist / (2 * d);
-
-        const vx = disc1.velocity.x - disc0.velocity.x;
-        const vy = disc1.velocity.y - disc0.velocity.y;
-        const vn = vx * dx + vy * dy;
-        if (vn < 0) {
-            disc0.velocity.x += vn * dx / (2 * d**2);
-            disc0.velocity.y += vn * dy / (2 * d**2);
-            disc1.velocity.x -= vn * dx / (2 * d**2);
-            disc1.velocity.y -= vn * dy / (2 * d**2);
-        }
+        const scale = dist / (2 * d);
+        vec2.scaleAndAdd(position0, position0, dpos, scale);
+        vec2.scaleAndAdd(position1, position1, dpos, -scale);
     }
 }
 
@@ -1321,7 +1360,24 @@ function renderScene(renderer, state) {
     renderer.beginFrame(screenSize);
 
     const matScreenFromWorld = mat4.create();
-    {
+
+    if (state.showMap) {
+        const mapSizeX = state.level.grid.sizeX + 2;
+        const mapSizeY = state.level.grid.sizeY + 2;
+        let rx, ry;
+        if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
+            // horizontal is limiting dimension
+            rx = mapSizeX / 2;
+            ry = rx * screenSize[1] / screenSize[0];
+        } else {
+            // vertical is limiting dimension
+            ry = mapSizeY / 2;
+            rx = ry * screenSize[0] / screenSize[1];
+        }
+        const cx = state.level.grid.sizeX / 2;
+        const cy = state.level.grid.sizeY / 2;
+        mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
+    } else {
         const cx = state.camera.position[0];
         const cy = state.camera.position[1];
         const r = 18;
@@ -1335,10 +1391,9 @@ function renderScene(renderer, state) {
         }
 
         mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
-//        mat4.ortho(matScreenFromWorld, 0, state.level.grid.sizeX, 0, state.level.grid.sizeX, 1, -1);
     }
 
-//    renderer.renderField(state.costRateField, state.distanceField, 0);
+//    renderer.renderField(matScreenFromWorld, state.costRateField, state.distanceField, 0);
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
     renderDeadTurrets(state.level.turrets, renderer, matScreenFromWorld);
@@ -1347,13 +1402,10 @@ function renderScene(renderer, state) {
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
 
-//    renderer.renderDiscs(state.obstacles);
 //    renderer.renderDiscs(state.collectibles);
-//    renderer.renderDiscs(state.discs);
     renderer.renderDiscs(matScreenFromWorld, [state.player]);
 
 /*
-
     for (const c of state.collectibles) {
         const x = c.position.x * 2 - 1;
         const y = c.position.y * 2 - 1;
@@ -1368,6 +1420,7 @@ function renderScene(renderer, state) {
 */
 
 //    renderer.renderGlyphs.add(-0.25, -0.5, 0.25, 0.5, 0, 1, 1, 0, 0xffffffff);
+
     {
         const tx = 0.0625;
         const ty = 0.0625;
@@ -1488,27 +1541,17 @@ function priorityQueuePush(q, x) {
     }
 }
 
-function createCostRateField(sizeX, sizeY, enemyRadius, obstacles) {
-    const costRate = new Float64Grid(sizeX, sizeY, 1);
+function createCostRateField(level) {
+    const sizeX = level.grid.sizeX;
+    const sizeY = level.grid.sizeY;
 
-    function dist(x, y) {
-        let minDist = Infinity;
-        x /= sizeX - 1;
-        y /= sizeY - 1;
-        for (const obstacle of obstacles) {
-            const dx = x - obstacle.position.x;
-            const dy = y - obstacle.position.y;
-            const dist = Math.sqrt(dx**2 + dy**2) - (obstacle.radius + enemyRadius);
-            minDist = Math.min(minDist, dist);
-        }
-        minDist = Math.max(0, minDist);
-        return minDist * (sizeX - 1);
-    }
+    const costRate = new Float64Grid(sizeX, sizeY, 1);
 
     for (let y = 0; y < sizeY; ++y) {
         for (let x = 0; x < sizeX; ++x) {
-            const d = dist(x, y);
-            costRate.set(x, y, (d <= 0) ? 1000 : 1);
+            const tileType = level.grid.get(x, y);
+            const cost = (tileType == ttRoom || tileType == ttHall) ? 1 : 1000;
+            costRate.set(x, y, cost);
         }
     }
 
@@ -1525,7 +1568,7 @@ function createSmoothedCostRateField(distanceFromWallsField) {
         for (let x = 0; x < sizeX; ++x) {
             const distance = distanceFromWallsField.get(x, y);
 
-            const costRate = 1 + Math.min(1e6, 10 / distance**2);
+            const costRate = 1 + Math.min(1e6, 0.1 / distance**2);
 
             costRateFieldSmooth.set(x, y, costRate);
         }
@@ -1548,9 +1591,6 @@ function createDistanceFromWallsField(costRateField) {
     const distanceField = new Float64Grid(sizeX, sizeY, Infinity);
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(distanceField, x, y));
 
-    const scale = 128 / sizeX;
-    distanceField.values.forEach((x, i, d) => d[i] *= scale);
-
     return distanceField;
 }
 
@@ -1565,8 +1605,8 @@ function createDistanceField(costRateField, goal) {
 function updateDistanceField(costRateField, distanceField, goal) {
     const sizeX = costRateField.sizeX;
     const sizeY = costRateField.sizeY;
-    const goalX = goal.x * (sizeX - 1);
-    const goalY = goal.y * (sizeY - 1);
+    const goalX = goal[0] - 0.5;
+    const goalY = goal[1] - 0.5;
     const r = 2;
     const xMin = Math.min(sizeX - 1, Math.max(0, Math.floor(goalX + 0.5) - r));
     const yMin = Math.min(sizeY - 1, Math.max(0, Math.floor(goalY + 0.5) - r));
@@ -1597,9 +1637,6 @@ function updateDistanceField(costRateField, distanceField, goal) {
     }
 
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
-
-    const scale = 32 / sizeX;
-    distanceField.values.forEach((x, i, d) => d[i] *= scale);
 }
 
 function fastMarchFill(field, toVisit, estimatedDistance) {
@@ -1685,10 +1722,10 @@ function safeDistance(distanceField, x, y) {
     return distanceField.get(x, y);
 }
 
-function estimateGradient(distanceField, x, y) {
+function estimateGradient(distanceField, position, gradient) {
 
-    x *= (distanceField.sizeX - 1);
-    y *= (distanceField.sizeY - 1);
+    const x = position[0] - 0.5;
+    const y = position[1] - 0.5;
 
     const uX = x - Math.floor(x);
     const uY = y - Math.floor(y);
@@ -1704,13 +1741,13 @@ function estimateGradient(distanceField, x, y) {
     const gradX = (d10 - d00) * (1 - uY) + (d11 - d01) * uY;
     const gradY = (d01 - d00) * (1 - uX) + (d11 - d10) * uX;
 
-    return { x: gradX, y: gradY };
+    vec2.set(gradient, gradX, gradY);
 }
 
-function estimateDistance(distanceField, x, y) {
+function estimateDistance(distanceField, position) {
 
-    x *= (distanceField.sizeX - 1);
-    y *= (distanceField.sizeY - 1);
+    const x = position[0] - 0.5;
+    const y = position[1] - 0.5;
 
     const uX = x - Math.floor(x);
     const uY = y - Math.floor(y);
@@ -1749,8 +1786,11 @@ function coinFlips(total) {
 }
 
 function createLevel() {
-    const squaresPerBlockX = Math.floor((mapSizeX + corridorWidth) / numCellsX);
-    const squaresPerBlockY = Math.floor((mapSizeY + corridorWidth) / numCellsY);
+    const maxMapSizeX = 128;
+    const maxMapSizeY = 96;
+    
+    const squaresPerBlockX = Math.floor((maxMapSizeX + corridorWidth) / numCellsX);
+    const squaresPerBlockY = Math.floor((maxMapSizeY + corridorWidth) / numCellsY);
 
     const minRoomSize = corridorWidth + 2;
 
@@ -1835,7 +1875,7 @@ function createLevel() {
 
     // Compress the rooms together where possible
 
-    compressRooms(roomGrid, edges, rooms);
+    const [mapSizeX, mapSizeY] = compressRooms(roomGrid, edges, rooms);
 
     // Plot rooms into a grid
 
@@ -2027,12 +2067,24 @@ function createLevel() {
         vertexDataAsUint32[j+17] = color;
     }
 
+    // Count the number of connections to each room
+
+    const roomEdges = [];
+    for (let i = 0; i < rooms.length; ++i) {
+        roomEdges.push([i, 0]);
+    }
+    for (const edge of edges) {
+        ++roomEdges[edge.edge[0]][1];
+        ++roomEdges[edge.edge[1]][1];
+    }
+    shuffleArray(roomEdges);
+    roomEdges.sort((room0, room1) => room0[1] - room1[1]);
+
     // Pick a random room as the start position
 
     const playerStartPos = vec2.create();
-    let startRoomIndex;
-    for (let i = 0; i < 1000; ++i) {
-        startRoomIndex = randomInRange(rooms.length);
+    const startRoomIndex = roomEdges[0][0];
+    for (let i = 0; i < 1024; ++i) {
         const startRoom = rooms[startRoomIndex];
         playerStartPos[0] = Math.random() * (startRoom.sizeX - 2*playerRadius) + startRoom.minX + playerRadius;
         playerStartPos[1] = Math.random() * (startRoom.sizeY - 2*playerRadius) + startRoom.minY + playerRadius;
@@ -2151,6 +2203,25 @@ function compressRooms(roomGrid, edges, rooms) {
             }
         }
     }
+
+    // Compute the new map dimensions
+
+    let mapSizeX = 0;
+    let mapSizeY = 0;
+
+    for (let roomY = 0; roomY < numRoomsY; ++roomY) {
+        const roomIndex = roomGrid[roomY][numRoomsX - 1];
+        const room = rooms[roomIndex];
+        mapSizeX = Math.max(mapSizeX, room.minX + room.sizeX + 1);
+    }
+
+    for (let roomX = 0; roomX < numRoomsX; ++roomX) {
+        const roomIndex = roomGrid[numRoomsY - 1][roomX];
+        const room = rooms[roomIndex];
+        mapSizeY = Math.max(mapSizeY, room.minY + room.sizeY + 1);
+    }
+
+    return [mapSizeX, mapSizeY];
 }
 
 function decorateRoom(room, level) {
