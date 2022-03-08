@@ -86,6 +86,14 @@ function main(fontImage) {
         }
     };
 
+    document.body.addEventListener('keydown', e => {
+        if (e.code == 'KeyR') {
+            e.preventDefault();
+            resetState(state);
+            requestUpdateAndRender();
+        }
+    });
+
     function requestUpdateAndRender() {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
@@ -230,7 +238,7 @@ function updateTurretBullet(state, bullet, dt) {
 }
 
 function renderTurretBullets(bullets, renderer, matScreenFromWorld) {
-    const color = { r: 1, g: 0.375, b: 0.125 };
+    const color = { r: 1, g: 0.5, b: 0.25 };
     const discs = bullets.map(bullet => ({
         position: bullet.position,
         color: color,
@@ -350,7 +358,9 @@ function createRenderer(gl, fontImage) {
 }
 
 function initState() {
-    const state = {};
+    const state = {
+        paused: true,
+    };
     resetState(state);
     return state;
 }
@@ -391,7 +401,6 @@ function resetState(state) {
 
 //    state.costRateField = costRateFieldSmooth;
 //    state.distanceField = distanceField;
-    state.paused = true;
     state.gameOver = false;
     state.tLast = undefined;
 //    state.discs = discs;
