@@ -78,7 +78,7 @@ function main(fontImage) {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
 
-    canvas.onclick = () => {
+    canvas.onmousedown = () => {
         if (state.paused) {
             canvas.requestPointerLock();
         } else {
