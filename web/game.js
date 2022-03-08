@@ -366,7 +366,9 @@ function filterInPlace(array, condition) {
     while (i < array.length) {
         const val = array[i];
         if (condition(val, i, array)) {
-            array[j] = val;
+            if (i != j) {
+                array[j] = val;
+            }
             ++j;
         }
         ++i;
@@ -428,7 +430,6 @@ function resetState(state) {
     const gridSizeY = 64;
 
 //    const enemyRadius = 0.0125;
-//    const obstacles = []; // createObstacles(player.position);
 //    const collectibles = []; // createCollectibles(obstacles);
 //    const costRateField = createCostRateField(gridSizeX, gridSizeY, enemyRadius, obstacles);
 //    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
@@ -438,10 +439,8 @@ function resetState(state) {
 
 //    state.costRateField = costRateFieldSmooth;
 //    state.distanceField = distanceField;
-    state.gameOver = false;
     state.tLast = undefined;
 //    state.discs = discs;
-//    state.obstacles = obstacles;
 //    state.collectibles = collectibles;
     state.player = player;
     state.playerBullets = [];
@@ -486,29 +485,6 @@ function createEnemies(obstacles, enemyRadius, playerPosition) {
         }
     }
     return enemies;
-}
-
-function createObstacles(playerPosition) {
-    const obstacles = [];
-    const radius = 0.05;
-    const separation = -0.02;
-    const playerDisc = { radius: 0.05, position: playerPosition };
-    const color = { r: 0.25, g: 0.25, b: 0.25 };
-    for (let i = 0; i < 1000 && obstacles.length < 16; ++i) {
-        const obstacle = {
-            radius: radius,
-            position: {
-                x: radius + (1 - 2*radius) * Math.random(),
-                y: radius + (1 - 2*radius) * Math.random(),
-            },
-            color: color,
-        };
-        if (!discOverlapsDiscs(obstacle, obstacles, separation) &&
-            !discsOverlap(obstacle, playerDisc)) {
-            obstacles.push(obstacle);
-        }
-    }
-    return obstacles;
 }
 
 function createCollectibles(obstacles) {
@@ -1047,8 +1023,10 @@ function createColoredTriangleRenderer(gl) {
 
 function updateState(state, dt) {
 
+    // Player
+
     if (state.player.dead) {
-        const r = Math.exp(-dt);
+        const r = Math.exp(-3 * dt);
         vec2.scale(state.player.velocity, state.player.velocity, r);
     }
 
@@ -1062,7 +1040,7 @@ function updateState(state, dt) {
         }
     }
 
-    // Camera update
+    // Camera
 
     const posError = vec2.create();
     vec2.subtract(posError, state.player.position, state.camera.position);
@@ -1083,20 +1061,16 @@ function updateState(state, dt) {
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
     vec2.copy(state.camera.velocity, velNew);
 
-    // Turrets update
+    // Turrets
 
     updateTurrets(state, dt);
 
-    // Bullets update
+    // Bullets
 
     updatePlayerBullets(state, dt);
     updateTurretBullets(state, dt);
 
     /*
-    for (const obstacle of state.obstacles) {
-        fixupPositionAndVelocityAgainstDisc(state.player, obstacle);
-    }
-
     if (!state.gameOver) {
         state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
     }
@@ -1794,11 +1768,13 @@ function createLevel() {
             const cellMaxY = (roomY + 1) * squaresPerBlockY - (1 + corridorWidth);
             const maxRoomSizeX = cellMaxX - cellMinX;
             const maxRoomSizeY = cellMaxY - cellMinY;
-            const halfRoomSizeRangeX = Math.floor((maxRoomSizeX + 1 - minRoomSize) / 2);
-            const halfRoomSizeRangeY = Math.floor((maxRoomSizeY + 1 - minRoomSize) / 2);
+            const halfRoomSizeRangeX = Math.floor((maxRoomSizeX - minRoomSize) / 2);
+            const halfRoomSizeRangeY = Math.floor((maxRoomSizeY - minRoomSize) / 2);
+            const remainderX = (maxRoomSizeX - minRoomSize) - 2 * halfRoomSizeRangeX;
+            const remainderY = (maxRoomSizeY - minRoomSize) - 2 * halfRoomSizeRangeY;
 
-            const roomSizeX = 2 * coinFlips(halfRoomSizeRangeX) + minRoomSize;
-            const roomSizeY = 2 * coinFlips(halfRoomSizeRangeY) + minRoomSize;
+            const roomSizeX = 2 * coinFlips(halfRoomSizeRangeX) + minRoomSize + remainderX;
+            const roomSizeY = 2 * coinFlips(halfRoomSizeRangeY) + minRoomSize + remainderY;
 
             const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
             const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
@@ -1881,6 +1857,8 @@ function createLevel() {
             level.set(room.minX - 1, y + room.minY - 1, ttWall);
             level.set(room.minX + room.sizeX, y + room.minY - 1, ttWall);
         }
+
+        decorateRoom(room, level);
     }
 
     // Plot corridors into grid
@@ -2051,10 +2029,18 @@ function createLevel() {
 
     // Pick a random room as the start position
 
-    const startRoomIndex = randomInRange(rooms.length);
-    const startRoom = rooms[startRoomIndex];
-    const startX = Math.random() * (startRoom.sizeX - 2*playerRadius) + startRoom.minX + playerRadius;
-    const startY = Math.random() * (startRoom.sizeY - 2*playerRadius) + startRoom.minY + playerRadius;
+    const playerStartPos = vec2.create();
+    let startRoomIndex;
+    for (let i = 0; i < 1000; ++i) {
+        startRoomIndex = randomInRange(rooms.length);
+        const startRoom = rooms[startRoomIndex];
+        playerStartPos[0] = Math.random() * (startRoom.sizeX - 2*playerRadius) + startRoom.minX + playerRadius;
+        playerStartPos[1] = Math.random() * (startRoom.sizeY - 2*playerRadius) + startRoom.minY + playerRadius;
+
+        if (!isDiscTouchingLevel(playerStartPos, playerRadius, level)) {
+            break;
+        }
+    }
 
     // Place some turrets in the level
 
@@ -2073,6 +2059,10 @@ function createLevel() {
 
         const position = vec2.fromValues(x, y);
 
+        if (isDiscTouchingLevel(position, turretRadius * 2, level)) {
+            continue;
+        }
+
         if (isPositionTooCloseToOtherTurrets(turrets, position)) {
             continue;
         }
@@ -2087,7 +2077,7 @@ function createLevel() {
     return {
         grid: level,
         vertexData: vertexData,
-        playerStartPos: vec2.fromValues(startX, startY),
+        playerStartPos: playerStartPos,
         turrets: turrets,
     };
 }
@@ -2160,6 +2150,55 @@ function compressRooms(roomGrid, edges, rooms) {
                 }
             }
         }
+    }
+}
+
+function decorateRoom(room, level) {
+    if (room.sizeX < 13 || room.sizeY < 13) {
+        return;
+    }
+
+    const roomType = Math.random();
+
+    if (roomType < 0.333) {
+        function plotPillar(x, y) {
+            x += room.minX;
+            y += room.minY;
+            level.set(x, y, ttWall);
+            level.set(x+1, y, ttWall);
+            level.set(x, y+1, ttWall);
+            level.set(x+1, y+1, ttWall);
+        }
+
+        plotPillar(3, 3);
+        plotPillar(3, room.sizeY - 5);
+        plotPillar(room.sizeX - 5, 3);
+        plotPillar(room.sizeX - 5, room.sizeY - 5);
+
+        if (((room.sizeX - 3) % 5) == 0) {
+            for (let x = 8; x < room.sizeX - 5; x += 5) {
+                plotPillar(x, 3);
+                plotPillar(x, room.sizeY - 5);
+            }
+        }
+
+        if (((room.sizeY - 3) % 5) == 0) {
+            for (let y = 8; y < room.sizeY - 5; y += 5) {
+                plotPillar(3, y);
+                plotPillar(room.sizeX - 5, y);
+            }
+        }
+    } else if (roomType < 0.667) {
+        function plotRect(minX, minY, sizeX, sizeY, type) {
+            for (let x = minX; x < minX + sizeX; ++x) {
+                for (let y = minY; y < minY + sizeY; ++y) {
+                    level.set(x, y, type);
+                }
+            }
+        }
+
+        plotRect(room.minX + 5, room.minY + 5, room.sizeX - 10, room.sizeY - 10, ttWall);
+        plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, ttSolid);
     }
 }
 
