@@ -16,6 +16,13 @@ const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
 
+const mapSizeX = 128;
+const mapSizeY = 96;
+
+const numCellsX = 4;
+const numCellsY = 3;
+const corridorWidth = 3;
+
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
@@ -1324,6 +1331,7 @@ function renderScene(renderer, state) {
         }
 
         mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
+//        mat4.ortho(matScreenFromWorld, 0, state.level.grid.sizeX, 0, state.level.grid.sizeX, 1, -1);
     }
 
 //    renderer.renderField(state.costRateField, state.distanceField, 0);
@@ -1736,13 +1744,6 @@ function coinFlips(total) {
 }
 
 function createLevel() {
-    const mapSizeX = 128;
-    const mapSizeY = 96;
-
-    const numCellsX = 4;
-    const numCellsY = 3;
-    const corridorWidth = 3;
-
     const squaresPerBlockX = Math.floor((mapSizeX + corridorWidth) / numCellsX);
     const squaresPerBlockY = Math.floor((mapSizeY + corridorWidth) / numCellsY);
 
@@ -1751,8 +1752,10 @@ function createLevel() {
     // Create some rooms.
 
     const rooms = [];
+    const roomGrid = [];
 
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
+        roomGrid[roomY] = [];
         for (let roomX = 0; roomX < numCellsX; ++roomX) {
             const cellMinX = roomX * squaresPerBlockX + 1;
             const cellMinY = roomY * squaresPerBlockY + 1;
@@ -1769,12 +1772,15 @@ function createLevel() {
             const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
             const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
 
-            rooms.push({
+            const room = {
                 minX: roomMinX,
                 minY: roomMinY,
                 sizeX: roomSizeX,
                 sizeY: roomSizeY,
-            });
+            };
+
+            rooms.push(room);
+            roomGrid[roomY][roomX] = roomY * numCellsX + roomX;
         }
     }
 
@@ -1820,6 +1826,10 @@ function createLevel() {
         }
     }
 
+    // Compress the rooms together where possible
+
+    compressRooms(roomGrid, edges, rooms);
+
     // Plot rooms into a grid
 
     const level = new Level(mapSizeX, mapSizeY, ttSolid);
@@ -1849,8 +1859,7 @@ function createLevel() {
             const roomIndex0 = roomY * numCellsX + roomX;
             const roomIndex1 = roomIndex0 + 1;
 
-            const edge = edges.find(edge => edge.edge[0] === roomIndex0 && edge.edge[1] === roomIndex1);
-            if (edge === undefined) {
+            if (!hasEdge(edges, roomIndex0, roomIndex1)) {
                 continue;
             }
 
@@ -1868,12 +1877,10 @@ function createLevel() {
 
             let yMinLeft, yMinRight;
             if (yRangeIntersect >= corridorWidth) {
-                yMinLeft = yMinRight = randomInRange(1 + yRangeIntersect - corridorWidth) + yMinIntersect;
+                yMinLeft = yMinRight = yMinIntersect + Math.floor((yRangeIntersect - corridorWidth) / 2);
             } else {
                 yMinLeft = Math.floor((room0.sizeY - corridorWidth) / 2) + room0.minY;
                 yMinRight = Math.floor((room1.sizeY - corridorWidth) / 2) + room1.minY;
-                // yMinLeft = randomInRange(room0.sizeY - (1 + corridorWidth)) + room0.minY + 1;
-                // yMinRight = randomInRange(room1.sizeY - (1 + corridorWidth)) + room1.minY + 1;
             }
 
             for (let x = xMin; x < xMid; ++x) {
@@ -1903,8 +1910,7 @@ function createLevel() {
             const roomIndex0 = roomY * numCellsX + roomX;
             const roomIndex1 = roomIndex0 + numCellsX;
 
-            const edge = edges.find(edge => edge.edge[0] === roomIndex0 && edge.edge[1] === roomIndex1);
-            if (edge === undefined) {
+            if (!hasEdge(edges, roomIndex0, roomIndex1)) {
                 continue;
             }
 
@@ -1917,12 +1923,10 @@ function createLevel() {
 
             let xMinLower, xMinUpper;
             if (xRangeIntersect >= corridorWidth) {
-                xMinLower = xMinUpper = randomInRange(1 + xRangeIntersect - corridorWidth) + xMinIntersect;
+                xMinLower = xMinUpper = xMinIntersect + Math.floor((xRangeIntersect - corridorWidth) / 2);
             } else {
                 xMinLower = Math.floor((room0.sizeX - corridorWidth) / 2) + room0.minX;
                 xMinUpper = Math.floor((room1.sizeX - corridorWidth) / 2) + room1.minX;
-                // xMinLower = randomInRange(room0.sizeX - (1 + corridorWidth)) + room0.minX + 1;
-                // xMinUpper = randomInRange(room1.sizeX - (1 + corridorWidth)) + room1.minX + 1;
             }
 
             const yMin = room0.minY + room0.sizeY;
@@ -2055,6 +2059,95 @@ function createLevel() {
         playerStartPos: vec2.fromValues(startX, startY),
         turrets: turrets,
     };
+}
+
+function compressRooms(roomGrid, edges, rooms) {
+    const numRoomsX = roomGrid[0].length;
+    const numRoomsY = roomGrid.length;
+
+    // Try to shift each row downward as much as possible
+    for (let roomY = 0; roomY < numRoomsY; ++roomY) {
+        let gapMin = Number.MIN_SAFE_INTEGER;
+        let gapMax = Number.MAX_SAFE_INTEGER;
+        let hasBentCorridor = false;
+
+        for (let roomX = 0; roomX < numRoomsX; ++roomX) {
+            const roomIndex0 = (roomY > 0) ? roomGrid[roomY - 1][roomX] : undefined;
+            const roomIndex1 = roomGrid[roomY][roomX];
+            const room0 = (roomIndex0 === undefined) ? undefined : rooms[roomIndex0];
+            const room1 = rooms[roomIndex1];
+            const gapMinY = (room0 === undefined) ? 0 : room0.minY + room0.sizeY + 2;
+            const gapMaxY = room1.minY - 1;
+            if (room0 !== undefined &&
+                hasEdge(edges, roomIndex0, roomIndex1) &&
+                !canHaveStraightVerticalHall(room0, room1)) {
+                hasBentCorridor = true;
+            }
+            gapMin = Math.max(gapMin, gapMinY);
+            gapMax = Math.min(gapMax, gapMaxY);
+        }
+        // Do the shift
+        let gapSize = gapMax - gapMin - (hasBentCorridor ? (corridorWidth + 2) : 0);
+        if (gapSize > 0) {
+            for (let roomYShift = roomY; roomYShift < numRoomsY; ++roomYShift) {
+                for (let roomXShift = 0; roomXShift < numRoomsX; ++roomXShift) {
+                    const room = rooms[roomGrid[roomYShift][roomXShift]];
+                    room.minY -= gapSize;
+                }
+            }
+        }
+    }
+
+    // Try to shift each column leftward as much as possible
+    for (let roomX = 0; roomX < numRoomsX; ++roomX) {
+        let gapMin = Number.MIN_SAFE_INTEGER;
+        let gapMax = Number.MAX_SAFE_INTEGER;
+        let hasBentCorridor = false;
+
+        for (let roomY = 0; roomY < numRoomsY; ++roomY) {
+            const roomIndex0 = (roomX > 0) ? roomGrid[roomY][roomX - 1] : undefined;
+            const roomIndex1 = roomGrid[roomY][roomX];
+            const room0 = (roomIndex0 === undefined) ? undefined : rooms[roomIndex0];
+            const room1 = rooms[roomIndex1];
+            const gapMinX = (room0 === undefined) ? 0 : room0.minX + room0.sizeX + 2;
+            const gapMaxX = room1.minX - 1;
+            if (room0 !== undefined &&
+                hasEdge(edges, roomIndex0, roomIndex1) &&
+                !canHaveStraightHorizontalHall(room0, room1)) {
+                hasBentCorridor = true;
+            }
+            gapMin = Math.max(gapMin, gapMinX);
+            gapMax = Math.min(gapMax, gapMaxX);
+        }
+        // Do the shift
+        let gapSize = gapMax - gapMin - (hasBentCorridor ? (corridorWidth + 2) : 0);
+        if (gapSize > 0) {
+            for (let roomYShift = 0; roomYShift < numRoomsY; ++roomYShift) {
+                for (let roomXShift = roomX; roomXShift < numRoomsX; ++roomXShift) {
+                    const room = rooms[roomGrid[roomYShift][roomXShift]];
+                    room.minX -= gapSize;
+                }
+            }
+        }
+    }
+}
+
+function hasEdge(edges, roomIndex0, roomIndex1) {
+    return edges.some(e => e.edge[0] === roomIndex0 && e.edge[1] === roomIndex1);
+}
+
+function canHaveStraightVerticalHall(room0, room1) {
+    const overlapMin = Math.max(room0.minX, room1.minX) + 1;
+    const overlapMax = Math.min(room0.minX + room0.sizeX, room1.minX + room1.sizeX) - 1;
+    const overlapSize = Math.max(0, overlapMax - overlapMin);
+    return overlapSize >= corridorWidth;
+}
+
+function canHaveStraightHorizontalHall(room0, room1) {
+    const overlapMin = Math.max(room0.minY, room1.minY) + 1;
+    const overlapMax = Math.min(room0.minY + room0.sizeY, room1.minY + room1.sizeY) - 1;
+    const overlapSize = Math.max(0, overlapMax - overlapMin);
+    return overlapSize >= corridorWidth;
 }
 
 function isPositionTooCloseToOtherTurrets(turrets, position) {
