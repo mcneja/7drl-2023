@@ -15,6 +15,9 @@ const turretRadius = 0.5;
 const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
+const meleeAttackExpandDuration = 0.25;//0.125;
+const meleeAttackRetractDuration = 0;//0.125;
+const meleeAttackMaxRadius = 1.0;
 
 const numCellsX = 4;
 const numCellsY = 3;
@@ -82,11 +85,17 @@ function main(fontImage) {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
 
-    canvas.onmousedown = () => {
+    canvas.onmousedown = e => {
         if (state.paused) {
-            canvas.requestPointerLock();
+            if (e.button == 0) {
+                canvas.requestPointerLock();
+            }
         } else {
-            shootBullet(state);
+            if (e.button == 0) {
+                tryStartMeleeAttack(state);
+            } else if (e.button == 2) {
+                shootBullet(state);
+            }
         }
     };
 
@@ -159,6 +168,72 @@ function updatePosition(state, e) {
     const sensitivity = 0.05;
     const movement = vec2.fromValues(e.movementX, -e.movementY);
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, sensitivity);
+}
+
+function tryStartMeleeAttack(state) {
+    if (state.player.dead) {
+        return;
+    }
+
+    if (state.player.meleeAttackTimer > 0) {
+        return;
+    }
+
+    state.player.meleeAttackTimer = meleeAttackExpandDuration + meleeAttackRetractDuration;
+}
+
+function updateMeleeAttack(state, dt) {
+    state.player.meleeAttackTimer = Math.max(0, state.player.meleeAttackTimer - dt);
+
+    // Check for any enemies hit by the attack
+
+    const dpos = vec2.create();
+
+    if (state.player.meleeAttackTimer > meleeAttackRetractDuration) {
+        const r = meleeAttackRadius(state.player.meleeAttackTimer);
+
+        for (const turret of state.level.turrets) {
+            if (turret.dead) {
+                continue;
+            }
+
+            vec2.subtract(dpos, turret.position, state.player.position);
+            const dist = vec2.length(dpos);
+            if (dist < r + turretRadius) {
+                turret.dead = true;
+                elasticCollision(state.player, turret);
+            }
+        }
+    }
+}
+
+function renderMeleeAttack(state, renderer, matScreenFromWorld) {
+    if (state.player.meleeAttackTimer <= 0) {
+        return;
+    }
+
+    const r = meleeAttackRadius(state.player.meleeAttackTimer);
+    const color = (state.player.meleeAttackTimer > meleeAttackRetractDuration) ? { r: 0, g: 1, b: 1 } : { r: 0.1, g: 0.1, b: 0.1 };
+
+    const disc = {
+        radius: r,
+        position: vec2.create(),
+        color: color,
+    };
+
+    vec2.copy(disc.position, state.player.position);
+
+    renderer.renderDiscs(matScreenFromWorld, [disc]);
+}
+
+function meleeAttackRadius(meleeAttackTimer) {
+    if (meleeAttackTimer > meleeAttackRetractDuration) {
+        return meleeAttackMaxRadius;
+    } else if (meleeAttackTimer > 0) {
+        return playerRadius + meleeAttackTimer * ((meleeAttackMaxRadius - playerRadius) / meleeAttackRetractDuration);
+    } else {
+        return 0;
+    }
 }
 
 function shootBullet(state) {
@@ -261,13 +336,9 @@ function renderTurretBullets(bullets, renderer, matScreenFromWorld) {
 }
 
 function updateTurrets(state, dt) {
-
-    const velocityUnused = vec2.create();
-
     for (const turret of state.level.turrets) {
-        if (turret.dead) {
-            continue;
-        }
+        slideToStop(turret, dt);
+        vec2.scaleAndAdd(turret.position, turret.position, turret.velocity, dt);
 
         /*
         const dposToTarget = vec2.create();
@@ -277,41 +348,42 @@ function updateTurrets(state, dt) {
         if (distToTarget < 16) {
             moveDownGradient(state.distanceField, turret.position, 1 * dt);
         }
-
-        vec2.zero(velocityUnused);
-        fixupPositionAndVelocityAgainstLevel(turret.position, velocityUnused, turretRadius, state.level.grid);
         */
 
-        turret.timeToFire -= dt;
-        if (turret.timeToFire <= 0) {
-            turret.timeToFire += turretFireDelay;
+        if (!turret.dead) {
+            turret.timeToFire -= dt;
+            if (turret.timeToFire <= 0) {
+                turret.timeToFire += turretFireDelay;
 
-            if (hasLineOfSight(state.level, turret.position, state.player.position)) {
-                const pos = vec2.create();
-                vec2.copy(pos, turret.position);
+                if (hasLineOfSight(state.level, turret.position, state.player.position)) {
+                    const pos = vec2.create();
+                    vec2.copy(pos, turret.position);
 
-                const dpos = vec2.create();
-                vec2.subtract(dpos, state.player.position, turret.position);
-                const vel = vec2.create();
-                vec2.scale(vel, dpos, turretFireSpeed / Math.max(1.0e-6, vec2.length(dpos)));
-            
-                const bullet = {
-                    position: pos,
-                    velocity: vel,
-                    timeRemaining: turretBulletLifetime,
-                };
+                    const dpos = vec2.create();
+                    vec2.subtract(dpos, state.player.position, turret.position);
+                    const vel = vec2.create();
+                    vec2.scale(vel, dpos, turretFireSpeed / Math.max(1.0e-6, vec2.length(dpos)));
+                
+                    const bullet = {
+                        position: pos,
+                        velocity: vel,
+                        timeRemaining: turretBulletLifetime,
+                    };
 
-                state.turretBullets.push(bullet);
+                    state.turretBullets.push(bullet);
+                }
             }
         }
     }
 
-    // Fix up turret positions relative to each other.
+    // Fix up turret positions relative to the environment and each other.
 
-    /*
     for (let i = 0; i < state.level.turrets.length; ++i)
     {
         const turret0 = state.level.turrets[i];
+
+        fixupPositionAndVelocityAgainstLevel(turret0.position, turret0.velocity, turret0.radius, state.level.grid);
+
         if (turret0.dead)
             continue;
 
@@ -321,10 +393,9 @@ function updateTurrets(state, dt) {
             if (turret1.dead)
                 continue;
 
-            fixupDiscPairs(turret0.position, turretRadius, turret1.position, turretRadius);
+            fixupDiscPairs(turret0, turret1);
         }
     }
-    */
 }
 
 function moveDownGradient(distanceField, position, distance) {
@@ -461,10 +532,11 @@ function resetState(state) {
     const level = createLevel();
 
     const player = {
-        radius: playerRadius,
         position: vec2.create(),
         velocity: vec2.create(),
+        radius: playerRadius,
         color: { r: 0, g: 0, b: 0 },
+        meleeAttackTimer: 0,
         dead: false,
     };
 
@@ -1067,13 +1139,17 @@ function createColoredTriangleRenderer(gl) {
     };
 }
 
+function slideToStop(body, dt) {
+    const r = Math.exp(-3 * dt);
+    vec2.scale(body.velocity, body.velocity, r);
+}
+
 function updateState(state, dt) {
 
     // Player
 
     if (state.player.dead) {
-        const r = Math.exp(-3 * dt);
-        vec2.scale(state.player.velocity, state.player.velocity, r);
+        slideToStop(state.player, dt);
     }
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
@@ -1083,10 +1159,12 @@ function updateState(state, dt) {
     if (!state.player.dead) {
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
-                fixupPositionAndVelocityAgainstDisc(state.player.position, state.player.velocity, playerRadius, turret.position, turretRadius);
+                fixupDiscPairs(state.player, turret);
             }
         }
     }
+
+    updateMeleeAttack(state, dt);
 
     // Camera
 
@@ -1203,16 +1281,42 @@ function updateEnemy(distanceField, dt, discSpeed, player, disc) {
     disc.position.y += (vyPrev + disc.velocity.y) * dt / 2;
 }
 
-function fixupDiscPairs(position0, radius0, position1, radius1) {
+function fixupDiscPairs(disc0, disc1) {
     const dpos = vec2.create();
-    vec2.subtract(dpos, position1, position0);
+    vec2.subtract(dpos, disc1.position, disc0.position);
     const d = vec2.length(dpos);
-    const dist = d - (radius0 + radius1);
+    const dist = d - (disc0.radius + disc1.radius);
 
     if (dist < 0) {
-        const scale = dist / (2 * d);
-        vec2.scaleAndAdd(position0, position0, dpos, scale);
-        vec2.scaleAndAdd(position1, position1, dpos, -scale);
+        const scalePosFixup = dist / (2 * d);
+        vec2.scaleAndAdd(disc0.position, disc0.position, dpos, scalePosFixup);
+        vec2.scaleAndAdd(disc1.position, disc1.position, dpos, -scalePosFixup);
+
+        const dvel = vec2.create();
+        vec2.subtract(dvel, disc1.velocity, disc0.velocity);
+        const vn = vec2.dot(dpos, dvel);
+
+        if (vn < 0) {
+            const scaleVelFixup = vn / (2 * d*d);
+            vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup);
+            vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup);
+        }
+    }
+}
+
+function elasticCollision(disc0, disc1) {
+    const dpos = vec2.create();
+    vec2.subtract(dpos, disc1.position, disc0.position);
+    const d = vec2.length(dpos);
+
+    const dvel = vec2.create();
+    vec2.subtract(dvel, disc1.velocity, disc0.velocity);
+    const vn = vec2.dot(dpos, dvel);
+
+    if (vn < 0) {
+        const scaleVelFixup = vn / (d*d);
+        vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup);
+        vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup);
     }
 }
 
@@ -1397,6 +1501,9 @@ function renderScene(renderer, state) {
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
     renderDeadTurrets(state.level.turrets, renderer, matScreenFromWorld);
+
+    renderMeleeAttack(state, renderer, matScreenFromWorld);
+
     renderAliveTurrets(state.level.turrets, renderer, matScreenFromWorld);
 
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
@@ -2121,6 +2228,8 @@ function createLevel() {
 
         turrets.push({
             position: position,
+            velocity: vec2.fromValues(0, 0),
+            radius: turretRadius,
             dead: false,
             timeToFire: Math.random() * turretFireDelay,
         });
