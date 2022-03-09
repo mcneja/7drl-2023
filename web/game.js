@@ -318,6 +318,7 @@ function updateTurretBullet(state, bullet, dt) {
 
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
         state.player.dead = true;
+        state.player.meleeAttackTimer = 0;
         return false;
     }
 
