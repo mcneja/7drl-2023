@@ -15,9 +15,8 @@ const turretRadius = 0.5;
 const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
-const meleeAttackExpandDuration = 0.25;//0.125;
-const meleeAttackRetractDuration = 0;//0.125;
-const meleeAttackMaxRadius = 0.75;
+const meleeAttackRadius = 0.75;
+const meleeAttackMaxDuration = 0.5;
 
 const numCellsX = 4;
 const numCellsY = 3;
@@ -85,17 +84,9 @@ function main(fontImage) {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
 
-    canvas.onmousedown = e => {
+    canvas.onmousedown = () => {
         if (state.paused) {
-            if (e.button == 0) {
-                canvas.requestPointerLock();
-            }
-        } else {
-            if (e.button == 0) {
-                tryStartMeleeAttack(state);
-            } else if (e.button == 2) {
-                shootBullet(state);
-            }
+            canvas.requestPointerLock();
         }
     };
 
@@ -125,6 +116,8 @@ function main(fontImage) {
             document.mozPointerLockElement === canvas;
         if (mouseCaptured) {
             document.addEventListener("mousemove", onMouseMoved, false);
+            document.addEventListener("mousedown", onMouseDown, false);
+            document.addEventListener("mouseup", onMouseUp, false);
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
@@ -132,12 +125,36 @@ function main(fontImage) {
             }
         } else {
             document.removeEventListener("mousemove", onMouseMoved, false);
+            document.removeEventListener("mousedown", onMouseDown, false);
+            document.removeEventListener("mouseup", onMouseUp, false);
             state.paused = true;
         }
     }
 
     function onMouseMoved(e) {
         updatePosition(state, e);
+    }
+
+    function onMouseDown(e) {
+        if (state.paused) {
+            return;
+        }
+        if (e.button == 0) {
+            if (!state.player.dead && state.player.meleeAttackCooldown <= 0) {
+                state.player.meleeAttacking = true;
+            }
+        } else if (e.button == 2) {
+            shootBullet(state);
+        }
+    }
+
+    function onMouseUp(e) {
+        if (state.paused) {
+            return;
+        }
+        if (e.button == 0) {
+            state.player.meleeAttacking = false;
+        }
     }
 
     function onWindowResized() {
@@ -170,70 +187,54 @@ function updatePosition(state, e) {
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, sensitivity);
 }
 
-function tryStartMeleeAttack(state) {
-    if (state.player.dead) {
-        return;
-    }
-
-    if (state.player.meleeAttackTimer > 0) {
-        return;
-    }
-
-    state.player.meleeAttackTimer = meleeAttackExpandDuration + meleeAttackRetractDuration;
-}
-
 function updateMeleeAttack(state, dt) {
-    state.player.meleeAttackTimer = Math.max(0, state.player.meleeAttackTimer - dt);
-
     // Check for any enemies hit by the attack
+
+    if (!state.player.meleeAttacking) {
+        state.player.meleeAttackCooldown = Math.max(0, state.player.meleeAttackCooldown - dt);
+        return;
+    }
+
+    state.player.meleeAttackCooldown += dt;
+    if (state.player.meleeAttackCooldown >= meleeAttackMaxDuration) {
+        state.player.meleeAttackCooldown = meleeAttackMaxDuration;
+        state.player.meleeAttacking = false;
+        return;
+    }
 
     const dpos = vec2.create();
 
-    if (state.player.meleeAttackTimer > meleeAttackRetractDuration) {
-        const r = meleeAttackRadius(state.player.meleeAttackTimer);
+    const r = meleeAttackRadius;
 
-        for (const turret of state.level.turrets) {
-            if (turret.dead) {
-                continue;
-            }
+    for (const turret of state.level.turrets) {
+        if (turret.dead) {
+            continue;
+        }
 
-            vec2.subtract(dpos, turret.position, state.player.position);
-            const dist = vec2.length(dpos);
-            if (dist < r + turretRadius) {
-                turret.dead = true;
-                elasticCollision(state.player, turret);
-            }
+        vec2.subtract(dpos, turret.position, state.player.position);
+        const dist = vec2.length(dpos);
+        if (dist < r + turretRadius) {
+            turret.dead = true;
+            state.player.meleeAttackCooldown = 0;
+            elasticCollision(state.player, turret);
         }
     }
 }
 
 function renderMeleeAttack(state, renderer, matScreenFromWorld) {
-    if (state.player.meleeAttackTimer <= 0) {
+    if (!state.player.meleeAttacking) {
         return;
     }
 
-    const r = meleeAttackRadius(state.player.meleeAttackTimer);
-    const color = (state.player.meleeAttackTimer > meleeAttackRetractDuration) ? { r: 0, g: 1, b: 1 } : { r: 0.1, g: 0.1, b: 0.1 };
-
     const disc = {
-        radius: r,
+        radius: meleeAttackRadius,
         position: vec2.create(),
-        color: color,
+        color: { r: 0, g: 1, b: 1 },
     };
 
     vec2.copy(disc.position, state.player.position);
 
     renderer.renderDiscs(matScreenFromWorld, [disc]);
-}
-
-function meleeAttackRadius(meleeAttackTimer) {
-    if (meleeAttackTimer > meleeAttackRetractDuration) {
-        return meleeAttackMaxRadius;
-    } else if (meleeAttackTimer > 0) {
-        return playerRadius + meleeAttackTimer * ((meleeAttackMaxRadius - playerRadius) / meleeAttackRetractDuration);
-    } else {
-        return 0;
-    }
 }
 
 function shootBullet(state) {
@@ -318,7 +319,8 @@ function updateTurretBullet(state, bullet, dt) {
 
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
         state.player.dead = true;
-        state.player.meleeAttackTimer = 0;
+        state.player.meleeAttacking = false;
+        state.player.meleeAttackCooldown = 0;
         return false;
     }
 
@@ -552,7 +554,8 @@ function resetState(state) {
         velocity: vec2.create(),
         radius: playerRadius,
         color: { r: 0, g: 0, b: 0 },
-        meleeAttackTimer: 0,
+        meleeAttacking: false,
+        meleeAttackCooldown: 0,
         dead: false,
     };
 
@@ -1524,6 +1527,7 @@ function renderScene(renderer, state) {
     renderPlayerBullets(state, renderer, matScreenFromWorld);
 
 //    renderer.renderDiscs(state.collectibles);
+    state.player.color = colorLerp({ r: 0, g: 0, b: 0 }, { r: 0, g: 1, b: 1 }, state.player.meleeAttackCooldown / meleeAttackMaxDuration);
     renderer.renderDiscs(matScreenFromWorld, [state.player]);
 
 /*
