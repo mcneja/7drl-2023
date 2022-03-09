@@ -247,6 +247,8 @@ function shootBullet(state) {
     const vel = vec2.create();
     vec2.scale(vel, state.player.velocity, 2);
 
+    vec2.scale(state.player.velocity, state.player.velocity, 0.8);
+
     state.playerBullets.push({
         position: pos,
         velocity: vel,
