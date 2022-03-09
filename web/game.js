@@ -11,7 +11,7 @@ const ttRoom = 3;
 
 const playerRadius = 0.5;
 const bulletRadius = 0.25;
-const turretRadius = 0.5;
+const monsterRadius = 0.5;
 const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
@@ -213,10 +213,24 @@ function updateMeleeAttack(state, dt) {
 
         vec2.subtract(dpos, turret.position, state.player.position);
         const dist = vec2.length(dpos);
-        if (dist < r + turretRadius) {
+        if (dist < r + monsterRadius) {
             turret.dead = true;
             state.player.meleeAttackCooldown = 0;
             elasticCollision(state.player, turret, 1, 1);
+        }
+    }
+
+    for (const swarmer of state.level.swarmers) {
+        if (swarmer.dead) {
+            continue;
+        }
+
+        vec2.subtract(dpos, swarmer.position, state.player.position);
+        const dist = vec2.length(dpos);
+        if (dist < r + monsterRadius) {
+            swarmer.dead = true;
+            state.player.meleeAttackCooldown = 0;
+            elasticCollision(state.player, swarmer, 1, 0.5);
         }
     }
 }
@@ -268,21 +282,33 @@ function updatePlayerBullet(state, bullet, dt) {
         return false;
     }
 
-    let hitTurret = false;
+    let hitSomething = false;
 
     for (const turret of state.level.turrets) {
         if (turret.dead) {
             continue;
         }
 
-        if (areDiscsTouching(bullet.position, bulletRadius, turret.position, turretRadius)) {
+        if (areDiscsTouching(bullet.position, bulletRadius, turret.position, monsterRadius)) {
             vec2.scaleAndAdd(turret.velocity, turret.velocity, bullet.velocity, 0.2);
             turret.dead = true;
-            hitTurret = true;
+            hitSomething = true;
         }
     }
 
-    if (hitTurret) {
+    for (const swarmer of state.level.swarmers) {
+        if (swarmer.dead) {
+            continue;
+        }
+
+        if (areDiscsTouching(bullet.position, bulletRadius, swarmer.position, swarmer.radius)) {
+            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, bullet.velocity, 0.2);
+            swarmer.dead = true;
+            hitSomething = true;
+        }
+    }
+
+    if (hitSomething) {
         return false;
     }
 
@@ -351,22 +377,12 @@ function updateTurrets(state, dt) {
         slideToStop(turret, dt);
         vec2.scaleAndAdd(turret.position, turret.position, turret.velocity, dt);
 
-        /*
-        const dposToTarget = vec2.create();
-        vec2.subtract(dposToTarget, turret.position, state.player.position);
-        const distToTarget = vec2.length(dposToTarget);
-    
-        if (distToTarget < 16) {
-            moveDownGradient(state.distanceField, turret.position, 1 * dt);
-        }
-        */
-
         if (!turret.dead) {
             turret.timeToFire -= dt;
             if (turret.timeToFire <= 0) {
                 turret.timeToFire += turretFireDelay;
 
-                if (hasLineOfSight(state.level, turret.position, state.player.position)) {
+                if (distanceBetween(turret.position, state.player.position) < 20) {
                     const dpos = vec2.create();
                     vec2.subtract(dpos, state.player.position, turret.position);
                     const d = Math.max(1.0e-6, vec2.length(dpos));
@@ -389,7 +405,7 @@ function updateTurrets(state, dt) {
         }
     }
 
-    // Fix up turret positions relative to the environment and each other.
+    // Fix up turret positions relative to the environment and other objects.
 
     for (let i = 0; i < state.level.turrets.length; ++i)
     {
@@ -411,6 +427,56 @@ function updateTurrets(state, dt) {
     }
 }
 
+function updateSwarmers(state, dt) {
+    const swarmerSpeed = 4;
+
+    for (const swarmer of state.level.swarmers) {
+        if (swarmer.dead) {
+            slideToStop(swarmer, dt);
+        } else if (distanceBetween(swarmer.position, state.player.position) < 24 &&
+            clearLineOfSight(state.level, swarmer.position, state.player.position)) {
+            const dposToTarget = vec2.create();
+            vec2.subtract(dposToTarget, swarmer.position, state.player.position);
+            const distToTarget = vec2.length(dposToTarget);
+
+            const accelerationRate = -16;
+            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dposToTarget, accelerationRate * dt / distToTarget);
+        } else {
+            slideToStop(swarmer, dt);
+        }
+
+        vec2.scaleAndAdd(swarmer.position, swarmer.position, swarmer.velocity, dt);
+    }
+
+    // Fix up swarmer positions relative to the environment and other objects.
+
+    for (let i = 0; i < state.level.swarmers.length; ++i)
+    {
+        const swarmer0 = state.level.swarmers[i];
+
+        fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.grid);
+
+        if (swarmer0.dead)
+            continue;
+
+        for (const turret of state.level.turrets) {
+            if (turret.dead)
+                continue;
+
+            fixupDiscPairs(swarmer0, turret);
+        }
+
+        for (let j = i + 1; j < state.level.swarmers.length; ++j)
+        {
+            const swarmer1 = state.level.swarmers[j];
+            if (swarmer1.dead)
+                continue;
+
+            fixupDiscPairs(swarmer0, swarmer1);
+        }
+    }
+}
+
 function moveDownGradient(distanceField, position, distance) {
     const gradient = vec2.create();
     estimateGradient(distanceField, position, gradient);
@@ -422,12 +488,12 @@ function moveDownGradient(distanceField, position, distance) {
     vec2.scaleAndAdd(position, position, gradient, scale);
 }
 
-function renderDeadTurrets(turrets, renderer, matScreenFromWorld) {
+function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
     const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = turrets.filter(turret => turret.dead).map(turret => ({
         position: turret.position,
         color: color,
-        radius: turretRadius,
+        radius: monsterRadius,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
@@ -453,13 +519,13 @@ function renderDeadTurrets(turrets, renderer, matScreenFromWorld) {
     renderer.renderGlyphs.flush(matScreenFromWorld);
 }
 
-function renderAliveTurrets(turrets, renderer, matScreenFromWorld) {
+function renderTurretsAlive(turrets, renderer, matScreenFromWorld) {
     const colorWindup = { r: 1, g: 0.5, b: 0.25 };
     const color = { r: 0.34375, g: 0.25, b: 0.25 };
     const discs = turrets.filter(turret => !turret.dead).map(turret => ({
         position: turret.position,
         color: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay)),
-        radius: turretRadius,
+        radius: monsterRadius,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
@@ -478,6 +544,68 @@ function renderAliveTurrets(turrets, renderer, matScreenFromWorld) {
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
                 rect.minX, rect.minY, rect.maxX, rect.maxY,
                 turretGlyphColor
+            );
+        }
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
+    const color = { r: 0.45, g: 0.45, b: 0.45 };
+    const discs = swarmers.filter(swarmer => swarmer.dead).map(swarmer => ({
+        position: swarmer.position,
+        color: color,
+        radius: monsterRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(114);
+    const rx = 0.25;
+    const ry = 0.5;
+    const yOffset = 0;
+    const glyphColor = 0xff808080;
+
+    for (const swarmer of swarmers) {
+        if (swarmer.dead) {
+            const x = swarmer.position[0];
+            const y = swarmer.position[1];
+            renderer.renderGlyphs.add(
+                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                glyphColor
+            );
+        }
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
+    const color = { r: 0.25, g: 0.34375, b: 0.25 };
+    const discs = swarmers.filter(swarmer => !swarmer.dead).map(swarmer => ({
+        position: swarmer.position,
+        color: color,
+        radius: monsterRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(114);
+    const rx = 0.25;
+    const ry = 0.5;
+    const yOffset = 0;
+    const glyphColor = 0xff80b080;
+
+    for (const swarmer of swarmers) {
+        if (!swarmer.dead) {
+            const x = swarmer.position[0];
+            const y = swarmer.position[1];
+            renderer.renderGlyphs.add(
+                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                glyphColor
             );
         }
     }
@@ -1189,6 +1317,12 @@ function updateState(state, dt) {
         }
     }
 
+    for (const swarmer of state.level.swarmers) {
+        if (!swarmer.dead) {
+            fixupDiscPairs(state.player, swarmer);
+        }
+    }
+
     updateMeleeAttack(state, dt);
 
     // Camera
@@ -1216,6 +1350,10 @@ function updateState(state, dt) {
 
     updateTurrets(state, dt);
 
+    // Swarmers
+
+    updateSwarmers(state, dt);
+
     // Bullets
 
     updatePlayerBullets(state, dt);
@@ -1230,7 +1368,7 @@ function updateState(state, dt) {
     }
     */
 
-    updateDistanceField(state.costRateField, state.distanceField, state.player.position);
+//    updateDistanceField(state.costRateField, state.distanceField, state.player.position);
 
     /*
     const discSpeed = 0.2 - 0.15 * Math.min(state.collectibles.length, 80) / 80;
@@ -1458,10 +1596,68 @@ function separatingAxis(dx, dy) {
     }
 }
 
-function hasLineOfSight(level, pos0, pos1) {
+function distanceBetween(pos0, pos1) {
     const dpos = vec2.create();
     vec2.subtract(dpos, pos1, pos0);
-    return vec2.length(dpos) < 20;
+    return vec2.length(dpos);
+}
+
+function clearLineOfSight(level, pos0, pos1) {
+    const dx = Math.abs(pos1[0] - pos0[0]);
+    const dy = Math.abs(pos1[1] - pos0[1]);
+
+    let x = Math.floor(pos0[0]);
+    let y = Math.floor(pos0[1]);
+
+    let n = 1;
+    let xInc, yInc, error;
+
+    if (dx == 0) {
+        xInc = 0;
+        error = Infinity;
+    } else if (pos1[0] > pos0[0]) {
+        xInc = 1;
+        n += Math.floor(pos1[0]) - x;
+        error = (Math.floor(pos0[0]) + 1 - pos0[0]) * dy;
+    } else {
+        xInc = -1;
+        n += x - Math.floor(pos1[0]);
+        error = (pos0[0] - Math.floor(pos0[0])) * dy;
+    }
+
+    if (dy == 0) {
+        yInc = 0;
+        error = -Infinity;
+    } else if (pos1[1] > pos0[1]) {
+        yInc = 1;
+        n += Math.floor(pos1[1]) - y;
+        error -= (Math.floor(pos0[1]) + 1 - pos0[1]) * dx;
+    } else {
+        yInc = -1;
+        n += y - Math.floor(pos1[1]);
+        error -= (pos0[1] - Math.floor(pos0[1])) * dx;
+    }
+
+    while (n > 0) {
+        if (x < 0 || y < 0 || x >= level.grid.sizeX || y >= level.grid.sizeY)
+            return false;
+
+        const tileType = level.grid.get(x, y);
+        if (tileType != ttRoom && tileType != ttHall)
+            return false;
+
+        if (error > 0) {
+            y += yInc;
+            error -= dx;
+        } else {
+            x += xInc;
+            error += dy;
+        }
+
+        --n;
+    }
+
+    return true;
 }
 
 function fixupPositionAndVelocityAgainstDisc(position, velocity, radius, discPosition, discRadius) {
@@ -1525,11 +1721,13 @@ function renderScene(renderer, state) {
 //    renderer.renderField(matScreenFromWorld, state.costRateField, state.distanceField, 0);
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
-    renderDeadTurrets(state.level.turrets, renderer, matScreenFromWorld);
+    renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
+    renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderMeleeAttack(state, renderer, matScreenFromWorld);
 
-    renderAliveTurrets(state.level.turrets, renderer, matScreenFromWorld);
+    renderTurretsAlive(state.level.turrets, renderer, matScreenFromWorld);
+    renderSwarmersAlive(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
@@ -1904,10 +2102,6 @@ function randomInRange(n) {
     return Math.floor(Math.random() * n);
 }
 
-// The output level data structure consists of dimensions and
-// a byte array with the tile for each square. The starting
-// position is also returned.
-
 function coinFlips(total) {
     let count = 0;
     while (total > 0) {
@@ -1917,6 +2111,10 @@ function coinFlips(total) {
     }
     return count;
 }
+
+// The output level data structure consists of dimensions and
+// a byte array with the tile for each square. The starting
+// position is also returned.
 
 function createLevel() {
     const maxMapSizeX = 128;
@@ -1946,8 +2144,8 @@ function createLevel() {
             const remainderX = (maxRoomSizeX - minRoomSize) - 2 * halfRoomSizeRangeX;
             const remainderY = (maxRoomSizeY - minRoomSize) - 2 * halfRoomSizeRangeY;
 
-            const roomSizeX = 2 * coinFlips(halfRoomSizeRangeX) + minRoomSize + remainderX;
-            const roomSizeY = 2 * coinFlips(halfRoomSizeRangeY) + minRoomSize + remainderY;
+            const roomSizeX = 2 * randomInRange(1 + halfRoomSizeRangeX) + minRoomSize + remainderX;
+            const roomSizeY = 2 * randomInRange(1 + halfRoomSizeRangeY) + minRoomSize + remainderY;
 
             const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
             const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
@@ -2030,9 +2228,11 @@ function createLevel() {
             level.set(room.minX - 1, y + room.minY - 1, ttWall);
             level.set(room.minX + room.sizeX, y + room.minY - 1, ttWall);
         }
-
-        decorateRoom(room, level);
     }
+
+    // Decorate the rooms
+
+    decorateRooms(rooms, level);
 
     // Plot corridors into grid
 
@@ -2239,25 +2439,62 @@ function createLevel() {
 
         const room = rooms[roomIndex];
 
-        const x = Math.random() * (room.sizeX - 2 * turretRadius) + room.minX + turretRadius;
-        const y = Math.random() * (room.sizeY - 2 * turretRadius) + room.minY + turretRadius;
+        const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
+        const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
 
         const position = vec2.fromValues(x, y);
 
-        if (isDiscTouchingLevel(position, turretRadius * 2, level)) {
+        if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
             continue;
         }
 
-        if (isPositionTooCloseToOtherTurrets(turrets, position)) {
+        if (isPositionTooCloseToOtherObjects(turrets, 3 * monsterRadius, position)) {
             continue;
         }
 
         turrets.push({
             position: position,
             velocity: vec2.fromValues(0, 0),
-            radius: turretRadius,
+            radius: monsterRadius,
             dead: false,
             timeToFire: Math.random() * turretFireDelay,
+        });
+    }
+
+    // Place some melee monsters in the level
+
+    const swarmers = [];
+
+    for (let i = 0; i < 1000 && swarmers.length < 32; ++i) {
+        const roomIndex = randomInRange(rooms.length);
+        if (roomIndex == startRoomIndex) {
+            continue;
+        }
+
+        const room = rooms[roomIndex];
+
+        const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
+        const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
+
+        const position = vec2.fromValues(x, y);
+
+        if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+            continue;
+        }
+
+        if (isPositionTooCloseToOtherObjects(turrets, 3 * monsterRadius, position)) {
+            continue;
+        }
+
+        if (isPositionTooCloseToOtherObjects(swarmers, 3 * monsterRadius, position)) {
+            continue;
+        }
+
+        swarmers.push({
+            position: position,
+            velocity: vec2.fromValues(0, 0),
+            radius: monsterRadius,
+            dead: false,
         });
     }
 
@@ -2266,6 +2503,7 @@ function createLevel() {
         vertexData: vertexData,
         playerStartPos: playerStartPos,
         turrets: turrets,
+        swarmers: swarmers,
     };
 }
 
@@ -2359,14 +2597,26 @@ function compressRooms(roomGrid, edges, rooms) {
     return [mapSizeX, mapSizeY];
 }
 
-function decorateRoom(room, level) {
-    if (room.sizeX < 13 || room.sizeY < 13) {
-        return;
-    }
+function decorateRooms(rooms, level) {
+    const roomsShuffled = [...rooms];
+    shuffleArray(roomsShuffled);
 
-    const roomType = Math.random();
+    tryPlacePillarRoom(roomsShuffled, level);
+    tryPlaceCenterObstacleRoom(roomsShuffled, level);
+    tryPlacePillarRoom(roomsShuffled, level);
+}
 
-    if (roomType < 0.333) {
+function tryPlacePillarRoom(rooms, level) {
+    for (let i = 0; i < rooms.length; ++i) {
+        const room = rooms[i];
+        if (room.sizeX < 13 || room.sizeY < 13)
+            continue;
+        if (((room.sizeX - 3) % 5) == 0 && ((room.sizeY - 3) % 5) == 0)
+            continue;
+
+        rooms[i] = rooms[rooms.length-1];
+        --rooms.length;
+
         function plotPillar(x, y) {
             x += room.minX;
             y += room.minY;
@@ -2394,7 +2644,20 @@ function decorateRoom(room, level) {
                 plotPillar(room.sizeX - 5, y);
             }
         }
-    } else if (roomType < 0.667) {
+
+        return;
+    }
+}
+
+function tryPlaceCenterObstacleRoom(rooms, level) {
+    for (let i = 0; i < rooms.length; ++i) {
+        const room = rooms[i];
+        if (room.sizeX < 13 || room.sizeY < 13)
+            continue;
+
+        rooms[i] = rooms[rooms.length-1];
+        --rooms.length;
+
         function plotRect(minX, minY, sizeX, sizeY, type) {
             for (let x = minX; x < minX + sizeX; ++x) {
                 for (let y = minY; y < minY + sizeY; ++y) {
@@ -2405,6 +2668,8 @@ function decorateRoom(room, level) {
 
         plotRect(room.minX + 5, room.minY + 5, room.sizeX - 10, room.sizeY - 10, ttWall);
         plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, ttSolid);
+
+        return;
     }
 }
 
@@ -2426,12 +2691,12 @@ function canHaveStraightHorizontalHall(room0, room1) {
     return overlapSize >= corridorWidth;
 }
 
-function isPositionTooCloseToOtherTurrets(turrets, position) {
+function isPositionTooCloseToOtherObjects(objects, separationDistance, position) {
     const dpos = vec2.create();
-    for (const turret of turrets) {
-        vec2.subtract(dpos, turret.position, position);
+    for (const object of objects) {
+        vec2.subtract(dpos, object.position, position);
         const d = vec2.length(dpos);
-        if (d < 3 * turretRadius) {
+        if (d < separationDistance) {
             return true;
         }
     }
