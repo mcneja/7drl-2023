@@ -216,7 +216,7 @@ function updateMeleeAttack(state, dt) {
         if (dist < r + turretRadius) {
             turret.dead = true;
             state.player.meleeAttackCooldown = 0;
-            elasticCollision(state.player, turret);
+            elasticCollision(state.player, turret, 1, 1);
         }
     }
 }
@@ -320,12 +320,18 @@ function updateTurretBullet(state, bullet, dt) {
         return false;
     }
 
-    if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
-        vec2.scaleAndAdd(state.player.velocity, state.player.velocity, bullet.velocity, 0.2);
-        state.player.dead = true;
-        state.player.meleeAttacking = false;
-        state.player.meleeAttackCooldown = 0;
-        return false;
+    const playerRadiusCur = state.player.meleeAttacking ? meleeAttackRadius : playerRadius;
+
+    if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadiusCur)) {
+        if (state.player.meleeAttacking) {
+            elasticCollision(state.player, bullet, 1, 0.25);
+        } else {
+            vec2.scaleAndAdd(state.player.velocity, state.player.velocity, bullet.velocity, 0.2);
+            state.player.dead = true;
+            state.player.meleeAttacking = false;
+            state.player.meleeAttackCooldown = 0;
+            return false;
+        }
     }
 
     return true;
@@ -1325,7 +1331,7 @@ function fixupDiscPairs(disc0, disc1) {
     }
 }
 
-function elasticCollision(disc0, disc1) {
+function elasticCollision(disc0, disc1, mass0, mass1) {
     const dpos = vec2.create();
     vec2.subtract(dpos, disc1.position, disc0.position);
     const d = vec2.length(dpos);
@@ -1335,9 +1341,9 @@ function elasticCollision(disc0, disc1) {
     const vn = vec2.dot(dpos, dvel);
 
     if (vn < 0) {
-        const scaleVelFixup = vn / (d*d);
-        vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup);
-        vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup);
+        const scaleVelFixup = (2 * vn) / (d * d * (mass0 + mass1));
+        vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup * mass1);
+        vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup * mass0);
     }
 }
 
