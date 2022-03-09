@@ -274,6 +274,7 @@ function updatePlayerBullet(state, bullet, dt) {
         }
 
         if (areDiscsTouching(bullet.position, bulletRadius, turret.position, turretRadius)) {
+            vec2.scaleAndAdd(turret.velocity, turret.velocity, bullet.velocity, 0.2);
             turret.dead = true;
             hitTurret = true;
         }
@@ -318,6 +319,7 @@ function updateTurretBullet(state, bullet, dt) {
     }
 
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
+        vec2.scaleAndAdd(state.player.velocity, state.player.velocity, bullet.velocity, 0.2);
         state.player.dead = true;
         state.player.meleeAttacking = false;
         state.player.meleeAttackCooldown = 0;
