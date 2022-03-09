@@ -323,10 +323,8 @@ function updateTurretBullet(state, bullet, dt) {
     const playerRadiusCur = state.player.meleeAttacking ? meleeAttackRadius : playerRadius;
 
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadiusCur)) {
-        if (state.player.meleeAttacking) {
-            elasticCollision(state.player, bullet, 1, 0.25);
-        } else {
-            vec2.scaleAndAdd(state.player.velocity, state.player.velocity, bullet.velocity, 0.2);
+        elasticCollision(state.player, bullet, 1, 0.125);
+        if (!state.player.meleeAttacking) {
             state.player.dead = true;
             state.player.meleeAttacking = false;
             state.player.meleeAttackCooldown = 0;
