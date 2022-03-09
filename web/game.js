@@ -17,7 +17,7 @@ const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
 const meleeAttackExpandDuration = 0.25;//0.125;
 const meleeAttackRetractDuration = 0;//0.125;
-const meleeAttackMaxRadius = 1.0;
+const meleeAttackMaxRadius = 0.75;
 
 const numCellsX = 4;
 const numCellsY = 3;
@@ -357,14 +357,16 @@ function updateTurrets(state, dt) {
                 turret.timeToFire += turretFireDelay;
 
                 if (hasLineOfSight(state.level, turret.position, state.player.position)) {
-                    const pos = vec2.create();
-                    vec2.copy(pos, turret.position);
-
                     const dpos = vec2.create();
                     vec2.subtract(dpos, state.player.position, turret.position);
+                    const d = Math.max(1.0e-6, vec2.length(dpos));
+
+                    const pos = vec2.create();
+                    vec2.scaleAndAdd(pos, turret.position, dpos, turret.radius / d);
+
                     const vel = vec2.create();
-                    vec2.scale(vel, dpos, turretFireSpeed / Math.max(1.0e-6, vec2.length(dpos)));
-                
+                    vec2.scale(vel, dpos, turretFireSpeed / d);
+
                     const bullet = {
                         position: pos,
                         velocity: vel,
@@ -442,10 +444,11 @@ function renderDeadTurrets(turrets, renderer, matScreenFromWorld) {
 }
 
 function renderAliveTurrets(turrets, renderer, matScreenFromWorld) {
+    const colorWindup = { r: 1, g: 0.5, b: 0.25 };
     const color = { r: 0.34375, g: 0.25, b: 0.25 };
     const discs = turrets.filter(turret => !turret.dead).map(turret => ({
         position: turret.position,
-        color: color,
+        color: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay)),
         radius: turretRadius,
     }));
 
@@ -470,6 +473,18 @@ function renderAliveTurrets(turrets, renderer, matScreenFromWorld) {
     }
 
     renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function colorLerp(color0, color1, u) {
+    return {
+        r: lerp(color0.r, color1.r, u),
+        g: lerp(color0.g, color1.g, u),
+        b: lerp(color0.b, color1.b, u),
+    };
+}
+
+function lerp(v0, v1, u) {
+    return v0 + (v1 - v0) * u;
 }
 
 function glyphRect(glyphIndex) {
@@ -1157,11 +1172,9 @@ function updateState(state, dt) {
 
     fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.grid);
 
-    if (!state.player.dead) {
-        for (const turret of state.level.turrets) {
-            if (!turret.dead) {
-                fixupDiscPairs(state.player, turret);
-            }
+    for (const turret of state.level.turrets) {
+        if (!turret.dead) {
+            fixupDiscPairs(state.player, turret);
         }
     }
 
