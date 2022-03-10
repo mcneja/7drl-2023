@@ -2020,10 +2020,10 @@ function renderScene(renderer, state) {
         let screenSizeX, screenSizeY;
 
         if (screenSize[0] < screenSize[1] * 0.5) {
-            screenSizeX = 20;
+            screenSizeX = 25;
             screenSizeY = 0.5 * screenSizeX * screenSize[1] / screenSize[0];
         } else {
-            screenSizeY = 20;
+            screenSizeY = 25;
             screenSizeX = 2 * screenSizeY * screenSize[0] / screenSize[1];
         }
 
@@ -2055,10 +2055,10 @@ function renderScene(renderer, state) {
         let screenSizeX, screenSizeY;
 
         if (screenSize[0] < screenSize[1] * 0.5) {
-            screenSizeX = 20;
+            screenSizeX = 25;
             screenSizeY = 0.5 * screenSizeX * screenSize[1] / screenSize[0];
         } else {
-            screenSizeY = 20;
+            screenSizeY = 25;
             screenSizeX = 2 * screenSizeY * screenSize[0] / screenSize[1];
         }
 
