@@ -709,10 +709,14 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        joltOffset: vec2.create(),
+        joltVelocity: vec2.create(),
     };
 
     vec2.copy(camera.position, player.position);
     vec2.zero(camera.velocity);
+    vec2.zero(camera.joltOffset);
+    vec2.zero(camera.joltVelocity);
 
     const lava = {
         state: lavaStateInactive,
@@ -1507,24 +1511,7 @@ function updateState(state, dt) {
 
     // Camera
 
-    const posError = vec2.create();
-    vec2.subtract(posError, state.player.position, state.camera.position);
-
-    const velError = vec2.create();
-    vec2.negate(velError, state.camera.velocity);
-
-    const kSpring = 8; // spring constant, radians/sec
-
-    const acc = vec2.create();
-    vec2.scale(acc, posError, kSpring**2);
-    vec2.scaleAndAdd(acc, acc, velError, 2*kSpring);
-
-    const velNew = vec2.create();
-    vec2.scaleAndAdd(velNew, state.camera.velocity, acc, dt);
-
-    vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
-    vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
-    vec2.copy(state.camera.velocity, velNew);
+    updateCamera(state, dt);
 
     // Lava
 
@@ -1592,7 +1579,7 @@ function updateLava(state, dt) {
 
     const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
 
-    const levelTargetAdjusted = (distPlayerFromEntrance < 4) ? entranceDistFromExit - 4 : state.lava.levelTarget;
+    const levelTargetAdjusted = (distPlayerFromEntrance < 6) ? entranceDistFromExit - 4 : state.lava.levelTarget;
 
     const levelError = levelTargetAdjusted - state.lava.levelBase;
     const levelVelocityError = -state.lava.levelBaseVelocity;
@@ -1610,6 +1597,65 @@ function updateLava(state, dt) {
     if (isPosInLava(state, state.player.position)) {
         killPlayer(state);
     }
+}
+
+function updateCamera(state, dt) {
+
+    // Animate jolt
+
+    if (state.lava.state != lavaStateInactive) {
+        const joltScale = (state.lava.state == lavaStateActive) ? 3 : 1;
+        const randomOffset = vec2.create();
+        generateRandomGaussianPair(0, joltScale, randomOffset);
+        vec2.add(state.camera.joltVelocity, state.camera.joltVelocity, randomOffset);
+    }
+
+    // Update jolt
+
+    const kSpringJolt = 12;
+
+    const accJolt = vec2.create();
+    vec2.scale(accJolt, state.camera.joltOffset, -(kSpringJolt**2));
+    vec2.scaleAndAdd(accJolt, accJolt, state.camera.joltVelocity, -2*kSpringJolt);
+
+    const velJoltNew = vec2.create();
+    vec2.scaleAndAdd(velJoltNew, state.camera.joltVelocity, accJolt, dt);
+    vec2.scaleAndAdd(state.camera.joltOffset, state.camera.joltOffset, state.camera.joltVelocity, 0.5 * dt);
+    vec2.scaleAndAdd(state.camera.joltOffset, state.camera.joltOffset, velJoltNew, 0.5 * dt);
+    vec2.copy(state.camera.joltVelocity, velJoltNew);
+
+    // Update player follow
+
+    const posError = vec2.create();
+    vec2.subtract(posError, state.player.position, state.camera.position);
+
+    const velError = vec2.create();
+    vec2.negate(velError, state.camera.velocity);
+
+    const kSpring = 8; // spring constant, radians/sec
+
+    const acc = vec2.create();
+    vec2.scale(acc, posError, kSpring**2);
+    vec2.scaleAndAdd(acc, acc, velError, 2*kSpring);
+
+    const velNew = vec2.create();
+    vec2.scaleAndAdd(velNew, state.camera.velocity, acc, dt);
+
+    vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
+    vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
+    vec2.copy(state.camera.velocity, velNew);
+}
+
+function generateRandomGaussianPair(mean, stdDev, pairOut) {
+    let s;
+    do {
+        pairOut[0] = Math.random() * 2 - 1;
+        pairOut[1] = Math.random() * 2 - 1;
+        s = vec2.squaredLength(pairOut);
+    } while (s >= 1 || s == 0);
+    s = stdDev * Math.sqrt(-2.0 * Math.log(s) / s);
+    vec2.scale(pairOut, pairOut, s);
+    vec2.add(pairOut, pairOut, vec2.fromValues(mean, mean));
 }
 
 function isPosInLava(state, position) {
@@ -1881,8 +1927,8 @@ function renderScene(renderer, state) {
         const cy = state.level.grid.sizeY / 2;
         mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
     } else {
-        const cx = state.camera.position[0];
-        const cy = state.camera.position[1];
+        const cx = state.camera.position[0] + state.camera.joltOffset[0];
+        const cy = state.camera.position[1] + state.camera.joltOffset[1];
         const r = 18;
         let rx, ry;
         if (screenSize[0] < screenSize[1]) {
@@ -2565,7 +2611,8 @@ function createLevel() {
 
     const turrets = [];
 
-    for (let i = 0; i < 1000 && turrets.length < 32; ++i) {
+    const numTurrets = 32;
+    for (let i = 0; i < 1000 && turrets.length < numTurrets; ++i) {
         const roomIndex = randomInRange(rooms.length);
         if (roomIndex == roomIndexEntrance) {
             continue;
@@ -2599,7 +2646,8 @@ function createLevel() {
 
     const swarmers = [];
 
-    for (let i = 0; i < 1000 && swarmers.length < 8; ++i) {
+    const numSwarmers = 8;
+    for (let i = 0; i < 1000 && swarmers.length < numSwarmers; ++i) {
         const roomIndex = randomInRange(rooms.length);
         if (roomIndex == roomIndexEntrance) {
             continue;
