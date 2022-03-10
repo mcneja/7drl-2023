@@ -10,6 +10,7 @@ const ttHall = 2;
 const ttRoom = 3;
 
 const playerRadius = 0.5;
+const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
 const monsterRadius = 0.5;
 const turretFireDelay = 2.0;
@@ -144,7 +145,7 @@ function main(fontImage) {
             return;
         }
         if (e.button == 0) {
-            if (!state.player.dead && state.player.meleeAttackCooldown <= 0) {
+            if (state.player.hitPoints > 0 && state.player.meleeAttackCooldown <= 0) {
                 state.player.meleeAttacking = true;
             }
         } else if (e.button == 2) {
@@ -182,7 +183,7 @@ const loadImage = src =>
     });
 
 function updatePosition(state, e) {
-    if (state.player.dead) {
+    if (state.player.hitPoints <= 0) {
         return;
     }
 
@@ -257,7 +258,7 @@ function renderMeleeAttack(state, renderer, matScreenFromWorld) {
 }
 
 function shootBullet(state) {
-    if (state.player.dead) {
+    if (state.player.hitPoints <= 0) {
         return;
     }
 
@@ -358,7 +359,7 @@ function updateTurretBullet(state, bullet, dt) {
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadiusCur)) {
         elasticCollision(state.player, bullet, 1, 0.125);
         if (!state.player.meleeAttacking) {
-            killPlayer(state);
+            damagePlayer(state);
             return false;
         }
     }
@@ -700,6 +701,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         color: { r: 0, g: 0, b: 0 },
         meleeAttacking: false,
         meleeAttackCooldown: 0,
+        hitPoints: playerMaxHitPoints,
         dead: false,
     };
 
@@ -1487,7 +1489,7 @@ function updateState(state, dt) {
 
     // Player
 
-    if (state.player.dead) {
+    if (state.player.hitPoints <= 0) {
         slideToStop(state.player, dt);
     }
 
@@ -1675,8 +1677,14 @@ function isPosInLava(state, position) {
     return distFromExit < state.lava.levelBase;
 }
 
+function damagePlayer(state) {
+    state.player.hitPoints = Math.max(0, state.player.hitPoints - 1);
+    state.player.meleeAttacking = false;
+    state.player.meleeAttackCooldown = 0;
+}
+
 function killPlayer(state) {
-    state.player.dead = true;
+    state.player.hitPoints = 0;
     state.player.meleeAttacking = false;
     state.player.meleeAttackCooldown = 0;
 }
@@ -2001,7 +2009,7 @@ function renderScene(renderer, state) {
         const ry = 0.5;
         const yOffset = -0.06;
 
-        const glyphColor = state.player.dead ? 0xff0020ff : 0xff00ffff;
+        const glyphColor = (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff;
 
         renderer.renderGlyphs.add(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1*tx, ty, 2*tx, 0, glyphColor);
         renderer.renderGlyphs.flush(matScreenFromWorld);
@@ -2009,6 +2017,37 @@ function renderScene(renderer, state) {
 
     const playerDistFromEntrance = state.showMap ? -10000 : estimateDistance(state.distanceFieldFromEntrance, state.player.position);
     state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
+
+    // Health bar
+
+    {
+        const rect = glyphRect(3);
+        const glyphColorHeartFilled = 0xff0000ff;
+        const glyphColorHeartEmpty = 0xff202020;
+
+        for (let i = 0; i < playerMaxHitPoints; ++i) {
+            const x = i * 0.5;
+            renderer.renderGlyphs.add(
+                x, 0, x + 0.5, 1,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
+            );
+        }
+
+        let screenSizeX, screenSizeY;
+
+        if (screenSize[0] < screenSize[1]) {
+            screenSizeX = 20;
+            screenSizeY = screenSizeX * screenSize[1] / screenSize[0];
+        } else {
+            screenSizeY = 20;
+            screenSizeX = screenSizeY * screenSize[0] / screenSize[1];
+        }
+
+        const matScreenFromHealthBar = mat4.create();
+        mat4.ortho(matScreenFromHealthBar, -0.5, screenSizeX - 0.5, -0.25, screenSizeY - 0.25, 1, -1);
+        renderer.renderGlyphs.flush(matScreenFromHealthBar);
+    }
 }
 
 function resizeCanvasToDisplaySize(canvas) {
