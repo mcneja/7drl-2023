@@ -2579,7 +2579,7 @@ function createLevel() {
     // Convert to colored squares.
 
     const roomColor = 0xff808080;
-    const hallColor = 0xff404040;
+    const hallColor = 0xff707070;
     const wallColor = 0xff0055aa;
 
     const squares = [];
