@@ -2313,14 +2313,6 @@ function coinFlips(total) {
 // position is also returned.
 
 function createLevel() {
-    const maxMapSizeX = 128;
-    const maxMapSizeY = 96;
-    
-    const squaresPerBlockX = Math.floor((maxMapSizeX + corridorWidth) / numCellsX);
-    const squaresPerBlockY = Math.floor((maxMapSizeY + corridorWidth) / numCellsY);
-
-    const minRoomSize = corridorWidth + 2;
-
     // Create some rooms. First we're going to designate an entrance room, an
     // exit room, and connectivity between rooms.
 
@@ -2397,37 +2389,33 @@ function createLevel() {
     // Pick sizes for the rooms. The entrance and exit rooms are special and
     // have fixed sizes.
 
+    const minRoomSize = corridorWidth + 2;
+    const maxRoomSize = 33;
+    const squaresPerBlock = maxRoomSize + corridorWidth + 2;
+
     const rooms = [];
 
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
         for (let roomX = 0; roomX < numCellsX; ++roomX) {
             const roomIndex = roomY * numCellsX + roomX;
-            const cellMinX = roomX * squaresPerBlockX + 1;
-            const cellMinY = roomY * squaresPerBlockY + 1;
-            const cellMaxX = (roomX + 1) * squaresPerBlockX - (1 + corridorWidth);
-            const cellMaxY = (roomY + 1) * squaresPerBlockY - (1 + corridorWidth);
-            const maxRoomSizeX = cellMaxX - cellMinX;
-            const maxRoomSizeY = cellMaxY - cellMinY;
-            const halfRoomSizeRangeX = Math.floor((maxRoomSizeX - minRoomSize) / 2);
-            const halfRoomSizeRangeY = Math.floor((maxRoomSizeY - minRoomSize) / 2);
-            const remainderX = (maxRoomSizeX - minRoomSize) - 2 * halfRoomSizeRangeX;
-            const remainderY = (maxRoomSizeY - minRoomSize) - 2 * halfRoomSizeRangeY;
 
             let roomSizeX, roomSizeY;
-
             if (roomIndex == roomIndexEntrance) {
-                roomSizeX = minRoomSize;
-                roomSizeY = minRoomSize;
+                roomSizeX = 7;
+                roomSizeY = 7;
             } else if (roomIndex == roomIndexExit) {
-                roomSizeX = maxRoomSizeX;
-                roomSizeY = maxRoomSizeY;
+                roomSizeX = maxRoomSize;
+                roomSizeY = maxRoomSize;
             } else {
-                roomSizeX = 2 * randomInRange(1 + halfRoomSizeRangeX) + minRoomSize + remainderX;
-                roomSizeY = 2 * randomInRange(1 + halfRoomSizeRangeY) + minRoomSize + remainderY;
+                const halfRoomSizeRange = 1 + Math.floor((maxRoomSize - minRoomSize) / 2);
+                roomSizeX = randomInRange(halfRoomSizeRange) + randomInRange(halfRoomSizeRange) + minRoomSize;
+                roomSizeY = randomInRange(halfRoomSizeRange) + randomInRange(halfRoomSizeRange) + minRoomSize;
             }
 
-            const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
-            const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
+            const cellMinX = roomX * squaresPerBlock;
+            const cellMinY = roomY * squaresPerBlock;
+            const roomMinX = randomInRange(1 + maxRoomSize - roomSizeX) + cellMinX + 1;
+            const roomMinY = randomInRange(1 + maxRoomSize - roomSizeY) + cellMinY + 1;
 
             const room = {
                 minX: roomMinX,
@@ -2854,7 +2842,7 @@ function tryPlacePillarRoom(rooms, level) {
 function tryCreatePillarRoom(room, level) {
     if (room.sizeX < 13 || room.sizeY < 13)
         return false;
-    if (((room.sizeX - 3) % 5) == 0 && ((room.sizeY - 3) % 5) == 0)
+    if (((room.sizeX - 3) % 5) != 0 && ((room.sizeY - 3) % 5) != 0)
         return false;
 
     function plotPillar(x, y) {
