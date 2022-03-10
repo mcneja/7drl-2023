@@ -79,7 +79,7 @@ function main(fontImage) {
     }
 
     const renderer = createRenderer(gl, fontImage);
-    const state = initState();
+    const state = initState(renderer.createFieldRenderer, renderer.createLightingRenderer);
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
@@ -93,7 +93,7 @@ function main(fontImage) {
     document.body.addEventListener('keydown', e => {
         if (e.code == 'KeyR') {
             e.preventDefault();
-            resetState(state);
+            resetState(state, renderer.createFieldRenderer, renderer.createLightingRenderer);
             if (state.paused) {
                 requestUpdateAndRender();
             }
@@ -485,17 +485,6 @@ function updateSwarmers(state, dt) {
     }
 }
 
-function moveDownGradient(distanceField, position, distance) {
-    const gradient = vec2.create();
-    estimateGradient(distanceField, position, gradient);
-
-    const gradientLen = vec2.length(gradient);
-
-    const scale = -distance / Math.max(1e-8, gradientLen);
-
-    vec2.scaleAndAdd(position, position, gradient, scale);
-}
-
 function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
     const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = turrets.filter(turret => turret.dead).map(turret => ({
@@ -670,7 +659,8 @@ function createRenderer(gl, fontImage) {
 
     const renderer = {
         beginFrame: createBeginFrame(gl),
-        renderField: createFieldRenderer(gl),
+        createFieldRenderer: createFieldRenderer(gl),
+        createLightingRenderer: createLightingRenderer(gl),
         renderDiscs: createDiscRenderer(gl),
         renderGlyphs: createGlyphRenderer(gl, fontImage),
         renderColoredTriangles: createColoredTriangleRenderer(gl),
@@ -683,17 +673,23 @@ function createRenderer(gl, fontImage) {
     return renderer;
 }
 
-function initState() {
+function initState(createFieldRenderer, createLightingRenderer) {
     const state = {
         paused: true,
         showMap: false,
     };
-    resetState(state);
+    resetState(state, createFieldRenderer, createLightingRenderer);
     return state;
 }
 
-function resetState(state) {
+function resetState(state, createFieldRenderer, createLightingRenderer) {
     const level = createLevel();
+
+    const distanceFieldFromExit = createDistanceField(level.grid, level.exitPos);
+    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
+
+    const renderField = createFieldRenderer(level, distanceFieldFromExit);
+    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
 
     const player = {
         position: vec2.create(),
@@ -716,60 +712,19 @@ function resetState(state) {
     vec2.copy(camera.position, player.position);
     vec2.zero(camera.velocity);
 
-//    const enemyRadius = 0.0125;
-//    const discs = createEnemies(obstacles, enemyRadius, player.position);
-    const costRateField = createCostRateField(level);
-    const distanceFromWallsField = createDistanceFromWallsField(costRateField);
-    const costRateFieldSmooth = createSmoothedCostRateField(distanceFromWallsField);
-    const distanceField = createDistanceField(costRateFieldSmooth, player.position);
-
-    state.costRateField = costRateFieldSmooth;
-    state.distanceField = distanceField;
+    state.distanceFieldFromEntrance = distanceFieldFromEntrance;
+    state.distanceFieldFromExit = distanceFieldFromExit;
+    state.renderField = renderField;
+    state.renderLighting = renderLighting;
     state.tLast = undefined;
-//    state.discs = discs;
     state.player = player;
     state.playerBullets = [];
     state.turretBullets = [];
     state.camera = camera;
     state.level = level;
-}
-
-function createEnemies(obstacles, enemyRadius, playerPosition) {
-    const enemies = [];
-    const separationFromObstacle = 0.02 + enemyRadius;
-    const separationFromAlly = 0.05;
-    const enemyColor = { r: 0.25, g: 0.25, b: 0.25 };
-    const playerDisc = { radius: 0.25, position: playerPosition };
-    const angle = Math.random() * Math.PI * 2;
-    const dirX = Math.cos(angle);
-    const dirY = Math.sin(angle);
-    for (let i = 0; i < 1000 && enemies.length < 128; ++i) {
-        const enemy = {
-            radius: enemyRadius,
-            position: {
-                x: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
-                y: separationFromObstacle + (1 - 2*separationFromObstacle) * Math.random(),
-            },
-            velocity: {
-                x: 0,
-                y: 0,
-            },
-            color: enemyColor,
-            dead: false,
-        };
-        const dx = enemy.position.x - 0.5;
-        const dy = enemy.position.y - 0.5;
-        const d = dirX * dx + dirY * dy;
-        if (d < 0) {
-            continue;
-        }
-        if (!discOverlapsDiscs(enemy, obstacles, separationFromObstacle - enemyRadius) &&
-            !discOverlapsDiscs(enemy, enemies, separationFromAlly) &&
-            !discsOverlap(enemy, playerDisc)) {
-            enemies.push(enemy);
-        }
-    }
-    return enemies;
+    state.lavaScroll = 0;
+    state.lavaActive = false;
+    state.lavaTide = 0;
 }
 
 function createCollectibles(obstacles) {
@@ -830,109 +785,319 @@ function createFieldRenderer(gl) {
     const vsSource = `
         attribute vec3 vPosition;
         attribute vec2 vDistance;
-        attribute vec2 vSpeed;
-        
-        uniform mat4 uProjectionMatrix;
+
+        uniform mat4 uMatScreenFromField;
 
         varying highp float fYBlend;
         varying highp vec2 fDistance;
-        varying highp vec2 fSpeed;
 
         void main() {
-            gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
+            gl_Position = uMatScreenFromField * vec4(vPosition.xy, 0, 1);
             fYBlend = vPosition.z;
             fDistance = vDistance;
-            fSpeed = vSpeed;
         }
     `;
 
     const fsSource = `
         varying highp float fYBlend;
         varying highp vec2 fDistance;
-        varying highp vec2 fSpeed;
 
+        uniform highp float uDistCutoff;
         uniform highp float uScroll;
         uniform sampler2D uContour;
 
         void main() {
-            highp float gamma = 2.2;
             highp float distance = mix(fDistance.x, fDistance.y, fYBlend);
-            highp float speed = mix(fSpeed.x, fSpeed.y, fYBlend);
-            highp vec3 speedColorLinear = vec3(1, speed, speed);
-            highp float s = distance + uScroll;
-            highp vec3 distanceColorLinear = pow(texture2D(uContour, vec2(s, 0)).rgb, vec3(gamma));
-            highp vec3 colorLinear = speedColorLinear * distanceColorLinear;
-            gl_FragColor.rgb = pow(colorLinear, vec3(1.0/gamma));
-            gl_FragColor.a = 1.0;
+            highp float s = distance - uDistCutoff;
+            highp vec4 lavaColor = texture2D(uContour, vec2(s - uScroll, 0)) * vec4(1, 0.25, 0, 1);
+            highp vec4 floorColor = vec4(1, 1, 1, 0);
+            highp vec4 color = mix(lavaColor, floorColor, max(0.0, sign(s)));
+            gl_FragColor = color;
         }
     `;
-
-    const matWorldFromMap = mat4.create();
-    matWorldFromMap[12] = 0.5;
-    matWorldFromMap[13] = 0.5;
-
-    const matScreenFromMap = mat4.create();
 
     const program = initShaderProgram(gl, vsSource, fsSource);
 
     const vertexAttributeLoc = {
         position: gl.getAttribLocation(program, 'vPosition'),
         distance: gl.getAttribLocation(program, 'vDistance'),
-        speed: gl.getAttribLocation(program, 'vSpeed'),
     };
 
     const uniformLoc = {
-        projectionMatrix: gl.getUniformLocation(program, 'uProjectionMatrix'),
+        uMatScreenFromField: gl.getUniformLocation(program, 'uMatScreenFromField'),
+        uDistCutoff: gl.getUniformLocation(program, 'uDistCutoff'),
         uScroll: gl.getUniformLocation(program, 'uScroll'),
         uContour: gl.getUniformLocation(program, 'uContour'),
     };
 
     const vertexBuffer = gl.createBuffer();
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    const stride = 28; // seven 4-byte floats
-    gl.vertexAttribPointer(vertexAttributeLoc.position, 3, gl.FLOAT, false, stride, 0);
-    gl.vertexAttribPointer(vertexAttributeLoc.distance, 2, gl.FLOAT, false, stride, 12);
-    gl.vertexAttribPointer(vertexAttributeLoc.speed, 2, gl.FLOAT, false, stride, 20);
+    const indexBuffer = gl.createBuffer();
 
     const contourTexture = createStripeTexture(gl);
 
-    return (matScreenFromWorld, costRateField, distanceField, uScroll) => {
+    return (level, distanceField) => {
+        // First, count how many quads will be created, so we can size the buffers.
+        const gridSizeX = level.grid.sizeX;
+        const gridSizeY = level.grid.sizeY;
+        let numQuads = 0;
+        for (let y = 0; y < gridSizeY; ++y) {
+            for (let x = 0; x < gridSizeX; ++x) {
+                const tileType = level.grid.get(x, y);
+                if (tileType == ttHall || tileType == ttRoom) {
+                    ++numQuads;
+                }
+            }
+        }
 
-        const gridSizeX = costRateField.sizeX;
-        const gridSizeY = costRateField.sizeY;
+        // Allocate buffers for vertex data and triangle indices.
+        const floatsPerVertex = 5;
+        const numIndices = numQuads * 6;
+        const vertexData = new Float32Array(numQuads * floatsPerVertex * 4);
+        const indexData = new Uint16Array(numIndices);
 
-        mat4.multiply(matScreenFromMap, matScreenFromWorld, matWorldFromMap);
+        // Fill in the buffers with vertex and index information.
+        let cVertex = 0;
+        let iVertexData = 0;
+        let iIndexData = 0;
 
-        gl.useProgram(program);
+        function makeVert(x, y, s, d0, d1) {
+            vertexData[iVertexData++] = x;
+            vertexData[iVertexData++] = y;
+            vertexData[iVertexData++] = s;
+            vertexData[iVertexData++] = d0;
+            vertexData[iVertexData++] = d1;
+        }
 
+        for (let y0 = 0; y0 < gridSizeY; ++y0) {
+            for (let x0 = 0; x0 < gridSizeX; ++x0) {
+                const tileType = level.grid.get(x0, y0);
+                if (tileType != ttHall && tileType != ttRoom)
+                    continue;
+
+                const x1 = x0 + 1;
+                const y1 = y0 + 1;
+
+                const d00 = distanceField.get(x0, y0);
+                const d10 = distanceField.get(x1, y0);
+                const d01 = distanceField.get(x0, y1);
+                const d11 = distanceField.get(x1, y1);
+
+                makeVert(x0, y0, 0, d00, d01);
+                makeVert(x1, y0, 0, d10, d11);
+                makeVert(x0, y1, 1, d00, d01);
+                makeVert(x1, y1, 1, d10, d11);
+
+                indexData[iIndexData++] = cVertex;
+                indexData[iIndexData++] = cVertex + 1;
+                indexData[iIndexData++] = cVertex + 2;
+                indexData[iIndexData++] = cVertex + 2;
+                indexData[iIndexData++] = cVertex + 1;
+                indexData[iIndexData++] = cVertex + 3;
+
+                cVertex += 4;
+            }
+        }
+
+        // Fill the GL buffers with vertex and index data.
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
-        const vertexInfo = createVertexInfo(costRateField, distanceField);
-        gl.bufferData(gl.ARRAY_BUFFER, vertexInfo, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
 
-        gl.enableVertexAttribArray(vertexAttributeLoc.position);
-        gl.enableVertexAttribArray(vertexAttributeLoc.distance);
-        gl.enableVertexAttribArray(vertexAttributeLoc.speed);
-        const stride = 28; // seven 4-byte floats
-        gl.vertexAttribPointer(vertexAttributeLoc.position, 3, gl.FLOAT, false, stride, 0);
-        gl.vertexAttribPointer(vertexAttributeLoc.distance, 2, gl.FLOAT, false, stride, 12);
-        gl.vertexAttribPointer(vertexAttributeLoc.speed, 2, gl.FLOAT, false, stride, 20);
-    
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, contourTexture);
-    
-        gl.uniform1i(uniformLoc.uContour, 0);
+        // Return a function that will take a matrix and do the actual rendering.
+        return (matScreenFromWorld, distCutoff, uScroll) => {
+            gl.useProgram(program);
 
-        gl.uniformMatrix4fv(uniformLoc.projectionMatrix, false, matScreenFromMap);
-    
-        gl.uniform1f(uniformLoc.uScroll, uScroll);
-    
-        gl.drawArrays(gl.TRIANGLES, 0, (gridSizeX - 1) * (gridSizeY - 1) * 6);
-    
-        gl.disableVertexAttribArray(vertexAttributeLoc.speed);
-        gl.disableVertexAttribArray(vertexAttributeLoc.distance);
-        gl.disableVertexAttribArray(vertexAttributeLoc.position);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, contourTexture);
+            gl.uniform1i(uniformLoc.uContour, 0);
+
+            gl.uniformMatrix4fv(uniformLoc.uMatScreenFromField, false, matScreenFromWorld);
+
+            gl.uniform1f(uniformLoc.uDistCutoff, distCutoff);
+            gl.uniform1f(uniformLoc.uScroll, uScroll);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.enableVertexAttribArray(vertexAttributeLoc.position);
+            gl.enableVertexAttribArray(vertexAttributeLoc.distance);
+            const stride = floatsPerVertex * 4;
+            gl.vertexAttribPointer(vertexAttributeLoc.position, 3, gl.FLOAT, false, stride, 0);
+            gl.vertexAttribPointer(vertexAttributeLoc.distance, 2, gl.FLOAT, false, stride, 12);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+            gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
+
+            gl.disableVertexAttribArray(vertexAttributeLoc.distance);
+            gl.disableVertexAttribArray(vertexAttributeLoc.position);
+        };
+    };
+}
+
+function createLightingRenderer(gl) {
+    const vsSource = `
+        attribute vec3 vPosition;
+        attribute vec2 vDistanceFromEntrance;
+        attribute vec2 vDistanceFromExit;
+
+        uniform mat4 uMatScreenFromField;
+
+        varying highp float fYBlend;
+        varying highp vec2 fDistanceFromEntrance;
+        varying highp vec2 fDistanceFromExit;
+
+        void main() {
+            gl_Position = uMatScreenFromField * vec4(vPosition.xy, 0, 1);
+            fYBlend = vPosition.z;
+            fDistanceFromEntrance = vDistanceFromEntrance;
+            fDistanceFromExit = vDistanceFromExit;
+        }
+    `;
+
+    const fsSource = `
+        varying highp float fYBlend;
+        varying highp vec2 fDistanceFromEntrance;
+        varying highp vec2 fDistanceFromExit;
+
+        uniform highp float uDistCenterFromEntrance;
+        uniform highp float uDistCenterFromExit;
+        uniform highp float uLavaLightMultiplier;
+
+        void main() {
+            highp float distanceFromEntrance = mix(fDistanceFromEntrance.x, fDistanceFromEntrance.y, fYBlend);
+            highp float distanceFromExit = mix(fDistanceFromExit.x, fDistanceFromExit.y, fYBlend);
+            highp float uEntrance = max(0.0, min(1.0, (uDistCenterFromEntrance - (distanceFromEntrance + 8.0)) * 0.0625));
+            highp float uExit = uLavaLightMultiplier * max(0.0, min(1.0, (uDistCenterFromExit - distanceFromExit + 6.0) * 0.0625));
+            gl_FragColor.rgb = vec3(0.25, 0.25, 0.25) * uEntrance * uEntrance + vec3(1, 0, 0) * uExit;
+        }
+    `;
+
+    const program = initShaderProgram(gl, vsSource, fsSource);
+
+    const vertexAttributeLoc = {
+        vPosition: gl.getAttribLocation(program, 'vPosition'),
+        vDistanceFromEntrance: gl.getAttribLocation(program, 'vDistanceFromEntrance'),
+        vDistanceFromExit: gl.getAttribLocation(program, 'vDistanceFromExit'),
+    };
+
+    const uniformLoc = {
+        uMatScreenFromField: gl.getUniformLocation(program, 'uMatScreenFromField'),
+        uDistCenterFromEntrance: gl.getUniformLocation(program, 'uDistCenterFromEntrance'),
+        uDistCenterFromExit: gl.getUniformLocation(program, 'uDistCenterFromExit'),
+        uLavaLightMultiplier: gl.getUniformLocation(program, 'uLavaLightMultiplier'),
+    };
+
+    const vertexBuffer = gl.createBuffer();
+    const indexBuffer = gl.createBuffer();
+
+    return (level, distanceFromEntrance, distanceFromExit) => {
+        // First, count how many quads will be created, so we can size the buffers.
+        const gridSizeX = level.grid.sizeX;
+        const gridSizeY = level.grid.sizeY;
+        let numQuads = 0;
+        for (let y = 0; y < gridSizeY; ++y) {
+            for (let x = 0; x < gridSizeX; ++x) {
+                const tileType = level.grid.get(x, y);
+                if (tileType == ttHall || tileType == ttRoom) {
+                    ++numQuads;
+                }
+            }
+        }
+
+        // Allocate buffers for vertex data and triangle indices.
+        const floatsPerVertex = 7;
+        const numIndices = numQuads * 6;
+        const vertexData = new Float32Array(numQuads * floatsPerVertex * 4);
+        const indexData = new Uint16Array(numIndices);
+
+        // Fill in the buffers with vertex and index information.
+        let cVertex = 0;
+        let iVertexData = 0;
+        let iIndexData = 0;
+
+        function makeVert(x, y, s, d0, d1, e0, e1) {
+            vertexData[iVertexData++] = x;
+            vertexData[iVertexData++] = y;
+            vertexData[iVertexData++] = s;
+            vertexData[iVertexData++] = d0;
+            vertexData[iVertexData++] = d1;
+            vertexData[iVertexData++] = e0;
+            vertexData[iVertexData++] = e1;
+        }
+
+        for (let y0 = 0; y0 < gridSizeY; ++y0) {
+            for (let x0 = 0; x0 < gridSizeX; ++x0) {
+                const tileType = level.grid.get(x0, y0);
+                if (tileType != ttHall && tileType != ttRoom)
+                    continue;
+
+                const x1 = x0 + 1;
+                const y1 = y0 + 1;
+
+                const d00 = distanceFromEntrance.get(x0, y0);
+                const d10 = distanceFromEntrance.get(x1, y0);
+                const d01 = distanceFromEntrance.get(x0, y1);
+                const d11 = distanceFromEntrance.get(x1, y1);
+
+                const e00 = distanceFromExit.get(x0, y0);
+                const e10 = distanceFromExit.get(x1, y0);
+                const e01 = distanceFromExit.get(x0, y1);
+                const e11 = distanceFromExit.get(x1, y1);
+
+                makeVert(x0, y0, 0, d00, d01, e00, e01);
+                makeVert(x1, y0, 0, d10, d11, e10, e11);
+                makeVert(x0, y1, 1, d00, d01, e00, e01);
+                makeVert(x1, y1, 1, d10, d11, e10, e11);
+
+                indexData[iIndexData++] = cVertex;
+                indexData[iIndexData++] = cVertex + 1;
+                indexData[iIndexData++] = cVertex + 2;
+                indexData[iIndexData++] = cVertex + 2;
+                indexData[iIndexData++] = cVertex + 1;
+                indexData[iIndexData++] = cVertex + 3;
+
+                cVertex += 4;
+            }
+        }
+
+        // Fill the GL buffers with vertex and index data.
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
+
+        // Return a function that will take a matrix and do the actual rendering.
+        return (matScreenFromWorld, distCenterFromEntrance, distCenterFromExit, lavaLightMultiplier) => {
+            gl.useProgram(program);
+
+            gl.uniformMatrix4fv(uniformLoc.uMatScreenFromField, false, matScreenFromWorld);
+
+            gl.uniform1f(uniformLoc.uDistCenterFromEntrance, distCenterFromEntrance);
+            gl.uniform1f(uniformLoc.uDistCenterFromExit, distCenterFromExit);
+            gl.uniform1f(uniformLoc.uLavaLightMultiplier, lavaLightMultiplier);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.enableVertexAttribArray(vertexAttributeLoc.vPosition);
+            gl.enableVertexAttribArray(vertexAttributeLoc.vDistanceFromEntrance);
+            gl.enableVertexAttribArray(vertexAttributeLoc.vDistanceFromExit);
+            const stride = floatsPerVertex * 4;
+            gl.vertexAttribPointer(vertexAttributeLoc.vPosition, 3, gl.FLOAT, false, stride, 0);
+            gl.vertexAttribPointer(vertexAttributeLoc.vDistanceFromEntrance, 2, gl.FLOAT, false, stride, 12);
+            gl.vertexAttribPointer(vertexAttributeLoc.vDistanceFromExit, 2, gl.FLOAT, false, stride, 20);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+            gl.blendFunc(gl.ONE, gl.ONE);
+
+            gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
+
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.disableVertexAttribArray(vertexAttributeLoc.vDistanceFromExit);
+            gl.disableVertexAttribArray(vertexAttributeLoc.vDistanceFromEntrance);
+            gl.disableVertexAttribArray(vertexAttributeLoc.vPosition);
+        };
     };
 }
 
@@ -1311,6 +1476,11 @@ function slideToStop(body, dt) {
 
 function updateState(state, dt) {
 
+    // Lava animation
+
+    state.lavaScroll += dt;
+    state.lavaScroll -= Math.floor(state.lavaScroll);
+
     // Player
 
     if (state.player.dead) {
@@ -1334,6 +1504,16 @@ function updateState(state, dt) {
     }
 
     updateMeleeAttack(state, dt);
+
+    const dposExit = vec2.create();
+    vec2.subtract(dposExit, state.player.position, state.level.exitPos);
+    if (vec2.length(dposExit) < 6) {
+        state.lavaActive = true;
+    }
+    if (state.lavaActive) {
+        const playerDist = estimateDistance(state.distanceFieldFromExit, state.player.position);
+        state.lavaTide = Math.max(state.lavaTide, playerDist - 8);
+    }
 
     // Camera
 
@@ -1377,81 +1557,6 @@ function updateState(state, dt) {
         state.gameOver = true;
     }
     */
-
-//    updateDistanceField(state.costRateField, state.distanceField, state.player.position);
-
-    /*
-    const discSpeed = 0.2 - 0.15 * Math.min(state.collectibles.length, 80) / 80;
-
-    let enemyDied = false;
-    for (const disc of state.discs) {
-        updateEnemy(state.distanceField, dt, discSpeed, state.player, disc);
-        if (disc.dead) {
-            enemyDied = true;
-            if (!state.gameOver) {
-                state.player.dead = true;
-                state.player.color.r *= 0.5;
-                state.player.color.g *= 0.5;
-                state.player.color.b *= 0.5;
-                state.gameOver = true;
-            }
-        }
-    }
-
-    if (enemyDied) {
-        state.discs = state.discs.filter(disc => !disc.dead);
-    }
-
-    for (let k = 0; k < 3; ++k) {
-        for (let i = 0; i < state.discs.length; ++i) {
-            for (let j = i + 1; j < state.discs.length; ++j) {
-                fixupDiscPairs(state.discs[i], state.discs[j]);
-            }
-
-            for (const obstacle of state.obstacles) {
-                fixupPositionAndVelocityAgainstDisc(state.discs[i], obstacle);
-            }
-
-            fixupPositionAndVelocityAgainstBoundary(state.discs[i]);
-        }
-    }
-    */
-}
-
-function updateEnemy(distanceField, dt, discSpeed, player, disc) {
-    if (discsOverlap(disc, player)) {
-        disc.dead = true;
-        return;
-    }
-
-    const gradient = estimateGradient(distanceField, disc.position.x, disc.position.y);
-
-    const gradientLen = Math.sqrt(gradient.x**2 + gradient.y**2);
-
-    const scale = discSpeed / Math.max(1e-8, gradientLen);
-
-    const vxPrev = disc.velocity.x;
-    const vyPrev = disc.velocity.y;
-
-    const vxTarget = gradient.x * -scale;
-    const vyTarget = gradient.y * -scale;
-
-    let dvx = vxTarget - disc.velocity.x;
-    let dvy = vyTarget - disc.velocity.y;
-    const dv = Math.sqrt(dvx**2 + dvy**2);
-
-    const maxDv = 25 * (discSpeed**2) * dt;
-
-    if (dv > maxDv) {
-        dvx *= maxDv / dv;
-        dvy *= maxDv / dv;
-    }
-
-    disc.velocity.x += dvx;
-    disc.velocity.y += dvy;
-
-    disc.position.x += (vxPrev + disc.velocity.x) * dt / 2;
-    disc.position.y += (vyPrev + disc.velocity.y) * dt / 2;
 }
 
 function fixupDiscPairs(disc0, disc1) {
@@ -1727,11 +1832,14 @@ function renderScene(renderer, state) {
         mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
     }
 
-//    renderer.renderField(matScreenFromWorld, state.costRateField, state.distanceField, 0);
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
+
+    if (state.lavaActive) {
+        state.renderField(matScreenFromWorld, state.lavaTide, state.lavaScroll);
+    }
 
     renderMeleeAttack(state, renderer, matScreenFromWorld);
 
@@ -1775,6 +1883,12 @@ function renderScene(renderer, state) {
 
         renderer.renderGlyphs.add(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1*tx, ty, 2*tx, 0, glyphColor);
         renderer.renderGlyphs.flush(matScreenFromWorld);
+    }
+
+    if (!state.showMap) {
+        const centerDistFromEntrance = estimateDistance(state.distanceFieldFromEntrance, state.camera.position);
+        const lavaLightMultiplier = 1;
+        state.renderLighting(matScreenFromWorld, centerDistFromEntrance, state.lavaTide, lavaLightMultiplier);
     }
 }
 
@@ -1822,7 +1936,7 @@ function createStripeTexture(gl) {
     const stripeImageWidth = 64;
     const stripeImage = new Uint8Array(stripeImageWidth);
     for (let j = 0; j < stripeImageWidth; ++j) {
-        stripeImage[j] = 224 + (stripeImageWidth - j) / 4;
+        stripeImage[j] = 223 + j / 2;
     }
 
     const texture = gl.createTexture();
@@ -1881,102 +1995,23 @@ function priorityQueuePush(q, x) {
     }
 }
 
-function createCostRateField(level) {
-    const sizeX = level.grid.sizeX;
-    const sizeY = level.grid.sizeY;
-
-    const costRate = new Float64Grid(sizeX, sizeY, 1);
-
-    for (let y = 0; y < sizeY; ++y) {
-        for (let x = 0; x < sizeX; ++x) {
-            const tileType = level.grid.get(x, y);
-            const cost = (tileType == ttRoom || tileType == ttHall) ? 1 : 1000;
-            costRate.set(x, y, cost);
-        }
-    }
-
-    return costRate;
-}
-
-function createSmoothedCostRateField(distanceFromWallsField) {
-    const sizeX = distanceFromWallsField.sizeX;
-    const sizeY = distanceFromWallsField.sizeY;
-
-    const costRateFieldSmooth = new Float64Grid(sizeX, sizeY, 1);
-
-    for (let y = 0; y < sizeY; ++y) {
-        for (let x = 0; x < sizeX; ++x) {
-            const distance = distanceFromWallsField.get(x, y);
-
-            const costRate = 1 + Math.min(1e6, 0.1 / distance**2);
-
-            costRateFieldSmooth.set(x, y, costRate);
-        }
-    }
-    return costRateFieldSmooth;
-}
-
-function createDistanceFromWallsField(costRateField) {
-    const sizeX = costRateField.sizeX;
-    const sizeY = costRateField.sizeY;
-    const toVisit = [];
-    for (let y = 0; y < sizeY; ++y) {
-        for (let x = 0; x < sizeX; ++x) {
-            if (costRateField.get(x, y) > 1.0) {
-                toVisit.push({priority: 0, x: x, y: y});
-            }
-        }
-    }
-
-    const distanceField = new Float64Grid(sizeX, sizeY, Infinity);
-    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(distanceField, x, y));
-
+function createDistanceField(grid, posSource) {
+    const fieldSizeX = grid.sizeX + 1;
+    const fieldSizeY = grid.sizeY + 1;
+    const distanceField = new Float64Grid(fieldSizeX, fieldSizeY, Infinity);
+    updateDistanceField(grid, distanceField, posSource);
     return distanceField;
 }
 
-function createDistanceField(costRateField, goal) {
-    const sizeX = costRateField.sizeX;
-    const sizeY = costRateField.sizeY;
-    const distanceField = new Float64Grid(costRateField.sizeX, costRateField.sizeY, Infinity);
-    updateDistanceField(costRateField, distanceField, goal);
-    return distanceField;
-}
-
-function updateDistanceField(costRateField, distanceField, goal) {
-    const sizeX = costRateField.sizeX;
-    const sizeY = costRateField.sizeY;
-    const goalX = goal[0] - 0.5;
-    const goalY = goal[1] - 0.5;
-    const r = 2;
-    const xMin = Math.min(sizeX - 1, Math.max(0, Math.floor(goalX + 0.5) - r));
-    const yMin = Math.min(sizeY - 1, Math.max(0, Math.floor(goalY + 0.5) - r));
-    const xMax = Math.min(sizeX, xMin + 2*r+1);
-    const yMax = Math.min(sizeY, yMin + 2*r+1);
+function updateDistanceField(grid, distanceField, posSource) {
+    const sourceX = Math.floor(posSource[0]);
+    const sourceY = Math.floor(posSource[1]);
 
     distanceField.fill(Infinity);
 
-    for (let y = yMin; y < yMax; ++y) {
-        for (let x = xMin; x < xMax; ++x) {
-            const dx = x - goalX;
-            const dy = y - goalY;
-            const dist = Math.sqrt(dx**2 + dy**2);
-            const costRate = costRateField.get(x, y);
-            const cost = dist * costRate;
-            distanceField.set(x, y, cost);
-        }
-    }
+    let toVisit = [{priority: 0, x: sourceX, y: sourceY}];
 
-    let toVisit = [];
-    for (let y = Math.max(0, yMin - 1); y < Math.min(sizeY, yMax + 1); ++y) {
-        for (let x = Math.max(0, xMin - 1); x < Math.min(sizeX, xMax + 1); ++x) {
-            if (distanceField.get(x, y) === Infinity) {
-                const cost = estimatedDistanceWithSpeed(distanceField, costRateField, x, y);
-                priorityQueuePush(toVisit, {priority: cost, x: x, y: y});
-            }
-        }
-    }
-
-    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistanceWithSpeed(distanceField, costRateField, x, y));
+    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(grid, distanceField, x, y));
 }
 
 function fastMarchFill(field, toVisit, estimatedDistance) {
@@ -2019,34 +2054,28 @@ function fastMarchFill(field, toVisit, estimatedDistance) {
     }
 }
 
-function estimatedDistance(field, x, y) {
-    const dXNeg = (x > 0) ? field.get(x-1, y) : Infinity;
-    const dXPos = (x < field.sizeX - 1) ? field.get(x+1, y) : Infinity;
-    const dYNeg = (y > 0) ? field.get(x, y-1) : Infinity;
-    const dYPos = (y < field.sizeY - 1) ? field.get(x, y+1) : Infinity;
+function estimatedDistance(grid, distanceField, x, y) {
+    function isSolid(x, y) {
+        if (x < 0 || y < 0 || x >= grid.sizeX || y >= grid.sizeY)
+            return true;
+        const tileType = grid.get(x, y);
+        return tileType != ttHall && tileType != ttRoom;
+    }
+
+    const solidSW = isSolid(x-1, y-1);
+    const solidSE = isSolid(x, y-1);
+    const solidNW = isSolid(x-1, y);
+    const solidNE = isSolid(x, y);
+
+    const dXNeg = (x > 0 && !(solidNW && solidSW)) ? distanceField.get(x-1, y) : Infinity;
+    const dXPos = (x < distanceField.sizeX - 1 && !(solidNE && solidSE)) ? distanceField.get(x+1, y) : Infinity;
+    const dYNeg = (y > 0 && !(solidSW && solidSE)) ? distanceField.get(x, y-1) : Infinity;
+    const dYPos = (y < distanceField.sizeY - 1 && !(solidNW && solidNE)) ? distanceField.get(x, y+1) : Infinity;
 
     const dXMin = Math.min(dXNeg, dXPos);
     const dYMin = Math.min(dYNeg, dYPos);
 
     const timeHorizontal = 1.0;
-
-    const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
-        ((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
-        Math.min(dXMin, dYMin) + timeHorizontal;
-
-    return d;
-}
-
-function estimatedDistanceWithSpeed(field, speed, x, y) {
-    const dXNeg = (x > 0) ? field.get(x-1, y) : Infinity;
-    const dXPos = (x < field.sizeX - 1) ? field.get(x+1, y) : Infinity;
-    const dYNeg = (y > 0) ? field.get(x, y-1) : Infinity;
-    const dYPos = (y < field.sizeY - 1) ? field.get(x, y+1) : Infinity;
-
-    const dXMin = Math.min(dXNeg, dXPos);
-    const dYMin = Math.min(dYNeg, dYPos);
-
-    const timeHorizontal = speed.get(x, y);
 
     const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
         ((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
@@ -2086,8 +2115,8 @@ function estimateGradient(distanceField, position, gradient) {
 
 function estimateDistance(distanceField, position) {
 
-    const x = position[0] - 0.5;
-    const y = position[1] - 0.5;
+    const x = position[0];
+    const y = position[1];
 
     const uX = x - Math.floor(x);
     const uY = y - Math.floor(y);
@@ -2464,6 +2493,11 @@ function createLevel() {
         }
     }
 
+    // Put an exit position in the exit room
+
+    const roomExit = rooms[roomIndexExit];
+    const exitPos = vec2.fromValues(roomExit.minX + roomExit.sizeX/2, roomExit.minY + roomExit.sizeY/2);
+
     // Place some turrets in the level
 
     const turrets = [];
@@ -2540,6 +2574,7 @@ function createLevel() {
         grid: level,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
+        exitPos: exitPos,
         turrets: turrets,
         swarmers: swarmers,
     };
