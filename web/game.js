@@ -228,8 +228,9 @@ function updateMeleeAttack(state, dt) {
         vec2.subtract(dpos, swarmer.position, state.player.position);
         const dist = vec2.length(dpos);
         if (dist < r + monsterRadius) {
-            swarmer.dead = true;
-            state.player.meleeAttackCooldown = 0;
+            if (swarmer.stunTimer > 0) {
+                swarmer.dead = true;
+            }
             elasticCollision(state.player, swarmer, 1, 0.5);
         }
     }
@@ -302,8 +303,10 @@ function updatePlayerBullet(state, bullet, dt) {
         }
 
         if (areDiscsTouching(bullet.position, bulletRadius, swarmer.position, swarmer.radius)) {
+            if (swarmer.stunTimer > 0) {
+                swarmer.dead = true;
+            }
             vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, bullet.velocity, 0.2);
-            swarmer.dead = true;
             hitSomething = true;
         }
     }
@@ -431,7 +434,8 @@ function updateSwarmers(state, dt) {
     const swarmerSpeed = 4;
 
     for (const swarmer of state.level.swarmers) {
-        if (swarmer.dead) {
+        swarmer.stunTimer = Math.max(0, swarmer.stunTimer - dt);
+        if (swarmer.dead || swarmer.stunTimer > 0) {
             slideToStop(swarmer, dt);
         } else if (distanceBetween(swarmer.position, state.player.position) < 24 &&
             clearLineOfSight(state.level, swarmer.position, state.player.position)) {
@@ -454,10 +458,14 @@ function updateSwarmers(state, dt) {
     {
         const swarmer0 = state.level.swarmers[i];
 
-        fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.grid);
+        const vNormal = fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.grid);
 
         if (swarmer0.dead)
             continue;
+
+        if (vNormal > 14) {
+            swarmer0.stunTimer = Math.max(swarmer0.stunTimer, 2.5);
+        }
 
         for (const turret of state.level.turrets) {
             if (turret.dead)
@@ -583,10 +591,11 @@ function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
 }
 
 function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
-    const color = { r: 0.25, g: 0.34375, b: 0.25 };
+    const colorStunned = { r: 0.25, g: 0.34375, b: 0.25 };
+    const colorActive = { r: 0.25, g: 0.75, b: 0.25 };
     const discs = swarmers.filter(swarmer => !swarmer.dead).map(swarmer => ({
         position: swarmer.position,
-        color: color,
+        color: swarmer.stunTimer > 0 ? colorStunned : colorActive,
         radius: monsterRadius,
     }));
 
@@ -596,7 +605,8 @@ function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
-    const glyphColor = 0xff80b080;
+    const glyphColorActive = 0xff208020;
+    const glyphColorStunned = 0xff80b080;
 
     for (const swarmer of swarmers) {
         if (!swarmer.dead) {
@@ -605,7 +615,7 @@ function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
             renderer.renderGlyphs.add(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
                 rect.minX, rect.minY, rect.maxX, rect.maxY,
-                glyphColor
+                swarmer.stunTimer > 0 ? glyphColorStunned : glyphColorActive
             );
         }
     }
@@ -1519,6 +1529,8 @@ function areDiscsTouching(pos0, radius0, pos1, radius1) {
 
 function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level) {
 
+    let vNormalMin = 0;
+
     for (let i = 0; i < 4; ++i) {
         const gridMinX = Math.max(0, Math.floor(position[0] - radius));
         const gridMinY = Math.max(0, Math.floor(position[1] - radius));
@@ -1549,6 +1561,7 @@ function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level)
         if (smallestSeparatingAxis.d < 0) {
             vec2.scaleAndAdd(position, position, smallestSeparatingAxis.unitDir, -smallestSeparatingAxis.d);
             const vNormal = vec2.dot(smallestSeparatingAxis.unitDir, velocity);
+            vNormalMin = Math.min(vNormalMin, vNormal);
             vec2.scaleAndAdd(velocity, velocity, smallestSeparatingAxis.unitDir, -vNormal);
         }
     }
@@ -1572,6 +1585,8 @@ function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level)
         position[1] = yMax;
         velocity[1] = 0;
     }
+
+    return -vNormalMin;
 }
 
 function separatingAxis(dx, dy) {
@@ -1612,10 +1627,7 @@ function clearLineOfSight(level, pos0, pos1) {
     let n = 1;
     let xInc, yInc, error;
 
-    if (dx == 0) {
-        xInc = 0;
-        error = Infinity;
-    } else if (pos1[0] > pos0[0]) {
+    if (pos1[0] > pos0[0]) {
         xInc = 1;
         n += Math.floor(pos1[0]) - x;
         error = (Math.floor(pos0[0]) + 1 - pos0[0]) * dy;
@@ -1625,10 +1637,7 @@ function clearLineOfSight(level, pos0, pos1) {
         error = (pos0[0] - Math.floor(pos0[0])) * dy;
     }
 
-    if (dy == 0) {
-        yInc = 0;
-        error = -Infinity;
-    } else if (pos1[1] > pos0[1]) {
+    if (pos1[1] > pos0[1]) {
         yInc = 1;
         n += Math.floor(pos1[1]) - y;
         error -= (Math.floor(pos0[1]) + 1 - pos0[1]) * dx;
@@ -2465,7 +2474,7 @@ function createLevel() {
 
     const swarmers = [];
 
-    for (let i = 0; i < 1000 && swarmers.length < 32; ++i) {
+    for (let i = 0; i < 1000 && swarmers.length < 8; ++i) {
         const roomIndex = randomInRange(rooms.length);
         if (roomIndex == startRoomIndex) {
             continue;
@@ -2494,6 +2503,7 @@ function createLevel() {
             position: position,
             velocity: vec2.fromValues(0, 0),
             radius: monsterRadius,
+            stunTimer: 0,
             dead: false,
         });
     }
