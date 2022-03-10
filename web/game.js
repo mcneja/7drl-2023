@@ -22,6 +22,10 @@ const numCellsX = 4;
 const numCellsY = 3;
 const corridorWidth = 3;
 
+const lavaStateInactive = 0;
+const lavaStatePrimed = 1;
+const lavaStateActive = 2;
+
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
@@ -354,9 +358,7 @@ function updateTurretBullet(state, bullet, dt) {
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadiusCur)) {
         elasticCollision(state.player, bullet, 1, 0.125);
         if (!state.player.meleeAttacking) {
-            state.player.dead = true;
-            state.player.meleeAttacking = false;
-            state.player.meleeAttackCooldown = 0;
+            killPlayer(state);
             return false;
         }
     }
@@ -712,6 +714,14 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     vec2.copy(camera.position, player.position);
     vec2.zero(camera.velocity);
 
+    const lava = {
+        state: lavaStateInactive,
+        textureScroll: 0,
+        levelTarget: 0,
+        levelBase: 0,
+        levelBaseVelocity: 0,
+    };
+
     state.distanceFieldFromEntrance = distanceFieldFromEntrance;
     state.distanceFieldFromExit = distanceFieldFromExit;
     state.renderField = renderField;
@@ -722,9 +732,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     state.turretBullets = [];
     state.camera = camera;
     state.level = level;
-    state.lavaScroll = 0;
-    state.lavaActive = false;
-    state.lavaTide = 0;
+    state.lava = lava;
 }
 
 function createCollectibles(obstacles) {
@@ -962,14 +970,13 @@ function createLightingRenderer(gl) {
 
         uniform highp float uDistCenterFromEntrance;
         uniform highp float uDistCenterFromExit;
-        uniform highp float uLavaLightMultiplier;
 
         void main() {
             highp float distanceFromEntrance = mix(fDistanceFromEntrance.x, fDistanceFromEntrance.y, fYBlend);
             highp float distanceFromExit = mix(fDistanceFromExit.x, fDistanceFromExit.y, fYBlend);
-            highp float uEntrance = max(0.0, min(1.0, (uDistCenterFromEntrance - (distanceFromEntrance + 8.0)) * 0.0625));
-            highp float uExit = uLavaLightMultiplier * max(0.0, min(1.0, (uDistCenterFromExit - distanceFromExit + 6.0) * 0.0625));
-            gl_FragColor.rgb = vec3(0.25, 0.25, 0.25) * uEntrance * uEntrance + vec3(1, 0, 0) * uExit;
+            highp float uEntrance = clamp((uDistCenterFromEntrance - distanceFromEntrance - 8.0) * 0.0625, 0.0, 1.0);
+            highp float uExit = clamp((uDistCenterFromExit - distanceFromExit + 6.0) * 0.0625, 0.0, 1.0);
+            gl_FragColor.rgb = vec3(0.25, 0.3, 0.333) * uEntrance * uEntrance + vec3(1, 0, 0) * uExit;
         }
     `;
 
@@ -985,7 +992,6 @@ function createLightingRenderer(gl) {
         uMatScreenFromField: gl.getUniformLocation(program, 'uMatScreenFromField'),
         uDistCenterFromEntrance: gl.getUniformLocation(program, 'uDistCenterFromEntrance'),
         uDistCenterFromExit: gl.getUniformLocation(program, 'uDistCenterFromExit'),
-        uLavaLightMultiplier: gl.getUniformLocation(program, 'uLavaLightMultiplier'),
     };
 
     const vertexBuffer = gl.createBuffer();
@@ -1069,14 +1075,13 @@ function createLightingRenderer(gl) {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
 
         // Return a function that will take a matrix and do the actual rendering.
-        return (matScreenFromWorld, distCenterFromEntrance, distCenterFromExit, lavaLightMultiplier) => {
+        return (matScreenFromWorld, distCenterFromEntrance, distCenterFromExit) => {
             gl.useProgram(program);
 
             gl.uniformMatrix4fv(uniformLoc.uMatScreenFromField, false, matScreenFromWorld);
 
             gl.uniform1f(uniformLoc.uDistCenterFromEntrance, distCenterFromEntrance);
             gl.uniform1f(uniformLoc.uDistCenterFromExit, distCenterFromExit);
-            gl.uniform1f(uniformLoc.uLavaLightMultiplier, lavaLightMultiplier);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
             gl.enableVertexAttribArray(vertexAttributeLoc.vPosition);
@@ -1476,11 +1481,6 @@ function slideToStop(body, dt) {
 
 function updateState(state, dt) {
 
-    // Lava animation
-
-    state.lavaScroll += dt;
-    state.lavaScroll -= Math.floor(state.lavaScroll);
-
     // Player
 
     if (state.player.dead) {
@@ -1505,16 +1505,6 @@ function updateState(state, dt) {
 
     updateMeleeAttack(state, dt);
 
-    const dposExit = vec2.create();
-    vec2.subtract(dposExit, state.player.position, state.level.exitPos);
-    if (vec2.length(dposExit) < 6) {
-        state.lavaActive = true;
-    }
-    if (state.lavaActive) {
-        const playerDist = estimateDistance(state.distanceFieldFromExit, state.player.position);
-        state.lavaTide = Math.max(state.lavaTide, playerDist - 8);
-    }
-
     // Camera
 
     const posError = vec2.create();
@@ -1535,6 +1525,10 @@ function updateState(state, dt) {
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
     vec2.copy(state.camera.velocity, velNew);
+
+    // Lava
+
+    updateLava(state, dt);
 
     // Turrets
 
@@ -1557,6 +1551,76 @@ function updateState(state, dt) {
         state.gameOver = true;
     }
     */
+}
+
+function updateLava(state, dt) {
+    // Lava texture animation
+
+    state.lava.textureScroll += dt;
+    state.lava.textureScroll -= Math.floor(state.lava.textureScroll);
+
+    // Activate lava when player reaches the exit and then leaves
+
+    const dposExit = vec2.create();
+    vec2.subtract(dposExit, state.player.position, state.level.exitPos);
+    const distPlayerFromExit = vec2.length(dposExit);
+
+    if (state.lava.state == lavaStatePrimed) {
+        if (distPlayerFromExit >= 8) {
+            state.lava.state = lavaStateActive;
+        }
+    } else if (state.lava.state == lavaStateInactive) {
+        if (distPlayerFromExit < 6) {
+            state.lava.state = lavaStatePrimed;
+        }
+    }
+
+    // Update lava's flow
+
+    if (state.lava.state != lavaStateActive) {
+        return;
+    }
+
+    const playerDistFromExit = estimateDistance(state.distanceFieldFromExit, state.player.position);
+
+    const levelTarget = (playerDistFromExit < 6) ? 0 : playerDistFromExit + 8;
+    state.lava.levelTarget = Math.max(state.lava.levelTarget, levelTarget);
+
+    const dposEntrance = vec2.create();
+    vec2.subtract(dposEntrance, state.player.position, state.level.playerStartPos);
+    const distPlayerFromEntrance = vec2.length(dposEntrance);
+
+    const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
+
+    const levelTargetAdjusted = (distPlayerFromEntrance < 4) ? entranceDistFromExit - 4 : state.lava.levelTarget;
+
+    const levelError = levelTargetAdjusted - state.lava.levelBase;
+    const levelVelocityError = -state.lava.levelBaseVelocity;
+
+    const lavaLevelSpring = 1.5;
+
+    const levelAcceleration = levelError * lavaLevelSpring**2 + levelVelocityError * 2 * lavaLevelSpring;
+
+    const levelBaseVelocityNew = state.lava.levelBaseVelocity + levelAcceleration * dt;
+    state.lava.levelBase += (state.lava.levelBaseVelocity + levelBaseVelocityNew) * (dt / 2);
+    state.lava.levelBaseVelocity = levelBaseVelocityNew;
+
+    // Test objects against lava to see if it kills them
+
+    if (isPosInLava(state, state.player.position)) {
+        killPlayer(state);
+    }
+}
+
+function isPosInLava(state, position) {
+    const distFromExit = estimateDistance(state.distanceFieldFromExit, position);
+    return distFromExit < state.lava.levelBase;
+}
+
+function killPlayer(state) {
+    state.player.dead = true;
+    state.player.meleeAttacking = false;
+    state.player.meleeAttackCooldown = 0;
 }
 
 function fixupDiscPairs(disc0, disc1) {
@@ -1837,8 +1901,8 @@ function renderScene(renderer, state) {
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
-    if (state.lavaActive) {
-        state.renderField(matScreenFromWorld, state.lavaTide, state.lavaScroll);
+    if (state.lava.state == lavaStateActive) {
+        state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
     }
 
     renderMeleeAttack(state, renderer, matScreenFromWorld);
@@ -1886,9 +1950,8 @@ function renderScene(renderer, state) {
     }
 
     if (!state.showMap) {
-        const centerDistFromEntrance = estimateDistance(state.distanceFieldFromEntrance, state.camera.position);
-        const lavaLightMultiplier = 1;
-        state.renderLighting(matScreenFromWorld, centerDistFromEntrance, state.lavaTide, lavaLightMultiplier);
+        const playerDistFromEntrance = estimateDistance(state.distanceFieldFromEntrance, state.player.position);
+        state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
     }
 }
 
