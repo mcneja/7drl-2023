@@ -13,6 +13,7 @@ const playerRadius = 0.5;
 const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
 const monsterRadius = 0.5;
+const lootRadius = 0.5;
 const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
@@ -739,29 +740,6 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     state.camera = camera;
     state.level = level;
     state.lava = lava;
-}
-
-function createCollectibles(obstacles) {
-    const collectibles = [];
-    const radius = 0.0125;
-    const separationFromObstacle = 0.02;
-    const separationFromCollectible = 0.05;
-    const color = { r: 0.25, g: 0.25, b: 0.25 };
-    for (let i = 0; i < 1000 && collectibles.length < 128; ++i) {
-        const collectible = {
-            radius: radius,
-            position: {
-                x: radius + separationFromObstacle + (1 - 2*(radius + separationFromObstacle)) * Math.random(),
-                y: radius + separationFromObstacle + (1 - 2*(radius + separationFromObstacle)) * Math.random(),
-            },
-            color: color,
-        };
-        if (!discOverlapsDiscs(collectible, obstacles, separationFromObstacle) &&
-            !discOverlapsDiscs(collectible, collectibles, separationFromCollectible)) {
-            collectibles.push(collectible);
-        }
-    }
-    return collectibles;
 }
 
 function discOverlapsDiscs(disc, discs, minSeparation) {
@@ -1511,6 +1489,10 @@ function updateState(state, dt) {
 
     updateMeleeAttack(state, dt);
 
+    // Loot
+
+    updateLootItems(state);
+
     // Camera
 
     updateCamera(state, dt);
@@ -1967,6 +1949,8 @@ function renderScene(renderer, state) {
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
+    renderLootItems(state.level.lootItems, renderer, matScreenFromWorld);
+
     if (state.lava.state == lavaStateActive) {
         state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
     }
@@ -2026,9 +2010,8 @@ function renderScene(renderer, state) {
         const glyphColorHeartEmpty = 0xff202020;
 
         for (let i = 0; i < playerMaxHitPoints; ++i) {
-            const x = i * 0.5;
             renderer.renderGlyphs.add(
-                x, 0, x + 0.5, 1,
+                i, 0, i + 1, 1,
                 rect.minX, rect.minY, rect.maxX, rect.maxY,
                 i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
             );
@@ -2036,17 +2019,52 @@ function renderScene(renderer, state) {
 
         let screenSizeX, screenSizeY;
 
-        if (screenSize[0] < screenSize[1]) {
+        if (screenSize[0] < screenSize[1] * 0.5) {
             screenSizeX = 20;
-            screenSizeY = screenSizeX * screenSize[1] / screenSize[0];
+            screenSizeY = 0.5 * screenSizeX * screenSize[1] / screenSize[0];
         } else {
             screenSizeY = 20;
-            screenSizeX = screenSizeY * screenSize[0] / screenSize[1];
+            screenSizeX = 2 * screenSizeY * screenSize[0] / screenSize[1];
         }
 
         const matScreenFromHealthBar = mat4.create();
-        mat4.ortho(matScreenFromHealthBar, -0.5, screenSizeX - 0.5, -0.25, screenSizeY - 0.25, 1, -1);
+        mat4.ortho(matScreenFromHealthBar, -1, screenSizeX - 1, -0.25, screenSizeY - 0.25, 1, -1);
         renderer.renderGlyphs.flush(matScreenFromHealthBar);
+    }
+
+    // Loot counter
+
+    {
+        const color = 0xff55ffff;
+
+        const numLootItemsTotal = state.level.numLootItemsTotal;
+        const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
+
+        const strMsg = numLootItemsCollected + '/' + numLootItemsTotal + '\x0f';
+        const cCh = strMsg.length;
+
+        for (let i = 0; i < cCh; ++i) {
+            const rect = glyphRect(strMsg.charCodeAt(i));
+            renderer.renderGlyphs.add(
+                i, 0, i + 1, 1,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                color
+            );
+        }
+
+        let screenSizeX, screenSizeY;
+
+        if (screenSize[0] < screenSize[1] * 0.5) {
+            screenSizeX = 20;
+            screenSizeY = 0.5 * screenSizeX * screenSize[1] / screenSize[0];
+        } else {
+            screenSizeY = 20;
+            screenSizeX = 2 * screenSizeY * screenSize[0] / screenSize[1];
+        }
+
+        const matScreenFromLootTicker = mat4.create();
+        mat4.ortho(matScreenFromLootTicker, cCh + 1 - screenSizeX, cCh + 1, -0.25, screenSizeY - 0.25, 1, -1);
+        renderer.renderGlyphs.flush(matScreenFromLootTicker);
     }
 }
 
@@ -2718,6 +2736,13 @@ function createLevel() {
         });
     }
 
+    // Place loot in the level. Distribute it so rooms that are far from
+    // the entrance or the exit have the most? Or so dead ends have the
+    // most? Bias toward the rooms that aren't on the path between the
+    // entrance and the exit?
+
+    const lootItems = createLootItems(rooms, turrets, swarmers, roomIndexEntrance, level);
+
     return {
         grid: level,
         vertexData: vertexData,
@@ -2725,6 +2750,8 @@ function createLevel() {
         exitPos: exitPos,
         turrets: turrets,
         swarmers: swarmers,
+        lootItems: lootItems,
+        numLootItemsTotal: lootItems.length,
     };
 }
 
@@ -2898,6 +2925,83 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
 
         return;
     }
+}
+
+function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, level) {
+    const numLoot = 100;
+    const loot = [];
+
+    for (let i = 0; i < 1024 && loot.length < numLoot; ++i) {
+        const roomIndex = randomInRange(rooms.length);
+        if (roomIndex == roomIndexEntrance) {
+            continue;
+        }
+
+        const room = rooms[roomIndex];
+
+        const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
+        const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
+
+        const position = vec2.fromValues(x, y);
+
+        if (isDiscTouchingLevel(position, lootRadius * 2, level)) {
+            continue;
+        }
+
+        if (isPositionTooCloseToOtherObjects(turrets, 2 * lootRadius + monsterRadius, position)) {
+            continue;
+        }
+
+        if (isPositionTooCloseToOtherObjects(swarmers, 2 * lootRadius + monsterRadius, position)) {
+            continue;
+        }
+
+        if (isPositionTooCloseToOtherObjects(loot, 3 * lootRadius, position)) {
+            continue;
+        }
+
+        loot.push({position: position});
+    }
+
+    return loot;
+}
+
+function renderLootItems(lootItems, renderer, matScreenFromWorld) {
+    const color = { r: 0.45, g: 0.45, b: 0.45 };
+    const discs = lootItems.map(lootItem => ({
+        position: lootItem.position,
+        color: color,
+        radius: lootRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(15);
+    const rx = 0.25;
+    const ry = 0.5;
+    const yOffset = -0.05;
+    const lootGlyphColor = 0xff55ffff;
+
+    for (const lootItem of lootItems) {
+        const x = lootItem.position[0];
+        const y = lootItem.position[1];
+        renderer.renderGlyphs.add(
+            x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            lootGlyphColor
+        );
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function updateLootItems(state) {
+    const dpos = vec2.create();
+
+    filterInPlace(state.level.lootItems, lootItem => {
+        vec2.subtract(dpos, lootItem.position, state.player.position);
+        return (vec2.length(dpos) > playerRadius + lootRadius);
+    });
 }
 
 function hasEdge(edges, roomIndex0, roomIndex1) {
