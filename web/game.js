@@ -1597,6 +1597,18 @@ function updateLava(state, dt) {
     if (isPosInLava(state, state.player.position)) {
         killPlayer(state);
     }
+
+    for (const turret of state.level.turrets) {
+        if (!turret.dead && isPosInLava(state, turret.position)) {
+            turret.dead = true;
+        }
+    }
+
+    for (const swarmer of state.level.swarmers) {
+        if (!swarmer.dead && isPosInLava(state, swarmer.position)) {
+            swarmer.dead = true;
+        }
+    }
 }
 
 function updateCamera(state, dt) {
@@ -1604,7 +1616,7 @@ function updateCamera(state, dt) {
     // Animate jolt
 
     if (state.lava.state != lavaStateInactive) {
-        const joltScale = (state.lava.state == lavaStateActive) ? 3 : 1;
+        const joltScale = (state.lava.state == lavaStateActive) ? Math.min(3, state.lava.levelBaseVelocity) : 1;
         const randomOffset = vec2.create();
         generateRandomGaussianPair(0, joltScale, randomOffset);
         vec2.add(state.camera.joltVelocity, state.camera.joltVelocity, randomOffset);
@@ -1995,10 +2007,8 @@ function renderScene(renderer, state) {
         renderer.renderGlyphs.flush(matScreenFromWorld);
     }
 
-    if (!state.showMap) {
-        const playerDistFromEntrance = estimateDistance(state.distanceFieldFromEntrance, state.player.position);
-        state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
-    }
+    const playerDistFromEntrance = state.showMap ? -10000 : estimateDistance(state.distanceFieldFromEntrance, state.player.position);
+    state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
