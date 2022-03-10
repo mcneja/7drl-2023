@@ -2134,44 +2134,22 @@ function createLevel() {
 
     const minRoomSize = corridorWidth + 2;
 
-    // Create some rooms.
+    // Create some rooms. First we're going to designate an entrance room, an
+    // exit room, and connectivity between rooms.
 
-    const rooms = [];
     const roomGrid = [];
-
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
         roomGrid[roomY] = [];
         for (let roomX = 0; roomX < numCellsX; ++roomX) {
-            const cellMinX = roomX * squaresPerBlockX + 1;
-            const cellMinY = roomY * squaresPerBlockY + 1;
-            const cellMaxX = (roomX + 1) * squaresPerBlockX - (1 + corridorWidth);
-            const cellMaxY = (roomY + 1) * squaresPerBlockY - (1 + corridorWidth);
-            const maxRoomSizeX = cellMaxX - cellMinX;
-            const maxRoomSizeY = cellMaxY - cellMinY;
-            const halfRoomSizeRangeX = Math.floor((maxRoomSizeX - minRoomSize) / 2);
-            const halfRoomSizeRangeY = Math.floor((maxRoomSizeY - minRoomSize) / 2);
-            const remainderX = (maxRoomSizeX - minRoomSize) - 2 * halfRoomSizeRangeX;
-            const remainderY = (maxRoomSizeY - minRoomSize) - 2 * halfRoomSizeRangeY;
-
-            const roomSizeX = 2 * randomInRange(1 + halfRoomSizeRangeX) + minRoomSize + remainderX;
-            const roomSizeY = 2 * randomInRange(1 + halfRoomSizeRangeY) + minRoomSize + remainderY;
-
-            const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
-            const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
-
-            const room = {
-                minX: roomMinX,
-                minY: roomMinY,
-                sizeX: roomSizeX,
-                sizeY: roomSizeY,
-            };
-
-            rooms.push(room);
             roomGrid[roomY][roomX] = roomY * numCellsX + roomX;
         }
     }
 
-    // Generate the graph of connections between rooms
+    const roomIndexEntrance = randomInRange(numCellsY) * numCellsX;
+    const roomIndexExit = randomInRange(numCellsY) * numCellsX + (numCellsX - 1);
+
+    // Generate the graph of connections between rooms. The entrance and
+    // exit rooms will be dead ends.
 
     const potentialEdges = [];
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
@@ -2198,18 +2176,80 @@ function createLevel() {
         roomGroup.push(i);
     }
 
+    let entranceConnected = false;
+    let exitConnected = false;
+
     const edges = [];
     for (const edge of potentialEdges) {
+        const edgeConnectsEntrance = (edge[0] == roomIndexEntrance || edge[1] == roomIndexEntrance);
+        const edgeConnectsExit = (edge[0] == roomIndexExit || edge[1] == roomIndexExit);
+        if (edgeConnectsEntrance && entranceConnected)
+            continue;
+        if (edgeConnectsExit && exitConnected)
+            continue;
+
         const group0 = roomGroup[edge[0]];
         const group1 = roomGroup[edge[1]];
-        const span = group0 != group1;
-        if (span || Math.random() < 0.5) {
-            edges.push({edge: edge, span: span});
+
+        if (group0 != group1 || Math.random() < 0.5) {
+            edges.push({edge: edge});
+
+            if (edgeConnectsEntrance)
+                entranceConnected = true;
+            if (edgeConnectsExit)
+                exitConnected = true;
+
             for (let i = 0; i < numRooms; ++i) {
                 if (roomGroup[i] === group1) {
                     roomGroup[i] = group0;
                 }
             }
+        }
+    }
+
+    // Pick sizes for the rooms. The entrance and exit rooms are special and
+    // have fixed sizes.
+
+    const rooms = [];
+
+    for (let roomY = 0; roomY < numCellsY; ++roomY) {
+        for (let roomX = 0; roomX < numCellsX; ++roomX) {
+            const roomIndex = roomY * numCellsX + roomX;
+            const cellMinX = roomX * squaresPerBlockX + 1;
+            const cellMinY = roomY * squaresPerBlockY + 1;
+            const cellMaxX = (roomX + 1) * squaresPerBlockX - (1 + corridorWidth);
+            const cellMaxY = (roomY + 1) * squaresPerBlockY - (1 + corridorWidth);
+            const maxRoomSizeX = cellMaxX - cellMinX;
+            const maxRoomSizeY = cellMaxY - cellMinY;
+            const halfRoomSizeRangeX = Math.floor((maxRoomSizeX - minRoomSize) / 2);
+            const halfRoomSizeRangeY = Math.floor((maxRoomSizeY - minRoomSize) / 2);
+            const remainderX = (maxRoomSizeX - minRoomSize) - 2 * halfRoomSizeRangeX;
+            const remainderY = (maxRoomSizeY - minRoomSize) - 2 * halfRoomSizeRangeY;
+
+            let roomSizeX, roomSizeY;
+
+            if (roomIndex == roomIndexEntrance) {
+                roomSizeX = minRoomSize;
+                roomSizeY = minRoomSize;
+            } else if (roomIndex == roomIndexExit) {
+                roomSizeX = maxRoomSizeX;
+                roomSizeY = maxRoomSizeY;
+            } else {
+                roomSizeX = 2 * randomInRange(1 + halfRoomSizeRangeX) + minRoomSize + remainderX;
+                roomSizeY = 2 * randomInRange(1 + halfRoomSizeRangeY) + minRoomSize + remainderY;
+            }
+
+            const roomMinX = randomInRange(1 + maxRoomSizeX - roomSizeX) + cellMinX;
+            const roomMinY = randomInRange(1 + maxRoomSizeY - roomSizeY) + cellMinY;
+
+            const room = {
+                minX: roomMinX,
+                minY: roomMinY,
+                sizeX: roomSizeX,
+                sizeY: roomSizeY,
+            };
+
+            rooms.push(room);
         }
     }
 
@@ -2241,7 +2281,9 @@ function createLevel() {
 
     // Decorate the rooms
 
-    decorateRooms(rooms, level);
+    const roomsToDecorate = rooms.filter((room, roomIndex) => roomIndex != roomIndexEntrance && roomIndex != roomIndexExit);
+    decorateRooms(roomsToDecorate, level);
+    tryCreatePillarRoom(rooms[roomIndexExit], level);
 
     // Plot corridors into grid
 
@@ -2409,25 +2451,11 @@ function createLevel() {
         vertexDataAsUint32[j+17] = color;
     }
 
-    // Count the number of connections to each room
-
-    const roomEdges = [];
-    for (let i = 0; i < rooms.length; ++i) {
-        roomEdges.push([i, 0]);
-    }
-    for (const edge of edges) {
-        ++roomEdges[edge.edge[0]][1];
-        ++roomEdges[edge.edge[1]][1];
-    }
-    shuffleArray(roomEdges);
-    roomEdges.sort((room0, room1) => room0[1] - room1[1]);
-
-    // Pick a random room as the start position
+    // Pick a starting position within the starting room
 
     const playerStartPos = vec2.create();
-    const startRoomIndex = roomEdges[0][0];
     for (let i = 0; i < 1024; ++i) {
-        const startRoom = rooms[startRoomIndex];
+        const startRoom = rooms[roomIndexEntrance];
         playerStartPos[0] = Math.random() * (startRoom.sizeX - 2*playerRadius) + startRoom.minX + playerRadius;
         playerStartPos[1] = Math.random() * (startRoom.sizeY - 2*playerRadius) + startRoom.minY + playerRadius;
 
@@ -2442,7 +2470,7 @@ function createLevel() {
 
     for (let i = 0; i < 1000 && turrets.length < 32; ++i) {
         const roomIndex = randomInRange(rooms.length);
-        if (roomIndex == startRoomIndex) {
+        if (roomIndex == roomIndexEntrance) {
             continue;
         }
 
@@ -2476,7 +2504,7 @@ function createLevel() {
 
     for (let i = 0; i < 1000 && swarmers.length < 8; ++i) {
         const roomIndex = randomInRange(rooms.length);
-        if (roomIndex == startRoomIndex) {
+        if (roomIndex == roomIndexEntrance) {
             continue;
         }
 
@@ -2619,44 +2647,50 @@ function decorateRooms(rooms, level) {
 function tryPlacePillarRoom(rooms, level) {
     for (let i = 0; i < rooms.length; ++i) {
         const room = rooms[i];
-        if (room.sizeX < 13 || room.sizeY < 13)
-            continue;
-        if (((room.sizeX - 3) % 5) == 0 && ((room.sizeY - 3) % 5) == 0)
-            continue;
 
-        rooms[i] = rooms[rooms.length-1];
-        --rooms.length;
-
-        function plotPillar(x, y) {
-            x += room.minX;
-            y += room.minY;
-            level.set(x, y, ttWall);
-            level.set(x+1, y, ttWall);
-            level.set(x, y+1, ttWall);
-            level.set(x+1, y+1, ttWall);
+        if (tryCreatePillarRoom(room, level)) {
+            rooms[i] = rooms[rooms.length-1];
+            --rooms.length;
+            break;    
         }
-
-        plotPillar(3, 3);
-        plotPillar(3, room.sizeY - 5);
-        plotPillar(room.sizeX - 5, 3);
-        plotPillar(room.sizeX - 5, room.sizeY - 5);
-
-        if (((room.sizeX - 3) % 5) == 0) {
-            for (let x = 8; x < room.sizeX - 5; x += 5) {
-                plotPillar(x, 3);
-                plotPillar(x, room.sizeY - 5);
-            }
-        }
-
-        if (((room.sizeY - 3) % 5) == 0) {
-            for (let y = 8; y < room.sizeY - 5; y += 5) {
-                plotPillar(3, y);
-                plotPillar(room.sizeX - 5, y);
-            }
-        }
-
-        return;
     }
+}
+
+function tryCreatePillarRoom(room, level) {
+    if (room.sizeX < 13 || room.sizeY < 13)
+        return false;
+    if (((room.sizeX - 3) % 5) == 0 && ((room.sizeY - 3) % 5) == 0)
+        return false;
+
+    function plotPillar(x, y) {
+        x += room.minX;
+        y += room.minY;
+        level.set(x, y, ttWall);
+        level.set(x+1, y, ttWall);
+        level.set(x, y+1, ttWall);
+        level.set(x+1, y+1, ttWall);
+    }
+
+    plotPillar(3, 3);
+    plotPillar(3, room.sizeY - 5);
+    plotPillar(room.sizeX - 5, 3);
+    plotPillar(room.sizeX - 5, room.sizeY - 5);
+
+    if (((room.sizeX - 3) % 5) == 0) {
+        for (let x = 8; x < room.sizeX - 5; x += 5) {
+            plotPillar(x, 3);
+            plotPillar(x, room.sizeY - 5);
+        }
+    }
+
+    if (((room.sizeY - 3) % 5) == 0) {
+        for (let y = 8; y < room.sizeY - 5; y += 5) {
+            plotPillar(3, y);
+            plotPillar(room.sizeX - 5, y);
+        }
+    }
+
+    return true;
 }
 
 function tryPlaceCenterObstacleRoom(rooms, level) {
