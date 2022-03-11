@@ -259,9 +259,7 @@ function updateMeleeAttack(state, dt) {
         vec2.subtract(dpos, swarmer.position, state.player.position);
         const dist = vec2.length(dpos);
         if (dist < meleeAttackRadius + monsterRadius) {
-            if (swarmer.stunTimer > 0) {
-                swarmer.dead = true;
-            }
+            swarmer.dead = true;
             elasticCollision(state.player, swarmer, playerMass, swarmerMass, swarmerElasticity);
         }
     }
@@ -334,9 +332,7 @@ function updatePlayerBullet(state, bullet, dt) {
         }
 
         if (areDiscsTouching(bullet.position, bulletRadius, swarmer.position, swarmer.radius)) {
-            if (swarmer.stunTimer > 0) {
-                swarmer.dead = true;
-            }
+            swarmer.dead = true;
             vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, bullet.velocity, 0.2);
             hitSomething = true;
         }
@@ -463,25 +459,58 @@ function updateTurrets(state, dt) {
 }
 
 function updateSwarmers(state, dt) {
-    const swarmerSpeed = 4;
+    const accelerationRate = 20;
+    const dragAccelerationRate = 3;
+    const perturbationAccelerationRate = 8;
+    const separationDist = 5;
+    const separationForce = 1;
+
+    const velPrev = vec2.create();
+    const perturbationDir = vec2.create();
+    const dpos = vec2.create();
 
     for (const swarmer of state.level.swarmers) {
-        swarmer.stunTimer = Math.max(0, swarmer.stunTimer - dt);
-        if (swarmer.dead || swarmer.stunTimer > 0) {
-            slideToStop(swarmer, dt);
-        } else if (distanceBetween(swarmer.position, state.player.position) < 24 &&
-            clearLineOfSight(state.level, swarmer.position, state.player.position)) {
-            const dposToTarget = vec2.create();
-            vec2.subtract(dposToTarget, swarmer.position, state.player.position);
-            const distToTarget = vec2.length(dposToTarget);
+        vec2.copy(velPrev, swarmer.velocity);
 
-            const accelerationRate = -16;
-            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dposToTarget, accelerationRate * dt / distToTarget);
-        } else {
+        swarmer.heading += swarmer.headingRate * dt;
+        swarmer.heading -= Math.floor(swarmer.heading);
+
+        if (swarmer.dead) {
             slideToStop(swarmer, dt);
+        } else {
+            const heading = swarmer.heading * 2 * Math.PI;
+            vec2.set(perturbationDir, Math.cos(heading), Math.sin(heading));
+
+            if (state.player.hitPoints > 0) {
+                const dposToTarget = vec2.create();
+                vec2.subtract(dposToTarget, swarmer.position, state.player.position);
+                const distToTarget = vec2.length(dposToTarget);
+    
+                if (distToTarget < 24 && clearLineOfSight(state.level, swarmer.position, state.player.position)) {            
+                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dposToTarget, -accelerationRate * dt / distToTarget);
+                }
+            }
+
+            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, perturbationDir, perturbationAccelerationRate * dt);
+            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, velPrev, -dragAccelerationRate * dt);
+
+            // Avoid other swarmers
+
+            for (const swarmerOther of state.level.swarmers) {
+                if (swarmerOther == swarmer)
+                    continue;
+
+                vec2.subtract(dpos, swarmerOther.position, swarmer.position);
+                const dist = vec2.length(dpos);
+                if (dist < separationDist) {
+                    const scale = (dist - separationDist) * (separationForce * dt / dist);
+                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dpos, scale);
+                }
+            }
         }
 
-        vec2.scaleAndAdd(swarmer.position, swarmer.position, swarmer.velocity, dt);
+        vec2.scaleAndAdd(swarmer.position, swarmer.position, velPrev, dt / 2);
+        vec2.scaleAndAdd(swarmer.position, swarmer.position, swarmer.velocity, dt / 2);
     }
 
     // Fix up swarmer positions relative to the environment and other objects.
@@ -490,14 +519,10 @@ function updateSwarmers(state, dt) {
     {
         const swarmer0 = state.level.swarmers[i];
 
-        const vNormal = fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.grid);
+        fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.grid);
 
         if (swarmer0.dead)
             continue;
-
-        if (vNormal > 14) {
-            swarmer0.stunTimer = Math.max(swarmer0.stunTimer, 2.5);
-        }
 
         for (const turret of state.level.turrets) {
             if (turret.dead)
@@ -590,7 +615,7 @@ function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
 
     renderer.renderDiscs(matScreenFromWorld, discs);
 
-    const rect = glyphRect(114);
+    const rect = glyphRect(98);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -612,22 +637,20 @@ function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
 }
 
 function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
-    const colorStunned = { r: 0.25, g: 0.34375, b: 0.25 };
-    const colorActive = { r: 0.25, g: 0.75, b: 0.25 };
+    const color = { r: 0.125, g: 0.125, b: 0.125 };
     const discs = swarmers.filter(swarmer => !swarmer.dead).map(swarmer => ({
         position: swarmer.position,
-        color: swarmer.stunTimer > 0 ? colorStunned : colorActive,
+        color: color,
         radius: monsterRadius,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
 
-    const rect = glyphRect(114);
+    const rect = glyphRect(98);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
-    const glyphColorActive = 0xff208020;
-    const glyphColorStunned = 0xff80b080;
+    const glyphColor = 0xff5555ff;
 
     for (const swarmer of swarmers) {
         if (!swarmer.dead) {
@@ -636,7 +659,7 @@ function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
             renderer.renderGlyphs.add(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
                 rect.minX, rect.minY, rect.maxX, rect.maxY,
-                swarmer.stunTimer > 0 ? glyphColorStunned : glyphColorActive
+                glyphColor
             );
         }
     }
@@ -1621,16 +1644,23 @@ function updateState(state, dt) {
 
     // Collide player against objects and the environment
 
+    const enemyElasticity = 0.9;
+    const swarmerMass = 0.5;
+
     for (let i = 0; i < 4; ++i) {
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
-                collideDiscs(state.player, turret, 1, 1, 0);
+                if (collideDiscs(state.player, turret, 1, 1, enemyElasticity)) {
+                    damagePlayer(state, 1);
+                }
             }
         }
-    
+
         for (const swarmer of state.level.swarmers) {
             if (!swarmer.dead) {
-                collideDiscs(state.player, swarmer, 1, 1, 0);
+                if (collideDiscs(state.player, swarmer, 1, swarmerMass, enemyElasticity)) {
+                    damagePlayer(state, 1);
+                }
             }
         }
     
@@ -2969,7 +2999,7 @@ function createLevel() {
 
     const turrets = [];
 
-    const numTurrets = 32;
+    const numTurrets = 16;
     for (let i = 0; i < 1000 && turrets.length < numTurrets; ++i) {
         const roomIndex = randomInRange(rooms.length);
         if (roomIndex == roomIndexEntrance) {
@@ -3004,7 +3034,7 @@ function createLevel() {
 
     const swarmers = [];
 
-    const numSwarmers = 8;
+    const numSwarmers = 16;
     for (let i = 0; i < 1000 && swarmers.length < numSwarmers; ++i) {
         const roomIndex = randomInRange(rooms.length);
         if (roomIndex == roomIndexEntrance) {
@@ -3034,7 +3064,8 @@ function createLevel() {
             position: position,
             velocity: vec2.fromValues(0, 0),
             radius: monsterRadius,
-            stunTimer: 0,
+            heading: Math.random(),
+            headingRate: (Math.random() * 0.15 + 0.15) * (randomInRange(2) * 2 - 1),
             dead: false,
         });
     }
