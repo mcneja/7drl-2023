@@ -2956,7 +2956,7 @@ function createLevel() {
     // Put an exit position in the exit room
 
     const amuletRoom = rooms[roomIndexExit];
-    const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX/2, amuletRoom.minY + amuletRoom.sizeY/2);
+    const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX/2 - 0.5, amuletRoom.minY + amuletRoom.sizeY/2 - 0.5);
 
     // Place some turrets in the level
 
@@ -3280,7 +3280,7 @@ function renderLootItems(state, renderer, matScreenFromWorld) {
     if (!state.player.amuletCollected) {
         discs.push({
             position: state.level.amuletPos,
-            color: { r: 0.25, g: 0.25, b: 0.5 },
+            color: { r: 0.4, g: 0.15, b: 0.15 },
             radius: lootRadius,
         });
     }
@@ -3304,7 +3304,7 @@ function renderLootItems(state, renderer, matScreenFromWorld) {
     }
 
     if (!state.player.amuletCollected) {
-        const amuletColor = 0xffff5555;
+        const amuletColor = 0xff5555ff;
         const rectAmulet = glyphRect(12);
         const x = state.level.amuletPos[0];
         const y = state.level.amuletPos[1];
