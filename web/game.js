@@ -824,7 +824,8 @@ function createFieldRenderer(gl) {
         void main() {
             highp float distance = mix(fDistance.x, fDistance.y, fYBlend);
             highp float s = distance - uDistCutoff;
-            highp vec4 lavaColor = texture2D(uContour, vec2(s - uScroll, 0)) * vec4(1, 0.25, 0, 1);
+            highp vec4 contourColor = texture2D(uContour, vec2(s - uScroll, 0));
+            highp vec4 lavaColor = contourColor * vec4(1, 0.25, 0, 1);
             highp vec4 floorColor = vec4(1, 1, 1, 0);
             highp vec4 color = mix(lavaColor, floorColor, max(0.0, sign(s)));
             gl_FragColor = color;
@@ -858,9 +859,9 @@ function createFieldRenderer(gl) {
         for (let y = 0; y < gridSizeY; ++y) {
             for (let x = 0; x < gridSizeX; ++x) {
                 const tileType = level.grid.get(x, y);
-                if (tileType == ttHall || tileType == ttRoom) {
-                    ++numQuads;
-                }
+                if (tileType != ttHall && tileType != ttRoom)
+                    continue;
+                ++numQuads;
             }
         }
 
@@ -981,9 +982,9 @@ function createLightingRenderer(gl) {
         void main() {
             highp float distanceFromEntrance = mix(fDistanceFromEntrance.x, fDistanceFromEntrance.y, fYBlend);
             highp float distanceFromExit = mix(fDistanceFromExit.x, fDistanceFromExit.y, fYBlend);
-            highp float uEntrance = clamp((uDistCenterFromEntrance - distanceFromEntrance - 8.0) * 0.0625, 0.0, 1.0);
+            highp float uEntrance = 1.0 - smoothstep(uDistCenterFromEntrance - 8.0, uDistCenterFromEntrance, distanceFromEntrance);
             highp float uExit = clamp((uDistCenterFromExit - distanceFromExit + 6.0) * 0.0625, 0.0, 1.0);
-            gl_FragColor.rgb = vec3(0.25, 0.3, 0.333) * uEntrance * uEntrance + vec3(1, 0, 0) * uExit;
+            gl_FragColor.rgb = vec3(0.22, 0.3, 0.333) * uEntrance * uEntrance + vec3(1, 0, 0) * uExit;
         }
     `;
 
@@ -1012,9 +1013,9 @@ function createLightingRenderer(gl) {
         for (let y = 0; y < gridSizeY; ++y) {
             for (let x = 0; x < gridSizeX; ++x) {
                 const tileType = level.grid.get(x, y);
-                if (tileType == ttHall || tileType == ttRoom) {
-                    ++numQuads;
-                }
+                if (tileType != ttHall && tileType != ttRoom)
+                    continue;
+                ++numQuads;
             }
         }
 
@@ -2006,8 +2007,8 @@ function renderScene(renderer, state) {
         renderer.renderGlyphs.flush(matScreenFromWorld);
     }
 
-    const playerDistFromEntrance = state.showMap ? -10000 : Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.player.position));
-    state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
+    const distFromEntrance = state.showMap ? -10000 : Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.camera.position));
+    state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase);
 
     // Status displays
 
@@ -2314,6 +2315,8 @@ function updateDistanceField(grid, distanceField, posSource) {
     let toVisit = [{priority: 0, x: sourceX, y: sourceY}];
 
     fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(grid, distanceField, x, y));
+
+    floodFillImpassableAreas(distanceField);
 }
 
 function fastMarchFill(field, toVisit, estimatedDistance) {
@@ -2386,50 +2389,84 @@ function estimatedDistance(grid, distanceField, x, y) {
     return d;
 }
 
-function safeDistance(distanceField, x, y) {
-    if (x < 0 || y < 0 || x >= distanceField.sizeX || y >= distanceField.sizeY)
-        return 1e4;
+function floodFillImpassableAreas(field) {
+    const toVisit = [];
 
-    return distanceField.get(x, y);
+    for (let y = 0; y < field.sizeY; ++y) {
+        for (let x = 0; x < field.sizeX; ++x) {
+            const d = field.get(x, y);
+            if (d === Infinity)
+                continue;
+
+            if (x < field.sizeX - 1) {
+                const d = estimatedDistanceSimple(field, x + 1, y);
+                if (d < field.get(x+1, y)) {
+                    priorityQueuePush(toVisit, {priority: d, x: x+1, y: y});
+                }
+            }
+
+            if (x > 0) {
+                const d = estimatedDistanceSimple(field, x - 1, y);
+                if (d < field.get(x-1, y)) {
+                    priorityQueuePush(toVisit, {priority: d, x: x-1, y: y});
+                }
+            }
+
+            if (y < field.sizeY - 1) {
+                const d = estimatedDistanceSimple(field, x, y + 1);
+                if (d < field.get(x, y+1)) {
+                    priorityQueuePush(toVisit, {priority: d, x: x, y: y+1});
+                }
+            }
+
+            if (y > 0) {
+                const d = estimatedDistanceSimple(field, x, y - 1);
+                if (d < field.get(x, y-1)) {
+                    priorityQueuePush(toVisit, {priority: d, x: x, y: y-1});
+                }
+            }
+        }
+    }
+
+    fastMarchFill(field, toVisit, (x, y) => estimatedDistanceSimple(field, x, y));
 }
 
-function estimateGradient(distanceField, position, gradient) {
+function estimatedDistanceSimple(distanceField, x, y) {
+    // Only fill unfilled squares
+    if (distanceField.get(x, y) !== Infinity)
+        return Infinity;
 
-    const x = position[0] - 0.5;
-    const y = position[1] - 0.5;
+    const dXNeg = (x > 0) ? distanceField.get(x-1, y) : Infinity;
+    const dXPos = (x < distanceField.sizeX - 1) ? distanceField.get(x+1, y) : Infinity;
+    const dYNeg = (y > 0) ? distanceField.get(x, y-1) : Infinity;
+    const dYPos = (y < distanceField.sizeY - 1) ? distanceField.get(x, y+1) : Infinity;
 
-    const uX = x - Math.floor(x);
-    const uY = y - Math.floor(y);
+    const dXMin = Math.min(dXNeg, dXPos);
+    const dYMin = Math.min(dYNeg, dYPos);
 
-    const gridX = Math.floor(x);
-    const gridY = Math.floor(y);
+    const timeHorizontal = 1.0;
 
-    const d00 = safeDistance(distanceField, gridX, gridY);
-    const d10 = safeDistance(distanceField, gridX + 1, gridY);
-    const d01 = safeDistance(distanceField, gridX, gridY + 1);
-    const d11 = safeDistance(distanceField, gridX + 1, gridY + 1);
+    const d = (Math.abs(dXMin - dYMin) <= timeHorizontal) ?
+        ((dXMin + dYMin) + Math.sqrt((dXMin + dYMin)**2 - 2 * (dXMin**2 + dYMin**2 - timeHorizontal**2))) / 2:
+        Math.min(dXMin, dYMin) + timeHorizontal;
 
-    const gradX = (d10 - d00) * (1 - uY) + (d11 - d01) * uY;
-    const gradY = (d01 - d00) * (1 - uX) + (d11 - d10) * uX;
-
-    vec2.set(gradient, gradX, gradY);
+    return d;
 }
 
 function estimateDistance(distanceField, position) {
-
     const x = position[0];
     const y = position[1];
 
-    const uX = x - Math.floor(x);
-    const uY = y - Math.floor(y);
+    const gridX = Math.max(0, Math.min(distanceField.sizeX - 1, Math.floor(x)));
+    const gridY = Math.max(0, Math.min(distanceField.sizeY - 1, Math.floor(y)));
 
-    const gridX = Math.floor(x);
-    const gridY = Math.floor(y);
+    const uX = x - gridX;
+    const uY = y - gridY;
 
-    const d00 = safeDistance(distanceField, gridX, gridY);
-    const d10 = safeDistance(distanceField, gridX + 1, gridY);
-    const d01 = safeDistance(distanceField, gridX, gridY + 1);
-    const d11 = safeDistance(distanceField, gridX + 1, gridY + 1);
+    const d00 = distanceField.get(gridX, gridY);
+    const d10 = distanceField.get(gridX + 1, gridY);
+    const d01 = distanceField.get(gridX, gridY + 1);
+    const d11 = distanceField.get(gridX + 1, gridY + 1);
 
     const d0 = d00 + (d10 - d00) * uX;
     const d1 = d01 + (d11 - d01) * uX;
@@ -2440,16 +2477,6 @@ function estimateDistance(distanceField, position) {
 
 function randomInRange(n) {
     return Math.floor(Math.random() * n);
-}
-
-function coinFlips(total) {
-    let count = 0;
-    while (total > 0) {
-        if (Math.random() < 0.5)
-            ++count;
-        --total;
-    }
-    return count;
 }
 
 // The output level data structure consists of dimensions and
