@@ -2163,8 +2163,8 @@ function renderDamageVignette(hitPoints, damageDisplayTimer, renderer, screenSiz
 
     const radiusInner = 0.8;
     const radiusOuter = 1.5;
-    const colorInner = [1, 0, 0, u * 0.05];
-    const colorOuter = [1, 0, 0, u * 0.5];
+    const colorInner = [1, 0, 0, Math.min(1.0, u * 0.05)];
+    const colorOuter = [1, 0, 0, Math.min(1.0, u * 0.5)];
 
     const matDiscFromScreen = mat4.create();
     if (screenSize[0] < screenSize[1]) {
