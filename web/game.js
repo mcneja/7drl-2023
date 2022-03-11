@@ -710,6 +710,8 @@ function initState(createFieldRenderer, createLightingRenderer) {
     const state = {
         paused: true,
         showMap: false,
+        mapZoom: 1,
+        mapZoomVelocity: 0,
         mouseSensitivity: 0,
     };
     resetState(state, createFieldRenderer, createLightingRenderer);
@@ -746,8 +748,6 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         velocity: vec2.create(),
         joltOffset: vec2.create(),
         joltVelocity: vec2.create(),
-        mapZoom: 1,
-        mapZoomVelocity: 0,
     };
 
     vec2.copy(camera.position, player.position);
@@ -1714,10 +1714,10 @@ function updateCamera(state, dt) {
 
     const mapZoomTarget = state.showMap ? 0 : 1;
     const kSpringMapZoom = 12;
-    const mapZoomAccel = ((mapZoomTarget - state.camera.mapZoom) * kSpringMapZoom - 2 * state.camera.mapZoomVelocity) * kSpringMapZoom;
-    const mapZoomVelNew = state.camera.mapZoomVelocity + mapZoomAccel * dt;
-    state.camera.mapZoom += (state.camera.mapZoomVelocity + mapZoomVelNew) * (dt / 2);
-    state.camera.mapZoomVelocity = mapZoomVelNew;
+    const mapZoomAccel = ((mapZoomTarget - state.mapZoom) * kSpringMapZoom - 2 * state.mapZoomVelocity) * kSpringMapZoom;
+    const mapZoomVelNew = state.mapZoomVelocity + mapZoomAccel * dt;
+    state.mapZoom += (state.mapZoomVelocity + mapZoomVelNew) * (dt / 2);
+    state.mapZoomVelocity = mapZoomVelNew;
 
     // Animate jolt
 
@@ -2099,7 +2099,7 @@ function renderScene(renderer, state) {
     }
 
     const distFromEntrance = Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.camera.position));
-    state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase, state.camera.mapZoom);
+    state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase, state.mapZoom);
 
     // Damage vignette
 
@@ -2173,10 +2173,10 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
         rxGame = rGame * screenSize[0] / screenSize[1];
     }
 
-    const rxZoom = lerp(rxMap, rxGame, state.camera.mapZoom);
-    const ryZoom = lerp(ryMap, ryGame, state.camera.mapZoom);
-    const cxZoom = lerp(cxMap, cxGame, state.camera.mapZoom);
-    const cyZoom = lerp(cyMap, cyGame, state.camera.mapZoom);
+    const rxZoom = lerp(rxMap, rxGame, state.mapZoom);
+    const ryZoom = lerp(ryMap, ryGame, state.mapZoom);
+    const cxZoom = lerp(cxMap, cxGame, state.mapZoom);
+    const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
 
     mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
 }
