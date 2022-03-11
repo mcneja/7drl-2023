@@ -1626,7 +1626,7 @@ function updateCamera(state, dt) {
 
     const accJolt = vec2.create();
     vec2.scale(accJolt, state.camera.joltOffset, -(kSpringJolt**2));
-    vec2.scaleAndAdd(accJolt, accJolt, state.camera.joltVelocity, -2*kSpringJolt);
+    vec2.scaleAndAdd(accJolt, accJolt, state.camera.joltVelocity, -1.5*kSpringJolt);
 
     const velJoltNew = vec2.create();
     vec2.scaleAndAdd(velJoltNew, state.camera.joltVelocity, accJolt, dt);
@@ -2006,7 +2006,7 @@ function renderScene(renderer, state) {
         renderer.renderGlyphs.flush(matScreenFromWorld);
     }
 
-    const playerDistFromEntrance = state.showMap ? -10000 : estimateDistance(state.distanceFieldFromEntrance, state.player.position);
+    const playerDistFromEntrance = state.showMap ? -10000 : Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.player.position));
     state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
 
     // Status displays
@@ -2016,39 +2016,40 @@ function renderScene(renderer, state) {
 
     if (state.paused) {
         renderTextLines(renderer, screenSize, [
-            '            GAME TITLE',
+            '          AMULET RAIDER',
             '',
             '     Paused: Click to unpause',
             '',
-            'Retrieve the Amulet of Yendys from',
-            'the dank dungeon guarding it.',
+            'Jacin said the amulet is cursed.',
+            'Having magic of my own, though,',
+            'I prefer to judge for myself.',
             '',
             'Move with mouse. Attack while moving',
             'with left and right mouse buttons.',
             '',
-            'Esc  Pause',
-            'R    Retry with a new dungeon',
-            'M    Toggle map',
-            ',/.  Adjust mouse sensitivity (' + state.mouseSensitivity + ')',
+            'Esc: Pause, R: Retry, M: Map',
+            'Mouse sensitivity (,/.): ' + state.mouseSensitivity,
             '',
             '     James McNeill - 2022 7DRL',
+            '   Special thanks: Mendi Carroll',
         ]);
     } else if (state.gameState == gsWon && state.timeToGameEndMessage <= 0) {
         renderTextLines(renderer, screenSize, [
-            'YOU HAVE ESCAPED WITH THE AMULET!',
-            '',
-            '',
-            'Esc  Pause',
-            'R    Retry with a new dungeon',
+            'I HOLD THE AMULET AND I LIVE!',
+            '   Esc: Pause, R: Restart',
         ]);
     } else if (state.gameState == gsDied && state.timeToGameEndMessage <= 0) {
-        renderTextLines(renderer, screenSize, [
-            '           YOU DIED',
-            '',
-            '',
-            'Esc  Pause',
-            'R    Retry with a new dungeon',
-        ]);
+        if (state.player.amuletCollected) {
+            renderTextLines(renderer, screenSize, [
+                '  CURSE THE CURSE!',
+                'Esc: Pause, R: Retry',
+            ]);
+        } else {
+            renderTextLines(renderer, screenSize, [
+                'MY LUCK HAS RUN OUT.',
+                'Esc: Pause, R: Retry',
+            ]);
+        }
     }
 }
 
@@ -2176,11 +2177,10 @@ function renderTextLines(renderer, screenSize, lines) {
     const pixelsPerCharX = 8 * scaleFactor;
     const pixelsPerCharY = 16 * scaleFactor;
     const linesPixelSizeX = maxLineLength * pixelsPerCharX;
-    const linesPixelSizeY = lines.length * pixelsPerCharY;
     const numCharsX = screenSize[0] / pixelsPerCharX;
     const numCharsY = screenSize[1] / pixelsPerCharY;
     const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
-    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
+    const offsetY = (lines.length + 2) - numCharsY;
 
     const matScreenFromTextArea = mat4.create();
     mat4.ortho(
