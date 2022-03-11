@@ -2646,8 +2646,15 @@ function createLevel() {
         }
     }
 
-    const roomIndexEntrance = randomInRange(numCellsY) * numCellsX;
-    const roomIndexExit = randomInRange(numCellsY) * numCellsX + (numCellsX - 1);
+    const entranceRoomX = randomInRange(2) * (numCellsX - 1);
+    const entranceRoomY = randomInRange(2) * (numCellsY - 1);
+
+    const roomIndexEntrance = entranceRoomY * numCellsX + entranceRoomX;
+
+    const exitRoomX = numCellsX - 1 - entranceRoomX;
+    const exitRoomY = numCellsY - 1 - entranceRoomY;
+
+    const roomIndexExit = exitRoomY * numCellsX + exitRoomX;
 
     // Generate the graph of connections between rooms. The entrance and
     // exit rooms will be dead ends.
