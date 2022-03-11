@@ -208,7 +208,7 @@ function updatePosition(state, e) {
     }
 
     const movement = vec2.fromValues(e.movementX, -e.movementY);
-    const scale = 0.05 * Math.pow(1.1, state.mouseSensitivity - 5);
+    const scale = 0.05 * Math.pow(1.1, state.mouseSensitivity);
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
 }
 
@@ -700,7 +700,7 @@ function initState(createFieldRenderer, createLightingRenderer) {
     const state = {
         paused: true,
         showMap: false,
-        mouseSensitivity: 5,
+        mouseSensitivity: 0,
     };
     resetState(state, createFieldRenderer, createLightingRenderer);
     return state;
