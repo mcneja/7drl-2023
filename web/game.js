@@ -1331,15 +1331,17 @@ function createGlyphRenderer(gl, fontImage) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
-        gl.vertexAttribPointer(vPositionTexcoordLoc, 4, gl.FLOAT, false, bytesPerVertex, 0);
-        gl.vertexAttribPointer(vColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
         gl.enableVertexAttribArray(vPositionTexcoordLoc);
         gl.enableVertexAttribArray(vColorLoc);
+        gl.vertexAttribPointer(vPositionTexcoordLoc, 4, gl.FLOAT, false, bytesPerVertex, 0);
+        gl.vertexAttribPointer(vColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
         gl.drawElements(gl.TRIANGLES, 6 * numQuads, gl.UNSIGNED_SHORT, 0);
 
+        gl.disableVertexAttribArray(vColorLoc);
+        gl.disableVertexAttribArray(vPositionTexcoordLoc);
         numQuads = 0;
     }
 
@@ -1382,7 +1384,7 @@ function createTextureFromImage(gl, image) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     return texture;
 }
 
@@ -2002,70 +2004,173 @@ function renderScene(renderer, state) {
     const playerDistFromEntrance = state.showMap ? -10000 : estimateDistance(state.distanceFieldFromEntrance, state.player.position);
     state.renderLighting(matScreenFromWorld, playerDistFromEntrance, state.lava.levelBase);
 
-    // Health bar
+    // Status displays
 
-    {
-        const rect = glyphRect(3);
-        const glyphColorHeartFilled = 0xff0000ff;
-        const glyphColorHeartEmpty = 0xff202020;
+    renderHealthMeter(state, renderer, screenSize);
+    renderLootCounter(state, renderer, screenSize);
 
-        for (let i = 0; i < playerMaxHitPoints; ++i) {
-            renderer.renderGlyphs.add(
-                i, 0, i + 1, 1,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
-                i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
-            );
-        }
+    if (state.paused) {
+        renderTextLines(renderer, screenSize, [
+            '            GAME TITLE',
+            '',
+            '     Paused: Click to unpause',
+            '',
+            'Retrieve the Amulet of Yendys from',
+            'the dank dungeon guarding it.',
+            '',
+            'Move with mouse. Attack while moving',
+            'with left and right mouse buttons.',
+            '',
+            'Esc  Pause',
+            'R    Restart with a new dungeon',
+            'M    Toggle map',
+            ',/.  Adjust mouse sensitivity',
+            '',
+            '     James McNeill - 2022 7DRL',
+        ]);
+    }
+}
 
-        let screenSizeX, screenSizeY;
+function renderHealthMeter(state, renderer, screenSize) {
+    const rect = glyphRect(3);
+    const glyphColorHeartFilled = 0xff0000ff;
+    const glyphColorHeartEmpty = 0xff202020;
 
-        if (screenSize[0] < screenSize[1] * 0.5) {
-            screenSizeX = 25;
-            screenSizeY = 0.5 * screenSizeX * screenSize[1] / screenSize[0];
-        } else {
-            screenSizeY = 25;
-            screenSizeX = 2 * screenSizeY * screenSize[0] / screenSize[1];
-        }
-
-        const matScreenFromHealthBar = mat4.create();
-        mat4.ortho(matScreenFromHealthBar, -1, screenSizeX - 1, -0.25, screenSizeY - 0.25, 1, -1);
-        renderer.renderGlyphs.flush(matScreenFromHealthBar);
+    for (let i = 0; i < playerMaxHitPoints; ++i) {
+        renderer.renderGlyphs.add(
+            i, 0, i + 1, 1,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
+        );
     }
 
-    // Loot counter
+    const minCharsX = 40;
+    const minCharsY = 20;
+    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
+    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
+    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+    const pixelsPerCharX = 8 * scaleFactor;
+    const pixelsPerCharY = 16 * scaleFactor;
+    const numCharsX = screenSize[0] / pixelsPerCharX;
+    const numCharsY = screenSize[1] / pixelsPerCharY;
+    const offsetX = -1;
+    const offsetY = 0;
+
+    const matScreenFromTextArea = mat4.create();
+    mat4.ortho(
+        matScreenFromTextArea,
+        offsetX,
+        offsetX + numCharsX,
+        offsetY,
+        offsetY + numCharsY,
+        1,
+        -1);
+    renderer.renderGlyphs.flush(matScreenFromTextArea);
+}
+
+function renderLootCounter(state, renderer, screenSize) {
+    const color = 0xff55ffff;
+
+    const numLootItemsTotal = state.level.numLootItemsTotal;
+    const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
+
+    const strMsg = numLootItemsCollected + '/' + numLootItemsTotal + '\x0f';
+    const cCh = strMsg.length;
+
+    for (let i = 0; i < cCh; ++i) {
+        const rect = glyphRect(strMsg.charCodeAt(i));
+        renderer.renderGlyphs.add(
+            i, 0, i + 1, 1,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            color
+        );
+    }
+
+    const minCharsX = 40;
+    const minCharsY = 20;
+    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
+    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
+    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+    const pixelsPerCharX = 8 * scaleFactor;
+    const pixelsPerCharY = 16 * scaleFactor;
+    const numCharsX = screenSize[0] / pixelsPerCharX;
+    const numCharsY = screenSize[1] / pixelsPerCharY;
+    const offsetX = (cCh + 1) - numCharsX;
+    const offsetY = 0;
+
+    const matScreenFromTextArea = mat4.create();
+    mat4.ortho(
+        matScreenFromTextArea,
+        offsetX,
+        offsetX + numCharsX,
+        offsetY,
+        offsetY + numCharsY,
+        1,
+        -1);
+    renderer.renderGlyphs.flush(matScreenFromTextArea);
+}
+
+function renderTextLines(renderer, screenSize, lines) {
+    const colorText = 0xffeeeeee;
+    const colorBackground = 0xe0555555;
+
+    let maxLineLength = 0;
+    for (const line of lines) {
+        maxLineLength = Math.max(maxLineLength, line.length);
+    }
 
     {
-        const color = 0xff55ffff;
+        // Draw a stretched box to make a darkened background for the text.
+        const rect = glyphRect(219);
 
-        const numLootItemsTotal = state.level.numLootItemsTotal;
-        const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
+        renderer.renderGlyphs.add(
+            -1, -1, maxLineLength + 1, lines.length + 1,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            colorBackground
+        );
+    }
 
-        const strMsg = numLootItemsCollected + '/' + numLootItemsTotal + '\x0f';
-        const cCh = strMsg.length;
-
-        for (let i = 0; i < cCh; ++i) {
-            const rect = glyphRect(strMsg.charCodeAt(i));
+    for (let i = 0; i < lines.length; ++i) {
+        const row = lines.length - (1 + i);
+        for (let j = 0; j < lines[i].length; ++j) {
+            const col = j;
+            const ch = lines[i];
+            if (ch === ' ') {
+                continue;
+            }
+            const rect = glyphRect(lines[i].charCodeAt(j));
             renderer.renderGlyphs.add(
-                i, 0, i + 1, 1,
+                col, row, col + 1, row + 1,
                 rect.minX, rect.minY, rect.maxX, rect.maxY,
-                color
+                colorText
             );
         }
-
-        let screenSizeX, screenSizeY;
-
-        if (screenSize[0] < screenSize[1] * 0.5) {
-            screenSizeX = 25;
-            screenSizeY = 0.5 * screenSizeX * screenSize[1] / screenSize[0];
-        } else {
-            screenSizeY = 25;
-            screenSizeX = 2 * screenSizeY * screenSize[0] / screenSize[1];
-        }
-
-        const matScreenFromLootTicker = mat4.create();
-        mat4.ortho(matScreenFromLootTicker, cCh + 1 - screenSizeX, cCh + 1, -0.25, screenSizeY - 0.25, 1, -1);
-        renderer.renderGlyphs.flush(matScreenFromLootTicker);
     }
+
+    const minCharsX = 40;
+    const minCharsY = 20;
+    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
+    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
+    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+    const pixelsPerCharX = 8 * scaleFactor;
+    const pixelsPerCharY = 16 * scaleFactor;
+    const linesPixelSizeX = maxLineLength * pixelsPerCharX;
+    const linesPixelSizeY = lines.length * pixelsPerCharY;
+    const numCharsX = screenSize[0] / pixelsPerCharX;
+    const numCharsY = screenSize[1] / pixelsPerCharY;
+    const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
+    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
+
+    const matScreenFromTextArea = mat4.create();
+    mat4.ortho(
+        matScreenFromTextArea,
+        offsetX,
+        offsetX + numCharsX,
+        offsetY,
+        offsetY + numCharsY,
+        1,
+        -1);
+    renderer.renderGlyphs.flush(matScreenFromTextArea);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
