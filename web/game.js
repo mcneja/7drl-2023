@@ -115,6 +115,18 @@ function main(fontImage) {
             if (state.paused) {
                 requestUpdateAndRender();
             }
+        } else if (e.code == 'Period') {
+            e.preventDefault();
+            state.mouseSensitivity += 1;
+            if (state.paused) {
+                requestUpdateAndRender();
+            }
+        } else if (e.code == 'Comma') {
+            e.preventDefault();
+            state.mouseSensitivity -= 1;
+            if (state.paused) {
+                requestUpdateAndRender();
+            }
         }
     });
 
@@ -195,9 +207,9 @@ function updatePosition(state, e) {
         return;
     }
 
-    const sensitivity = 0.05;
     const movement = vec2.fromValues(e.movementX, -e.movementY);
-    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, sensitivity);
+    const scale = 0.05 * Math.pow(1.1, state.mouseSensitivity - 5);
+    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
 }
 
 function updateMeleeAttack(state, dt) {
@@ -688,6 +700,7 @@ function initState(createFieldRenderer, createLightingRenderer) {
     const state = {
         paused: true,
         showMap: false,
+        mouseSensitivity: 5,
     };
     resetState(state, createFieldRenderer, createLightingRenderer);
     return state;
@@ -2029,7 +2042,7 @@ function renderScene(renderer, state) {
             'Esc  Pause',
             'R    Retry with a new dungeon',
             'M    Toggle map',
-            ',/.  Adjust mouse sensitivity',
+            ',/.  Adjust mouse sensitivity (' + state.mouseSensitivity + ')',
             '',
             '     James McNeill - 2022 7DRL',
         ]);
