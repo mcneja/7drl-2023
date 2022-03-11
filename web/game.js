@@ -32,6 +32,7 @@ const lavaStateInactive = 0;
 const lavaStatePrimed = 1;
 const lavaStateActive = 2;
 
+const damageDisplayDuration = 1.5;
 const delayGameEndMessage = 2;
 
 class Float64Grid {
@@ -695,6 +696,7 @@ function createRenderer(gl, fontImage) {
         renderDiscs: createDiscRenderer(gl),
         renderGlyphs: createGlyphRenderer(gl, fontImage),
         renderColoredTriangles: createColoredTriangleRenderer(gl),
+        renderVignette: createVignetteRenderer(gl),
     };
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -732,6 +734,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         meleeAttackCooldown: 0,
         amuletCollected: false,
         hitPoints: playerMaxHitPoints,
+        damageDisplayTimer: 0,
         dead: false,
     };
 
@@ -1492,6 +1495,82 @@ function createColoredTriangleRenderer(gl) {
     };
 }
 
+function createVignetteRenderer(gl) {
+    const vsSource = `
+        attribute vec2 vPositionScreen;
+
+        uniform mat4 uMatDiscFromScreen;
+
+        varying highp vec2 fPositionDisc;
+
+        void main() {
+            highp vec4 posScreen = vec4(vPositionScreen.xy, 0, 1);
+            fPositionDisc = (uMatDiscFromScreen * posScreen).xy;
+            gl_Position = posScreen;
+        }
+    `;
+
+    const fsSource = `
+        varying highp vec2 fPositionDisc;
+
+        uniform highp vec4 uColorInner;
+        uniform highp vec4 uColorOuter;
+        uniform highp float uRadiusInner;
+
+        void main() {
+            highp float r = length(fPositionDisc);
+            highp float u = smoothstep(uRadiusInner, 1.0, r);
+            gl_FragColor = mix(uColorInner, uColorOuter, u);
+        }
+    `;
+
+    const program = initShaderProgram(gl, vsSource, fsSource);
+
+    const vLocPositionScreen = gl.getAttribLocation(program, 'vPositionScreen');
+    const uLocMatDiscFromScreen = gl.getUniformLocation(program, 'uMatDiscFromScreen');
+    const uLocColorInner = gl.getUniformLocation(program, 'uColorInner');
+    const uLocColorOuter = gl.getUniformLocation(program, 'uColorOuter');
+    const uLocRadiusInner = gl.getUniformLocation(program, 'uRadiusInner');
+
+    const vertexData = new Float32Array(6 * 2);
+    {
+        let i = 0;
+
+        function makeVert(x, y) {
+            vertexData[i++] = x;
+            vertexData[i++] = y;
+        }
+
+        makeVert(-1, -1);
+        makeVert( 1, -1);
+        makeVert( 1,  1);
+        makeVert( 1,  1);
+        makeVert(-1,  1);
+        makeVert(-1, -1);
+    }
+
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+    return (matDiscFromScreen, radiusInner, colorInner, colorOuter) => {
+        gl.useProgram(program);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.enableVertexAttribArray(vLocPositionScreen);
+        gl.vertexAttribPointer(vLocPositionScreen, 2, gl.FLOAT, false, 0, 0);
+
+        gl.uniformMatrix4fv(uLocMatDiscFromScreen, false, matDiscFromScreen);
+        gl.uniform1f(uLocRadiusInner, radiusInner);
+        gl.uniform4fv(uLocColorInner, colorInner);
+        gl.uniform4fv(uLocColorOuter, colorOuter);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+        gl.disableVertexAttribArray(vLocPositionScreen);
+    };
+}
+
 function slideToStop(body, dt) {
     const r = Math.exp(-3 * dt);
     vec2.scale(body.velocity, body.velocity, r);
@@ -1504,6 +1583,8 @@ function updateState(state, dt) {
     if (state.player.hitPoints <= 0) {
         slideToStop(state.player, dt);
     }
+
+    state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
@@ -1691,6 +1772,10 @@ function damagePlayer(state, numHitPoints) {
     state.player.hitPoints = Math.max(0, state.player.hitPoints - numHitPoints);
     if (state.player.hitPoints >= hitPointsPrev)
         return;
+
+    if (hitPointsPrev > 0) {
+        state.player.damageDisplayTimer = damageDisplayDuration;
+    }
 
     state.player.meleeAttacking = false;
     state.player.meleeAttackCooldown = 0;
@@ -2029,6 +2114,10 @@ function renderScene(renderer, state) {
     const distFromEntrance = state.showMap ? -10000 : Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.camera.position));
     state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase);
 
+    // Vignette
+
+    renderDamageVignette(state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
+
     // Status displays
 
     renderHealthMeter(state, renderer, screenSize);
@@ -2064,6 +2153,30 @@ function renderScene(renderer, state) {
             'Esc: Pause, R: Retry',
         ]);
     }
+}
+
+function renderDamageVignette(hitPoints, damageDisplayTimer, renderer, screenSize) {
+    if (damageDisplayTimer <= 0)
+        return;
+
+    const u = (playerMaxHitPoints - hitPoints) * damageDisplayTimer / damageDisplayDuration;
+
+    const radiusInner = 0.8;
+    const radiusOuter = 1.5;
+    const colorInner = [1, 0, 0, u * 0.05];
+    const colorOuter = [1, 0, 0, u * 0.5];
+
+    const matDiscFromScreen = mat4.create();
+    if (screenSize[0] < screenSize[1]) {
+        matDiscFromScreen[0] = screenSize[0] / screenSize[1];
+    } else {
+        matDiscFromScreen[5] = screenSize[1] / screenSize[0];
+    }
+
+    matDiscFromScreen[0] /= radiusOuter;
+    matDiscFromScreen[5] /= radiusOuter;
+
+    renderer.renderVignette(matDiscFromScreen, radiusInner / radiusOuter, colorInner, colorOuter);
 }
 
 function renderHealthMeter(state, renderer, screenSize) {
