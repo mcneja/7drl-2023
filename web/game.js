@@ -746,6 +746,8 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         velocity: vec2.create(),
         joltOffset: vec2.create(),
         joltVelocity: vec2.create(),
+        mapZoom: 1,
+        mapZoomVelocity: 0,
     };
 
     vec2.copy(camera.position, player.position);
@@ -989,13 +991,14 @@ function createLightingRenderer(gl) {
 
         uniform highp float uDistCenterFromEntrance;
         uniform highp float uDistCenterFromExit;
+        uniform highp float uAlphaEntrance;
 
         void main() {
             highp float distanceFromEntrance = mix(fDistanceFromEntrance.x, fDistanceFromEntrance.y, fYBlend);
             highp float distanceFromExit = mix(fDistanceFromExit.x, fDistanceFromExit.y, fYBlend);
             highp float uEntrance = 1.0 - smoothstep(uDistCenterFromEntrance - 8.0, uDistCenterFromEntrance, distanceFromEntrance);
             highp float uExit = clamp((uDistCenterFromExit - distanceFromExit + 6.0) * 0.0625, 0.0, 1.0);
-            gl_FragColor.rgb = vec3(0.22, 0.3, 0.333) * uEntrance * uEntrance + vec3(1, 0, 0) * uExit;
+            gl_FragColor.rgb = vec3(0.22, 0.3, 0.333) * uEntrance * uEntrance * uAlphaEntrance + vec3(1, 0, 0) * uExit;
         }
     `;
 
@@ -1011,6 +1014,7 @@ function createLightingRenderer(gl) {
         uMatScreenFromField: gl.getUniformLocation(program, 'uMatScreenFromField'),
         uDistCenterFromEntrance: gl.getUniformLocation(program, 'uDistCenterFromEntrance'),
         uDistCenterFromExit: gl.getUniformLocation(program, 'uDistCenterFromExit'),
+        uAlphaEntrance: gl.getUniformLocation(program, 'uAlphaEntrance'),
     };
 
     const vertexBuffer = gl.createBuffer();
@@ -1094,13 +1098,14 @@ function createLightingRenderer(gl) {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
 
         // Return a function that will take a matrix and do the actual rendering.
-        return (matScreenFromWorld, distCenterFromEntrance, distCenterFromExit) => {
+        return (matScreenFromWorld, distCenterFromEntrance, distCenterFromExit, alphaEntrance) => {
             gl.useProgram(program);
 
             gl.uniformMatrix4fv(uniformLoc.uMatScreenFromField, false, matScreenFromWorld);
 
             gl.uniform1f(uniformLoc.uDistCenterFromEntrance, distCenterFromEntrance);
             gl.uniform1f(uniformLoc.uDistCenterFromExit, distCenterFromExit);
+            gl.uniform1f(uniformLoc.uAlphaEntrance, alphaEntrance);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
             gl.enableVertexAttribArray(vertexAttributeLoc.vPosition);
@@ -1705,6 +1710,15 @@ function updateLava(state, dt) {
 
 function updateCamera(state, dt) {
 
+    // Animate map zoom
+
+    const mapZoomTarget = state.showMap ? 0 : 1;
+    const kSpringMapZoom = 12;
+    const mapZoomAccel = ((mapZoomTarget - state.camera.mapZoom) * kSpringMapZoom - 2 * state.camera.mapZoomVelocity) * kSpringMapZoom;
+    const mapZoomVelNew = state.camera.mapZoomVelocity + mapZoomAccel * dt;
+    state.camera.mapZoom += (state.camera.mapZoomVelocity + mapZoomVelNew) * (dt / 2);
+    state.camera.mapZoomVelocity = mapZoomVelNew;
+
     // Animate jolt
 
     if (state.lava.state != lavaStateInactive) {
@@ -2035,43 +2049,16 @@ function fixupPositionAndVelocityAgainstDisc(position, velocity, radius, discPos
     return true;
 }
 
+function lerp(a, b, u) {
+    return a + (b - a) * u;
+}
+
 function renderScene(renderer, state) {
     const screenSize = vec2.create();
     renderer.beginFrame(screenSize);
 
     const matScreenFromWorld = mat4.create();
-
-    if (state.showMap) {
-        const mapSizeX = state.level.grid.sizeX + 2;
-        const mapSizeY = state.level.grid.sizeY + 2;
-        let rx, ry;
-        if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
-            // horizontal is limiting dimension
-            rx = mapSizeX / 2;
-            ry = rx * screenSize[1] / screenSize[0];
-        } else {
-            // vertical is limiting dimension
-            ry = mapSizeY / 2;
-            rx = ry * screenSize[0] / screenSize[1];
-        }
-        const cx = state.level.grid.sizeX / 2;
-        const cy = state.level.grid.sizeY / 2;
-        mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
-    } else {
-        const cx = state.camera.position[0] + state.camera.joltOffset[0];
-        const cy = state.camera.position[1] + state.camera.joltOffset[1];
-        const r = 18;
-        let rx, ry;
-        if (screenSize[0] < screenSize[1]) {
-            rx = r;
-            ry = r * screenSize[1] / screenSize[0];
-        } else {
-            ry = r;
-            rx = r * screenSize[0] / screenSize[1];
-        }
-
-        mat4.ortho(matScreenFromWorld, cx - rx, cx + rx, cy - ry, cy + ry, 1, -1);
-    }
+    setupViewMatrix(state, screenSize, matScreenFromWorld);
 
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
@@ -2111,10 +2098,10 @@ function renderScene(renderer, state) {
         renderer.renderGlyphs.flush(matScreenFromWorld);
     }
 
-    const distFromEntrance = state.showMap ? -10000 : Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.camera.position));
-    state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase);
+    const distFromEntrance = Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.camera.position));
+    state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase, state.camera.mapZoom);
 
-    // Vignette
+    // Damage vignette
 
     renderDamageVignette(state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
 
@@ -2122,6 +2109,8 @@ function renderScene(renderer, state) {
 
     renderHealthMeter(state, renderer, screenSize);
     renderLootCounter(state, renderer, screenSize);
+
+    // Text
 
     if (state.paused) {
         renderTextLines(renderer, screenSize, [
@@ -2153,6 +2142,43 @@ function renderScene(renderer, state) {
             'Esc: Pause, R: Retry',
         ]);
     }
+}
+
+function setupViewMatrix(state, screenSize, matScreenFromWorld) {
+    const mapSizeX = state.level.grid.sizeX + 2;
+    const mapSizeY = state.level.grid.sizeY + 2;
+
+    let rxMap, ryMap;
+    if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
+        // horizontal is limiting dimension
+        rxMap = mapSizeX / 2;
+        ryMap = rxMap * screenSize[1] / screenSize[0];
+    } else {
+        // vertical is limiting dimension
+        ryMap = mapSizeY / 2;
+        rxMap = ryGameplay * screenSize[0] / screenSize[1];
+    }
+    const cxMap = state.level.grid.sizeX / 2;
+    const cyMap = state.level.grid.sizeY / 2;
+
+    const cxGame = state.camera.position[0] + state.camera.joltOffset[0];
+    const cyGame = state.camera.position[1] + state.camera.joltOffset[1];
+    const rGame = 18;
+    let rxGame, ryGame;
+    if (screenSize[0] < screenSize[1]) {
+        rxGame = rGame;
+        ryGame = rGame * screenSize[1] / screenSize[0];
+    } else {
+        ryGame = rGame;
+        rxGame = rGame * screenSize[0] / screenSize[1];
+    }
+
+    const rxZoom = lerp(rxMap, rxGame, state.camera.mapZoom);
+    const ryZoom = lerp(ryMap, ryGame, state.camera.mapZoom);
+    const cxZoom = lerp(cxMap, cxGame, state.camera.mapZoom);
+    const cyZoom = lerp(cyMap, cyGame, state.camera.mapZoom);
+
+    mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
 }
 
 function renderDamageVignette(hitPoints, damageDisplayTimer, renderer, screenSize) {
