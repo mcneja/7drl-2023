@@ -709,7 +709,7 @@ function initState(createFieldRenderer, createLightingRenderer) {
 function resetState(state, createFieldRenderer, createLightingRenderer) {
     const level = createLevel();
 
-    const distanceFieldFromExit = createDistanceField(level.grid, level.exitPos);
+    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
     const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
 
     const renderField = createFieldRenderer(level, distanceFieldFromExit);
@@ -722,6 +722,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         color: { r: 0, g: 0, b: 0 },
         meleeAttacking: false,
         meleeAttackCooldown: 0,
+        amuletCollected: false,
         hitPoints: playerMaxHitPoints,
         dead: false,
     };
@@ -1517,12 +1518,12 @@ function updateState(state, dt) {
 
     state.timeToGameEndMessage = Math.max(0, state.timeToGameEndMessage - dt);
 
-    if (state.player.position[0] >= state.level.startRoom.minX &&
+    if (state.player.amuletCollected &&
+        state.gameState == gsActive &&
+        state.player.position[0] >= state.level.startRoom.minX &&
         state.player.position[1] >= state.level.startRoom.minY &&
         state.player.position[0] < state.level.startRoom.minX + state.level.startRoom.sizeX &&
-        state.player.position[1] < state.level.startRoom.minY + state.level.startRoom.sizeY &&
-        state.gameState == gsActive &&
-        state.lava.state == lavaStateActive) {
+        state.player.position[1] < state.level.startRoom.minY + state.level.startRoom.sizeY) {
         state.gameState = gsWon;
         state.timeToGameEndMessage = delayGameEndMessage;
     }
@@ -1546,17 +1547,20 @@ function updateLava(state, dt) {
 
     // Activate lava when player reaches the exit and then leaves
 
-    const dposExit = vec2.create();
-    vec2.subtract(dposExit, state.player.position, state.level.exitPos);
-    const distPlayerFromExit = vec2.length(dposExit);
-
     if (state.lava.state == lavaStatePrimed) {
-        if (distPlayerFromExit >= 8) {
+        if (state.player.position[0] < state.level.amuletRoom.minX ||
+            state.player.position[1] < state.level.amuletRoom.minY ||
+            state.player.position[0] >= state.level.amuletRoom.minX + state.level.amuletRoom.sizeX ||
+            state.player.position[1] >= state.level.amuletRoom.minY + state.level.amuletRoom.sizeY) {
             state.lava.state = lavaStateActive;
         }
     } else if (state.lava.state == lavaStateInactive) {
-        if (distPlayerFromExit < 6) {
+        const dposAmulet = vec2.create();
+        vec2.subtract(dposAmulet, state.player.position, state.level.amuletPos);
+        const distPlayerFromAmulet = vec2.length(dposAmulet);
+        if (distPlayerFromAmulet < playerRadius + lootRadius) {
             state.lava.state = lavaStatePrimed;
+            state.player.amuletCollected = true;
         }
     }
 
@@ -1969,7 +1973,7 @@ function renderScene(renderer, state) {
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
-    renderLootItems(state.level.lootItems, renderer, matScreenFromWorld);
+    renderLootItems(state, renderer, matScreenFromWorld);
 
     if (state.lava.state == lavaStateActive) {
         state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
@@ -1983,25 +1987,8 @@ function renderScene(renderer, state) {
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
 
-//    renderer.renderDiscs(state.collectibles);
     state.player.color = colorLerp({ r: 0, g: 0, b: 0 }, { r: 0, g: 1, b: 1 }, state.player.meleeAttackCooldown / meleeAttackMaxDuration);
     renderer.renderDiscs(matScreenFromWorld, [state.player]);
-
-/*
-    for (const c of state.collectibles) {
-        const x = c.position.x * 2 - 1;
-        const y = c.position.y * 2 - 1;
-        renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 15*tx, ty, 16*tx, 0, 0xff00ffff);
-    }
-
-    for (const d of state.discs) {
-        const x = d.position.x * 2 - 1;
-        const y = d.position.y * 2 - 0.995;
-        renderer.renderGlyphs.add(x - rx, y - ry, x + rx, y + ry, 7*tx, 7*ty, 8*tx, 6*ty, 0xff00a000);
-    }
-*/
-
-//    renderer.renderGlyphs.add(-0.25, -0.5, 0.25, 0.5, 0, 1, 1, 0, 0xffffffff);
 
     {
         const tx = 0.0625;
@@ -2785,21 +2772,13 @@ function createLevel() {
 
     // Pick a starting position within the starting room
 
-    const playerStartPos = vec2.create();
-    for (let i = 0; i < 1024; ++i) {
-        const startRoom = rooms[roomIndexEntrance];
-        playerStartPos[0] = Math.random() * (startRoom.sizeX - 2*playerRadius) + startRoom.minX + playerRadius;
-        playerStartPos[1] = Math.random() * (startRoom.sizeY - 2*playerRadius) + startRoom.minY + playerRadius;
-
-        if (!isDiscTouchingLevel(playerStartPos, playerRadius, level)) {
-            break;
-        }
-    }
+    const startRoom = rooms[roomIndexEntrance];
+    const playerStartPos = vec2.fromValues(startRoom.minX + startRoom.sizeX/2, startRoom.minY + startRoom.sizeY/2);
 
     // Put an exit position in the exit room
 
-    const roomExit = rooms[roomIndexExit];
-    const exitPos = vec2.fromValues(roomExit.minX + roomExit.sizeX/2, roomExit.minY + roomExit.sizeY/2);
+    const amuletRoom = rooms[roomIndexExit];
+    const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX/2, amuletRoom.minY + amuletRoom.sizeY/2);
 
     // Place some turrets in the level
 
@@ -2880,14 +2859,15 @@ function createLevel() {
     // most? Bias toward the rooms that aren't on the path between the
     // entrance and the exit?
 
-    const lootItems = createLootItems(rooms, turrets, swarmers, roomIndexEntrance, level);
+    const lootItems = createLootItems(rooms, turrets, swarmers, roomIndexEntrance, amuletPos, level);
 
     return {
         grid: level,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
-        startRoom: rooms[roomIndexEntrance],
-        exitPos: exitPos,
+        startRoom: startRoom,
+        amuletRoom: amuletRoom,
+        amuletPos: amuletPos,
         turrets: turrets,
         swarmers: swarmers,
         lootItems: lootItems,
@@ -3067,7 +3047,7 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
     }
 }
 
-function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, level) {
+function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, posAmulet, level) {
     const numLoot = 100;
     const loot = [];
 
@@ -3100,19 +3080,32 @@ function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, level) {
             continue;
         }
 
+        const dposAmulet = vec2.create();
+        vec2.subtract(dposAmulet, posAmulet, position);
+        if (vec2.length(dposAmulet) < 12 * lootRadius)
+            continue;
+
         loot.push({position: position});
     }
 
     return loot;
 }
 
-function renderLootItems(lootItems, renderer, matScreenFromWorld) {
+function renderLootItems(state, renderer, matScreenFromWorld) {
     const color = { r: 0.45, g: 0.45, b: 0.45 };
-    const discs = lootItems.map(lootItem => ({
+    const discs = state.level.lootItems.map(lootItem => ({
         position: lootItem.position,
         color: color,
         radius: lootRadius,
     }));
+
+    if (!state.player.amuletCollected) {
+        discs.push({
+            position: state.level.amuletPos,
+            color: { r: 0.25, g: 0.25, b: 0.5 },
+            radius: lootRadius,
+        });
+    }
 
     renderer.renderDiscs(matScreenFromWorld, discs);
 
@@ -3122,13 +3115,25 @@ function renderLootItems(lootItems, renderer, matScreenFromWorld) {
     const yOffset = -0.05;
     const lootGlyphColor = 0xff55ffff;
 
-    for (const lootItem of lootItems) {
+    for (const lootItem of state.level.lootItems) {
         const x = lootItem.position[0];
         const y = lootItem.position[1];
         renderer.renderGlyphs.add(
             x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
             rect.minX, rect.minY, rect.maxX, rect.maxY,
             lootGlyphColor
+        );
+    }
+
+    if (!state.player.amuletCollected) {
+        const amuletColor = 0xffff5555;
+        const rectAmulet = glyphRect(12);
+        const x = state.level.amuletPos[0];
+        const y = state.level.amuletPos[1];
+        renderer.renderGlyphs.add(
+            x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+            rectAmulet.minX, rectAmulet.minY, rectAmulet.maxX, rectAmulet.maxY,
+            amuletColor
         );
     }
 
