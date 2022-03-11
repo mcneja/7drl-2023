@@ -9,6 +9,10 @@ const ttWall = 1;
 const ttHall = 2;
 const ttRoom = 3;
 
+const gsActive = 0;
+const gsDied = 1;
+const gsWon = 2;
+
 const playerRadius = 0.5;
 const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
@@ -27,6 +31,8 @@ const corridorWidth = 3;
 const lavaStateInactive = 0;
 const lavaStatePrimed = 1;
 const lavaStateActive = 2;
+
+const delayGameEndMessage = 2;
 
 class Float64Grid {
     constructor(sizeX, sizeY, initialValue) {
@@ -127,6 +133,7 @@ function main(fontImage) {
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
+                state.timeToGameEndMessage = delayGameEndMessage;
                 requestUpdateAndRender();
             }
         } else {
@@ -735,6 +742,8 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     state.renderLighting = renderLighting;
     state.tLast = undefined;
     state.player = player;
+    state.gameState = gsActive;
+    state.timeToGameEndMessage = delayGameEndMessage;
     state.playerBullets = [];
     state.turretBullets = [];
     state.camera = camera;
@@ -1491,39 +1500,29 @@ function updateState(state, dt) {
 
     updateMeleeAttack(state, dt);
 
-    // Loot
+    // Game-end message
+
+    state.timeToGameEndMessage = Math.max(0, state.timeToGameEndMessage - dt);
+
+    if (state.player.position[0] >= state.level.startRoom.minX &&
+        state.player.position[1] >= state.level.startRoom.minY &&
+        state.player.position[0] < state.level.startRoom.minX + state.level.startRoom.sizeX &&
+        state.player.position[1] < state.level.startRoom.minY + state.level.startRoom.sizeY &&
+        state.gameState == gsActive &&
+        state.lava.state == lavaStateActive) {
+        state.gameState = gsWon;
+        state.timeToGameEndMessage = delayGameEndMessage;
+    }
+
+    // Other
 
     updateLootItems(state);
-
-    // Camera
-
     updateCamera(state, dt);
-
-    // Lava
-
     updateLava(state, dt);
-
-    // Turrets
-
     updateTurrets(state, dt);
-
-    // Swarmers
-
     updateSwarmers(state, dt);
-
-    // Bullets
-
     updatePlayerBullets(state, dt);
     updateTurretBullets(state, dt);
-
-    /*
-    if (!state.gameOver) {
-        state.collectibles = state.collectibles.filter(collectible => !discsOverlap(state.player, collectible));
-    }
-    if (state.collectibles.length <= 0) {
-        state.gameOver = true;
-    }
-    */
 }
 
 function updateLava(state, dt) {
@@ -1554,20 +1553,16 @@ function updateLava(state, dt) {
         return;
     }
 
-    const playerDistFromExit = estimateDistance(state.distanceFieldFromExit, state.player.position);
+    if (state.gameState == gsWon) {
+        const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
+        state.lava.levelTarget = entranceDistFromExit - 4;
+    } else {
+        const playerDistFromExit = estimateDistance(state.distanceFieldFromExit, state.player.position);
+        const levelTarget = (playerDistFromExit < 6) ? 0 : playerDistFromExit + 8;
+        state.lava.levelTarget = Math.max(state.lava.levelTarget, levelTarget);
+    }
 
-    const levelTarget = (playerDistFromExit < 6) ? 0 : playerDistFromExit + 8;
-    state.lava.levelTarget = Math.max(state.lava.levelTarget, levelTarget);
-
-    const dposEntrance = vec2.create();
-    vec2.subtract(dposEntrance, state.player.position, state.level.playerStartPos);
-    const distPlayerFromEntrance = vec2.length(dposEntrance);
-
-    const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
-
-    const levelTargetAdjusted = (distPlayerFromEntrance < 6) ? entranceDistFromExit - 4 : state.lava.levelTarget;
-
-    const levelError = levelTargetAdjusted - state.lava.levelBase;
+    const levelError = state.lava.levelTarget - state.lava.levelBase;
     const levelVelocityError = -state.lava.levelBaseVelocity;
 
     const lavaLevelSpring = 1.5;
@@ -1665,12 +1660,22 @@ function damagePlayer(state) {
     state.player.hitPoints = Math.max(0, state.player.hitPoints - 1);
     state.player.meleeAttacking = false;
     state.player.meleeAttackCooldown = 0;
+
+    if (state.player.hitPoints <= 0 && state.gameState != gsDied) {
+        state.gameState = gsDied;
+        state.timeToGameEndMessage = delayGameEndMessage;
+    }
 }
 
 function killPlayer(state) {
     state.player.hitPoints = 0;
     state.player.meleeAttacking = false;
     state.player.meleeAttackCooldown = 0;
+
+    if (state.gameState != gsDied) {
+        state.gameState = gsDied;
+        state.timeToGameEndMessage = delayGameEndMessage;
+    }
 }
 
 function fixupDiscPairs(disc0, disc1) {
@@ -2022,11 +2027,27 @@ function renderScene(renderer, state) {
             'with left and right mouse buttons.',
             '',
             'Esc  Pause',
-            'R    Restart with a new dungeon',
+            'R    Retry with a new dungeon',
             'M    Toggle map',
             ',/.  Adjust mouse sensitivity',
             '',
             '     James McNeill - 2022 7DRL',
+        ]);
+    } else if (state.gameState == gsWon && state.timeToGameEndMessage <= 0) {
+        renderTextLines(renderer, screenSize, [
+            'YOU HAVE ESCAPED WITH THE AMULET!',
+            '',
+            '',
+            'Esc  Pause',
+            'R    Retry with a new dungeon',
+        ]);
+    } else if (state.gameState == gsDied && state.timeToGameEndMessage <= 0) {
+        renderTextLines(renderer, screenSize, [
+            '           YOU DIED',
+            '',
+            '',
+            'Esc  Pause',
+            'R    Retry with a new dungeon',
         ]);
     }
 }
@@ -2852,6 +2873,7 @@ function createLevel() {
         grid: level,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
+        startRoom: rooms[roomIndexEntrance],
         exitPos: exitPos,
         turrets: turrets,
         swarmers: swarmers,
