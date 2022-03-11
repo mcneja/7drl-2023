@@ -1576,14 +1576,14 @@ function updateLava(state, dt) {
         state.lava.levelTarget = entranceDistFromExit - 4;
     } else {
         const playerDistFromExit = estimateDistance(state.distanceFieldFromExit, state.player.position);
-        const levelTarget = (playerDistFromExit < 6) ? 0 : playerDistFromExit + 8;
+        const levelTarget = (playerDistFromExit < 6) ? 0 : playerDistFromExit + 4;
         state.lava.levelTarget = Math.max(state.lava.levelTarget, levelTarget);
     }
 
     const levelError = state.lava.levelTarget - state.lava.levelBase;
     const levelVelocityError = -state.lava.levelBaseVelocity;
 
-    const lavaLevelSpring = 1.5;
+    const lavaLevelSpring = 1.25;
 
     const levelAcceleration = levelError * lavaLevelSpring**2 + levelVelocityError * 2 * lavaLevelSpring;
 
@@ -2040,17 +2040,10 @@ function renderScene(renderer, state) {
             '   Esc: Pause, R: Restart',
         ]);
     } else if (state.gameState == gsDied && state.timeToGameEndMessage <= 0) {
-        if (state.player.amuletCollected) {
-            renderTextLines(renderer, screenSize, [
-                '  CURSE THE CURSE!',
-                'Esc: Pause, R: Retry',
-            ]);
-        } else {
-            renderTextLines(renderer, screenSize, [
-                'MY LUCK HAS RUN OUT.',
-                'Esc: Pause, R: Retry',
-            ]);
-        }
+        renderTextLines(renderer, screenSize, [
+            '   DEATH HAS COME',
+            'Esc: Pause, R: Retry',
+        ]);
     }
 }
 
