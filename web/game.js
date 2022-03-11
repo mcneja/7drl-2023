@@ -227,9 +227,11 @@ function updateMeleeAttack(state, dt) {
         return;
     }
 
-    const dpos = vec2.create();
+    const playerMass = 1;
+    const turretElasticity = 1;
+    const turretMass = 1;
 
-    const r = meleeAttackRadius;
+    const dpos = vec2.create();
 
     for (const turret of state.level.turrets) {
         if (turret.dead) {
@@ -238,12 +240,15 @@ function updateMeleeAttack(state, dt) {
 
         vec2.subtract(dpos, turret.position, state.player.position);
         const dist = vec2.length(dpos);
-        if (dist < r + monsterRadius) {
+        if (dist < meleeAttackRadius + monsterRadius) {
             turret.dead = true;
             state.player.meleeAttackCooldown = 0;
-            elasticCollision(state.player, turret, 1, 1);
+            elasticCollision(state.player, turret, playerMass, turretMass, turretElasticity);
         }
     }
+
+    const swarmerElasticity = 1;
+    const swarmerMass = 0.5;
 
     for (const swarmer of state.level.swarmers) {
         if (swarmer.dead) {
@@ -252,11 +257,11 @@ function updateMeleeAttack(state, dt) {
 
         vec2.subtract(dpos, swarmer.position, state.player.position);
         const dist = vec2.length(dpos);
-        if (dist < r + monsterRadius) {
+        if (dist < meleeAttackRadius + monsterRadius) {
             if (swarmer.stunTimer > 0) {
                 swarmer.dead = true;
             }
-            elasticCollision(state.player, swarmer, 1, 0.5);
+            elasticCollision(state.player, swarmer, playerMass, swarmerMass, swarmerElasticity);
         }
     }
 }
@@ -375,11 +380,14 @@ function updateTurretBullet(state, bullet, dt) {
     }
 
     const playerRadiusCur = state.player.meleeAttacking ? meleeAttackRadius : playerRadius;
+    const playerMass = 1;
+    const bulletMass = 0.125;
+    const elasticity = 1;
 
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadiusCur)) {
-        elasticCollision(state.player, bullet, 1, 0.125);
+        elasticCollision(state.player, bullet, playerMass, bulletMass, elasticity);
         if (!state.player.meleeAttacking) {
-            damagePlayer(state);
+            damagePlayer(state, 1);
             return false;
         }
     }
@@ -448,7 +456,7 @@ function updateTurrets(state, dt) {
             if (turret1.dead)
                 continue;
 
-            fixupDiscPairs(turret0, turret1);
+            fixupDiscPair(turret0, turret1);
         }
     }
 }
@@ -494,7 +502,7 @@ function updateSwarmers(state, dt) {
             if (turret.dead)
                 continue;
 
-            fixupDiscPairs(swarmer0, turret);
+            fixupDiscPair(swarmer0, turret);
         }
 
         for (let j = i + 1; j < state.level.swarmers.length; ++j)
@@ -503,7 +511,7 @@ function updateSwarmers(state, dt) {
             if (swarmer1.dead)
                 continue;
 
-            fixupDiscPairs(swarmer0, swarmer1);
+            fixupDiscPair(swarmer0, swarmer1);
         }
     }
 }
@@ -1499,20 +1507,6 @@ function updateState(state, dt) {
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
-    fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.grid);
-
-    for (const turret of state.level.turrets) {
-        if (!turret.dead) {
-            fixupDiscPairs(state.player, turret);
-        }
-    }
-
-    for (const swarmer of state.level.swarmers) {
-        if (!swarmer.dead) {
-            fixupDiscPairs(state.player, swarmer);
-        }
-    }
-
     updateMeleeAttack(state, dt);
 
     // Game-end message
@@ -1538,6 +1532,24 @@ function updateState(state, dt) {
     updateSwarmers(state, dt);
     updatePlayerBullets(state, dt);
     updateTurretBullets(state, dt);
+
+    // Collide player against objects and the environment
+
+    for (let i = 0; i < 4; ++i) {
+        for (const turret of state.level.turrets) {
+            if (!turret.dead) {
+                collideDiscs(state.player, turret, 1, 1, 0);
+            }
+        }
+    
+        for (const swarmer of state.level.swarmers) {
+            if (!swarmer.dead) {
+                collideDiscs(state.player, swarmer, 1, 1, 0);
+            }
+        }
+    
+        fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.grid);
+    }
 }
 
 function updateLava(state, dt) {
@@ -1594,7 +1606,7 @@ function updateLava(state, dt) {
     // Test objects against lava to see if it kills them
 
     if (isPosInLava(state, state.player.position)) {
-        killPlayer(state);
+        damagePlayer(state, 100);
     }
 
     for (const turret of state.level.turrets) {
@@ -1627,7 +1639,7 @@ function updateCamera(state, dt) {
 
     const accJolt = vec2.create();
     vec2.scale(accJolt, state.camera.joltOffset, -(kSpringJolt**2));
-    vec2.scaleAndAdd(accJolt, accJolt, state.camera.joltVelocity, -1.5*kSpringJolt);
+    vec2.scaleAndAdd(accJolt, accJolt, state.camera.joltVelocity, -kSpringJolt);
 
     const velJoltNew = vec2.create();
     vec2.scaleAndAdd(velJoltNew, state.camera.joltVelocity, accJolt, dt);
@@ -1674,8 +1686,12 @@ function isPosInLava(state, position) {
     return distFromExit < state.lava.levelBase;
 }
 
-function damagePlayer(state) {
-    state.player.hitPoints = Math.max(0, state.player.hitPoints - 1);
+function damagePlayer(state, numHitPoints) {
+    const hitPointsPrev = state.player.hitPoints;
+    state.player.hitPoints = Math.max(0, state.player.hitPoints - numHitPoints);
+    if (state.player.hitPoints >= hitPointsPrev)
+        return;
+
     state.player.meleeAttacking = false;
     state.player.meleeAttackCooldown = 0;
 
@@ -1685,41 +1701,40 @@ function damagePlayer(state) {
     }
 }
 
-function killPlayer(state) {
-    state.player.hitPoints = 0;
-    state.player.meleeAttacking = false;
-    state.player.meleeAttackCooldown = 0;
-
-    if (state.gameState != gsDied) {
-        state.gameState = gsDied;
-        state.timeToGameEndMessage = delayGameEndMessage;
-    }
+function fixupDiscPair(disc0, disc1) {
+    collideDiscs(disc0, disc1, 1, 1, 0);
 }
 
-function fixupDiscPairs(disc0, disc1) {
+function collideDiscs(disc0, disc1, mass0, mass1, elasticity) {
     const dpos = vec2.create();
     vec2.subtract(dpos, disc1.position, disc0.position);
     const d = vec2.length(dpos);
     const dist = d - (disc0.radius + disc1.radius);
 
-    if (dist < 0) {
-        const scalePosFixup = dist / (2 * d);
-        vec2.scaleAndAdd(disc0.position, disc0.position, dpos, scalePosFixup);
-        vec2.scaleAndAdd(disc1.position, disc1.position, dpos, -scalePosFixup);
-
-        const dvel = vec2.create();
-        vec2.subtract(dvel, disc1.velocity, disc0.velocity);
-        const vn = vec2.dot(dpos, dvel);
-
-        if (vn < 0) {
-            const scaleVelFixup = vn / (2 * d*d);
-            vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup);
-            vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup);
-        }
+    if (dist >= 0) {
+        return false;
     }
+
+    const scalePosFixup = dist / (d * (mass0 + mass1));
+    vec2.scaleAndAdd(disc0.position, disc0.position, dpos, scalePosFixup * mass1);
+    vec2.scaleAndAdd(disc1.position, disc1.position, dpos, -scalePosFixup * mass0);
+
+    const dvel = vec2.create();
+    vec2.subtract(dvel, disc1.velocity, disc0.velocity);
+    const vn = vec2.dot(dpos, dvel);
+
+    if (vn >= 0) {
+        return false;
+    }
+
+    const scaleVelFixup = ((1 + elasticity) * vn) / (d * d * (mass0 + mass1));
+    vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup * mass1);
+    vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup * mass0);
+
+    return true;
 }
 
-function elasticCollision(disc0, disc1, mass0, mass1) {
+function elasticCollision(disc0, disc1, mass0, mass1, elasticity) {
     const dpos = vec2.create();
     vec2.subtract(dpos, disc1.position, disc0.position);
     const d = vec2.length(dpos);
@@ -1728,11 +1743,15 @@ function elasticCollision(disc0, disc1, mass0, mass1) {
     vec2.subtract(dvel, disc1.velocity, disc0.velocity);
     const vn = vec2.dot(dpos, dvel);
 
-    if (vn < 0) {
-        const scaleVelFixup = (2 * vn) / (d * d * (mass0 + mass1));
-        vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup * mass1);
-        vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup * mass0);
+    if (vn >= 0) {
+        return false;
     }
+
+    const scaleVelFixup = ((1 + elasticity) * vn) / (d * d * (mass0 + mass1));
+    vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup * mass1);
+    vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup * mass0);
+
+    return true;
 }
 
 function isDiscTouchingLevel(discPos, discRadius, level) {
