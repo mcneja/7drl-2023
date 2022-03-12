@@ -27,7 +27,7 @@ const turretBulletLifetime = 4.0;
 const invulnerabilityDuration = 6.0;
 
 const numCellsX = 4;
-const numCellsY = 3;
+const numCellsY = 4;
 const corridorWidth = 3;
 
 const lavaStateInactive = 0;
@@ -252,6 +252,17 @@ function updatePlayerBullet(state, bullet, dt) {
 
     let hitSomething = false;
 
+    for (const spike of state.level.spikes) {
+        if (spike.dead) {
+            continue;
+        }
+
+        if (areDiscsTouching(bullet.position, bulletRadius, spike.position, monsterRadius)) {
+            spike.dead = true;
+            hitSomething = true;
+        }
+    }
+
     for (const turret of state.level.turrets) {
         if (turret.dead) {
             continue;
@@ -338,6 +349,16 @@ function renderTurretBullets(bullets, renderer, matScreenFromWorld) {
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
+}
+
+function updateSpikes(state, dt) {
+    const velPrev = vec2.create();
+    for (const spike of state.level.spikes) {
+        vec2.copy(velPrev, spike.velocity);
+        slideToStop(spike, dt);
+        vec2.scaleAndAdd(spike.position, spike.position, velPrev, dt / 2);
+        vec2.scaleAndAdd(spike.position, spike.position, spike.velocity, dt / 2);
+    }
 }
 
 function updateTurrets(state, dt) {
@@ -477,6 +498,68 @@ function updateSwarmers(state, dt) {
             fixupDiscPair(swarmer0, swarmer1);
         }
     }
+}
+
+function renderSpikesDead(spikes, renderer, matScreenFromWorld) {
+    const color = { r: 0.45, g: 0.45, b: 0.45 };
+    const discs = spikes.filter(spike => spike.dead).map(spike => ({
+        position: spike.position,
+        color: color,
+        radius: monsterRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(111);
+    const rx = 0.25;
+    const ry = 0.5;
+    const yOffset = 0;
+    const glyphColor = 0xff808080;
+
+    for (const spike of spikes) {
+        if (spike.dead) {
+            const x = spike.position[0];
+            const y = spike.position[1];
+            renderer.renderGlyphs.add(
+                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                glyphColor
+            );
+        }
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function renderSpikesAlive(spikes, renderer, matScreenFromWorld) {
+    const color = { r: 0.25, g: 0.34375, b: 0.25 };
+    const discs = spikes.filter(spike => !spike.dead).map(spike => ({
+        position: spike.position,
+        color: color,
+        radius: monsterRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(111);
+    const rx = 0.25;
+    const ry = 0.5;
+    const yOffset = 0;
+    const glyphColor = 0xff80b080;
+
+    for (const spike of spikes) {
+        if (!spike.dead) {
+            const x = spike.position[0];
+            const y = spike.position[1];
+            renderer.renderGlyphs.add(
+                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
+                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                glyphColor
+            );
+        }
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
 }
 
 function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
@@ -1581,6 +1664,7 @@ function updateState(state, dt) {
     updateLootItems(state);
     updateCamera(state, dt);
     updateLava(state, dt);
+    updateSpikes(state, dt);
     updateTurrets(state, dt);
     updateSwarmers(state, dt);
     updatePlayerBullets(state, dt);
@@ -1592,6 +1676,18 @@ function updateState(state, dt) {
     const swarmerMass = 0.5;
 
     for (let i = 0; i < 4; ++i) {
+        for (const spike of state.level.spikes) {
+            if (!spike.dead) {
+                if (collideDiscs(state.player, spike, 1, 100, enemyElasticity)) {
+                    if (state.player.invulnerabilityTimer > 0) {
+                        spike.dead = true;
+                    } else {
+                        damagePlayer(state, 1);
+                    }
+                }
+            }
+        }
+
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
                 if (collideDiscs(state.player, turret, 1, 1, enemyElasticity)) {
@@ -1672,6 +1768,12 @@ function updateLava(state, dt) {
 
     if (isPosInLava(state, state.player.position) && state.player.invulnerabilityTimer <= 0) {
         damagePlayer(state, 100);
+    }
+
+    for (const spike of state.level.spikes) {
+        if (!spike.dead && isPosInLava(state, spike.position)) {
+            spike.dead = true;
+        }
     }
 
     for (const turret of state.level.turrets) {
@@ -2040,6 +2142,7 @@ function renderScene(renderer, state) {
 
     renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
 
+    renderSpikesDead(state.level.spikes, renderer, matScreenFromWorld);
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
@@ -2049,6 +2152,7 @@ function renderScene(renderer, state) {
         state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
     }
 
+    renderSpikesAlive(state.level.spikes, renderer, matScreenFromWorld);
     renderTurretsAlive(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersAlive(state.level.swarmers, renderer, matScreenFromWorld);
 
@@ -2133,7 +2237,7 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     } else {
         // vertical is limiting dimension
         ryMap = mapSizeY / 2;
-        rxMap = ryGameplay * screenSize[0] / screenSize[1];
+        rxMap = ryMap * screenSize[0] / screenSize[1];
     }
     const cxMap = state.level.grid.sizeX / 2;
     const cyMap = state.level.grid.sizeY / 2;
@@ -2733,6 +2837,9 @@ function createLevel() {
     let exitConnected = false;
 
     const edges = [];
+
+    // Add edges between as-yet-unconnected sub-graphs
+
     for (const edge of potentialEdges) {
         const edgeConnectsEntrance = (edge[0] == roomIndexEntrance || edge[1] == roomIndexEntrance);
         const edgeConnectsExit = (edge[0] == roomIndexExit || edge[1] == roomIndexExit);
@@ -2744,7 +2851,7 @@ function createLevel() {
         const group0 = roomGroup[edge[0]];
         const group1 = roomGroup[edge[1]];
 
-        if (group0 != group1 || Math.random() < 0.5) {
+        if (group0 != group1) {
             edges.push(edge);
 
             if (edgeConnectsEntrance)
@@ -2758,6 +2865,16 @@ function createLevel() {
                 }
             }
         }
+    }
+
+    // Add half the remaining edges
+
+    filterInPlace(potentialEdges, edge => !hasEdge(edges, edge[0], edge[1]) &&
+        edge[0] != roomIndexEntrance && edge[1] != roomIndexEntrance &&
+        edge[0] != roomIndexExit && edge[1] != roomIndexExit);
+    potentialEdges.length = Math.floor(potentialEdges.length / 2);
+    for (const edge of potentialEdges) {
+        edges.push(edge);
     }
 
     // Compute distances for each room from the entrance.
@@ -3039,7 +3156,7 @@ function createLevel() {
     // Enemies
 
     const positionsUsed = [amuletPos];
-    const [turrets, swarmers] = createEnemies(rooms, roomDistance, level, positionsUsed);
+    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistance, level, positionsUsed);
 
     // Place loot in the level. Distribute it so rooms that are far from
     // the entrance or the exit have the most? Or so dead ends have the
@@ -3055,6 +3172,7 @@ function createLevel() {
         startRoom: startRoom,
         amuletRoom: amuletRoom,
         amuletPos: amuletPos,
+        spikes: spikes,
         turrets: turrets,
         swarmers: swarmers,
         lootItems: lootItems,
@@ -3063,27 +3181,30 @@ function createLevel() {
 }
 
 function createEnemies(rooms, roomDistance, level, positionsUsed) {
+    const spikes = [];
     const turrets = [];
     const swarmers = [];
 
     for (let roomIndex = 0; roomIndex < roomDistance.length; ++roomIndex) {
-        const d = Math.max(0, roomDistance[roomIndex] - 1);
+        const d = roomDistance[roomIndex];
         if (d === 0)
             continue;
 
         const room = rooms[roomIndex];
 
-        const maxEnemies = Math.floor(d * Math.max(2, room.sizeX * room.sizeY / 384));
+        const maxEnemies = Math.floor(d * Math.max(2, room.sizeX * room.sizeY / 192));
         let numEnemies = 0;
         for (let i = 0; i < 1024 && numEnemies < maxEnemies; ++i) {
             // Pick a kind of monster to create.
             const monsterKind = Math.random();
-    
+
             let success = false;
-            if (monsterKind < 0.5) {
-                success = tryCreateTurret(room, turrets, level, positionsUsed);
-            } else {
+            if (monsterKind < 0.5 || d < 2) {
+                success = tryCreateSpike(room, spikes, level, positionsUsed);
+            } else if (monsterKind < 0.75 || d < 3) {
                 success = tryCreateSwarmer(room, swarmers, level, positionsUsed);
+            } else {
+                success = tryCreateTurret(room, turrets, level, positionsUsed);
             }
     
             if (success) {
@@ -3092,7 +3213,33 @@ function createEnemies(rooms, roomDistance, level, positionsUsed) {
         }
     }
 
-    return [turrets, swarmers];
+    return [spikes, turrets, swarmers];
+}
+
+function tryCreateSpike(room, spikes, level, positionsUsed) {
+    const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
+    const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
+
+    const position = vec2.fromValues(x, y);
+
+    if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+        return false;
+    }
+
+    if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * monsterRadius, position)) {
+        return false;
+    }
+
+    spikes.push({
+        position: position,
+        velocity: vec2.fromValues(0, 0),
+        radius: monsterRadius,
+        dead: false,
+    });
+
+    positionsUsed.push(position);
+
+    return true;
 }
 
 function tryCreateTurret(room, turrets, level, positionsUsed) {
