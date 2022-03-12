@@ -21,7 +21,8 @@ const bulletMaxCapacity = 3;
 const bulletRefillRate = 2;
 const monsterRadius = 0.5;
 const lootRadius = 0.5;
-const turretFireDelay = 2.0;
+const turretFireDelayStart = 4.0;
+const turretFireDelayEnd = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
 const invulnerabilityDuration = 6.0;
@@ -396,6 +397,14 @@ function updateSpikes(state, dt) {
     }
 }
 
+function fractionOfLootCollected(state) {
+    return (state.level.numLootItemsTotal - state.level.lootItems.length) / state.level.numLootItemsTotal;
+}
+
+function turretFireDelay(state) {
+    return lerp(turretFireDelayStart, turretFireDelayEnd, fractionOfLootCollected(state));
+}
+
 function updateTurrets(state, dt) {
     const dpos = vec2.create();
 
@@ -415,7 +424,7 @@ function updateTurrets(state, dt) {
         if (!turret.dead) {
             turret.timeToFire -= dt;
             if (turret.timeToFire <= 0) {
-                turret.timeToFire += turretFireDelay;
+                turret.timeToFire += turretFireDelay(state);
 
                 if (distanceBetween(turret.position, state.player.position) < 20) {
                     const dpos = vec2.create();
@@ -470,7 +479,8 @@ function updateTurrets(state, dt) {
 }
 
 function updateSwarmers(state, dt) {
-    const accelerationRate = 20;
+    const uLoot = fractionOfLootCollected(state);
+    const accelerationRate = lerp(10, 20, uLoot);
     const dragAccelerationRate = 3;
     const perturbationAccelerationRate = 8;
     const separationDist = 5;
@@ -672,12 +682,12 @@ function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
     renderer.renderGlyphs.flush(matScreenFromWorld);
 }
 
-function renderTurretsAlive(turrets, renderer, matScreenFromWorld) {
+function renderTurretsAlive(state, turrets, renderer, matScreenFromWorld) {
     const colorWindup = { r: 1, g: 0.5, b: 0.25 };
     const color = { r: 0.34375, g: 0.25, b: 0.25 };
     const discs = turrets.filter(turret => !turret.dead).map(turret => ({
         position: turret.position,
-        color: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay)),
+        color: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay(state))),
         radius: monsterRadius,
     }));
 
@@ -2244,7 +2254,7 @@ function renderScene(renderer, state) {
     }
 
     renderSpikesAlive(state.level.spikes, renderer, matScreenFromWorld);
-    renderTurretsAlive(state.level.turrets, renderer, matScreenFromWorld);
+    renderTurretsAlive(state, state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersAlive(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
@@ -3368,7 +3378,7 @@ function tryCreateTurret(room, turrets, level, positionsUsed) {
         radius: monsterRadius,
         onContactCooldown: false,
         dead: false,
-        timeToFire: Math.random() * turretFireDelay,
+        timeToFire: Math.random() * turretFireDelayStart,
     });
 
     positionsUsed.push(position);
