@@ -1550,7 +1550,9 @@ function updateState(state, dt) {
 
     state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
     state.player.invulnerabilityTimer = Math.max(0, state.player.invulnerabilityTimer - dt);
-    state.player.numBullets = Math.min(bulletMaxCapacity, state.player.numBullets + bulletRefillRate * dt);
+    if (state.player.hitPoints > 0) {
+        state.player.numBullets = Math.min(bulletMaxCapacity, state.player.numBullets + bulletRefillRate * dt);
+    }
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
