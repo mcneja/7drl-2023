@@ -18,7 +18,7 @@ const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
 const bulletMinSpeed = 4;
 const bulletMaxCapacity = 3;
-const bulletRefillRate = 1;
+const bulletRefillRate = 2;
 const monsterRadius = 0.5;
 const lootRadius = 0.5;
 const turretFireDelay = 2.0;
@@ -357,11 +357,21 @@ function renderTurretBullets(bullets, renderer, matScreenFromWorld) {
 
 function updateSpikes(state, dt) {
     const velPrev = vec2.create();
+    const dpos = vec2.create();
     for (const spike of state.level.spikes) {
         vec2.copy(velPrev, spike.velocity);
         slideToStop(spike, dt);
         vec2.scaleAndAdd(spike.position, spike.position, velPrev, dt / 2);
         vec2.scaleAndAdd(spike.position, spike.position, spike.velocity, dt / 2);
+
+        // Disable cooldown once spike is no longer near player.
+
+        if (spike.onContactCooldown) {
+            vec2.subtract(dpos, spike.position, state.player.position);
+            if (vec2.length(dpos) >= 1.5 * monsterRadius + playerRadius) {
+                spike.onContactCooldown = false;
+            }
+        }
     }
 
     // Fix up spike positions relative to the environment and other objects.
@@ -387,9 +397,20 @@ function updateSpikes(state, dt) {
 }
 
 function updateTurrets(state, dt) {
+    const dpos = vec2.create();
+
     for (const turret of state.level.turrets) {
         slideToStop(turret, dt);
         vec2.scaleAndAdd(turret.position, turret.position, turret.velocity, dt);
+
+        // Disable cooldown once spike is no longer near player.
+
+        if (turret.onContactCooldown) {
+            vec2.subtract(dpos, turret.position, state.player.position);
+            if (vec2.length(dpos) >= 1.5 * monsterRadius + playerRadius) {
+                turret.onContactCooldown = false;
+            }
+        }
 
         if (!turret.dead) {
             turret.timeToFire -= dt;
@@ -525,6 +546,15 @@ function updateSwarmers(state, dt) {
 
         vec2.scaleAndAdd(swarmer.position, swarmer.position, velPrev, dt / 2);
         vec2.scaleAndAdd(swarmer.position, swarmer.position, swarmer.velocity, dt / 2);
+
+        // Disable cooldown once swarmer is no longer near player.
+
+        if (swarmer.onContactCooldown) {
+            vec2.subtract(dpos, swarmer.position, state.player.position);
+            if (vec2.length(dpos) >= 1.5 * monsterRadius + playerRadius) {
+                swarmer.onContactCooldown = false;
+            }
+        }
     }
 
     // Fix up swarmer positions relative to the environment and other objects.
@@ -1737,8 +1767,9 @@ function updateState(state, dt) {
                 if (collideDiscs(state.player, spike, 1, spikeMass, spikeElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         spike.dead = true;
-                    } else {
+                    } else if (!spike.onContactCooldown) {
                         damagePlayer(state, 1);
+                        spike.onContactCooldown = true;
                     }
                 }
             }
@@ -1749,8 +1780,9 @@ function updateState(state, dt) {
                 if (collideDiscs(state.player, turret, 1, turretMass, turretElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         turret.dead = true;
-                    } else {
+                    } else if (!turret.onContactCooldown) {
                         damagePlayer(state, 1);
+                        turret.onContactCooldown = true;
                     }
                 }
             }
@@ -1761,9 +1793,10 @@ function updateState(state, dt) {
                 if (collideDiscs(state.player, swarmer, 1, swarmerMass, swarmerElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         swarmer.dead = true;
-                    } else {
+                    } else if (!swarmer.onContactCooldown) {
                         damagePlayer(state, 1);
                         state.player.swarmerAttackCooldown = swarmerAttackCooldownDuration;
+                        swarmer.onContactCooldown = true;
                     }
                 }
             }
@@ -3306,6 +3339,7 @@ function tryCreateSpike(room, spikes, level, positionsUsed) {
         position: position,
         velocity: vec2.fromValues(0, 0),
         radius: monsterRadius,
+        onContactCooldown: false,
         dead: false,
     });
 
@@ -3332,6 +3366,7 @@ function tryCreateTurret(room, turrets, level, positionsUsed) {
         position: position,
         velocity: vec2.fromValues(0, 0),
         radius: monsterRadius,
+        onContactCooldown: false,
         dead: false,
         timeToFire: Math.random() * turretFireDelay,
     });
@@ -3361,6 +3396,7 @@ function tryCreateSwarmer(room, swarmers, level, positionsUsed) {
         radius: monsterRadius,
         heading: Math.random(),
         headingRate: (Math.random() * 0.15 + 0.15) * (randomInRange(2) * 2 - 1),
+        onContactCooldown: false,
         dead: false,
     });
 
