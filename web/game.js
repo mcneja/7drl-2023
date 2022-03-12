@@ -2368,12 +2368,11 @@ function renderDamageVignette(invulnerabilityTimer, hitPoints, damageDisplayTime
     let colorInner, colorOuter;
 
     if (invulnerabilityTimer > 0) {
-        if (invulnerabilityTimer > 0.2)
+        if (invulnerabilityTimer > 1) {
             u = 1 - 0.65 * ((1 - invulnerabilityTimer / invulnerabilityDuration) ** 2);
-        else if (invulnerabilityTimer > 0.1)
-            u = 0.2;
-        else
-            u = 0.8;
+        } else {
+            u = (Math.floor(invulnerabilityTimer * 10) % 2) == 0 ? 0.8 : 0.2;
+        }
         colorInner = [0, 1, 1, 0.05];
         colorOuter = [0, 1, 1, 0.5];
     } else if (damageDisplayTimer > 0) {
