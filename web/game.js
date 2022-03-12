@@ -3297,19 +3297,19 @@ function createEnemies(rooms, roomDistance, level, positionsUsed) {
 
         const room = rooms[roomIndex];
 
-        const maxEnemies = Math.floor(d * Math.max(2, room.sizeX * room.sizeY / 192));
+        const maxEnemies = Math.floor(d * Math.max(2, room.sizeX * room.sizeY / 224));
         let numEnemies = 0;
         for (let i = 0; i < 1024 && numEnemies < maxEnemies; ++i) {
             // Pick a kind of monster to create.
             const monsterKind = Math.random();
 
             let success = false;
-            if (monsterKind < 0.5 || d < 2) {
+            if (monsterKind < 0.333 || d < 2) {
                 success = tryCreateSpike(room, spikes, level, positionsUsed);
-            } else if (monsterKind < 0.75 || d < 3) {
-                success = tryCreateSwarmer(room, swarmers, level, positionsUsed);
-            } else {
+            } else if ((monsterKind < 0.667 || d < 3) && d != 3) {
                 success = tryCreateTurret(room, turrets, level, positionsUsed);
+            } else {
+                success = tryCreateSwarmer(room, swarmers, level, positionsUsed);
             }
     
             if (success) {
