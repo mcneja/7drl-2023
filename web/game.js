@@ -131,12 +131,21 @@ function main(fontImage) {
             state.mouseSensitivity += 1;
             if (state.paused) {
                 requestUpdateAndRender();
+            } else {
+                setPickupMessage(state, ['Mouse sensitivity: ' + state.mouseSensitivity]);
             }
         } else if (e.code == 'Comma') {
             e.preventDefault();
             state.mouseSensitivity -= 1;
             if (state.paused) {
                 requestUpdateAndRender();
+            } else {
+                setPickupMessage(state, ['Mouse sensitivity: ' + state.mouseSensitivity]);
+            }
+        } else if (e.code == 'Space') {
+            e.preventDefault();
+            if (!state.paused) {
+                tryDrinkInvulnerabilityPotion(state);
             }
         }
     });
@@ -152,7 +161,6 @@ function main(fontImage) {
         if (mouseCaptured) {
             document.addEventListener("mousemove", onMouseMoved, false);
             document.addEventListener("mousedown", onMouseDown, false);
-            document.addEventListener("mouseup", onMouseUp, false);
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
@@ -162,7 +170,6 @@ function main(fontImage) {
         } else {
             document.removeEventListener("mousemove", onMouseMoved, false);
             document.removeEventListener("mousedown", onMouseDown, false);
-            document.removeEventListener("mouseup", onMouseUp, false);
             state.paused = true;
         }
     }
@@ -176,18 +183,9 @@ function main(fontImage) {
             return;
         }
         if (e.button == 0) {
-            shootBullet(state);
+            tryShootBullet(state);
         } else if (e.button == 2) {
-            if (state.player.hitPoints > 0 && state.player.numInvulnerabilityPotions > 0) {
-                --state.player.numInvulnerabilityPotions;
-                state.player.invulnerabilityTimer = invulnerabilityDuration;
-            }
-        }
-    }
-
-    function onMouseUp(e) {
-        if (state.paused) {
-            return;
+            tryDrinkInvulnerabilityPotion(state);
         }
     }
 
@@ -221,7 +219,21 @@ function updatePosition(state, e) {
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
 }
 
-function shootBullet(state) {
+function tryDrinkInvulnerabilityPotion(state) {
+    if (state.player.hitPoints <= 0) {
+        return;
+    }
+
+    if (state.player.numInvulnerabilityPotions < 1) {
+        setPickupMessage(state, ['No Invulnerability Potion']);
+        return;
+    }
+
+    state.player.numInvulnerabilityPotions -= 1;
+    state.player.invulnerabilityTimer = Math.max(state.player.invulnerabilityTimer, invulnerabilityDuration);
+}
+
+function tryShootBullet(state) {
     if (state.player.hitPoints <= 0 || state.player.numBullets < 1) {
         return;
     }
@@ -2315,7 +2327,7 @@ function renderScene(renderer, state) {
             '',
             'Move with mouse',
             'LMB shoots while moving',
-            'RMB drinks invulnerability potion',
+            'RMB or Space drinks potion',
             '',
             '<>: Mouse sensitivity: ' + state.mouseSensitivity,
             'Esc: Pause, R: Retry, M: Map',
