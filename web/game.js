@@ -25,6 +25,7 @@ const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
 const invulnerabilityDuration = 6.0;
+const swarmerAttackCooldownDuration = 2.0;
 
 const numCellsX = 4;
 const numCellsY = 4;
@@ -33,6 +34,9 @@ const corridorWidth = 3;
 const lavaStateInactive = 0;
 const lavaStatePrimed = 1;
 const lavaStateActive = 2;
+
+const potionTypeHealth = 0;
+const potionTypeInvulnerability = 1;
 
 const damageDisplayDuration = 1.5;
 const delayGameEndMessage = 2;
@@ -467,7 +471,7 @@ function updateSwarmers(state, dt) {
             const heading = swarmer.heading * 2 * Math.PI;
             vec2.set(perturbationDir, Math.cos(heading), Math.sin(heading));
 
-            if (state.player.hitPoints > 0) {
+            if (state.player.hitPoints > 0 && state.player.swarmerAttackCooldown <= 0) {
                 const dposToTarget = vec2.create();
                 vec2.subtract(dposToTarget, swarmer.position, state.player.position);
                 const distToTarget = vec2.length(dposToTarget);
@@ -820,12 +824,13 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         velocity: vec2.create(),
         radius: playerRadius,
         color: { r: 0, g: 0, b: 0 },
-        numInvulnerabilityPotions: 3,
+        numInvulnerabilityPotions: 1,
         invulnerabilityTimer: 0,
         numBullets: 3,
         amuletCollected: false,
         hitPoints: playerMaxHitPoints,
         damageDisplayTimer: 0,
+        swarmerAttackCooldown: 0,
         dead: false,
     };
 
@@ -1685,6 +1690,7 @@ function updateState(state, dt) {
         slideToStop(state.player, dt);
     }
 
+    state.player.swarmerAttackCooldown = Math.max(0, state.player.swarmerAttackCooldown - dt);
     state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
     state.player.invulnerabilityTimer = Math.max(0, state.player.invulnerabilityTimer - dt);
     if (state.player.hitPoints > 0) {
@@ -1707,6 +1713,7 @@ function updateState(state, dt) {
     // Other
 
     updateLootItems(state);
+    updatePotions(state);
     updateCamera(state, dt);
     updateLava(state, dt);
     updateSpikes(state, dt);
@@ -1717,15 +1724,17 @@ function updateState(state, dt) {
 
     // Collide player against objects and the environment
 
-    const enemyElasticity = 0.5;
+    const spikeElasticity = 0.2;
+    const turretElasticity = 0.5;
+    const swarmerElasticity = 0.8;
     const spikeMass = 1.5;
     const turretMass = 1;
-    const swarmerMass = 0.5;
+    const swarmerMass = 0.25;
 
     for (let i = 0; i < 4; ++i) {
         for (const spike of state.level.spikes) {
             if (!spike.dead) {
-                if (collideDiscs(state.player, spike, 1, spikeMass, enemyElasticity)) {
+                if (collideDiscs(state.player, spike, 1, spikeMass, spikeElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         spike.dead = true;
                     } else {
@@ -1737,7 +1746,7 @@ function updateState(state, dt) {
 
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
-                if (collideDiscs(state.player, turret, 1, turretMass, enemyElasticity)) {
+                if (collideDiscs(state.player, turret, 1, turretMass, turretElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         turret.dead = true;
                     } else {
@@ -1749,11 +1758,12 @@ function updateState(state, dt) {
 
         for (const swarmer of state.level.swarmers) {
             if (!swarmer.dead) {
-                if (collideDiscs(state.player, swarmer, 1, swarmerMass, enemyElasticity)) {
+                if (collideDiscs(state.player, swarmer, 1, swarmerMass, swarmerElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         swarmer.dead = true;
                     } else {
                         damagePlayer(state, 1);
+                        state.player.swarmerAttackCooldown = swarmerAttackCooldownDuration;
                     }
                 }
             }
@@ -2194,6 +2204,7 @@ function renderScene(renderer, state) {
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderLootItems(state, renderer, matScreenFromWorld);
+    renderPotions(state, renderer, matScreenFromWorld);
 
     if (state.lava.state == lavaStateActive) {
         state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
@@ -2323,7 +2334,7 @@ function renderDamageVignette(invulnerabilityTimer, hitPoints, damageDisplayTime
         colorInner = [0, 1, 1, 0.05];
         colorOuter = [0, 1, 1, 0.5];
     } else if (damageDisplayTimer > 0) {
-        u = (playerMaxHitPoints - hitPoints) * damageDisplayTimer / damageDisplayDuration;
+        u = Math.max(1, (playerMaxHitPoints - hitPoints)) * damageDisplayTimer / damageDisplayDuration;
         colorInner = [1, 0, 0, Math.min(1.0, u * 0.05)];
         colorOuter = [1, 0, 0, Math.min(1.0, u * 0.5)];
     }
@@ -2352,14 +2363,23 @@ function renderDamageVignette(invulnerabilityTimer, hitPoints, damageDisplayTime
 
 function renderHealthMeter(state, renderer, screenSize) {
     const rect = glyphRect(3);
-    const glyphColorHeartFilled = 0xff0000ff;
+    const glyphColorHeartFilled = 0xff0000aa;
     const glyphColorHeartEmpty = 0xff202020;
+    const glyphColorHeartOvercharge = 0xff5555ff;
 
     for (let i = 0; i < playerMaxHitPoints; ++i) {
         renderer.renderGlyphs.add(
             i, 0, i + 1, 1,
             rect.minX, rect.minY, rect.maxX, rect.maxY,
             i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
+        );
+    }
+
+    for (let i = playerMaxHitPoints; i < state.player.hitPoints; ++i) {
+        renderer.renderGlyphs.add(
+            i, 0, i + 1, 1,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            glyphColorHeartOvercharge
         );
     }
 
@@ -3199,11 +3219,15 @@ function createLevel() {
 
     const amuletRoom = rooms[roomIndexExit];
     const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX/2 - 0.5, amuletRoom.minY + amuletRoom.sizeY/2 - 0.5);
+    const positionsUsed = [amuletPos];
 
     // Enemies
 
-    const positionsUsed = [amuletPos];
     const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistance, level, positionsUsed);
+
+    // Potions
+
+    const potions = createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positionsUsed);
 
     // Place loot in the level. Distribute it so rooms that are far from
     // the entrance or the exit have the most? Or so dead ends have the
@@ -3222,6 +3246,7 @@ function createLevel() {
         spikes: spikes,
         turrets: turrets,
         swarmers: swarmers,
+        potions: potions,
         lootItems: lootItems,
         numLootItemsTotal: lootItems.length,
     };
@@ -3342,6 +3367,51 @@ function tryCreateSwarmer(room, swarmers, level, positionsUsed) {
     positionsUsed.push(position);
 
     return true;
+}
+
+function createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positionsUsed) {
+    const roomIndices = [];
+    for (let i = 0; i < rooms.length; ++i) {
+        if (i != roomIndexEntrance && i != roomIndexExit) {
+            roomIndices.push(i);
+        }
+    }
+
+    shuffleArray(roomIndices);
+    roomIndices.length = Math.ceil(roomIndices.length * 0.75);
+
+    const numHealthPotions = Math.ceil(roomIndices.length / 2);
+
+    const potions = [];
+
+    for (let i = 0; i < roomIndices.length; ++i) {
+        const room = rooms[roomIndices[i]];
+
+        for (let j = 0; j < 1024; ++j) {
+            const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
+            const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
+
+            const position = vec2.fromValues(x, y);
+
+            if (isDiscTouchingLevel(position, lootRadius * 2, level)) {
+                continue;
+            }
+
+            if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * lootRadius, position)) {
+                continue;
+            }
+
+            potions.push({
+                position: position,
+                potionType: (i < numHealthPotions) ? potionTypeHealth : potionTypeInvulnerability,
+            });
+
+            positionsUsed.push(position);
+            break;
+        }
+    }
+
+    return potions;
 }
 
 function compressRooms(roomGrid, edges, rooms) {
@@ -3603,11 +3673,65 @@ function renderLootItems(state, renderer, matScreenFromWorld) {
 }
 
 function updateLootItems(state) {
+    if (state.player.hitPoints <= 0)
+        return;
+
     const dpos = vec2.create();
 
     filterInPlace(state.level.lootItems, lootItem => {
         vec2.subtract(dpos, lootItem.position, state.player.position);
         return (vec2.length(dpos) > playerRadius + lootRadius);
+    });
+}
+
+function renderPotions(state, renderer, matScreenFromWorld) {
+    const color = { r: 0.45, g: 0.45, b: 0.45 };
+    const discs = state.level.potions.map(potion => ({
+        position: potion.position,
+        color: color,
+        radius: lootRadius,
+    }));
+
+    renderer.renderDiscs(matScreenFromWorld, discs);
+
+    const rect = glyphRect(173);
+    const rx = 0.25;
+    const ry = 0.5;
+    const potionHealthGlyphColor = 0xff5555ff;
+    const potionInvulnerabilityGlyphColor = 0xffffff55;
+
+    for (const potion of state.level.potions) {
+        const x = potion.position[0];
+        const y = potion.position[1];
+        renderer.renderGlyphs.add(
+            x - rx, y - ry, x + rx, y + ry,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            (potion.potionType == potionTypeHealth) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor
+        );
+    }
+
+    renderer.renderGlyphs.flush(matScreenFromWorld);
+}
+
+function updatePotions(state) {
+    if (state.player.hitPoints <= 0)
+        return;
+
+    const dpos = vec2.create();
+
+    filterInPlace(state.level.potions, potion => {
+        vec2.subtract(dpos, potion.position, state.player.position);
+        if (vec2.length(dpos) > playerRadius + lootRadius)
+            return true;
+        if (potion.potionType == potionTypeHealth) {
+            if (state.player.hitPoints >= playerMaxHitPoints)
+                state.player.hitPoints += 1;
+            else
+                state.player.hitPoints = playerMaxHitPoints;
+        } else if (potion.potionType == potionTypeInvulnerability) {
+            state.player.numInvulnerabilityPotions += 1;
+        }
+        return false;
     });
 }
 
