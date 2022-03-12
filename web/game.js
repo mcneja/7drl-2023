@@ -27,6 +27,7 @@ const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
 const invulnerabilityDuration = 6.0;
 const swarmerAttackCooldownDuration = 2.0;
+const pickupMessageDuration = 2.0;
 
 const numCellsX = 4;
 const numCellsY = 4;
@@ -395,6 +396,11 @@ function updateSpikes(state, dt) {
             fixupDiscPair(spike0, spike1);
         }
     }
+}
+
+function setPickupMessage(state, message) {
+    state.pickupMessage = message;
+    state.pickupMessageTimer = pickupMessageDuration;
 }
 
 function fractionOfLootCollected(state) {
@@ -910,6 +916,8 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     state.camera = camera;
     state.level = level;
     state.lava = lava;
+    state.pickupMessage = [];
+    state.pickupMessageTimer = 0;
 }
 
 function discOverlapsDiscs(disc, discs, minSeparation) {
@@ -1730,6 +1738,7 @@ function updateState(state, dt) {
         slideToStop(state.player, dt);
     }
 
+    state.pickupMessageTimer = Math.max(0, state.pickupMessageTimer - dt);
     state.player.swarmerAttackCooldown = Math.max(0, state.player.swarmerAttackCooldown - dt);
     state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
     state.player.invulnerabilityTimer = Math.max(0, state.player.invulnerabilityTimer - dt);
@@ -2304,11 +2313,12 @@ function renderScene(renderer, state) {
             'Having magic of my own, though,',
             'I prefer to judge for myself.',
             '',
-            'Move with mouse. Attack while moving',
-            'with left and right mouse buttons.',
+            'Move with mouse',
+            'LMB shoots while moving',
+            'RMB drinks invulnerability potion',
             '',
+            '<>: Mouse sensitivity: ' + state.mouseSensitivity,
             'Esc: Pause, R: Retry, M: Map',
-            'Mouse sensitivity (,/.): ' + state.mouseSensitivity,
             '',
             '     James McNeill - 2022 7DRL',
             '   Special thanks: Mendi Carroll',
@@ -2323,6 +2333,8 @@ function renderScene(renderer, state) {
             '   DEATH HAS COME',
             'Esc: Pause, R: Retry',
         ]);
+    } else if (state.pickupMessageTimer > 0) {
+        renderTextLines(renderer, screenSize, state.pickupMessage);
     }
 }
 
@@ -3556,6 +3568,8 @@ function decorateRooms(rooms, level) {
     tryPlacePillarRoom(roomsShuffled, level);
     tryPlaceCenterObstacleRoom(roomsShuffled, level);
     tryPlacePillarRoom(roomsShuffled, level);
+    tryPlaceCenterObstacleRoom(roomsShuffled, level);
+    tryPlacePillarRoom(roomsShuffled, level);
 }
 
 function tryPlacePillarRoom(rooms, level) {
@@ -3769,12 +3783,16 @@ function updatePotions(state) {
         if (vec2.length(dpos) > playerRadius + lootRadius)
             return true;
         if (potion.potionType == potionTypeHealth) {
-            if (state.player.hitPoints >= playerMaxHitPoints)
+            if (state.player.hitPoints >= playerMaxHitPoints) {
                 state.player.hitPoints += 1;
-            else
+                setPickupMessage(state, ['Extra Health!']);
+            } else {
                 state.player.hitPoints = playerMaxHitPoints;
+                setPickupMessage(state, ['Healing Potion']);
+            }
         } else if (potion.potionType == potionTypeInvulnerability) {
             state.player.numInvulnerabilityPotions += 1;
+            setPickupMessage(state, ['+1 Invulnerability Potion']);
         }
         return false;
     });
