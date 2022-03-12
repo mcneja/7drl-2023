@@ -21,8 +21,7 @@ const lootRadius = 0.5;
 const turretFireDelay = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
-const meleeAttackRadius = 0.75;
-const meleeAttackMaxDuration = 0.5;
+const invulnerabilityDuration = 6.0;
 
 const numCellsX = 4;
 const numCellsY = 3;
@@ -166,20 +165,18 @@ function main(fontImage) {
             return;
         }
         if (e.button == 0) {
-            if (state.player.hitPoints > 0 && state.player.meleeAttackCooldown <= 0) {
-                state.player.meleeAttacking = true;
-            }
-        } else if (e.button == 2) {
             shootBullet(state);
+        } else if (e.button == 2) {
+            if (state.player.hitPoints > 0 && state.player.numInvulnerabilityPotions > 0) {
+                --state.player.numInvulnerabilityPotions;
+                state.player.invulnerabilityTimer = invulnerabilityDuration;
+            }
         }
     }
 
     function onMouseUp(e) {
         if (state.paused) {
             return;
-        }
-        if (e.button == 0) {
-            state.player.meleeAttacking = false;
         }
     }
 
@@ -211,74 +208,6 @@ function updatePosition(state, e) {
     const movement = vec2.fromValues(e.movementX, -e.movementY);
     const scale = 0.05 * Math.pow(1.1, state.mouseSensitivity);
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
-}
-
-function updateMeleeAttack(state, dt) {
-    // Check for any enemies hit by the attack
-
-    if (!state.player.meleeAttacking) {
-        state.player.meleeAttackCooldown = Math.max(0, state.player.meleeAttackCooldown - dt);
-        return;
-    }
-
-    state.player.meleeAttackCooldown += dt;
-    if (state.player.meleeAttackCooldown >= meleeAttackMaxDuration) {
-        state.player.meleeAttackCooldown = meleeAttackMaxDuration;
-        state.player.meleeAttacking = false;
-        return;
-    }
-
-    const playerMass = 1;
-    const turretElasticity = 1;
-    const turretMass = 1;
-
-    const dpos = vec2.create();
-
-    for (const turret of state.level.turrets) {
-        if (turret.dead) {
-            continue;
-        }
-
-        vec2.subtract(dpos, turret.position, state.player.position);
-        const dist = vec2.length(dpos);
-        if (dist < meleeAttackRadius + monsterRadius) {
-            turret.dead = true;
-            state.player.meleeAttackCooldown = 0;
-            elasticCollision(state.player, turret, playerMass, turretMass, turretElasticity);
-        }
-    }
-
-    const swarmerElasticity = 1;
-    const swarmerMass = 0.5;
-
-    for (const swarmer of state.level.swarmers) {
-        if (swarmer.dead) {
-            continue;
-        }
-
-        vec2.subtract(dpos, swarmer.position, state.player.position);
-        const dist = vec2.length(dpos);
-        if (dist < meleeAttackRadius + monsterRadius) {
-            swarmer.dead = true;
-            elasticCollision(state.player, swarmer, playerMass, swarmerMass, swarmerElasticity);
-        }
-    }
-}
-
-function renderMeleeAttack(state, renderer, matScreenFromWorld) {
-    if (!state.player.meleeAttacking) {
-        return;
-    }
-
-    const disc = {
-        radius: meleeAttackRadius,
-        position: vec2.create(),
-        color: { r: 0, g: 1, b: 1 },
-    };
-
-    vec2.copy(disc.position, state.player.position);
-
-    renderer.renderDiscs(matScreenFromWorld, [disc]);
 }
 
 function shootBullet(state) {
@@ -376,17 +305,16 @@ function updateTurretBullet(state, bullet, dt) {
         return false;
     }
 
-    const playerRadiusCur = state.player.meleeAttacking ? meleeAttackRadius : playerRadius;
     const playerMass = 1;
     const bulletMass = 0.125;
     const elasticity = 1;
 
-    if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadiusCur)) {
+    if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
         elasticCollision(state.player, bullet, playerMass, bulletMass, elasticity);
-        if (!state.player.meleeAttacking) {
+        if (state.player.invulnerabilityTimer <= 0) {
             damagePlayer(state, 1);
-            return false;
         }
+        return false;
     }
 
     return true;
@@ -755,8 +683,8 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         velocity: vec2.create(),
         radius: playerRadius,
         color: { r: 0, g: 0, b: 0 },
-        meleeAttacking: false,
-        meleeAttackCooldown: 0,
+        numInvulnerabilityPotions: 3,
+        invulnerabilityTimer: 0,
         amuletCollected: false,
         hitPoints: playerMaxHitPoints,
         damageDisplayTimer: 0,
@@ -1613,10 +1541,9 @@ function updateState(state, dt) {
     }
 
     state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
+    state.player.invulnerabilityTimer = Math.max(0, state.player.invulnerabilityTimer - dt);
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
-
-    updateMeleeAttack(state, dt);
 
     // Game-end message
 
@@ -1651,7 +1578,11 @@ function updateState(state, dt) {
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
                 if (collideDiscs(state.player, turret, 1, 1, enemyElasticity)) {
-                    damagePlayer(state, 1);
+                    if (state.player.invulnerabilityTimer > 0) {
+                        turret.dead = true;
+                    } else {
+                        damagePlayer(state, 1);
+                    }
                 }
             }
         }
@@ -1659,7 +1590,11 @@ function updateState(state, dt) {
         for (const swarmer of state.level.swarmers) {
             if (!swarmer.dead) {
                 if (collideDiscs(state.player, swarmer, 1, swarmerMass, enemyElasticity)) {
-                    damagePlayer(state, 1);
+                    if (state.player.invulnerabilityTimer > 0) {
+                        swarmer.dead = true;
+                    } else {
+                        damagePlayer(state, 1);
+                    }
                 }
             }
         }
@@ -1721,7 +1656,7 @@ function updateLava(state, dt) {
 
     // Test objects against lava to see if it kills them
 
-    if (isPosInLava(state, state.player.position)) {
+    if (isPosInLava(state, state.player.position) && state.player.invulnerabilityTimer <= 0) {
         damagePlayer(state, 100);
     }
 
@@ -1821,8 +1756,7 @@ function damagePlayer(state, numHitPoints) {
         state.player.damageDisplayTimer = damageDisplayDuration;
     }
 
-    state.player.meleeAttacking = false;
-    state.player.meleeAttackCooldown = 0;
+    state.player.invulnerabilityTimer = 0;
 
     if (state.player.hitPoints <= 0 && state.gameState != gsDied) {
         state.gameState = gsDied;
@@ -2101,15 +2035,13 @@ function renderScene(renderer, state) {
         state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
     }
 
-    renderMeleeAttack(state, renderer, matScreenFromWorld);
-
     renderTurretsAlive(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersAlive(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
 
-    state.player.color = colorLerp({ r: 0, g: 0, b: 0 }, { r: 0, g: 1, b: 1 }, state.player.meleeAttackCooldown / meleeAttackMaxDuration);
+    state.player.color = (state.player.invulnerabilityTimer > 0) ? { r: 0, g: 1, b: 1 } : { r: 0, g: 0, b: 0 };
     renderer.renderDiscs(matScreenFromWorld, [state.player]);
 
     {
@@ -2133,12 +2065,13 @@ function renderScene(renderer, state) {
 
     // Damage vignette
 
-    renderDamageVignette(state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
+    renderDamageVignette(state.player.invulnerabilityTimer, state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
 
     // Status displays
 
     renderHealthMeter(state, renderer, screenSize);
     renderLootCounter(state, renderer, screenSize);
+    renderPotionCounter(state, renderer, screenSize);
 
     // Text
 
@@ -2211,16 +2144,33 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
 }
 
-function renderDamageVignette(hitPoints, damageDisplayTimer, renderer, screenSize) {
-    if (damageDisplayTimer <= 0)
+function renderDamageVignette(invulnerabilityTimer, hitPoints, damageDisplayTimer, renderer, screenSize) {
+    let u = 0;
+    let colorInner, colorOuter;
+
+    if (invulnerabilityTimer > 0) {
+        if (invulnerabilityTimer > 0.2)
+            u = 1 - 0.65 * ((1 - invulnerabilityTimer / invulnerabilityDuration) ** 2);
+        else if (invulnerabilityTimer > 0.1)
+            u = 0.2;
+        else
+            u = 0.8;
+        colorInner = [0, 1, 1, 0.05];
+        colorOuter = [0, 1, 1, 0.5];
+    } else if (damageDisplayTimer > 0) {
+        u = (playerMaxHitPoints - hitPoints) * damageDisplayTimer / damageDisplayDuration;
+        colorInner = [1, 0, 0, Math.min(1.0, u * 0.05)];
+        colorOuter = [1, 0, 0, Math.min(1.0, u * 0.5)];
+    }
+
+    if (u <= 0)
         return;
 
-    const u = (playerMaxHitPoints - hitPoints) * damageDisplayTimer / damageDisplayDuration;
+    colorInner[3] = Math.min(1, colorInner[3] * u);
+    colorOuter[3] = Math.min(1, colorOuter[3] * u);
 
     const radiusInner = 0.8;
     const radiusOuter = 1.5;
-    const colorInner = [1, 0, 0, Math.min(1.0, u * 0.05)];
-    const colorOuter = [1, 0, 0, Math.min(1.0, u * 0.5)];
 
     const matDiscFromScreen = mat4.create();
     if (screenSize[0] < screenSize[1]) {
@@ -2300,6 +2250,48 @@ function renderLootCounter(state, renderer, screenSize) {
     const numCharsX = screenSize[0] / pixelsPerCharX;
     const numCharsY = screenSize[1] / pixelsPerCharY;
     const offsetX = (cCh + 1) - numCharsX;
+    const offsetY = 0;
+
+    const matScreenFromTextArea = mat4.create();
+    mat4.ortho(
+        matScreenFromTextArea,
+        offsetX,
+        offsetX + numCharsX,
+        offsetY,
+        offsetY + numCharsY,
+        1,
+        -1);
+    renderer.renderGlyphs.flush(matScreenFromTextArea);
+}
+
+function renderPotionCounter(state, renderer, screenSize) {
+    const color = 0xffffff55;
+
+    const numLootItemsTotal = state.level.numLootItemsTotal;
+    const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
+
+    const strMsg = state.player.numInvulnerabilityPotions + '\xad';
+    const cCh = strMsg.length;
+
+    for (let i = 0; i < cCh; ++i) {
+        const rect = glyphRect(strMsg.charCodeAt(i));
+        renderer.renderGlyphs.add(
+            i, 0, i + 1, 1,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            color
+        );
+    }
+
+    const minCharsX = 40;
+    const minCharsY = 20;
+    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
+    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
+    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+    const pixelsPerCharX = 8 * scaleFactor;
+    const pixelsPerCharY = 16 * scaleFactor;
+    const numCharsX = screenSize[0] / pixelsPerCharX;
+    const numCharsY = screenSize[1] / pixelsPerCharY;
+    const offsetX = numCharsX / -2;
     const offsetY = 0;
 
     const matScreenFromTextArea = mat4.create();
