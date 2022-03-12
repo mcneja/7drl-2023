@@ -2744,7 +2744,7 @@ function createLevel() {
         const group1 = roomGroup[edge[1]];
 
         if (group0 != group1 || Math.random() < 0.5) {
-            edges.push({edge: edge});
+            edges.push(edge);
 
             if (edgeConnectsEntrance)
                 entranceConnected = true;
@@ -2775,13 +2775,13 @@ function createLevel() {
         const dist = priority + 1;
 
         for (const edge of edges) {
-            if (edge.edge[0] == roomIndex) {
-                if (roomDistance[edge.edge[1]] > dist) {
-                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge.edge[1]});
+            if (edge[0] == roomIndex) {
+                if (roomDistance[edge[1]] > dist) {
+                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge[1]});
                 }
-            } else if (edge.edge[1] == roomIndex) {
-                if (roomDistance[edge.edge[0]] > dist) {
-                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge.edge[0]});
+            } else if (edge[1] == roomIndex) {
+                if (roomDistance[edge[0]] > dist) {
+                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge[0]});
                 }
             }
         }
@@ -3417,7 +3417,7 @@ function updateLootItems(state) {
 }
 
 function hasEdge(edges, roomIndex0, roomIndex1) {
-    return edges.some(e => e.edge[0] === roomIndex0 && e.edge[1] === roomIndex1);
+    return edges.some(edge => edge[0] === roomIndex0 && edge[1] === roomIndex1);
 }
 
 function canHaveStraightVerticalHall(room0, room1) {
