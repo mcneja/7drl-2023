@@ -1542,6 +1542,13 @@ function slideToStop(body, dt) {
     vec2.scale(body.velocity, body.velocity, r);
 }
 
+function posInRect(position, rect) {
+    return (position[0] >= rect.minX &&
+            position[1] >= rect.minY &&
+            position[0] < rect.minX + rect.sizeX &&
+            position[1] < rect.minY + rect.sizeY);
+}
+
 function updateState(state, dt) {
 
     // Player
@@ -1564,10 +1571,7 @@ function updateState(state, dt) {
 
     if (state.player.amuletCollected &&
         state.gameState == gsActive &&
-        state.player.position[0] >= state.level.startRoom.minX &&
-        state.player.position[1] >= state.level.startRoom.minY &&
-        state.player.position[0] < state.level.startRoom.minX + state.level.startRoom.sizeX &&
-        state.player.position[1] < state.level.startRoom.minY + state.level.startRoom.sizeY) {
+        posInRect(state.player.position, state.level.startRoom)) {
         state.gameState = gsWon;
         state.timeToGameEndMessage = delayGameEndMessage;
     }
@@ -1625,10 +1629,7 @@ function updateLava(state, dt) {
     // Activate lava when player reaches the exit and then leaves
 
     if (state.lava.state == lavaStatePrimed) {
-        if (state.player.position[0] < state.level.amuletRoom.minX ||
-            state.player.position[1] < state.level.amuletRoom.minY ||
-            state.player.position[0] >= state.level.amuletRoom.minX + state.level.amuletRoom.sizeX ||
-            state.player.position[1] >= state.level.amuletRoom.minY + state.level.amuletRoom.sizeY) {
+        if (!posInRect(state.player.position, state.level.amuletRoom)) {
             state.lava.state = lavaStateActive;
         }
     } else if (state.lava.state == lavaStateInactive) {
