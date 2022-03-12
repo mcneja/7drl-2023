@@ -116,6 +116,8 @@ function main(fontImage) {
             e.preventDefault();
             state.showMap = !state.showMap;
             if (state.paused) {
+                state.mapZoom = state.showMap ? 0 : 1;
+                state.mapZoomVelocity = 0;
                 requestUpdateAndRender();
             }
         } else if (e.code == 'Period') {
@@ -2757,6 +2759,34 @@ function createLevel() {
         }
     }
 
+    // Compute distances for each room from the entrance.
+
+    const roomDistance = Array(numRooms).fill(numRooms);
+    const toVisit = [{priority: 0, roomIndex: roomIndexEntrance}];
+    while (toVisit.length > 0) {
+        const {priority, roomIndex} = priorityQueuePop(toVisit);
+
+        if (roomDistance[roomIndex] <= priority) {
+            continue;
+        }
+
+        roomDistance[roomIndex] = priority;
+
+        const dist = priority + 1;
+
+        for (const edge of edges) {
+            if (edge.edge[0] == roomIndex) {
+                if (roomDistance[edge.edge[1]] > dist) {
+                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge.edge[1]});
+                }
+            } else if (edge.edge[1] == roomIndex) {
+                if (roomDistance[edge.edge[0]] > dist) {
+                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge.edge[0]});
+                }
+            }
+        }
+    }
+
     // Pick sizes for the rooms. The entrance and exit rooms are special and
     // have fixed sizes.
 
@@ -2847,7 +2877,6 @@ function createLevel() {
 
             const xMin = room0.minX + room0.sizeX;
             const xMax = room1.minX;
-//            const xMid = randomInRange(xMax - (xMin + 1 + corridorWidth)) + xMin + 1;
             const xMid = Math.floor((xMax - (xMin + 1 + corridorWidth)) / 2) + xMin + 1;
 
             const yMinIntersect = Math.max(room0.minY, room1.minY) + 1;
@@ -2910,7 +2939,6 @@ function createLevel() {
 
             const yMin = room0.minY + room0.sizeY;
             const yMax = room1.minY;
-//            const yMid = randomInRange(yMax - (yMin + 1 + corridorWidth)) + yMin + 1;
             const yMid = Math.floor((yMax - (yMin + 1 + corridorWidth)) / 2) + yMin + 1;
 
             for (let y = yMin; y < yMid; ++y) {
@@ -3007,87 +3035,17 @@ function createLevel() {
     const amuletRoom = rooms[roomIndexExit];
     const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX/2 - 0.5, amuletRoom.minY + amuletRoom.sizeY/2 - 0.5);
 
-    // Place some turrets in the level
+    // Enemies
 
-    const turrets = [];
-
-    const numTurrets = 16;
-    for (let i = 0; i < 1000 && turrets.length < numTurrets; ++i) {
-        const roomIndex = randomInRange(rooms.length);
-        if (roomIndex == roomIndexEntrance) {
-            continue;
-        }
-
-        const room = rooms[roomIndex];
-
-        const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
-        const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
-
-        const position = vec2.fromValues(x, y);
-
-        if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
-            continue;
-        }
-
-        if (isPositionTooCloseToOtherObjects(turrets, 3 * monsterRadius, position)) {
-            continue;
-        }
-
-        turrets.push({
-            position: position,
-            velocity: vec2.fromValues(0, 0),
-            radius: monsterRadius,
-            dead: false,
-            timeToFire: Math.random() * turretFireDelay,
-        });
-    }
-
-    // Place some melee monsters in the level
-
-    const swarmers = [];
-
-    const numSwarmers = 16;
-    for (let i = 0; i < 1000 && swarmers.length < numSwarmers; ++i) {
-        const roomIndex = randomInRange(rooms.length);
-        if (roomIndex == roomIndexEntrance) {
-            continue;
-        }
-
-        const room = rooms[roomIndex];
-
-        const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
-        const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
-
-        const position = vec2.fromValues(x, y);
-
-        if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
-            continue;
-        }
-
-        if (isPositionTooCloseToOtherObjects(turrets, 3 * monsterRadius, position)) {
-            continue;
-        }
-
-        if (isPositionTooCloseToOtherObjects(swarmers, 3 * monsterRadius, position)) {
-            continue;
-        }
-
-        swarmers.push({
-            position: position,
-            velocity: vec2.fromValues(0, 0),
-            radius: monsterRadius,
-            heading: Math.random(),
-            headingRate: (Math.random() * 0.15 + 0.15) * (randomInRange(2) * 2 - 1),
-            dead: false,
-        });
-    }
+    const positionsUsed = [amuletPos];
+    const [turrets, swarmers] = createEnemies(rooms, roomDistance, level, positionsUsed);
 
     // Place loot in the level. Distribute it so rooms that are far from
     // the entrance or the exit have the most? Or so dead ends have the
     // most? Bias toward the rooms that aren't on the path between the
     // entrance and the exit?
 
-    const lootItems = createLootItems(rooms, turrets, swarmers, roomIndexEntrance, amuletPos, level);
+    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, amuletPos, level);
 
     return {
         grid: level,
@@ -3101,6 +3059,94 @@ function createLevel() {
         lootItems: lootItems,
         numLootItemsTotal: lootItems.length,
     };
+}
+
+function createEnemies(rooms, roomDistance, level, positionsUsed) {
+    const turrets = [];
+    const swarmers = [];
+
+    for (let roomIndex = 0; roomIndex < roomDistance.length; ++roomIndex) {
+        const d = Math.max(0, roomDistance[roomIndex] - 1);
+        if (d === 0)
+            continue;
+
+        const room = rooms[roomIndex];
+
+        const maxEnemies = Math.floor(d * Math.max(2, room.sizeX * room.sizeY / 384));
+        let numEnemies = 0;
+        for (let i = 0; i < 1024 && numEnemies < maxEnemies; ++i) {
+            // Pick a kind of monster to create.
+            const monsterKind = Math.random();
+    
+            let success = false;
+            if (monsterKind < 0.5) {
+                success = tryCreateTurret(room, turrets, level, positionsUsed);
+            } else {
+                success = tryCreateSwarmer(room, swarmers, level, positionsUsed);
+            }
+    
+            if (success) {
+                ++numEnemies;
+            }
+        }
+    }
+
+    return [turrets, swarmers];
+}
+
+function tryCreateTurret(room, turrets, level, positionsUsed) {
+    const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
+    const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
+
+    const position = vec2.fromValues(x, y);
+
+    if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+        return false;
+    }
+
+    if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * monsterRadius, position)) {
+        return false;
+    }
+
+    turrets.push({
+        position: position,
+        velocity: vec2.fromValues(0, 0),
+        radius: monsterRadius,
+        dead: false,
+        timeToFire: Math.random() * turretFireDelay,
+    });
+
+    positionsUsed.push(position);
+
+    return true;
+}
+
+function tryCreateSwarmer(room, swarmers, level, positionsUsed) {
+    const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
+    const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
+
+    const position = vec2.fromValues(x, y);
+
+    if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+        return false;
+    }
+
+    if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * monsterRadius, position)) {
+        return false;
+    }
+
+    swarmers.push({
+        position: position,
+        velocity: vec2.fromValues(0, 0),
+        radius: monsterRadius,
+        heading: Math.random(),
+        headingRate: (Math.random() * 0.15 + 0.15) * (randomInRange(2) * 2 - 1),
+        dead: false,
+    });
+
+    positionsUsed.push(position);
+
+    return true;
 }
 
 function compressRooms(roomGrid, edges, rooms) {
@@ -3275,7 +3321,7 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
     }
 }
 
-function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, posAmulet, level) {
+function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, level) {
     const numLoot = 100;
     const loot = [];
 
@@ -3296,15 +3342,7 @@ function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, posAmulet,
             continue;
         }
 
-        if (isPositionTooCloseToOtherObjects(turrets, 2 * lootRadius + monsterRadius, position)) {
-            continue;
-        }
-
-        if (isPositionTooCloseToOtherObjects(swarmers, 2 * lootRadius + monsterRadius, position)) {
-            continue;
-        }
-
-        if (isPositionTooCloseToOtherObjects(loot, 3 * lootRadius, position)) {
+        if (isPositionTooCloseToOtherPositions(positionsUsed, 2 * lootRadius + monsterRadius, position)) {
             continue;
         }
 
@@ -3313,6 +3351,7 @@ function createLootItems(rooms, turrets, swarmers, roomIndexEntrance, posAmulet,
         if (vec2.length(dposAmulet) < 12 * lootRadius)
             continue;
 
+        positionsUsed.push(position);
         loot.push({position: position});
     }
 
@@ -3395,10 +3434,10 @@ function canHaveStraightHorizontalHall(room0, room1) {
     return overlapSize >= corridorWidth;
 }
 
-function isPositionTooCloseToOtherObjects(objects, separationDistance, position) {
+function isPositionTooCloseToOtherPositions(positions, separationDistance, position) {
     const dpos = vec2.create();
-    for (const object of objects) {
-        vec2.subtract(dpos, object.position, position);
+    for (const positionOther of positions) {
+        vec2.subtract(dpos, position, positionOther);
         const d = vec2.length(dpos);
         if (d < separationDistance) {
             return true;
