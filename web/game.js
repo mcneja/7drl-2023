@@ -359,6 +359,27 @@ function updateSpikes(state, dt) {
         vec2.scaleAndAdd(spike.position, spike.position, velPrev, dt / 2);
         vec2.scaleAndAdd(spike.position, spike.position, spike.velocity, dt / 2);
     }
+
+    // Fix up spike positions relative to the environment and other objects.
+
+    for (let i = 0; i < state.level.spikes.length; ++i)
+    {
+        const spike0 = state.level.spikes[i];
+
+        fixupPositionAndVelocityAgainstLevel(spike0.position, spike0.velocity, spike0.radius, state.level.grid);
+
+        if (spike0.dead)
+            continue;
+
+        for (let j = i + 1; j < state.level.spikes.length; ++j)
+        {
+            const spike1 = state.level.spikes[j];
+            if (spike1.dead)
+                continue;
+
+            fixupDiscPair(spike0, spike1);
+        }
+    }
 }
 
 function updateTurrets(state, dt) {
@@ -404,6 +425,13 @@ function updateTurrets(state, dt) {
 
         if (turret0.dead)
             continue;
+
+        for (const spike of state.level.spikes) {
+            if (spike.dead)
+                continue;
+
+            fixupDiscPair(turret0, spike);
+        }
 
         for (let j = i + 1; j < state.level.turrets.length; ++j)
         {
@@ -452,9 +480,33 @@ function updateSwarmers(state, dt) {
             vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, perturbationDir, perturbationAccelerationRate * dt);
             vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, velPrev, -dragAccelerationRate * dt);
 
-            // Avoid other swarmers
+            // Avoid other spikes, turrets, and swarmers
+
+            for (const spike of state.level.spikes) {
+                if (spike.dead)
+                    continue;
+                vec2.subtract(dpos, spike.position, swarmer.position);
+                const dist = vec2.length(dpos);
+                if (dist < separationDist) {
+                    const scale = (dist - separationDist) * (separationForce * dt / dist);
+                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dpos, scale);
+                }
+            }
+
+            for (const turret of state.level.turrets) {
+                if (turret.dead)
+                    continue;
+                vec2.subtract(dpos, turret.position, swarmer.position);
+                const dist = vec2.length(dpos);
+                if (dist < separationDist) {
+                    const scale = (dist - separationDist) * (separationForce * dt / dist);
+                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dpos, scale);
+                }
+            }
 
             for (const swarmerOther of state.level.swarmers) {
+                if (swarmerOther.dead)
+                    continue;
                 if (swarmerOther == swarmer)
                     continue;
 
@@ -481,13 +533,6 @@ function updateSwarmers(state, dt) {
 
         if (swarmer0.dead)
             continue;
-
-        for (const turret of state.level.turrets) {
-            if (turret.dead)
-                continue;
-
-            fixupDiscPair(swarmer0, turret);
-        }
 
         for (let j = i + 1; j < state.level.swarmers.length; ++j)
         {
@@ -1672,13 +1717,15 @@ function updateState(state, dt) {
 
     // Collide player against objects and the environment
 
-    const enemyElasticity = 0.9;
+    const enemyElasticity = 0.5;
+    const spikeMass = 1.5;
+    const turretMass = 1;
     const swarmerMass = 0.5;
 
     for (let i = 0; i < 4; ++i) {
         for (const spike of state.level.spikes) {
             if (!spike.dead) {
-                if (collideDiscs(state.player, spike, 1, 100, enemyElasticity)) {
+                if (collideDiscs(state.player, spike, 1, spikeMass, enemyElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         spike.dead = true;
                     } else {
@@ -1690,7 +1737,7 @@ function updateState(state, dt) {
 
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
-                if (collideDiscs(state.player, turret, 1, 1, enemyElasticity)) {
+                if (collideDiscs(state.player, turret, 1, turretMass, enemyElasticity)) {
                     if (state.player.invulnerabilityTimer > 0) {
                         turret.dead = true;
                     } else {
