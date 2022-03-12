@@ -16,6 +16,9 @@ const gsWon = 2;
 const playerRadius = 0.5;
 const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
+const bulletMinSpeed = 4;
+const bulletMaxCapacity = 3;
+const bulletRefillRate = 1;
 const monsterRadius = 0.5;
 const lootRadius = 0.5;
 const turretFireDelay = 2.0;
@@ -211,14 +214,18 @@ function updatePosition(state, e) {
 }
 
 function shootBullet(state) {
-    if (state.player.hitPoints <= 0) {
+    if (state.player.hitPoints <= 0 || state.player.numBullets < 1) {
         return;
     }
+
+    state.player.numBullets -= 1;
 
     const pos = vec2.create();
     vec2.copy(pos, state.player.position);
     const vel = vec2.create();
-    vec2.scale(vel, state.player.velocity, 2);
+    const playerSpeed = vec2.length(state.player.velocity);
+    const scale = Math.max(2 * playerSpeed, bulletMinSpeed) / Math.max(playerSpeed, 0.001);
+    vec2.scale(vel, state.player.velocity, scale);
 
     vec2.scale(state.player.velocity, state.player.velocity, 0.8);
 
@@ -685,6 +692,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
         color: { r: 0, g: 0, b: 0 },
         numInvulnerabilityPotions: 3,
         invulnerabilityTimer: 0,
+        numBullets: 3,
         amuletCollected: false,
         hitPoints: playerMaxHitPoints,
         damageDisplayTimer: 0,
@@ -1542,6 +1550,7 @@ function updateState(state, dt) {
 
     state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
     state.player.invulnerabilityTimer = Math.max(0, state.player.invulnerabilityTimer - dt);
+    state.player.numBullets = Math.min(bulletMaxCapacity, state.player.numBullets + bulletRefillRate * dt);
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
@@ -2071,7 +2080,7 @@ function renderScene(renderer, state) {
 
     renderHealthMeter(state, renderer, screenSize);
     renderLootCounter(state, renderer, screenSize);
-    renderPotionCounter(state, renderer, screenSize);
+    renderBulletAndPotionCounter(state, renderer, screenSize);
 
     // Text
 
@@ -2264,19 +2273,28 @@ function renderLootCounter(state, renderer, screenSize) {
     renderer.renderGlyphs.flush(matScreenFromTextArea);
 }
 
-function renderPotionCounter(state, renderer, screenSize) {
+function renderBulletAndPotionCounter(state, renderer, screenSize) {
     const color = 0xffffff55;
+    const colorDim = 0xff202000;
 
-    const numLootItemsTotal = state.level.numLootItemsTotal;
-    const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
+    const numBullets = Math.floor(state.player.numBullets);
 
-    const strMsg = state.player.numInvulnerabilityPotions + '\xad';
+    for (let i = 0; i < bulletMaxCapacity; ++i) {
+        const rect = glyphRect(157);
+        renderer.renderGlyphs.add(
+            i, 0, i + 1, 1,
+            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            (i < numBullets) ? color : colorDim
+        );
+    }
+
+    const strMsg = '     ' + state.player.numInvulnerabilityPotions + '\xad';
     const cCh = strMsg.length;
 
     for (let i = 0; i < cCh; ++i) {
         const rect = glyphRect(strMsg.charCodeAt(i));
         renderer.renderGlyphs.add(
-            i, 0, i + 1, 1,
+            i + bulletMaxCapacity, 0, i + bulletMaxCapacity + 1, 1,
             rect.minX, rect.minY, rect.maxX, rect.maxY,
             color
         );
@@ -2291,7 +2309,7 @@ function renderPotionCounter(state, renderer, screenSize) {
     const pixelsPerCharY = 16 * scaleFactor;
     const numCharsX = screenSize[0] / pixelsPerCharX;
     const numCharsY = screenSize[1] / pixelsPerCharY;
-    const offsetX = numCharsX / -2;
+    const offsetX = -Math.floor((screenSize[0] - (cCh + bulletMaxCapacity) * pixelsPerCharX) / 2) / pixelsPerCharX;
     const offsetY = 0;
 
     const matScreenFromTextArea = mat4.create();
