@@ -100,7 +100,7 @@ function main(fontImage) {
     }
 
     const renderer = createRenderer(gl, fontImage);
-    const state = initState(renderer.createFieldRenderer, renderer.createLightingRenderer);
+    const state = initState(renderer.createFieldRenderer, renderer.createLightingRenderer, renderer.createColoredTrianglesRenderer);
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
@@ -114,7 +114,7 @@ function main(fontImage) {
     document.body.addEventListener('keydown', e => {
         if (e.code == 'KeyR') {
             e.preventDefault();
-            resetState(state, renderer.createFieldRenderer, renderer.createLightingRenderer);
+            resetState(state, renderer.createFieldRenderer, renderer.createLightingRenderer, renderer.createColoredTrianglesRenderer);
             if (state.paused) {
                 requestUpdateAndRender();
             }
@@ -845,7 +845,7 @@ function createRenderer(gl, fontImage) {
         createLightingRenderer: createLightingRenderer(gl),
         renderDiscs: createDiscRenderer(gl),
         renderGlyphs: createGlyphRenderer(gl, fontImage),
-        renderColoredTriangles: createColoredTriangleRenderer(gl),
+        createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
         renderVignette: createVignetteRenderer(gl),
     };
 
@@ -856,7 +856,7 @@ function createRenderer(gl, fontImage) {
     return renderer;
 }
 
-function initState(createFieldRenderer, createLightingRenderer) {
+function initState(createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
     const state = {
         paused: true,
         showMap: false,
@@ -864,11 +864,11 @@ function initState(createFieldRenderer, createLightingRenderer) {
         mapZoomVelocity: 0,
         mouseSensitivity: 0,
     };
-    resetState(state, createFieldRenderer, createLightingRenderer);
+    resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer);
     return state;
 }
 
-function resetState(state, createFieldRenderer, createLightingRenderer) {
+function resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
     const level = createLevel();
 
     const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
@@ -876,6 +876,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
 
     const renderField = createFieldRenderer(level, distanceFieldFromExit);
     const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
+    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
 
     const player = {
         position: vec2.create(),
@@ -919,6 +920,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer) {
     state.distanceFieldFromExit = distanceFieldFromExit;
     state.renderField = renderField;
     state.renderLighting = renderLighting;
+    state.renderColoredTriangles = renderColoredTriangles;
     state.tLast = undefined;
     state.player = player;
     state.gameState = gsActive;
@@ -1598,7 +1600,7 @@ function updateAndRender(now, renderer, state) {
     }
 }
 
-function createColoredTriangleRenderer(gl) {
+function createColoredTrianglesRenderer(gl) {
     const vsSource = `
         attribute vec2 vPosition;
         attribute vec4 vColor;
@@ -1629,28 +1631,32 @@ function createColoredTriangleRenderer(gl) {
     const vertexBuffer = gl.createBuffer();
 
     const bytesPerVertex = 12; // two 4-byte floats and one 32-bit color
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
-    gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
 
-    return (matScreenFromWorld, vertexData) => {
+    return vertexData => {
         const numVerts = Math.floor(vertexData.byteLength / bytesPerVertex);
 
-        gl.useProgram(program);
-
-        gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromWorld);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(vertexPositionLoc);
-        gl.enableVertexAttribArray(vertexColorLoc);
         gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
         gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
-    
-        gl.drawArrays(gl.TRIANGLES, 0, numVerts);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
-        gl.disableVertexAttribArray(vertexColorLoc);
-        gl.disableVertexAttribArray(vertexPositionLoc);
+        return matScreenFromWorld => {
+    
+            gl.useProgram(program);
+    
+            gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromWorld);
+    
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.enableVertexAttribArray(vertexPositionLoc);
+            gl.enableVertexAttribArray(vertexColorLoc);
+            gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
+            gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
+        
+            gl.drawArrays(gl.TRIANGLES, 0, numVerts);
+    
+            gl.disableVertexAttribArray(vertexColorLoc);
+            gl.disableVertexAttribArray(vertexPositionLoc);
+        };
     };
 }
 
@@ -2261,7 +2267,7 @@ function renderScene(renderer, state) {
     const matScreenFromWorld = mat4.create();
     setupViewMatrix(state, screenSize, matScreenFromWorld);
 
-    renderer.renderColoredTriangles(matScreenFromWorld, state.level.vertexData);
+    state.renderColoredTriangles(matScreenFromWorld);
 
     renderSpikesDead(state.level.spikes, renderer, matScreenFromWorld);
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
