@@ -92,7 +92,7 @@ function loadResourcesThenRun() {
 function main(fontImage) {
 
     const canvas = document.querySelector("#canvas");
-    const gl = canvas.getContext("webgl", { alpha: false, depth: false });
+    const gl = canvas.getContext("webgl2", { alpha: false, depth: false });
 
     if (gl == null) {
         alert("Unable to initialize WebGL. Your browser or machine may not support it.");
@@ -849,8 +849,6 @@ function filterInPlace(array, condition) {
 }
 
 function createRenderer(gl, fontImage) {
-    gl.getExtension('OES_standard_derivatives');
-
     const renderer = {
         beginFrame: createBeginFrame(gl),
         createFieldRenderer: createFieldRenderer(gl),
@@ -978,14 +976,14 @@ function createBeginFrame(gl) {
 }
 
 function createFieldRenderer(gl) {
-    const vsSource = `
-        attribute vec3 vPosition;
-        attribute vec2 vDistance;
+    const vsSource = `#version 300 es
+        in vec3 vPosition;
+        in vec2 vDistance;
 
         uniform mat4 uMatScreenFromField;
 
-        varying highp float fYBlend;
-        varying highp vec2 fDistance;
+        out highp float fYBlend;
+        out highp vec2 fDistance;
 
         void main() {
             gl_Position = uMatScreenFromField * vec4(vPosition.xy, 0, 1);
@@ -994,31 +992,33 @@ function createFieldRenderer(gl) {
         }
     `;
 
-    const fsSource = `
-        varying highp float fYBlend;
-        varying highp vec2 fDistance;
+    const fsSource = `#version 300 es
+        in highp float fYBlend;
+        in highp vec2 fDistance;
 
         uniform highp float uDistCutoff;
         uniform highp float uScroll;
         uniform sampler2D uContour;
 
+        out lowp vec4 fragColor;
+
         void main() {
             highp float distance = mix(fDistance.x, fDistance.y, fYBlend);
             highp float s = distance - uDistCutoff;
-            highp vec4 contourColor = texture2D(uContour, vec2(s - uScroll, 0));
+            highp vec4 contourColor = texture(uContour, vec2(s - uScroll, 0));
             highp vec4 lavaColor = contourColor * vec4(1, 0.25, 0, 1);
             highp vec4 floorColor = vec4(1, 1, 1, 0);
             highp vec4 color = mix(lavaColor, floorColor, max(0.0, sign(s)));
-            gl_FragColor = color;
+            fragColor = color;
         }
     `;
 
-    const program = initShaderProgram(gl, vsSource, fsSource);
-
-    const vertexAttributeLoc = {
-        position: gl.getAttribLocation(program, 'vPosition'),
-        distance: gl.getAttribLocation(program, 'vDistance'),
+    const attribs = {
+        vPosition: 0,
+        vDistance: 1,
     };
+
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
     const uniformLoc = {
         uMatScreenFromField: gl.getUniformLocation(program, 'uMatScreenFromField'),
@@ -1095,12 +1095,22 @@ function createFieldRenderer(gl) {
             }
         }
 
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.enableVertexAttribArray(attribs.vPosition);
+        gl.enableVertexAttribArray(attribs.vDistance);
+
         // Fill the GL buffers with vertex and index data.
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        const stride = floatsPerVertex * 4;
+        gl.vertexAttribPointer(attribs.vPosition, 3, gl.FLOAT, false, stride, 0);
+        gl.vertexAttribPointer(attribs.vDistance, 2, gl.FLOAT, false, stride, 12);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
+
+        gl.bindVertexArray(null);
 
         // Return a function that will take a matrix and do the actual rendering.
         return (matScreenFromWorld, distCutoff, uScroll) => {
@@ -1108,41 +1118,30 @@ function createFieldRenderer(gl) {
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, contourTexture);
+    
             gl.uniform1i(uniformLoc.uContour, 0);
-
             gl.uniformMatrix4fv(uniformLoc.uMatScreenFromField, false, matScreenFromWorld);
-
             gl.uniform1f(uniformLoc.uDistCutoff, distCutoff);
             gl.uniform1f(uniformLoc.uScroll, uScroll);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            gl.enableVertexAttribArray(vertexAttributeLoc.position);
-            gl.enableVertexAttribArray(vertexAttributeLoc.distance);
-            const stride = floatsPerVertex * 4;
-            gl.vertexAttribPointer(vertexAttributeLoc.position, 3, gl.FLOAT, false, stride, 0);
-            gl.vertexAttribPointer(vertexAttributeLoc.distance, 2, gl.FLOAT, false, stride, 12);
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
+            gl.bindVertexArray(vao);
             gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
-
-            gl.disableVertexAttribArray(vertexAttributeLoc.distance);
-            gl.disableVertexAttribArray(vertexAttributeLoc.position);
+            gl.bindVertexArray(null);
         };
     };
 }
 
 function createLightingRenderer(gl) {
-    const vsSource = `
-        attribute vec3 vPosition;
-        attribute vec2 vDistanceFromEntrance;
-        attribute vec2 vDistanceFromExit;
+    const vsSource = `#version 300 es
+        in vec3 vPosition;
+        in vec2 vDistanceFromEntrance;
+        in vec2 vDistanceFromExit;
 
         uniform mat4 uMatScreenFromField;
 
-        varying highp float fYBlend;
-        varying highp vec2 fDistanceFromEntrance;
-        varying highp vec2 fDistanceFromExit;
+        out highp float fYBlend;
+        out highp vec2 fDistanceFromEntrance;
+        out highp vec2 fDistanceFromExit;
 
         void main() {
             gl_Position = uMatScreenFromField * vec4(vPosition.xy, 0, 1);
@@ -1152,31 +1151,33 @@ function createLightingRenderer(gl) {
         }
     `;
 
-    const fsSource = `
-        varying highp float fYBlend;
-        varying highp vec2 fDistanceFromEntrance;
-        varying highp vec2 fDistanceFromExit;
+    const fsSource = `#version 300 es
+        in highp float fYBlend;
+        in highp vec2 fDistanceFromEntrance;
+        in highp vec2 fDistanceFromExit;
 
         uniform highp float uDistCenterFromEntrance;
         uniform highp float uDistCenterFromExit;
         uniform highp float uAlphaEntrance;
+
+        out lowp vec4 fragColor;
 
         void main() {
             highp float distanceFromEntrance = mix(fDistanceFromEntrance.x, fDistanceFromEntrance.y, fYBlend);
             highp float distanceFromExit = mix(fDistanceFromExit.x, fDistanceFromExit.y, fYBlend);
             highp float uEntrance = 1.0 - smoothstep(uDistCenterFromEntrance - 8.0, uDistCenterFromEntrance, distanceFromEntrance);
             highp float uExit = clamp((uDistCenterFromExit - distanceFromExit + 6.0) * 0.0625, 0.0, 1.0);
-            gl_FragColor.rgb = vec3(0.22, 0.3, 0.333) * uEntrance * uEntrance * uAlphaEntrance + vec3(1, 0, 0) * uExit;
+            fragColor.rgb = vec3(0.22, 0.3, 0.333) * uEntrance * uEntrance * uAlphaEntrance + vec3(1, 0, 0) * uExit;
         }
     `;
 
-    const program = initShaderProgram(gl, vsSource, fsSource);
-
-    const vertexAttributeLoc = {
-        vPosition: gl.getAttribLocation(program, 'vPosition'),
-        vDistanceFromEntrance: gl.getAttribLocation(program, 'vDistanceFromEntrance'),
-        vDistanceFromExit: gl.getAttribLocation(program, 'vDistanceFromExit'),
+    const attribs = {
+        vPosition: 0,
+        vDistanceFromEntrance: 1,
+        vDistanceFromExit: 2,
     };
+
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
     const uniformLoc = {
         uMatScreenFromField: gl.getUniformLocation(program, 'uMatScreenFromField'),
@@ -1258,53 +1259,52 @@ function createLightingRenderer(gl) {
             }
         }
 
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.enableVertexAttribArray(attribs.vPosition);
+        gl.enableVertexAttribArray(attribs.vDistanceFromEntrance);
+        gl.enableVertexAttribArray(attribs.vDistanceFromExit);
+
         // Fill the GL buffers with vertex and index data.
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        const stride = floatsPerVertex * 4;
+        gl.vertexAttribPointer(attribs.vPosition, 3, gl.FLOAT, false, stride, 0);
+        gl.vertexAttribPointer(attribs.vDistanceFromEntrance, 2, gl.FLOAT, false, stride, 12);
+        gl.vertexAttribPointer(attribs.vDistanceFromExit, 2, gl.FLOAT, false, stride, 20);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexData, gl.STATIC_DRAW);
+
+        gl.bindVertexArray(null);
 
         // Return a function that will take a matrix and do the actual rendering.
         return (matScreenFromWorld, distCenterFromEntrance, distCenterFromExit, alphaEntrance) => {
             gl.useProgram(program);
 
             gl.uniformMatrix4fv(uniformLoc.uMatScreenFromField, false, matScreenFromWorld);
-
             gl.uniform1f(uniformLoc.uDistCenterFromEntrance, distCenterFromEntrance);
             gl.uniform1f(uniformLoc.uDistCenterFromExit, distCenterFromExit);
             gl.uniform1f(uniformLoc.uAlphaEntrance, alphaEntrance);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            gl.enableVertexAttribArray(vertexAttributeLoc.vPosition);
-            gl.enableVertexAttribArray(vertexAttributeLoc.vDistanceFromEntrance);
-            gl.enableVertexAttribArray(vertexAttributeLoc.vDistanceFromExit);
-            const stride = floatsPerVertex * 4;
-            gl.vertexAttribPointer(vertexAttributeLoc.vPosition, 3, gl.FLOAT, false, stride, 0);
-            gl.vertexAttribPointer(vertexAttributeLoc.vDistanceFromEntrance, 2, gl.FLOAT, false, stride, 12);
-            gl.vertexAttribPointer(vertexAttributeLoc.vDistanceFromExit, 2, gl.FLOAT, false, stride, 20);
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
+            gl.bindVertexArray(vao);
             gl.blendFunc(gl.ONE, gl.ONE);
 
             gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
 
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            gl.disableVertexAttribArray(vertexAttributeLoc.vDistanceFromExit);
-            gl.disableVertexAttribArray(vertexAttributeLoc.vDistanceFromEntrance);
-            gl.disableVertexAttribArray(vertexAttributeLoc.vPosition);
+            gl.bindVertexArray(null);
         };
     };
 }
 
 function createDiscRenderer(gl) {
-    const vsSource = `
-        attribute vec2 vPosition;
+    const vsSource = `#version 300 es
+        in vec2 vPosition;
         
         uniform mat4 uMatScreenFromDisc;
 
-        varying highp vec2 fPosition;
+        out highp vec2 fPosition;
 
         void main() {
             fPosition = vPosition;
@@ -1312,59 +1312,62 @@ function createDiscRenderer(gl) {
         }
     `;
 
-    const fsSource = `
-        #extension GL_OES_standard_derivatives : enable
-
-        varying highp vec2 fPosition;
+    const fsSource = `#version 300 es
+        in highp vec2 fPosition;
 
         uniform highp vec3 uColor;
+
+        out lowp vec4 fragColor;
 
         void main() {
             highp float r = length(fPosition);
             highp float aaf = fwidth(r);
             highp float opacity = 1.0 - smoothstep(1.0 - aaf, 1.0, r);
-            gl_FragColor = vec4(uColor, opacity);
+            fragColor = vec4(uColor, opacity);
         }
     `;
 
+    const attribs = {
+        vPosition: 0,
+    };
 
     const matWorldFromDisc = mat4.create();
     const matScreenFromDisc = mat4.create();
 
-    const program = initShaderProgram(gl, vsSource, fsSource);
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
-    const vertexPositionLoc = gl.getAttribLocation(program, 'vPosition');
     const projectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromDisc');
     const colorLoc = gl.getUniformLocation(program, 'uColor');
     const vertexBuffer = createDiscVertexBuffer(gl);
 
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    gl.enableVertexAttribArray(attribs.vPosition);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     const stride = 8; // two 4-byte floats
-    gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, stride, 0);
+    gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, stride, 0);
+
+    gl.bindVertexArray(null);
 
     return (matScreenFromWorld, discs) => {
         gl.useProgram(program);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.enableVertexAttribArray(vertexPositionLoc);
-        gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.bindVertexArray(vao);
 
         for (const disc of discs) {
-            gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
-
             matWorldFromDisc[0] = disc.radius;
             matWorldFromDisc[5] = disc.radius;
             matWorldFromDisc[12] = disc.position[0];
             matWorldFromDisc[13] = disc.position[1];
-
             mat4.multiply(matScreenFromDisc, matScreenFromWorld, matWorldFromDisc);
 
+            gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
             gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromDisc);
 
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
-    
-        gl.disableVertexAttribArray(vertexPositionLoc);
+
+        gl.bindVertexArray(null);
     };
 }
 
@@ -1438,14 +1441,14 @@ function createVertexInfo(costRateField, distanceField) {
 }
 
 function createGlyphRenderer(gl, fontImage) {
-    const vsSource = `
-        attribute vec4 vPositionTexcoord;
-        attribute vec4 vColor;
+    const vsSource = `#version 300 es
+        in vec4 vPositionTexcoord;
+        in vec4 vColor;
 
         uniform mat4 uMatScreenFromWorld;
 
-        varying highp vec2 fTexcoord;
-        varying highp vec4 fColor;
+        out highp vec2 fTexcoord;
+        out highp vec4 fColor;
 
         void main() {
             fTexcoord = vPositionTexcoord.zw;
@@ -1454,23 +1457,27 @@ function createGlyphRenderer(gl, fontImage) {
         }
     `;
 
-    const fsSource = `
-        varying highp vec2 fTexcoord;
-        varying highp vec4 fColor;
+    const fsSource = `#version 300 es
+        in highp vec2 fTexcoord;
+        in highp vec4 fColor;
 
         uniform sampler2D uOpacity;
 
+        out lowp vec4 fragColor;
+
         void main() {
-            gl_FragColor = fColor * vec4(1, 1, 1, texture2D(uOpacity, fTexcoord));
+            fragColor = fColor * vec4(1, 1, 1, texture(uOpacity, fTexcoord));
         }
     `;
 
+    const attribs = {
+        vPositionTexcoord: 0,
+        vColor: 1,
+    };
+
     const fontTexture = createTextureFromImage(gl, fontImage);
 
-    const program = initShaderProgram(gl, vsSource, fsSource);
-
-    const vPositionTexcoordLoc = gl.getAttribLocation(program, 'vPositionTexcoord');
-    const vColorLoc = gl.getAttribLocation(program, 'vColor');
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
     const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromWorld');
     const uOpacityLoc = gl.getUniformLocation(program, 'uOpacity');
@@ -1479,8 +1486,6 @@ function createGlyphRenderer(gl, fontImage) {
     const numVertices = 4 * maxQuads;
     const bytesPerVertex = 4 * Float32Array.BYTES_PER_ELEMENT + Uint32Array.BYTES_PER_ELEMENT;
     const wordsPerQuad = bytesPerVertex; // divide by four bytes per word, but also multiply by four vertices per quad
-
-    const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
 
     const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
     const vertexDataAsFloat32 = new Float32Array(vertexData);
@@ -1491,6 +1496,17 @@ function createGlyphRenderer(gl, fontImage) {
     let numQuads = 0;
 
     const matScreenFromWorldCached = mat4.create();
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.enableVertexAttribArray(attribs.vPositionTexcoord);
+    gl.enableVertexAttribArray(attribs.vColor);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(attribs.vPositionTexcoord, 4, gl.FLOAT, false, bytesPerVertex, 0);
+    gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+    const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
+    gl.bindVertexArray(null);
 
     function setMatScreenFromWorld(matScreenFromWorld) {
         mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
@@ -1537,6 +1553,8 @@ function createGlyphRenderer(gl, fontImage) {
 
         gl.useProgram(program);
 
+        gl.bindVertexArray(vao);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, fontTexture);
         gl.uniform1i(uOpacityLoc, 0);
@@ -1544,18 +1562,12 @@ function createGlyphRenderer(gl, fontImage) {
         gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorldCached);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STREAM_DRAW);
-        gl.enableVertexAttribArray(vPositionTexcoordLoc);
-        gl.enableVertexAttribArray(vColorLoc);
-        gl.vertexAttribPointer(vPositionTexcoordLoc, 4, gl.FLOAT, false, bytesPerVertex, 0);
-        gl.vertexAttribPointer(vColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexDataAsFloat32, 0);
 
         gl.drawElements(gl.TRIANGLES, 6 * numQuads, gl.UNSIGNED_SHORT, 0);
 
-        gl.disableVertexAttribArray(vColorLoc);
-        gl.disableVertexAttribArray(vPositionTexcoordLoc);
+        gl.bindVertexArray(null);
+
         numQuads = 0;
     }
 
@@ -1620,13 +1632,13 @@ function updateAndRender(now, renderer, state) {
 }
 
 function createColoredTrianglesRenderer(gl) {
-    const vsSource = `
-        attribute vec2 vPosition;
-        attribute vec4 vColor;
+    const vsSource = `#version 300 es
+        in vec2 vPosition;
+        in vec4 vColor;
 
         uniform mat4 uProjectionMatrix;
 
-        varying highp vec4 fColor;
+        out highp vec4 fColor;
 
         void main() {
             fColor = vColor;
@@ -1634,58 +1646,60 @@ function createColoredTrianglesRenderer(gl) {
         }
     `;
 
-    const fsSource = `
-        varying highp vec4 fColor;
+    const fsSource = `#version 300 es
+        in highp vec4 fColor;
+        out lowp vec4 fragColor;
         void main() {
-            gl_FragColor = fColor;
+            fragColor = fColor;
         }
     `;
 
-    const program = initShaderProgram(gl, vsSource, fsSource);
+    const attribs = {
+        vPosition: 0,
+        vColor: 1,
+    };
 
-    const vertexPositionLoc = gl.getAttribLocation(program, 'vPosition');
-    const vertexColorLoc = gl.getAttribLocation(program, 'vColor');
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
+
     const projectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
 
     const vertexBuffer = gl.createBuffer();
 
     const bytesPerVertex = 12; // two 4-byte floats and one 32-bit color
 
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.enableVertexAttribArray(attribs.vPosition);
+    gl.enableVertexAttribArray(attribs.vColor);
+    gl.bindVertexArray(null);
+
     return vertexData => {
         const numVerts = Math.floor(vertexData.byteLength / bytesPerVertex);
 
+        gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
-        gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
+        gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, bytesPerVertex, 0);
+        gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+        gl.bindVertexArray(null);
 
         return matScreenFromWorld => {
-    
             gl.useProgram(program);
-    
             gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromWorld);
-    
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            gl.enableVertexAttribArray(vertexPositionLoc);
-            gl.enableVertexAttribArray(vertexColorLoc);
-            gl.vertexAttribPointer(vertexPositionLoc, 2, gl.FLOAT, false, bytesPerVertex, 0);
-            gl.vertexAttribPointer(vertexColorLoc, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
-        
+            gl.bindVertexArray(vao);
             gl.drawArrays(gl.TRIANGLES, 0, numVerts);
-    
-            gl.disableVertexAttribArray(vertexColorLoc);
-            gl.disableVertexAttribArray(vertexPositionLoc);
+            gl.bindVertexArray(null);
         };
     };
 }
 
 function createVignetteRenderer(gl) {
-    const vsSource = `
-        attribute vec2 vPositionScreen;
+    const vsSource = `#version 300 es
+        in vec2 vPositionScreen;
 
         uniform mat4 uMatDiscFromScreen;
 
-        varying highp vec2 fPositionDisc;
+        out highp vec2 fPositionDisc;
 
         void main() {
             highp vec4 posScreen = vec4(vPositionScreen.xy, 0, 1);
@@ -1694,23 +1708,28 @@ function createVignetteRenderer(gl) {
         }
     `;
 
-    const fsSource = `
-        varying highp vec2 fPositionDisc;
+    const fsSource = `#version 300 es
+        in highp vec2 fPositionDisc;
 
         uniform highp vec4 uColorInner;
         uniform highp vec4 uColorOuter;
         uniform highp float uRadiusInner;
 
+        out lowp vec4 fragColor;
+
         void main() {
             highp float r = length(fPositionDisc);
             highp float u = smoothstep(uRadiusInner, 1.0, r);
-            gl_FragColor = mix(uColorInner, uColorOuter, u);
+            fragColor = mix(uColorInner, uColorOuter, u);
         }
     `;
 
-    const program = initShaderProgram(gl, vsSource, fsSource);
+    const attribs = {
+        vPositionScreen: 0,
+    };
 
-    const vLocPositionScreen = gl.getAttribLocation(program, 'vPositionScreen');
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
+
     const uLocMatDiscFromScreen = gl.getUniformLocation(program, 'uMatDiscFromScreen');
     const uLocColorInner = gl.getUniformLocation(program, 'uColorInner');
     const uLocColorOuter = gl.getUniformLocation(program, 'uColorOuter');
@@ -1734,24 +1753,26 @@ function createVignetteRenderer(gl) {
     }
 
     const vertexBuffer = gl.createBuffer();
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.enableVertexAttribArray(attribs.vLocPositionScreen);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(attribs.vLocPositionScreen, 2, gl.FLOAT, false, 0, 0);
     gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
 
     return (matDiscFromScreen, radiusInner, colorInner, colorOuter) => {
         gl.useProgram(program);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.enableVertexAttribArray(vLocPositionScreen);
-        gl.vertexAttribPointer(vLocPositionScreen, 2, gl.FLOAT, false, 0, 0);
 
         gl.uniformMatrix4fv(uLocMatDiscFromScreen, false, matDiscFromScreen);
         gl.uniform1f(uLocRadiusInner, radiusInner);
         gl.uniform4fv(uLocColorInner, colorInner);
         gl.uniform4fv(uLocColorOuter, colorOuter);
 
+        gl.bindVertexArray(vao);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
-    
-        gl.disableVertexAttribArray(vLocPositionScreen);
+        gl.bindVertexArray(null);
     };
 }
 
@@ -2670,13 +2691,18 @@ function resizeCanvasToDisplaySize(canvas) {
     }
 }
 
-function initShaderProgram(gl, vsSource, fsSource) {
+function initShaderProgram(gl, vsSource, fsSource, attribs) {
     const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
     const program = gl.createProgram();
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
+
+    for (const attrib in attribs) {
+        gl.bindAttribLocation(program, attribs[attrib], attrib);
+    }
+
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
