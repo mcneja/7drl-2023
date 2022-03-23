@@ -327,6 +327,28 @@ function renderPlayerBullets(state, renderer, matScreenFromWorld) {
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
+function renderPlayer(state, renderer, matScreenFromWorld) {
+    state.player.color = (state.player.invulnerabilityTimer > 0) ? { r: 0, g: 1, b: 1 } : { r: 0, g: 0, b: 0 };
+    renderer.renderDiscs(matScreenFromWorld, [state.player]);
+
+    {
+        const tx = 0.0625;
+        const ty = 0.0625;
+
+        const x = state.player.position[0];
+        const y = state.player.position[1];
+        const rx = 0.25;
+        const ry = 0.5;
+        const yOffset = -0.06;
+
+        const glyphColor = (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff;
+
+        renderer.renderGlyphs.start(matScreenFromWorld);
+        renderer.renderGlyphs.add(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1*tx, ty, 2*tx, 0, glyphColor);
+        renderer.renderGlyphs.flush();
+    }
+}
+
 function updateTurretBullets(state, dt) {
     filterInPlace(state.turretBullets, bullet => updateTurretBullet(state, bullet, dt));
 }
@@ -1902,6 +1924,7 @@ function updateLava(state, dt) {
         if (distPlayerFromAmulet < playerRadius + lootRadius) {
             state.lava.state = lavaStatePrimed;
             state.player.amuletCollected = true;
+            setPickupMessage(state, ['Amulet']);
         }
     }
 
@@ -2325,25 +2348,7 @@ function renderScene(renderer, state) {
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
 
-    state.player.color = (state.player.invulnerabilityTimer > 0) ? { r: 0, g: 1, b: 1 } : { r: 0, g: 0, b: 0 };
-    renderer.renderDiscs(matScreenFromWorld, [state.player]);
-
-    {
-        const tx = 0.0625;
-        const ty = 0.0625;
-
-        const x = state.player.position[0];
-        const y = state.player.position[1];
-        const rx = 0.25;
-        const ry = 0.5;
-        const yOffset = -0.06;
-
-        const glyphColor = (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff;
-
-        renderer.renderGlyphs.start(matScreenFromWorld);
-        renderer.renderGlyphs.add(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1*tx, ty, 2*tx, 0, glyphColor);
-        renderer.renderGlyphs.flush();
-    }
+    renderPlayer(state, renderer, matScreenFromWorld);
 
     const distFromEntrance = Math.max(30, estimateDistance(state.distanceFieldFromEntrance, state.camera.position));
     state.renderLighting(matScreenFromWorld, distFromEntrance - 10, state.lava.levelBase, state.mapZoom);
@@ -2369,6 +2374,8 @@ function renderScene(renderer, state) {
             'Jacin said the amulet is cursed.',
             'Having magic of my own, though,',
             'I prefer to judge for myself.',
+            '',
+            '   Retrieve cursed amulet: \x0c',
             '',
             'Move with mouse',
             'LMB shoots while moving',
@@ -2624,7 +2631,7 @@ function renderTextLines(renderer, screenSize, lines) {
     }
 
     const minCharsX = 40;
-    const minCharsY = 20;
+    const minCharsY = 22;
     const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
     const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
     const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
@@ -3455,8 +3462,8 @@ function createEnemies(rooms, roomDistance, level, positionsUsed) {
 
         const room = rooms[roomIndex];
 
-        const depthDensity = 0.2 + 1.2 * d / dMax;
-        const maxEnemies = Math.ceil(room.sizeX * room.sizeY * 0.025 * depthDensity);
+        const depthDensity = lerp(0.005, 0.035, d / dMax);
+        const maxEnemies = Math.ceil(room.sizeX * room.sizeY * depthDensity);
         let numEnemies = 0;
         for (let i = 0; i < 1024 && numEnemies < maxEnemies; ++i) {
             // Pick a kind of monster to create.
