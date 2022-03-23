@@ -3130,7 +3130,7 @@ function createLevel() {
     // Pick sizes for the rooms. The entrance and exit rooms are special and
     // have fixed sizes.
 
-    const minRoomSize = corridorWidth + 2;
+    const minRoomSize = corridorWidth + 6;
     const maxRoomSize = 33;
     const squaresPerBlock = maxRoomSize + corridorWidth + 2;
 
@@ -3573,9 +3573,9 @@ function createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positions
     }
 
     shuffleArray(roomIndices);
-    roomIndices.length = Math.ceil(roomIndices.length * 0.75);
+    roomIndices.length = Math.ceil(roomIndices.length * 0.667);
 
-    const numHealthPotions = Math.ceil(roomIndices.length / 2);
+    const numHealthPotions = Math.ceil(roomIndices.length * 0.667);
 
     const potions = [];
 
@@ -3729,6 +3729,8 @@ function tryCreatePillarRoom(room, level) {
         return false;
 
     function plotPillar(x, y) {
+        if (Math.random() < 0.125)
+            return;
         x += room.minX;
         y += room.minY;
         level.set(x, y, ttWall);
@@ -3762,7 +3764,7 @@ function tryCreatePillarRoom(room, level) {
 function tryPlaceCenterObstacleRoom(rooms, level) {
     for (let i = 0; i < rooms.length; ++i) {
         const room = rooms[i];
-        if (room.sizeX < 13 || room.sizeY < 13)
+        if (room.sizeX < 15 || room.sizeY < 15)
             continue;
 
         rooms[i] = rooms[rooms.length-1];
@@ -3776,8 +3778,8 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
             }
         }
 
-        plotRect(room.minX + 5, room.minY + 5, room.sizeX - 10, room.sizeY - 10, ttWall);
-        plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, ttSolid);
+        plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, ttWall);
+        plotRect(room.minX + 7, room.minY + 7, room.sizeX - 14, room.sizeY - 14, ttSolid);
 
         return;
     }
