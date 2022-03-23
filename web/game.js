@@ -1911,14 +1911,12 @@ function updateLava(state, dt) {
         return;
     }
 
-    if (state.gameState == gsWon) {
-        const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
-        state.lava.levelTarget = entranceDistFromExit - 4;
-    } else {
-        const playerDistFromExit = estimateDistance(state.distanceFieldFromExit, state.player.position);
-        const levelTarget = (playerDistFromExit < 6) ? 0 : playerDistFromExit + 4;
-        state.lava.levelTarget = Math.max(state.lava.levelTarget, levelTarget);
-    }
+    const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
+    const playerDistFromExit = estimateDistance(state.distanceFieldFromExit, state.player.position);
+
+    const maxLevelTarget = entranceDistFromExit - 4;
+
+    state.lava.levelTarget = Math.min(maxLevelTarget, Math.max(state.lava.levelTarget, playerDistFromExit + 10));
 
     const levelError = state.lava.levelTarget - state.lava.levelBase;
     const levelVelocityError = -state.lava.levelBaseVelocity;
