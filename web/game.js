@@ -2977,8 +2977,7 @@ function randomInRange(n) {
 // position is also returned.
 
 function createLevel() {
-    // Create some rooms. First we're going to designate an entrance room, an
-    // exit room, and connectivity between rooms.
+    // Create some rooms in a grid.
 
     const roomGrid = [];
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
@@ -2988,18 +2987,7 @@ function createLevel() {
         }
     }
 
-    const entranceRoomX = randomInRange(2) * (numCellsX - 1);
-    const entranceRoomY = randomInRange(2) * (numCellsY - 1);
-
-    const roomIndexEntrance = entranceRoomY * numCellsX + entranceRoomX;
-
-    const exitRoomX = numCellsX - 1 - entranceRoomX;
-    const exitRoomY = numCellsY - 1 - entranceRoomY;
-
-    const roomIndexExit = exitRoomY * numCellsX + exitRoomX;
-
-    // Generate the graph of connections between rooms. The entrance and
-    // exit rooms will be dead ends.
+    // Build a minimum spanning tree of the rooms.
 
     const potentialEdges = [];
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
@@ -3026,75 +3014,118 @@ function createLevel() {
         roomGroup.push(i);
     }
 
-    let entranceConnected = false;
-    let exitConnected = false;
-
     const edges = [];
 
     // Add edges between as-yet-unconnected sub-graphs
 
     for (const edge of potentialEdges) {
-        const edgeConnectsEntrance = (edge[0] == roomIndexEntrance || edge[1] == roomIndexEntrance);
-        const edgeConnectsExit = (edge[0] == roomIndexExit || edge[1] == roomIndexExit);
-        if (edgeConnectsEntrance && entranceConnected)
-            continue;
-        if (edgeConnectsExit && exitConnected)
-            continue;
-
         const group0 = roomGroup[edge[0]];
         const group1 = roomGroup[edge[1]];
 
-        if (group0 != group1) {
-            edges.push(edge);
+        if (group0 == group1)
+            continue;
 
-            if (edgeConnectsEntrance)
-                entranceConnected = true;
-            if (edgeConnectsExit)
-                exitConnected = true;
+        edges.push(edge);
+        for (let i = 0; i < numRooms; ++i) {
+            if (roomGroup[i] === group1) {
+                roomGroup[i] = group0;
+            }
+        }
+    }
 
-            for (let i = 0; i < numRooms; ++i) {
-                if (roomGroup[i] === group1) {
-                    roomGroup[i] = group0;
+    // Calculate all-pairs shortest path distances
+
+    const dist = [];
+    for (let i = 0; i < numRooms; ++i) {
+        dist[i] = [];
+        for (let j = 0; j < numRooms; ++j) {
+            dist[i][j] = (i == j) ? 0 : Infinity;
+        }
+    }
+
+    for (const edge of edges) {
+        dist[edge[0]][edge[1]] = 1;
+        dist[edge[1]][edge[0]] = 1;
+    }
+
+    for (let k = 0; k < numRooms; ++k) {
+        for (let i = 0; i < numRooms; ++i) {
+            for (let j = 0; j < numRooms; ++j) {
+                if (dist[i][j] > dist[i][k] + dist[k][j]) {
+                    dist[i][j] = dist[i][k] + dist[k][j];
                 }
             }
         }
     }
 
-    // Add half the remaining edges
+    // Pick a starting room and an ending room that are maximally distant
 
-    filterInPlace(potentialEdges, edge => !hasEdge(edges, edge[0], edge[1]) &&
-        edge[0] != roomIndexEntrance && edge[1] != roomIndexEntrance &&
-        edge[0] != roomIndexExit && edge[1] != roomIndexExit);
-    potentialEdges.length = Math.floor(potentialEdges.length / 2);
-    for (const edge of potentialEdges) {
-        edges.push(edge);
+    let maxDistPairs = [];
+    let maxDist = 0;
+
+    for (let i = 0; i < numRooms; ++i) {
+        for (let j = i + 1; j < numRooms; ++j) {
+            if (dist[i][j] > maxDist) {
+                maxDist = dist[i][j];
+                maxDistPairs = [[i, j]];
+            } else if (dist[i][j] == maxDist) {
+                maxDistPairs.push([i, j]);
+            }
+        }
     }
+
+    shuffleArray(maxDistPairs);
+    shuffleArray(maxDistPairs[0]);
+
+    const roomIndexEntrance = maxDistPairs[0][0];
+    const roomIndexExit = maxDistPairs[0][1];
 
     // Compute distances for each room from the entrance.
 
-    const roomDistance = Array(numRooms).fill(numRooms);
-    const toVisit = [{priority: 0, roomIndex: roomIndexEntrance}];
-    while (toVisit.length > 0) {
-        const {priority, roomIndex} = priorityQueuePop(toVisit);
+    const roomDistanceFromEntrance = [];
+    const roomDistanceFromExit = [];
+    computeDistances(roomDistanceFromEntrance, numRooms, edges, roomIndexEntrance);
+    computeDistances(roomDistanceFromExit, numRooms, edges, roomIndexExit);
 
-        if (roomDistance[roomIndex] <= priority) {
+    // Find dead-end rooms and add edges to them if they don't change the length
+    // of the path from the entrance to the exit.
+
+    filterInPlace(potentialEdges, edge => !hasEdge(edges, edge[0], edge[1]));
+
+    const roomIndexShuffled = [];
+    for (let i = 0; i < numRooms; ++i) {
+        roomIndexShuffled.push(i);
+    }
+    shuffleArray(roomIndexShuffled);
+
+    const minDistEntranceToExit = roomDistanceFromEntrance[roomIndexExit];
+
+    for (const roomIndex of roomIndexShuffled) {
+        const numEdgesCur = edges.reduce((count, edge) => count + (edge[0] == roomIndex || edge[1] == roomIndex) ? 1 : 0, 0);
+        if (numEdgesCur != 1) {
             continue;
         }
 
-        roomDistance[roomIndex] = priority;
+        const edgesToAdd = potentialEdges.filter(edge => edge[0] == roomIndex || edge[1] == roomIndex);
 
-        const dist = priority + 1;
-
-        for (const edge of edges) {
-            if (edge[0] == roomIndex) {
-                if (roomDistance[edge[1]] > dist) {
-                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge[1]});
-                }
-            } else if (edge[1] == roomIndex) {
-                if (roomDistance[edge[0]] > dist) {
-                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge[0]});
-                }
+        filterInPlace(edgesToAdd, edge => {
+            const e0 = edge[0];
+            const e1 = edge[1];
+            if (hasEdge(edges, e0, e1)) {
+                return false;
             }
+            const newDistEntranceToExit = 1 + Math.min(
+                roomDistanceFromEntrance[e0] + roomDistanceFromExit[e1],
+                roomDistanceFromEntrance[e1] + roomDistanceFromExit[e0]
+            );
+            return newDistEntranceToExit >= minDistEntranceToExit;
+        });
+
+        if (edgesToAdd.length > 0) {
+            edges.push(edgesToAdd[randomInRange(edgesToAdd.length)]);
+
+            computeDistances(roomDistanceFromEntrance, numRooms, edges, roomIndexEntrance);
+            computeDistances(roomDistanceFromExit, numRooms, edges, roomIndexExit);
         }
     }
 
@@ -3349,7 +3380,7 @@ function createLevel() {
 
     // Enemies
 
-    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistance, level, positionsUsed);
+    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, level, positionsUsed);
 
     // Potions
 
@@ -3378,10 +3409,46 @@ function createLevel() {
     };
 }
 
+function computeDistances(roomDistance, numRooms, edges, roomIndexStart) {
+    roomDistance.length = numRooms;
+    roomDistance.fill(numRooms);
+    const toVisit = [{priority: 0, roomIndex: roomIndexStart}];
+    while (toVisit.length > 0) {
+        const {priority, roomIndex} = priorityQueuePop(toVisit);
+
+        if (roomDistance[roomIndex] <= priority) {
+            continue;
+        }
+
+        roomDistance[roomIndex] = priority;
+
+        const dist = priority + 1;
+
+        for (const edge of edges) {
+            if (edge[0] == roomIndex) {
+                if (roomDistance[edge[1]] > dist) {
+                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge[1]});
+                }
+            } else if (edge[1] == roomIndex) {
+                if (roomDistance[edge[0]] > dist) {
+                    priorityQueuePush(toVisit, {priority: dist, roomIndex: edge[0]});
+                }
+            }
+        }
+    }
+}
+
+function computedDistance(numRooms, edges, roomIndexStart, roomIndexEnd) {
+    const roomDistance = computeDistances(numRooms, edges, roomIndexStart);
+    return roomDistance[roomIndexEnd];
+}
+
 function createEnemies(rooms, roomDistance, level, positionsUsed) {
     const spikes = [];
     const turrets = [];
     const swarmers = [];
+
+    const dMax = roomDistance.reduce((d0, d1) => Math.max(d0, d1), 0);
 
     for (let roomIndex = 0; roomIndex < roomDistance.length; ++roomIndex) {
         const d = roomDistance[roomIndex];
@@ -3390,16 +3457,17 @@ function createEnemies(rooms, roomDistance, level, positionsUsed) {
 
         const room = rooms[roomIndex];
 
-        const maxEnemies = Math.floor(d * Math.max(2, room.sizeX * room.sizeY / 224));
+        const depthDensity = 0.2 + 1.2 * d / dMax;
+        const maxEnemies = Math.ceil(room.sizeX * room.sizeY * 0.025 * depthDensity);
         let numEnemies = 0;
         for (let i = 0; i < 1024 && numEnemies < maxEnemies; ++i) {
             // Pick a kind of monster to create.
             const monsterKind = Math.random();
 
             let success = false;
-            if (monsterKind < 0.333 || d < 2) {
+            if (monsterKind < 0.3 || d < 2) {
                 success = tryCreateSpike(room, spikes, level, positionsUsed);
-            } else if ((monsterKind < 0.667 || d < 3) && d != 3) {
+            } else if ((monsterKind < 0.7 || d < 3) && d != 3) {
                 success = tryCreateTurret(room, turrets, level, positionsUsed);
             } else {
                 success = tryCreateSwarmer(room, swarmers, level, positionsUsed);
@@ -3424,7 +3492,7 @@ function tryCreateSpike(room, spikes, level, positionsUsed) {
         return false;
     }
 
-    if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * monsterRadius, position)) {
+    if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
         return false;
     }
 
@@ -3451,7 +3519,7 @@ function tryCreateTurret(room, turrets, level, positionsUsed) {
         return false;
     }
 
-    if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * monsterRadius, position)) {
+    if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
         return false;
     }
 
@@ -3479,7 +3547,7 @@ function tryCreateSwarmer(room, swarmers, level, positionsUsed) {
         return false;
     }
 
-    if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * monsterRadius, position)) {
+    if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
         return false;
     }
 
