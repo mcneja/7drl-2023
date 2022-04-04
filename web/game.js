@@ -344,7 +344,7 @@ function renderPlayer(state, renderer, matScreenFromWorld) {
         const glyphColor = (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff;
 
         renderer.renderGlyphs.start(matScreenFromWorld);
-        renderer.renderGlyphs.add(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1*tx, ty, 2*tx, 0, glyphColor);
+        renderer.renderGlyphs.addGlyph(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1, glyphColor);
         renderer.renderGlyphs.flush();
     }
 }
@@ -641,7 +641,6 @@ function renderSpikesDead(spikes, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(111);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -651,9 +650,9 @@ function renderSpikesDead(spikes, renderer, matScreenFromWorld) {
         if (spike.dead) {
             const x = spike.position[0];
             const y = spike.position[1];
-            renderer.renderGlyphs.add(
+            renderer.renderGlyphs.addGlyph(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                111,
                 glyphColor
             );
         }
@@ -674,7 +673,6 @@ function renderSpikesAlive(spikes, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(111);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -684,9 +682,9 @@ function renderSpikesAlive(spikes, renderer, matScreenFromWorld) {
         if (!spike.dead) {
             const x = spike.position[0];
             const y = spike.position[1];
-            renderer.renderGlyphs.add(
+            renderer.renderGlyphs.addGlyph(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                111,
                 glyphColor
             );
         }
@@ -707,7 +705,6 @@ function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(119);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -717,9 +714,9 @@ function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
         if (turret.dead) {
             const x = turret.position[0];
             const y = turret.position[1];
-            renderer.renderGlyphs.add(
+            renderer.renderGlyphs.addGlyph(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                119,
                 turretGlyphColor
             );
         }
@@ -741,7 +738,6 @@ function renderTurretsAlive(state, turrets, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(119);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -751,9 +747,9 @@ function renderTurretsAlive(state, turrets, renderer, matScreenFromWorld) {
         if (!turret.dead) {
             const x = turret.position[0];
             const y = turret.position[1];
-            renderer.renderGlyphs.add(
+            renderer.renderGlyphs.addGlyph(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                119,
                 turretGlyphColor
             );
         }
@@ -774,7 +770,6 @@ function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(98);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -784,9 +779,9 @@ function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
         if (swarmer.dead) {
             const x = swarmer.position[0];
             const y = swarmer.position[1];
-            renderer.renderGlyphs.add(
+            renderer.renderGlyphs.addGlyph(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                98,
                 glyphColor
             );
         }
@@ -807,7 +802,6 @@ function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(98);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = 0;
@@ -817,9 +811,9 @@ function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
         if (!swarmer.dead) {
             const x = swarmer.position[0];
             const y = swarmer.position[1];
-            renderer.renderGlyphs.add(
+            renderer.renderGlyphs.addGlyph(
                 x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                98,
                 glyphColor
             );
         }
@@ -838,18 +832,6 @@ function colorLerp(color0, color1, u) {
 
 function lerp(v0, v1, u) {
     return v0 + (v1 - v0) * u;
-}
-
-function glyphRect(glyphIndex) {
-    const glyphRow = Math.floor(glyphIndex / 16);
-    const glyphCol = glyphIndex % 16;
-
-    const glyphSpacing = 0.0625;
-
-    const x = glyphSpacing * glyphCol;
-    const y = glyphSpacing * glyphRow;
-
-    return { minX: x, minY: y + glyphSpacing, maxX: x + glyphSpacing, maxY: y };
 }
 
 function filterInPlace(array, condition) {
@@ -1464,26 +1446,27 @@ function createVertexInfo(costRateField, distanceField) {
 
 function createGlyphRenderer(gl, fontImage) {
     const vsSource = `#version 300 es
-        in vec4 vPositionTexcoord;
+        in vec2 vPosition;
+        in vec3 vTexcoord;
         in vec4 vColor;
 
         uniform mat4 uMatScreenFromWorld;
 
-        out highp vec2 fTexcoord;
+        out highp vec3 fTexcoord;
         out highp vec4 fColor;
 
         void main() {
-            fTexcoord = vPositionTexcoord.zw;
+            fTexcoord = vTexcoord;
             fColor = vColor;
-            gl_Position = uMatScreenFromWorld * vec4(vPositionTexcoord.xy, 0, 1);
+            gl_Position = uMatScreenFromWorld * vec4(vPosition, 0, 1);
         }
     `;
 
     const fsSource = `#version 300 es
-        in highp vec2 fTexcoord;
+        in highp vec3 fTexcoord;
         in highp vec4 fColor;
 
-        uniform sampler2D uOpacity;
+        uniform highp sampler2DArray uOpacity;
 
         out lowp vec4 fragColor;
 
@@ -1493,11 +1476,12 @@ function createGlyphRenderer(gl, fontImage) {
     `;
 
     const attribs = {
-        vPositionTexcoord: 0,
-        vColor: 1,
+        vPosition: 0,
+        vTexcoord: 1,
+        vColor: 2,
     };
 
-    const fontTexture = createTextureFromImage(gl, fontImage);
+    const fontTexture = createGlyphTextureFromImage(gl, fontImage);
 
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
@@ -1506,7 +1490,7 @@ function createGlyphRenderer(gl, fontImage) {
 
     const maxQuads = 64;
     const numVertices = 4 * maxQuads;
-    const bytesPerVertex = 4 * Float32Array.BYTES_PER_ELEMENT + Uint32Array.BYTES_PER_ELEMENT;
+    const bytesPerVertex = 2 * Float32Array.BYTES_PER_ELEMENT + 2 * Uint32Array.BYTES_PER_ELEMENT;
     const wordsPerQuad = bytesPerVertex; // divide by four bytes per word, but also multiply by four vertices per quad
 
     const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
@@ -1521,11 +1505,13 @@ function createGlyphRenderer(gl, fontImage) {
 
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
-    gl.enableVertexAttribArray(attribs.vPositionTexcoord);
+    gl.enableVertexAttribArray(attribs.vPosition);
+    gl.enableVertexAttribArray(attribs.vTexcoord);
     gl.enableVertexAttribArray(attribs.vColor);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(attribs.vPositionTexcoord, 4, gl.FLOAT, false, bytesPerVertex, 0);
-    gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
+    gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, bytesPerVertex, 0);
+    gl.vertexAttribPointer(attribs.vTexcoord, 3, gl.UNSIGNED_BYTE, false, bytesPerVertex, 8);
+    gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 12);
     gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
     const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
     gl.bindVertexArray(null);
@@ -1534,36 +1520,33 @@ function createGlyphRenderer(gl, fontImage) {
         mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
     }
 
-    function addQuad(x0, y0, x1, y1, s0, t0, s1, t1, color) {
+    function addGlyph(x0, y0, x1, y1, glyphIndex, color) {
         if (numQuads >= maxQuads) {
             flushQuads();
         }
 
-        let i = numQuads * wordsPerQuad;
+        const i = numQuads * wordsPerQuad;
+        const srcBase = glyphIndex << 16;
 
         vertexDataAsFloat32[i+0] = x0;
         vertexDataAsFloat32[i+1] = y0;
-        vertexDataAsFloat32[i+2] = s0;
-        vertexDataAsFloat32[i+3] = t0;
-        vertexDataAsUint32[i+4] = color;
+        vertexDataAsUint32[i+2] = srcBase + 256;
+        vertexDataAsUint32[i+3] = color;
 
-        vertexDataAsFloat32[i+5] = x1;
-        vertexDataAsFloat32[i+6] = y0;
-        vertexDataAsFloat32[i+7] = s1;
-        vertexDataAsFloat32[i+8] = t0;
-        vertexDataAsUint32[i+9] = color;
+        vertexDataAsFloat32[i+4] = x1;
+        vertexDataAsFloat32[i+5] = y0;
+        vertexDataAsUint32[i+6] = srcBase + 257;
+        vertexDataAsUint32[i+7] = color;
 
-        vertexDataAsFloat32[i+10] = x0;
-        vertexDataAsFloat32[i+11] = y1;
-        vertexDataAsFloat32[i+12] = s0;
-        vertexDataAsFloat32[i+13] = t1;
-        vertexDataAsUint32[i+14] = color;
+        vertexDataAsFloat32[i+8] = x0;
+        vertexDataAsFloat32[i+9] = y1;
+        vertexDataAsUint32[i+10] = srcBase;
+        vertexDataAsUint32[i+11] = color;
 
-        vertexDataAsFloat32[i+15] = x1;
-        vertexDataAsFloat32[i+16] = y1;
-        vertexDataAsFloat32[i+17] = s1;
-        vertexDataAsFloat32[i+18] = t1;
-        vertexDataAsUint32[i+19] = color;
+        vertexDataAsFloat32[i+12] = x1;
+        vertexDataAsFloat32[i+13] = y1;
+        vertexDataAsUint32[i+14] = srcBase + 1;
+        vertexDataAsUint32[i+15] = color;
 
         ++numQuads;
     }
@@ -1578,7 +1561,7 @@ function createGlyphRenderer(gl, fontImage) {
         gl.bindVertexArray(vao);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, fontTexture);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, fontTexture);
         gl.uniform1i(uOpacityLoc, 0);
 
         gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorldCached);
@@ -1595,7 +1578,7 @@ function createGlyphRenderer(gl, fontImage) {
 
     return {
         start: setMatScreenFromWorld,
-        add: addQuad,
+        addGlyph: addGlyph,
         flush: flushQuads,
     };
 }
@@ -1621,19 +1604,39 @@ function createGlyphIndexBuffer(gl, maxQuads) {
     return indexBuffer;
 }
 
-function createTextureFromImage(gl, image) {
-    const level = 0;
-    const internalFormat = gl.RGBA;
-    const srcFormat = gl.RGBA;
-    const srcType = gl.UNSIGNED_BYTE;
+function createGlyphTextureFromImage(gl, image) {
+    const numGlyphsX = 16;
+    const numGlyphsY = 16;
+    const numGlyphs = numGlyphsX * numGlyphsY;
+    const glyphSizeX = image.naturalWidth / numGlyphsX;
+    const glyphSizeY = image.naturalHeight / numGlyphsY;
+
+    // Rearrange the glyph data from a grid to a vertical array
+
+    const canvas = document.createElement('canvas');
+    canvas.width = glyphSizeX;
+    canvas.height = glyphSizeY * numGlyphs;
+    const ctx = canvas.getContext('2d');
+    for (let y = 0; y < numGlyphsY; ++y) {
+        for (let x = 0; x < numGlyphsX; ++x) {
+            const sx = x * glyphSizeX;
+            const sy = y * glyphSizeY;
+            const dx = 0;
+            const dy = (numGlyphsX * y + x) * glyphSizeY;
+            ctx.drawImage(image, sx, sy, glyphSizeX, glyphSizeY, dx, dy, glyphSizeX, glyphSizeY);
+        }
+    }
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = new Uint8Array(imageData.data.buffer);
+
     const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, glyphSizeX, glyphSizeY, numGlyphs, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
     return texture;
 }
 
@@ -2503,23 +2506,22 @@ function renderHealthMeter(state, renderer, screenSize) {
         -1);
     renderer.renderGlyphs.start(matScreenFromTextArea);
 
-    const rect = glyphRect(3);
     const glyphColorHeartFilled = 0xff0000aa;
     const glyphColorHeartEmpty = 0xff202020;
     const glyphColorHeartOvercharge = 0xff5555ff;
 
     for (let i = 0; i < playerMaxHitPoints; ++i) {
-        renderer.renderGlyphs.add(
+        renderer.renderGlyphs.addGlyph(
             i, 0, i + 1, 1,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            3,
             i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
         );
     }
 
     for (let i = playerMaxHitPoints; i < state.player.hitPoints; ++i) {
-        renderer.renderGlyphs.add(
+        renderer.renderGlyphs.addGlyph(
             i, 0, i + 1, 1,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            3,
             glyphColorHeartOvercharge
         );
     }
@@ -2560,12 +2562,8 @@ function renderLootCounter(state, renderer, screenSize) {
     const color = 0xff55ffff;
 
     for (let i = 0; i < cCh; ++i) {
-        const rect = glyphRect(strMsg.charCodeAt(i));
-        renderer.renderGlyphs.add(
-            i, 0, i + 1, 1,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
-            color
-        );
+        const glyphIndex = strMsg.charCodeAt(i);
+        renderer.renderGlyphs.addGlyph(i, 0, i + 1, 1, glyphIndex, color);
     }
 
     renderer.renderGlyphs.flush();
@@ -2604,19 +2602,19 @@ function renderBulletAndPotionCounter(state, renderer, screenSize) {
     const numBullets = Math.floor(state.player.numBullets);
 
     for (let i = 0; i < bulletMaxCapacity; ++i) {
-        const rect = glyphRect(157);
-        renderer.renderGlyphs.add(
+        const glyphIndex = 157;
+        renderer.renderGlyphs.addGlyph(
             i, 0, i + 1, 1,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            glyphIndex,
             (i < numBullets) ? color : colorDim
         );
     }
 
     for (let i = 0; i < cCh; ++i) {
-        const rect = glyphRect(strMsg.charCodeAt(i));
-        renderer.renderGlyphs.add(
+        const glyphIndex = strMsg.charCodeAt(i);
+        renderer.renderGlyphs.addGlyph(
             i + bulletMaxCapacity, 0, i + bulletMaxCapacity + 1, 1,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            glyphIndex,
             color
         );
     }
@@ -2657,16 +2655,12 @@ function renderTextLines(renderer, screenSize, lines) {
     const colorText = 0xffeeeeee;
     const colorBackground = 0xe0555555;
 
-    {
-        // Draw a stretched box to make a darkened background for the text.
-        const rect = glyphRect(219);
-
-        renderer.renderGlyphs.add(
-            -1, -1, maxLineLength + 1, lines.length + 1,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
-            colorBackground
-        );
-    }
+    // Draw a stretched box to make a darkened background for the text.
+    renderer.renderGlyphs.addGlyph(
+        -1, -1, maxLineLength + 1, lines.length + 1,
+        219,
+        colorBackground
+    );
 
     for (let i = 0; i < lines.length; ++i) {
         const row = lines.length - (1 + i);
@@ -2676,10 +2670,10 @@ function renderTextLines(renderer, screenSize, lines) {
             if (ch === ' ') {
                 continue;
             }
-            const rect = glyphRect(lines[i].charCodeAt(j));
-            renderer.renderGlyphs.add(
+            const glyphIndex = lines[i].charCodeAt(j);
+            renderer.renderGlyphs.addGlyph(
                 col, row, col + 1, row + 1,
-                rect.minX, rect.minY, rect.maxX, rect.maxY,
+                glyphIndex,
                 colorText
             );
         }
@@ -3849,7 +3843,6 @@ function renderLootItems(state, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(15);
     const rx = 0.25;
     const ry = 0.5;
     const yOffset = -0.05;
@@ -3858,21 +3851,20 @@ function renderLootItems(state, renderer, matScreenFromWorld) {
     for (const lootItem of state.level.lootItems) {
         const x = lootItem.position[0];
         const y = lootItem.position[1];
-        renderer.renderGlyphs.add(
+        renderer.renderGlyphs.addGlyph(
             x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            15,
             lootGlyphColor
         );
     }
 
     if (!state.player.amuletCollected) {
         const amuletColor = 0xff5555ff;
-        const rectAmulet = glyphRect(12);
         const x = state.level.amuletPos[0];
         const y = state.level.amuletPos[1];
-        renderer.renderGlyphs.add(
+        renderer.renderGlyphs.addGlyph(
             x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-            rectAmulet.minX, rectAmulet.minY, rectAmulet.maxX, rectAmulet.maxY,
+            12,
             amuletColor
         );
     }
@@ -3904,7 +3896,6 @@ function renderPotions(state, renderer, matScreenFromWorld) {
 
     renderer.renderGlyphs.start(matScreenFromWorld);
 
-    const rect = glyphRect(173);
     const rx = 0.25;
     const ry = 0.5;
     const potionHealthGlyphColor = 0xff5555ff;
@@ -3913,9 +3904,9 @@ function renderPotions(state, renderer, matScreenFromWorld) {
     for (const potion of state.level.potions) {
         const x = potion.position[0];
         const y = potion.position[1];
-        renderer.renderGlyphs.add(
+        renderer.renderGlyphs.addGlyph(
             x - rx, y - ry, x + rx, y + ry,
-            rect.minX, rect.minY, rect.maxX, rect.maxY,
+            173,
             (potion.potionType == potionTypeHealth) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor
         );
     }
