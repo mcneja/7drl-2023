@@ -17,8 +17,8 @@ const playerRadius = 0.5;
 const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
 const bulletMinSpeed = 4;
-const bulletMaxCapacity = 3;
-const bulletRefillRate = 2;
+const bulletMaxCapacity = 5;
+const bulletRefillRate = 2.5;
 const monsterRadius = 0.5;
 const lootRadius = 0.5;
 const turretFireDelayStart = 4.0;
@@ -246,8 +246,6 @@ function tryShootBullet(state) {
     const playerSpeed = vec2.length(state.player.velocity);
     const scale = Math.max(2 * playerSpeed, bulletMinSpeed) / Math.max(playerSpeed, 0.001);
     vec2.scale(vel, state.player.velocity, scale);
-
-    vec2.scale(state.player.velocity, state.player.velocity, 0.8);
 
     state.playerBullets.push({
         position: pos,
@@ -899,7 +897,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer, createCo
         color: { r: 0, g: 0, b: 0 },
         numInvulnerabilityPotions: 1,
         invulnerabilityTimer: 0,
-        numBullets: 3,
+        numBullets: bulletMaxCapacity,
         amuletCollected: false,
         hitPoints: playerMaxHitPoints,
         damageDisplayTimer: 0,
@@ -3435,11 +3433,6 @@ function computeDistances(roomDistance, numRooms, edges, roomIndexStart) {
             }
         }
     }
-}
-
-function computedDistance(numRooms, edges, roomIndexStart, roomIndexEnd) {
-    const roomDistance = computeDistances(numRooms, edges, roomIndexStart);
-    return roomDistance[roomIndexEnd];
 }
 
 function createEnemies(rooms, roomDistance, level, positionsUsed) {
