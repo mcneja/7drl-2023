@@ -1554,22 +1554,26 @@ function createGlyphTextureFromImage(gl, image) {
     const numGlyphsX = 16;
     const numGlyphsY = 16;
     const numGlyphs = numGlyphsX * numGlyphsY;
-    const glyphSizeX = image.naturalWidth / numGlyphsX;
-    const glyphSizeY = image.naturalHeight / numGlyphsY;
+    const srcGlyphSizeX = image.naturalWidth / numGlyphsX;
+    const srcGlyphSizeY = image.naturalHeight / numGlyphsY;
+    const scaleFactor = 4;
+    const dstGlyphSizeX = srcGlyphSizeX * scaleFactor;
+    const dstGlyphSizeY = srcGlyphSizeY * scaleFactor;
 
     // Rearrange the glyph data from a grid to a vertical array
 
     const canvas = document.createElement('canvas');
-    canvas.width = glyphSizeX;
-    canvas.height = glyphSizeY * numGlyphs;
+    canvas.width = dstGlyphSizeX;
+    canvas.height = dstGlyphSizeY * numGlyphs;
     const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
     for (let y = 0; y < numGlyphsY; ++y) {
         for (let x = 0; x < numGlyphsX; ++x) {
-            const sx = x * glyphSizeX;
-            const sy = y * glyphSizeY;
+            const sx = x * srcGlyphSizeX;
+            const sy = y * srcGlyphSizeY;
             const dx = 0;
-            const dy = (numGlyphsX * y + x) * glyphSizeY;
-            ctx.drawImage(image, sx, sy, glyphSizeX, glyphSizeY, dx, dy, glyphSizeX, glyphSizeY);
+            const dy = (numGlyphsX * y + x) * dstGlyphSizeY;
+            ctx.drawImage(image, sx, sy, srcGlyphSizeX, srcGlyphSizeY, dx, dy, dstGlyphSizeX, dstGlyphSizeY);
         }
     }
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1581,7 +1585,7 @@ function createGlyphTextureFromImage(gl, image) {
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, glyphSizeX, glyphSizeY, numGlyphs, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, dstGlyphSizeX, dstGlyphSizeY, numGlyphs, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
     return texture;
 }
