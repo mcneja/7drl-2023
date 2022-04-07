@@ -315,36 +315,28 @@ function updatePlayerBullet(state, bullet, dt) {
 }
 
 function renderPlayerBullets(state, renderer, matScreenFromWorld) {
-    const color = { r: 0.25, g: 1, b: 1 };
+    const color = 0xffffff40;
     const discs = state.playerBullets.map(bullet => ({
         position: bullet.position,
-        color: color,
         radius: bulletRadius,
+        discColor: color,
+        glyphColor: color,
+        glyphIndex: 0,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
 function renderPlayer(state, renderer, matScreenFromWorld) {
-    state.player.color = (state.player.invulnerabilityTimer > 0) ? { r: 0, g: 1, b: 1 } : { r: 0, g: 0, b: 0 };
-    renderer.renderDiscs(matScreenFromWorld, [state.player]);
+    const discs = [{
+        position: state.player.position,
+        radius: state.player.radius,
+        discColor: (state.player.invulnerabilityTimer > 0) ? 0xffffff00 : 0xff000000,
+        glyphColor: (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff,
+        glyphIndex: 1,
+    }];
 
-    {
-        const tx = 0.0625;
-        const ty = 0.0625;
-
-        const x = state.player.position[0];
-        const y = state.player.position[1];
-        const rx = 0.25;
-        const ry = 0.5;
-        const yOffset = -0.06;
-
-        const glyphColor = (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff;
-
-        renderer.renderGlyphs.start(matScreenFromWorld);
-        renderer.renderGlyphs.addGlyph(x - rx, y + yOffset - ry, x + rx, y + yOffset + ry, 1, glyphColor);
-        renderer.renderGlyphs.flush();
-    }
+    renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
 function updateTurretBullets(state, dt) {
@@ -379,11 +371,13 @@ function updateTurretBullet(state, bullet, dt) {
 }
 
 function renderTurretBullets(bullets, renderer, matScreenFromWorld) {
-    const color = { r: 1, g: 0.5, b: 0.25 };
+    const color = 0xff4080ff;
     const discs = bullets.map(bullet => ({
         position: bullet.position,
-        color: color,
         radius: bulletRadius,
+        discColor: color,
+        glyphColor: color,
+        glyphIndex: 0,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
@@ -628,204 +622,86 @@ function updateSwarmers(state, dt) {
 }
 
 function renderSpikesDead(spikes, renderer, matScreenFromWorld) {
-    const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = spikes.filter(spike => spike.dead).map(spike => ({
         position: spike.position,
-        color: color,
         radius: monsterRadius,
+        discColor: 0xff737373,
+        glyphColor: 0xff808080,
+        glyphIndex: 111,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = 0;
-    const glyphColor = 0xff808080;
-
-    for (const spike of spikes) {
-        if (spike.dead) {
-            const x = spike.position[0];
-            const y = spike.position[1];
-            renderer.renderGlyphs.addGlyph(
-                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                111,
-                glyphColor
-            );
-        }
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function renderSpikesAlive(spikes, renderer, matScreenFromWorld) {
-    const color = { r: 0.25, g: 0.34375, b: 0.25 };
     const discs = spikes.filter(spike => !spike.dead).map(spike => ({
         position: spike.position,
-        color: color,
         radius: monsterRadius,
+        discColor: 0xff405840,
+        glyphColor: 0xff80b080,
+        glyphIndex: 111,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = 0;
-    const glyphColor = 0xff80b080;
-
-    for (const spike of spikes) {
-        if (!spike.dead) {
-            const x = spike.position[0];
-            const y = spike.position[1];
-            renderer.renderGlyphs.addGlyph(
-                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                111,
-                glyphColor
-            );
-        }
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function renderTurretsDead(turrets, renderer, matScreenFromWorld) {
     const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = turrets.filter(turret => turret.dead).map(turret => ({
         position: turret.position,
-        color: color,
         radius: monsterRadius,
+        discColor: 0xff737373,
+        glyphColor: 0xff808080,
+        glyphIndex: 119,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = 0;
-    const turretGlyphColor = 0xff808080;
-
-    for (const turret of turrets) {
-        if (turret.dead) {
-            const x = turret.position[0];
-            const y = turret.position[1];
-            renderer.renderGlyphs.addGlyph(
-                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                119,
-                turretGlyphColor
-            );
-        }
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function renderTurretsAlive(state, turrets, renderer, matScreenFromWorld) {
-    const colorWindup = { r: 1, g: 0.5, b: 0.25 };
-    const color = { r: 0.34375, g: 0.25, b: 0.25 };
+    const colorWindup = 0xff4080ff;
+    const color = 0xff404058;
     const discs = turrets.filter(turret => !turret.dead).map(turret => ({
         position: turret.position,
-        color: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay(state))),
         radius: monsterRadius,
+        discColor: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay(state))),
+        glyphColor: 0xff8080b0,
+        glyphIndex: 119,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = 0;
-    const turretGlyphColor = 0xff8080b0;
-
-    for (const turret of turrets) {
-        if (!turret.dead) {
-            const x = turret.position[0];
-            const y = turret.position[1];
-            renderer.renderGlyphs.addGlyph(
-                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                119,
-                turretGlyphColor
-            );
-        }
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function renderSwarmersDead(swarmers, renderer, matScreenFromWorld) {
-    const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = swarmers.filter(swarmer => swarmer.dead).map(swarmer => ({
         position: swarmer.position,
-        color: color,
         radius: monsterRadius,
+        discColor: 0xff737373,
+        glyphColor: 0xff808080,
+        glyphIndex: 98,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = 0;
-    const glyphColor = 0xff808080;
-
-    for (const swarmer of swarmers) {
-        if (swarmer.dead) {
-            const x = swarmer.position[0];
-            const y = swarmer.position[1];
-            renderer.renderGlyphs.addGlyph(
-                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                98,
-                glyphColor
-            );
-        }
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function renderSwarmersAlive(swarmers, renderer, matScreenFromWorld) {
-    const color = { r: 0.125, g: 0.125, b: 0.125 };
     const discs = swarmers.filter(swarmer => !swarmer.dead).map(swarmer => ({
         position: swarmer.position,
-        color: color,
         radius: monsterRadius,
+        discColor: 0xff202020,
+        glyphColor: 0xff5555ff,
+        glyphIndex: 98,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = 0;
-    const glyphColor = 0xff5555ff;
-
-    for (const swarmer of swarmers) {
-        if (!swarmer.dead) {
-            const x = swarmer.position[0];
-            const y = swarmer.position[1];
-            renderer.renderGlyphs.addGlyph(
-                x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-                98,
-                glyphColor
-            );
-        }
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function colorLerp(color0, color1, u) {
-    return {
-        r: lerp(color0.r, color1.r, u),
-        g: lerp(color0.g, color1.g, u),
-        b: lerp(color0.b, color1.b, u),
-    };
+    const r = Math.floor(lerp(color0 & 0xff, color1 & 0xff, u));
+    const g = Math.floor(lerp((color0 >> 8) & 0xff, (color1 >> 8) & 0xff, u));
+    const b = Math.floor(lerp((color0 >> 16) & 0xff, (color1 >> 16) & 0xff, u));
+    const a = Math.floor(lerp((color0 >> 24) & 0xff, (color1 >> 24) & 0xff, u));
+    return (a << 24) + (b << 16) + (g << 8) + r;
 }
 
 function lerp(v0, v1, u) {
@@ -851,12 +727,14 @@ function filterInPlace(array, condition) {
 }
 
 function createRenderer(gl, fontImage) {
+    const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
+
     const renderer = {
         beginFrame: createBeginFrame(gl),
         createFieldRenderer: createFieldRenderer(gl),
         createLightingRenderer: createLightingRenderer(gl),
-        renderDiscs: createDiscRenderer(gl),
-        renderGlyphs: createGlyphRenderer(gl, fontImage),
+        renderDiscs: createDiscRenderer(gl, glyphTexture),
+        renderGlyphs: createGlyphRenderer(gl, glyphTexture),
         createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
         renderVignette: createVignetteRenderer(gl),
     };
@@ -1300,73 +1178,145 @@ function createLightingRenderer(gl) {
     };
 }
 
-function createDiscRenderer(gl) {
+function createDiscRenderer(gl, glyphTexture) {
     const vsSource = `#version 300 es
-        in vec2 vPosition;
-        
-        uniform mat4 uMatScreenFromDisc;
+        // per-vertex parameters
+        in highp vec2 vPosition;
+        // per-instance parameters
+        in highp vec4 vScaleAndOffset;
+        in highp vec4 vDiscColorAndOpacity;
+        in highp vec3 vGlyphColor;
+        in highp float vGlyphIndex;
 
-        out highp vec2 fPosition;
+        uniform mat4 uMatScreenFromWorld;
+        uniform vec4 uScaleAndOffsetGlyphFromDisc;
+
+        out highp vec2 fDiscPosition;
+        out highp vec3 fGlyphTexCoord;
+        out highp vec4 fDiscColorAndOpacity;
+        out highp vec3 fGlyphColor;
 
         void main() {
-            fPosition = vPosition;
-            gl_Position = uMatScreenFromDisc * vec4(vPosition.xy, 0, 1);
+            fDiscPosition = vPosition;
+            fGlyphTexCoord = vec3(vPosition * uScaleAndOffsetGlyphFromDisc.xy + uScaleAndOffsetGlyphFromDisc.zw, vGlyphIndex);
+            fDiscColorAndOpacity = vDiscColorAndOpacity;
+            fGlyphColor = vGlyphColor;
+            gl_Position = uMatScreenFromWorld * vec4(vPosition * vScaleAndOffset.xy + vScaleAndOffset.zw, 0, 1);
         }
     `;
 
     const fsSource = `#version 300 es
-        in highp vec2 fPosition;
+        in highp vec2 fDiscPosition;
+        in highp vec3 fGlyphTexCoord;
+        in highp vec4 fDiscColorAndOpacity;
+        in highp vec3 fGlyphColor;
 
-        uniform highp vec3 uColor;
+        uniform highp sampler2DArray uGlyphOpacity;
 
         out lowp vec4 fragColor;
 
         void main() {
-            highp float r = length(fPosition);
+            highp float glyphOpacity =
+                step(0.0, fGlyphTexCoord.x) *
+                step(0.0, 1.0 - fGlyphTexCoord.x) *
+                step(0.0, fGlyphTexCoord.y) *
+                step(0.0, 1.0 - fGlyphTexCoord.y) *
+                texture(uGlyphOpacity, fGlyphTexCoord).x;
+            highp float r = length(fDiscPosition);
             highp float aaf = fwidth(r);
-            highp float opacity = 1.0 - smoothstep(1.0 - aaf, 1.0, r);
-            fragColor = vec4(uColor, opacity);
+            highp float discOpacity = fDiscColorAndOpacity.w * (1.0 - smoothstep(1.0 - aaf, 1.0, r));
+            highp vec3 color = mix(fDiscColorAndOpacity.xyz, fGlyphColor, glyphOpacity);
+            fragColor = vec4(color, discOpacity);
         }
     `;
 
     const attribs = {
         vPosition: 0,
+        vScaleAndOffset: 1,
+        vDiscColorAndOpacity: 2,
+        vGlyphColor: 3,
+        vGlyphIndex: 4,
     };
 
-    const matWorldFromDisc = mat4.create();
-    const matScreenFromDisc = mat4.create();
+    const vecScaleAndOffsetGlyphFromDisc = vec4.fromValues(1, -0.5, 0.5, 0.45);
 
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
-    const projectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromDisc');
-    const colorLoc = gl.getUniformLocation(program, 'uColor');
-    const vertexBuffer = createDiscVertexBuffer(gl);
+    const locMatScreenFromWorld = gl.getUniformLocation(program, 'uMatScreenFromWorld');
+    const locScaleAndOffsetGlyphFromDisc = gl.getUniformLocation(program, 'uScaleAndOffsetGlyphFromDisc');
+    const locGlyphOpacity = gl.getUniformLocation(program, 'uGlyphOpacity');
+
+    const maxInstances = 64;
+    const bytesPerInstance = 24; // 2 float scale, 2 float offset, 4 byte disc color/opacity, 4 byte glyph color/index
+    const instanceData = new ArrayBuffer(maxInstances * bytesPerInstance);
+    const instanceDataAsFloat32 = new Float32Array(instanceData);
+    const instanceDataAsUint32 = new Uint32Array(instanceData);
 
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    gl.enableVertexAttribArray(attribs.vPosition);
+    // per-vertex attributes
+    const vertexBuffer = createDiscVertexBuffer(gl);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    const stride = 8; // two 4-byte floats
-    gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(attribs.vPosition);
+    gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, 0, 0);
+
+    // per-instance attributes
+    const instanceBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, instanceData.byteLength, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(attribs.vScaleAndOffset);
+    gl.enableVertexAttribArray(attribs.vDiscColorAndOpacity);
+    gl.enableVertexAttribArray(attribs.vGlyphColor);
+    gl.enableVertexAttribArray(attribs.vGlyphIndex);
+    gl.vertexAttribPointer(attribs.vScaleAndOffset, 4, gl.FLOAT, false, bytesPerInstance, 0);
+    gl.vertexAttribPointer(attribs.vDiscColorAndOpacity, 4, gl.UNSIGNED_BYTE, true, bytesPerInstance, 16);
+    gl.vertexAttribPointer(attribs.vGlyphColor, 3, gl.UNSIGNED_BYTE, true, bytesPerInstance, 20);
+    gl.vertexAttribPointer(attribs.vGlyphIndex, 1, gl.UNSIGNED_BYTE, false, bytesPerInstance, 23);
+    gl.vertexAttribDivisor(attribs.vScaleAndOffset, 1);
+    gl.vertexAttribDivisor(attribs.vDiscColorAndOpacity, 1);
+    gl.vertexAttribDivisor(attribs.vGlyphColor, 1);
+    gl.vertexAttribDivisor(attribs.vGlyphIndex, 1);
 
     gl.bindVertexArray(null);
 
     return (matScreenFromWorld, discs) => {
         gl.useProgram(program);
+
         gl.bindVertexArray(vao);
 
-        for (const disc of discs) {
-            matWorldFromDisc[0] = disc.radius;
-            matWorldFromDisc[5] = disc.radius;
-            matWorldFromDisc[12] = disc.position[0];
-            matWorldFromDisc[13] = disc.position[1];
-            mat4.multiply(matScreenFromDisc, matScreenFromWorld, matWorldFromDisc);
+        gl.uniformMatrix4fv(locMatScreenFromWorld, false, matScreenFromWorld);
+        gl.uniform4fv(locScaleAndOffsetGlyphFromDisc, vecScaleAndOffsetGlyphFromDisc);
 
-            gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
-            gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromDisc);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, glyphTexture);
+        gl.uniform1i(locGlyphOpacity, 0);
 
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+
+        let discIndexStart = 0;
+        while (discIndexStart < discs.length) {
+            const numInstances = Math.min(maxInstances, discs.length - discIndexStart);
+
+            // Load disc data into the instance buffer
+
+            for (let i = 0; i < numInstances; ++i) {
+                const disc = discs[discIndexStart + i];
+
+                let j = i * bytesPerInstance / 4;
+                instanceDataAsFloat32[j + 0] = disc.radius;
+                instanceDataAsFloat32[j + 1] = disc.radius;
+                instanceDataAsFloat32[j + 2] = disc.position[0];
+                instanceDataAsFloat32[j + 3] = disc.position[1];
+                instanceDataAsUint32[j + 4] = disc.discColor;
+                instanceDataAsUint32[j + 5] = (disc.glyphColor & 0xffffff) + (disc.glyphIndex << 24);
+            }
+
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, instanceData); // would like to only submit data for instances we will draw, not the whole buffer
+
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, numInstances);
+
+            discIndexStart += numInstances;
         }
 
         gl.bindVertexArray(null);
@@ -1442,7 +1392,7 @@ function createVertexInfo(costRateField, distanceField) {
     return v;
 }
 
-function createGlyphRenderer(gl, fontImage) {
+function createGlyphRenderer(gl, glyphTexture) {
     const vsSource = `#version 300 es
         in vec2 vPosition;
         in vec3 vTexcoord;
@@ -1478,8 +1428,6 @@ function createGlyphRenderer(gl, fontImage) {
         vTexcoord: 1,
         vColor: 2,
     };
-
-    const fontTexture = createGlyphTextureFromImage(gl, fontImage);
 
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
@@ -1559,7 +1507,7 @@ function createGlyphRenderer(gl, fontImage) {
         gl.bindVertexArray(vao);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, fontTexture);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, glyphTexture);
         gl.uniform1i(uOpacityLoc, 0);
 
         gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorldCached);
@@ -3817,52 +3765,25 @@ function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, lev
 }
 
 function renderLootItems(state, renderer, matScreenFromWorld) {
-    const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = state.level.lootItems.map(lootItem => ({
         position: lootItem.position,
-        color: color,
         radius: lootRadius,
+        discColor: 0xff737373,
+        glyphColor: 0xff37ffff,
+        glyphIndex: 15,
     }));
 
     if (!state.player.amuletCollected) {
         discs.push({
             position: state.level.amuletPos,
-            color: { r: 0.4, g: 0.15, b: 0.15 },
             radius: lootRadius,
+            discColor: 0xff262666,
+            glyphColor: 0xff3737ff,
+            glyphIndex: 12,
         });
     }
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
-    const yOffset = -0.05;
-    const lootGlyphColor = 0xff55ffff;
-
-    for (const lootItem of state.level.lootItems) {
-        const x = lootItem.position[0];
-        const y = lootItem.position[1];
-        renderer.renderGlyphs.addGlyph(
-            x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-            15,
-            lootGlyphColor
-        );
-    }
-
-    if (!state.player.amuletCollected) {
-        const amuletColor = 0xff5555ff;
-        const x = state.level.amuletPos[0];
-        const y = state.level.amuletPos[1];
-        renderer.renderGlyphs.addGlyph(
-            x - rx, y + yOffset - ry, x + rx, y + yOffset + ry,
-            12,
-            amuletColor
-        );
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function updateLootItems(state) {
@@ -3878,33 +3799,18 @@ function updateLootItems(state) {
 }
 
 function renderPotions(state, renderer, matScreenFromWorld) {
-    const color = { r: 0.45, g: 0.45, b: 0.45 };
-    const discs = state.level.potions.map(potion => ({
-        position: potion.position,
-        color: color,
-        radius: lootRadius,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-
-    renderer.renderGlyphs.start(matScreenFromWorld);
-
-    const rx = 0.25;
-    const ry = 0.5;
     const potionHealthGlyphColor = 0xff5555ff;
     const potionInvulnerabilityGlyphColor = 0xffffff55;
 
-    for (const potion of state.level.potions) {
-        const x = potion.position[0];
-        const y = potion.position[1];
-        renderer.renderGlyphs.addGlyph(
-            x - rx, y - ry, x + rx, y + ry,
-            173,
-            (potion.potionType == potionTypeHealth) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor
-        );
-    }
+    const discs = state.level.potions.map(potion => ({
+        position: potion.position,
+        radius: lootRadius,
+        discColor: 0xff737373,
+        glyphColor: (potion.potionType == potionTypeHealth) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor,
+        glyphIndex: 173,
+    }));
 
-    renderer.renderGlyphs.flush();
+    renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
 function updatePotions(state) {
