@@ -1,13 +1,30 @@
 "use strict";
 window.onload = loadResourcesThenRun;
 const { mat2, mat3, mat4, vec2, vec3, vec4 } = glMatrix;
-const ttSolid = 0;
-const ttWall = 1;
-const ttHall = 2;
-const ttRoom = 3;
-const gsActive = 0;
-const gsDied = 1;
-const gsWon = 2;
+var TerrainType;
+(function (TerrainType) {
+    TerrainType[TerrainType["Solid"] = 0] = "Solid";
+    TerrainType[TerrainType["Wall"] = 1] = "Wall";
+    TerrainType[TerrainType["Hall"] = 2] = "Hall";
+    TerrainType[TerrainType["Room"] = 3] = "Room";
+})(TerrainType || (TerrainType = {}));
+var GameState;
+(function (GameState) {
+    GameState[GameState["Active"] = 0] = "Active";
+    GameState[GameState["Died"] = 1] = "Died";
+    GameState[GameState["Won"] = 2] = "Won";
+})(GameState || (GameState = {}));
+var LavaState;
+(function (LavaState) {
+    LavaState[LavaState["Inactive"] = 0] = "Inactive";
+    LavaState[LavaState["Primed"] = 1] = "Primed";
+    LavaState[LavaState["Active"] = 2] = "Active";
+})(LavaState || (LavaState = {}));
+var PotionType;
+(function (PotionType) {
+    PotionType[PotionType["Health"] = 0] = "Health";
+    PotionType[PotionType["Invulnerability"] = 1] = "Invulnerability";
+})(PotionType || (PotionType = {}));
 const playerRadius = 0.5;
 const playerMaxHitPoints = 4;
 const bulletRadius = 0.25;
@@ -26,11 +43,6 @@ const pickupMessageDuration = 2.0;
 const numCellsX = 4;
 const numCellsY = 4;
 const corridorWidth = 3;
-const lavaStateInactive = 0;
-const lavaStatePrimed = 1;
-const lavaStateActive = 2;
-const potionTypeHealth = 0;
-const potionTypeInvulnerability = 1;
 const damageDisplayDuration = 1.5;
 const delayGameEndMessage = 2;
 class Float64Grid {
@@ -50,7 +62,7 @@ class Float64Grid {
         this.values[this.sizeX * y + x] = value;
     }
 }
-class LevelCells {
+class TerrainTypeGrid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
@@ -617,7 +629,7 @@ function initState(createFieldRenderer, createLightingRenderer, createColoredTri
         mapZoomVelocity: 0,
         mouseSensitivity: 0,
         player: null,
-        gameState: gsActive,
+        gameState: GameState.Active,
         timeToGameEndMessage: delayGameEndMessage,
         playerBullets: [],
         turretBullets: [],
@@ -663,7 +675,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer, createCo
     vec2.zero(camera.joltOffset);
     vec2.zero(camera.joltVelocity);
     const lava = {
-        state: lavaStateInactive,
+        state: LavaState.Inactive,
         textureScroll: 0,
         levelTarget: 0,
         levelBase: 0,
@@ -676,7 +688,7 @@ function resetState(state, createFieldRenderer, createLightingRenderer, createCo
     state.renderColoredTriangles = renderColoredTriangles;
     state.tLast = undefined;
     state.player = player;
-    state.gameState = gsActive;
+    state.gameState = GameState.Active;
     state.timeToGameEndMessage = delayGameEndMessage;
     state.playerBullets = [];
     state.turretBullets = [];
@@ -769,7 +781,7 @@ function createFieldRenderer(gl) {
         for (let y = 0; y < gridSizeY; ++y) {
             for (let x = 0; x < gridSizeX; ++x) {
                 const tileType = level.grid.get(x, y);
-                if (tileType != ttHall && tileType != ttRoom)
+                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
                     continue;
                 ++numQuads;
             }
@@ -793,7 +805,7 @@ function createFieldRenderer(gl) {
         for (let y0 = 0; y0 < gridSizeY; ++y0) {
             for (let x0 = 0; x0 < gridSizeX; ++x0) {
                 const tileType = level.grid.get(x0, y0);
-                if (tileType != ttHall && tileType != ttRoom)
+                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
                     continue;
                 const x1 = x0 + 1;
                 const y1 = y0 + 1;
@@ -902,7 +914,7 @@ function createLightingRenderer(gl) {
         for (let y = 0; y < gridSizeY; ++y) {
             for (let x = 0; x < gridSizeX; ++x) {
                 const tileType = level.grid.get(x, y);
-                if (tileType != ttHall && tileType != ttRoom)
+                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
                     continue;
                 ++numQuads;
             }
@@ -928,7 +940,7 @@ function createLightingRenderer(gl) {
         for (let y0 = 0; y0 < gridSizeY; ++y0) {
             for (let x0 = 0; x0 < gridSizeX; ++x0) {
                 const tileType = level.grid.get(x0, y0);
-                if (tileType != ttHall && tileType != ttRoom)
+                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
                     continue;
                 const x1 = x0 + 1;
                 const y1 = y0 + 1;
@@ -1482,9 +1494,9 @@ function updateState(state, dt) {
     // Game-end message
     state.timeToGameEndMessage = Math.max(0, state.timeToGameEndMessage - dt);
     if (state.player.amuletCollected &&
-        state.gameState == gsActive &&
+        state.gameState == GameState.Active &&
         posInRect(state.player.position, state.level.startRoom)) {
-        state.gameState = gsWon;
+        state.gameState = GameState.Won;
         state.timeToGameEndMessage = delayGameEndMessage;
     }
     // Other
@@ -1553,23 +1565,23 @@ function updateLava(state, dt) {
     state.lava.textureScroll += dt;
     state.lava.textureScroll -= Math.floor(state.lava.textureScroll);
     // Activate lava when player reaches the exit and then leaves
-    if (state.lava.state == lavaStatePrimed) {
+    if (state.lava.state == LavaState.Primed) {
         if (!posInRect(state.player.position, state.level.amuletRoom)) {
-            state.lava.state = lavaStateActive;
+            state.lava.state = LavaState.Active;
         }
     }
-    else if (state.lava.state == lavaStateInactive) {
+    else if (state.lava.state == LavaState.Inactive) {
         const dposAmulet = vec2.create();
         vec2.subtract(dposAmulet, state.player.position, state.level.amuletPos);
         const distPlayerFromAmulet = vec2.length(dposAmulet);
         if (distPlayerFromAmulet < playerRadius + lootRadius) {
-            state.lava.state = lavaStatePrimed;
+            state.lava.state = LavaState.Primed;
             state.player.amuletCollected = true;
             setPickupMessage(state, ['Amulet']);
         }
     }
     // Update lava's flow
-    if (state.lava.state != lavaStateActive) {
+    if (state.lava.state != LavaState.Active) {
         return;
     }
     const entranceDistFromExit = estimateDistance(state.distanceFieldFromExit, state.level.playerStartPos);
@@ -1612,8 +1624,8 @@ function updateCamera(state, dt) {
     state.mapZoom += (state.mapZoomVelocity + mapZoomVelNew) * (dt / 2);
     state.mapZoomVelocity = mapZoomVelNew;
     // Animate jolt
-    if (state.lava.state != lavaStateInactive) {
-        const joltScale = (state.lava.state == lavaStateActive) ? Math.min(3, state.lava.levelBaseVelocity) : 1;
+    if (state.lava.state != LavaState.Inactive) {
+        const joltScale = (state.lava.state == LavaState.Active) ? Math.min(3, state.lava.levelBaseVelocity) : 1;
         const randomOffset = vec2.create();
         generateRandomGaussianPair(0, joltScale, randomOffset);
         vec2.add(state.camera.joltVelocity, state.camera.joltVelocity, randomOffset);
@@ -1667,8 +1679,8 @@ function damagePlayer(state, numHitPoints) {
         state.player.damageDisplayTimer = damageDisplayDuration;
     }
     state.player.invulnerabilityTimer = 0;
-    if (state.player.hitPoints <= 0 && state.gameState != gsDied) {
-        state.gameState = gsDied;
+    if (state.player.hitPoints <= 0 && state.gameState != GameState.Died) {
+        state.gameState = GameState.Died;
         state.timeToGameEndMessage = delayGameEndMessage;
     }
 }
@@ -1720,7 +1732,7 @@ function isDiscTouchingLevel(discPos, discRadius, level) {
     for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
         for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
             const tileType = level.get(gridX, gridY);
-            if (tileType == ttRoom || tileType == ttHall) {
+            if (tileType == TerrainType.Room || tileType == TerrainType.Hall) {
                 continue;
             }
             let dx = discPos[0] - gridX;
@@ -1752,7 +1764,7 @@ function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level)
         for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
             for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
                 const tileType = level.get(gridX, gridY);
-                if (tileType == ttRoom || tileType == ttHall) {
+                if (tileType == TerrainType.Room || tileType == TerrainType.Hall) {
                     continue;
                 }
                 const dx = position[0] - (0.5 + gridX);
@@ -1853,7 +1865,7 @@ function clearLineOfSight(level, pos0, pos1) {
         if (x < 0 || y < 0 || x >= level.grid.sizeX || y >= level.grid.sizeY)
             return false;
         const tileType = level.grid.get(x, y);
-        if (tileType != ttRoom && tileType != ttHall)
+        if (tileType != TerrainType.Room && tileType != TerrainType.Hall)
             return false;
         if (error > 0) {
             y += yInc;
@@ -1893,7 +1905,7 @@ function renderScene(renderer, state) {
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
     renderLootItems(state, renderer, matScreenFromWorld);
     renderPotions(state, renderer, matScreenFromWorld);
-    if (state.lava.state == lavaStateActive) {
+    if (state.lava.state == LavaState.Active) {
         state.renderField(matScreenFromWorld, state.lava.levelBase, state.lava.textureScroll);
     }
     renderSpikesAlive(state.level.spikes, renderer, matScreenFromWorld);
@@ -1934,13 +1946,13 @@ function renderScene(renderer, state) {
             '   Special thanks: Mendi Carroll',
         ]);
     }
-    else if (state.gameState == gsWon && state.timeToGameEndMessage <= 0) {
+    else if (state.gameState == GameState.Won && state.timeToGameEndMessage <= 0) {
         renderTextLines(renderer, screenSize, [
             'I HOLD THE AMULET AND I LIVE!',
             '   Esc: Pause, R: Restart',
         ]);
     }
-    else if (state.gameState == gsDied && state.timeToGameEndMessage <= 0) {
+    else if (state.gameState == GameState.Died && state.timeToGameEndMessage <= 0) {
         renderTextLines(renderer, screenSize, [
             '   DEATH HAS COME',
             'Esc: Pause, R: Retry',
@@ -2284,7 +2296,7 @@ function estimatedDistance(grid, distanceField, x, y) {
         if (x < 0 || y < 0 || x >= grid.sizeX || y >= grid.sizeY)
             return true;
         const tileType = grid.get(x, y);
-        return tileType != ttHall && tileType != ttRoom;
+        return tileType != TerrainType.Hall && tileType != TerrainType.Room;
     }
     const solidSW = isSolid(x - 1, y - 1);
     const solidSE = isSolid(x, y - 1);
@@ -2533,20 +2545,20 @@ function createLevel() {
     // Compress the rooms together where possible
     const [mapSizeX, mapSizeY] = compressRooms(roomGrid, edges, rooms);
     // Plot rooms into a grid
-    const level = new LevelCells(mapSizeX, mapSizeY, ttSolid);
+    const level = new TerrainTypeGrid(mapSizeX, mapSizeY, TerrainType.Solid);
     for (const room of rooms) {
         for (let y = 0; y < room.sizeY; ++y) {
             for (let x = 0; x < room.sizeX; ++x) {
-                level.set(x + room.minX, y + room.minY, ttRoom);
+                level.set(x + room.minX, y + room.minY, TerrainType.Room);
             }
         }
         for (let x = 0; x < room.sizeX; ++x) {
-            level.set(x + room.minX, room.minY - 1, ttWall);
-            level.set(x + room.minX, room.minY + room.sizeY, ttWall);
+            level.set(x + room.minX, room.minY - 1, TerrainType.Wall);
+            level.set(x + room.minX, room.minY + room.sizeY, TerrainType.Wall);
         }
         for (let y = 0; y < room.sizeY + 2; ++y) {
-            level.set(room.minX - 1, y + room.minY - 1, ttWall);
-            level.set(room.minX + room.sizeX, y + room.minY - 1, ttWall);
+            level.set(room.minX - 1, y + room.minY - 1, TerrainType.Wall);
+            level.set(room.minX + room.sizeX, y + room.minY - 1, TerrainType.Wall);
         }
     }
     // Decorate the rooms
@@ -2579,19 +2591,19 @@ function createLevel() {
             }
             for (let x = xMin; x < xMid; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    level.set(x, yMinLeft + y, ttHall);
+                    level.set(x, yMinLeft + y, TerrainType.Hall);
                 }
             }
             for (let x = xMid + corridorWidth; x < xMax; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    level.set(x, yMinRight + y, ttHall);
+                    level.set(x, yMinRight + y, TerrainType.Hall);
                 }
             }
             const yMin = Math.min(yMinLeft, yMinRight);
             const yMax = Math.max(yMinLeft, yMinRight);
             for (let y = yMin; y < yMax + corridorWidth; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    level.set(xMid + x, y, ttHall);
+                    level.set(xMid + x, y, TerrainType.Hall);
                 }
             }
         }
@@ -2621,19 +2633,19 @@ function createLevel() {
             const yMid = Math.floor((yMax - (yMin + 1 + corridorWidth)) / 2) + yMin + 1;
             for (let y = yMin; y < yMid; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    level.set(xMinLower + x, y, ttHall);
+                    level.set(xMinLower + x, y, TerrainType.Hall);
                 }
             }
             for (let y = yMid + corridorWidth; y < yMax; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    level.set(xMinUpper + x, y, ttHall);
+                    level.set(xMinUpper + x, y, TerrainType.Hall);
                 }
             }
             const xMin = Math.min(xMinLower, xMinUpper);
             const xMax = Math.max(xMinLower, xMinUpper);
             for (let x = xMin; x < xMax + corridorWidth; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    level.set(x, yMid + y, ttHall);
+                    level.set(x, yMid + y, TerrainType.Hall);
                 }
             }
         }
@@ -2646,13 +2658,13 @@ function createLevel() {
     for (let y = 0; y < level.sizeY; ++y) {
         for (let x = 0; x < level.sizeX; ++x) {
             const type = level.get(x, y);
-            if (type == ttRoom) {
+            if (type == TerrainType.Room) {
                 squares.push({ x: x, y: y, color: roomColor });
             }
-            else if (type == ttHall) {
+            else if (type == TerrainType.Hall) {
                 squares.push({ x: x, y: y, color: hallColor });
             }
-            else if (type == ttWall) {
+            else if (type == TerrainType.Wall) {
                 squares.push({ x: x, y: y, color: wallColor });
             }
         }
@@ -2866,7 +2878,7 @@ function createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positions
             }
             potions.push({
                 position: position,
-                potionType: (i < numHealthPotions) ? potionTypeHealth : potionTypeInvulnerability,
+                potionType: (i < numHealthPotions) ? PotionType.Health : PotionType.Invulnerability,
             });
             positionsUsed.push(position);
             break;
@@ -2983,10 +2995,10 @@ function tryCreatePillarRoom(room, level) {
             return;
         x += room.minX;
         y += room.minY;
-        level.set(x, y, ttWall);
-        level.set(x + 1, y, ttWall);
-        level.set(x, y + 1, ttWall);
-        level.set(x + 1, y + 1, ttWall);
+        level.set(x, y, TerrainType.Wall);
+        level.set(x + 1, y, TerrainType.Wall);
+        level.set(x, y + 1, TerrainType.Wall);
+        level.set(x + 1, y + 1, TerrainType.Wall);
     }
     plotPillar(3, 3);
     plotPillar(3, room.sizeY - 5);
@@ -3020,8 +3032,8 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
                 }
             }
         }
-        plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, ttWall);
-        plotRect(room.minX + 7, room.minY + 7, room.sizeX - 14, room.sizeY - 14, ttSolid);
+        plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, TerrainType.Wall);
+        plotRect(room.minX + 7, room.minY + 7, room.sizeX - 14, room.sizeY - 14, TerrainType.Solid);
         return;
     }
 }
@@ -3087,7 +3099,7 @@ function renderPotions(state, renderer, matScreenFromWorld) {
         position: potion.position,
         radius: lootRadius,
         discColor: 0xff737373,
-        glyphColor: (potion.potionType == potionTypeHealth) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor,
+        glyphColor: (potion.potionType == PotionType.Health) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor,
         glyphIndex: 173,
     }));
     renderer.renderDiscs(matScreenFromWorld, discs);
@@ -3100,7 +3112,7 @@ function updatePotions(state) {
         vec2.subtract(dpos, potion.position, state.player.position);
         if (vec2.length(dpos) > playerRadius + lootRadius)
             return true;
-        if (potion.potionType == potionTypeHealth) {
+        if (potion.potionType == PotionType.Health) {
             if (state.player.hitPoints >= playerMaxHitPoints) {
                 state.player.hitPoints += 1;
                 setPickupMessage(state, ['Extra Health!']);
@@ -3110,7 +3122,7 @@ function updatePotions(state) {
                 setPickupMessage(state, ['Healing Potion']);
             }
         }
-        else if (potion.potionType == potionTypeInvulnerability) {
+        else if (potion.potionType == PotionType.Invulnerability) {
             state.player.numInvulnerabilityPotions += 1;
             setPickupMessage(state, ['+1 Invulnerability Potion']);
         }
