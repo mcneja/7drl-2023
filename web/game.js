@@ -1,4 +1,3 @@
-"use strict";
 window.onload = loadResourcesThenRun;
 const { mat2, mat3, mat4, vec2, vec3, vec4 } = glMatrix;
 var TerrainType;
@@ -183,7 +182,7 @@ function main(fontImage) {
     window.addEventListener('resize', onWindowResized);
     requestUpdateAndRender();
 }
-const loadImage = src => new Promise((resolve, reject) => {
+const loadImage = (src) => new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
@@ -1723,14 +1722,14 @@ function elasticCollision(body0, body1, mass0, mass1, elasticity) {
     vec2.scaleAndAdd(body1.velocity, body1.velocity, dpos, -scaleVelFixup * mass0);
     return true;
 }
-function isDiscTouchingLevel(discPos, discRadius, level) {
+function isDiscTouchingLevel(discPos, discRadius, grid) {
     const gridMinX = Math.max(0, Math.floor(discPos[0] - discRadius));
     const gridMinY = Math.max(0, Math.floor(discPos[1] - discRadius));
-    const gridMaxX = Math.min(level.sizeX, Math.floor(discPos[0] + discRadius + 1));
-    const gridMaxY = Math.min(level.sizeY, Math.floor(discPos[1] + discRadius + 1));
+    const gridMaxX = Math.min(grid.sizeX, Math.floor(discPos[0] + discRadius + 1));
+    const gridMaxY = Math.min(grid.sizeY, Math.floor(discPos[1] + discRadius + 1));
     for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
         for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
-            const tileType = level.get(gridX, gridY);
+            const tileType = grid.get(gridX, gridY);
             if (tileType == TerrainType.Room || tileType == TerrainType.Hall) {
                 continue;
             }
@@ -1752,17 +1751,17 @@ function areDiscsTouching(pos0, radius0, pos1, radius1) {
     const d = vec2.length(dpos);
     return d < radius0 + radius1;
 }
-function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level) {
+function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, grid) {
     let vNormalMin = 0;
     for (let i = 0; i < 4; ++i) {
         const gridMinX = Math.max(0, Math.floor(position[0] - radius));
         const gridMinY = Math.max(0, Math.floor(position[1] - radius));
-        const gridMaxX = Math.min(level.sizeX, Math.floor(position[0] + radius + 1));
-        const gridMaxY = Math.min(level.sizeY, Math.floor(position[1] + radius + 1));
+        const gridMaxX = Math.min(grid.sizeX, Math.floor(position[0] + radius + 1));
+        const gridMaxY = Math.min(grid.sizeY, Math.floor(position[1] + radius + 1));
         let smallestSeparatingAxis = { unitDir: vec2.fromValues(0, 0), d: radius };
         for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
             for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
-                const tileType = level.get(gridX, gridY);
+                const tileType = grid.get(gridX, gridY);
                 if (tileType == TerrainType.Room || tileType == TerrainType.Hall) {
                     continue;
                 }
@@ -1784,8 +1783,8 @@ function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, level)
     }
     const xMin = radius;
     const yMin = radius;
-    const xMax = level.sizeX - radius;
-    const yMax = level.sizeY - radius;
+    const xMax = grid.sizeX - radius;
+    const yMax = grid.sizeY - radius;
     if (position[0] < xMin) {
         position[0] = xMin;
         velocity[0] = 0;
@@ -2383,9 +2382,6 @@ function estimateDistance(distanceField, position) {
 function randomInRange(n) {
     return Math.floor(Math.random() * n);
 }
-// The output level data structure consists of dimensions and
-// a byte array with the tile for each square. The starting
-// position is also returned.
 function createLevel() {
     // Create some rooms in a grid.
     const roomGrid = [];
@@ -2485,7 +2481,7 @@ function createLevel() {
     shuffleArray(roomIndexShuffled);
     const minDistEntranceToExit = roomDistanceFromEntrance[roomIndexExit];
     for (const roomIndex of roomIndexShuffled) {
-        const numEdgesCur = edges.reduce((count, edge) => count + (edge[0] == roomIndex || edge[1] == roomIndex) ? 1 : 0, 0);
+        const numEdgesCur = edges.reduce((count, edge) => count + ((edge[0] == roomIndex || edge[1] == roomIndex) ? 1 : 0), 0);
         if (numEdgesCur != 1) {
             continue;
         }
@@ -2544,26 +2540,26 @@ function createLevel() {
     // Compress the rooms together where possible
     const [mapSizeX, mapSizeY] = compressRooms(roomGrid, edges, rooms);
     // Plot rooms into a grid
-    const level = new TerrainTypeGrid(mapSizeX, mapSizeY, TerrainType.Solid);
+    const grid = new TerrainTypeGrid(mapSizeX, mapSizeY, TerrainType.Solid);
     for (const room of rooms) {
         for (let y = 0; y < room.sizeY; ++y) {
             for (let x = 0; x < room.sizeX; ++x) {
-                level.set(x + room.minX, y + room.minY, TerrainType.Room);
+                grid.set(x + room.minX, y + room.minY, TerrainType.Room);
             }
         }
         for (let x = 0; x < room.sizeX; ++x) {
-            level.set(x + room.minX, room.minY - 1, TerrainType.Wall);
-            level.set(x + room.minX, room.minY + room.sizeY, TerrainType.Wall);
+            grid.set(x + room.minX, room.minY - 1, TerrainType.Wall);
+            grid.set(x + room.minX, room.minY + room.sizeY, TerrainType.Wall);
         }
         for (let y = 0; y < room.sizeY + 2; ++y) {
-            level.set(room.minX - 1, y + room.minY - 1, TerrainType.Wall);
-            level.set(room.minX + room.sizeX, y + room.minY - 1, TerrainType.Wall);
+            grid.set(room.minX - 1, y + room.minY - 1, TerrainType.Wall);
+            grid.set(room.minX + room.sizeX, y + room.minY - 1, TerrainType.Wall);
         }
     }
     // Decorate the rooms
     const roomsToDecorate = rooms.filter((room, roomIndex) => roomIndex != roomIndexEntrance && roomIndex != roomIndexExit);
-    decorateRooms(roomsToDecorate, level);
-    tryCreatePillarRoom(rooms[roomIndexExit], level);
+    decorateRooms(roomsToDecorate, grid);
+    tryCreatePillarRoom(rooms[roomIndexExit], grid);
     // Plot corridors into grid
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
         for (let roomX = 0; roomX < (numCellsX - 1); ++roomX) {
@@ -2590,19 +2586,19 @@ function createLevel() {
             }
             for (let x = xMin; x < xMid; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    level.set(x, yMinLeft + y, TerrainType.Hall);
+                    grid.set(x, yMinLeft + y, TerrainType.Hall);
                 }
             }
             for (let x = xMid + corridorWidth; x < xMax; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    level.set(x, yMinRight + y, TerrainType.Hall);
+                    grid.set(x, yMinRight + y, TerrainType.Hall);
                 }
             }
             const yMin = Math.min(yMinLeft, yMinRight);
             const yMax = Math.max(yMinLeft, yMinRight);
             for (let y = yMin; y < yMax + corridorWidth; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    level.set(xMid + x, y, TerrainType.Hall);
+                    grid.set(xMid + x, y, TerrainType.Hall);
                 }
             }
         }
@@ -2632,19 +2628,19 @@ function createLevel() {
             const yMid = Math.floor((yMax - (yMin + 1 + corridorWidth)) / 2) + yMin + 1;
             for (let y = yMin; y < yMid; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    level.set(xMinLower + x, y, TerrainType.Hall);
+                    grid.set(xMinLower + x, y, TerrainType.Hall);
                 }
             }
             for (let y = yMid + corridorWidth; y < yMax; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    level.set(xMinUpper + x, y, TerrainType.Hall);
+                    grid.set(xMinUpper + x, y, TerrainType.Hall);
                 }
             }
             const xMin = Math.min(xMinLower, xMinUpper);
             const xMax = Math.max(xMinLower, xMinUpper);
             for (let x = xMin; x < xMax + corridorWidth; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    level.set(x, yMid + y, TerrainType.Hall);
+                    grid.set(x, yMid + y, TerrainType.Hall);
                 }
             }
         }
@@ -2654,9 +2650,9 @@ function createLevel() {
     const hallColor = 0xff707070;
     const wallColor = 0xff0055aa;
     const squares = [];
-    for (let y = 0; y < level.sizeY; ++y) {
-        for (let x = 0; x < level.sizeX; ++x) {
-            const type = level.get(x, y);
+    for (let y = 0; y < grid.sizeY; ++y) {
+        for (let x = 0; x < grid.sizeX; ++x) {
+            const type = grid.get(x, y);
             if (type == TerrainType.Room) {
                 squares.push({ x: x, y: y, color: roomColor });
             }
@@ -2708,16 +2704,16 @@ function createLevel() {
     const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX / 2 - 0.5, amuletRoom.minY + amuletRoom.sizeY / 2 - 0.5);
     const positionsUsed = [amuletPos];
     // Enemies
-    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, level, positionsUsed);
+    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, grid, positionsUsed);
     // Potions
-    const potions = createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positionsUsed);
+    const potions = createPotions(rooms, roomIndexEntrance, roomIndexExit, grid, positionsUsed);
     // Place loot in the level. Distribute it so rooms that are far from
     // the entrance or the exit have the most? Or so dead ends have the
     // most? Bias toward the rooms that aren't on the path between the
     // entrance and the exit?
-    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, amuletPos, level);
+    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, amuletPos, grid);
     return {
-        grid: level,
+        grid: grid,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
         startRoom: startRoom,
@@ -2756,7 +2752,7 @@ function computeDistances(roomDistance, numRooms, edges, roomIndexStart) {
         }
     }
 }
-function createEnemies(rooms, roomDistance, level, positionsUsed) {
+function createEnemies(rooms, roomDistance, grid, positionsUsed) {
     const spikes = [];
     const turrets = [];
     const swarmers = [];
@@ -2774,13 +2770,13 @@ function createEnemies(rooms, roomDistance, level, positionsUsed) {
             const monsterKind = Math.random();
             let success = false;
             if (monsterKind < 0.3 || d < 2) {
-                success = tryCreateSpike(room, spikes, level, positionsUsed);
+                success = tryCreateSpike(room, spikes, grid, positionsUsed);
             }
             else if ((monsterKind < 0.7 || d < 3) && d != 3) {
-                success = tryCreateTurret(room, turrets, level, positionsUsed);
+                success = tryCreateTurret(room, turrets, grid, positionsUsed);
             }
             else {
-                success = tryCreateSwarmer(room, swarmers, level, positionsUsed);
+                success = tryCreateSwarmer(room, swarmers, grid, positionsUsed);
             }
             if (success) {
                 ++numEnemies;
@@ -2789,11 +2785,11 @@ function createEnemies(rooms, roomDistance, level, positionsUsed) {
     }
     return [spikes, turrets, swarmers];
 }
-function tryCreateSpike(room, spikes, level, positionsUsed) {
+function tryCreateSpike(room, spikes, grid, positionsUsed) {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
     const position = vec2.fromValues(x, y);
-    if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+    if (isDiscTouchingLevel(position, monsterRadius * 2, grid)) {
         return false;
     }
     if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
@@ -2809,11 +2805,11 @@ function tryCreateSpike(room, spikes, level, positionsUsed) {
     positionsUsed.push(position);
     return true;
 }
-function tryCreateTurret(room, turrets, level, positionsUsed) {
+function tryCreateTurret(room, turrets, grid, positionsUsed) {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
     const position = vec2.fromValues(x, y);
-    if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+    if (isDiscTouchingLevel(position, monsterRadius * 2, grid)) {
         return false;
     }
     if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
@@ -2830,11 +2826,11 @@ function tryCreateTurret(room, turrets, level, positionsUsed) {
     positionsUsed.push(position);
     return true;
 }
-function tryCreateSwarmer(room, swarmers, level, positionsUsed) {
+function tryCreateSwarmer(room, swarmers, grid, positionsUsed) {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
     const position = vec2.fromValues(x, y);
-    if (isDiscTouchingLevel(position, monsterRadius * 2, level)) {
+    if (isDiscTouchingLevel(position, monsterRadius * 2, grid)) {
         return false;
     }
     if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
@@ -2852,7 +2848,7 @@ function tryCreateSwarmer(room, swarmers, level, positionsUsed) {
     positionsUsed.push(position);
     return true;
 }
-function createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positionsUsed) {
+function createPotions(rooms, roomIndexEntrance, roomIndexExit, grid, positionsUsed) {
     const roomIndices = [];
     for (let i = 0; i < rooms.length; ++i) {
         if (i != roomIndexEntrance && i != roomIndexExit) {
@@ -2869,7 +2865,7 @@ function createPotions(rooms, roomIndexEntrance, roomIndexExit, level, positions
             const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
             const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
             const position = vec2.fromValues(x, y);
-            if (isDiscTouchingLevel(position, lootRadius * 2, level)) {
+            if (isDiscTouchingLevel(position, lootRadius * 2, grid)) {
                 continue;
             }
             if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * lootRadius, position)) {
@@ -2965,26 +2961,26 @@ function compressRooms(roomGrid, edges, rooms) {
     }
     return [mapSizeX, mapSizeY];
 }
-function decorateRooms(rooms, level) {
+function decorateRooms(rooms, grid) {
     const roomsShuffled = [...rooms];
     shuffleArray(roomsShuffled);
-    tryPlacePillarRoom(roomsShuffled, level);
-    tryPlaceCenterObstacleRoom(roomsShuffled, level);
-    tryPlacePillarRoom(roomsShuffled, level);
-    tryPlaceCenterObstacleRoom(roomsShuffled, level);
-    tryPlacePillarRoom(roomsShuffled, level);
+    tryPlacePillarRoom(roomsShuffled, grid);
+    tryPlaceCenterObstacleRoom(roomsShuffled, grid);
+    tryPlacePillarRoom(roomsShuffled, grid);
+    tryPlaceCenterObstacleRoom(roomsShuffled, grid);
+    tryPlacePillarRoom(roomsShuffled, grid);
 }
-function tryPlacePillarRoom(rooms, level) {
+function tryPlacePillarRoom(rooms, grid) {
     for (let i = 0; i < rooms.length; ++i) {
         const room = rooms[i];
-        if (tryCreatePillarRoom(room, level)) {
+        if (tryCreatePillarRoom(room, grid)) {
             rooms[i] = rooms[rooms.length - 1];
             --rooms.length;
             break;
         }
     }
 }
-function tryCreatePillarRoom(room, level) {
+function tryCreatePillarRoom(room, grid) {
     if (room.sizeX < 13 || room.sizeY < 13)
         return false;
     if (((room.sizeX - 3) % 5) != 0 && ((room.sizeY - 3) % 5) != 0)
@@ -2994,10 +2990,10 @@ function tryCreatePillarRoom(room, level) {
             return;
         x += room.minX;
         y += room.minY;
-        level.set(x, y, TerrainType.Wall);
-        level.set(x + 1, y, TerrainType.Wall);
-        level.set(x, y + 1, TerrainType.Wall);
-        level.set(x + 1, y + 1, TerrainType.Wall);
+        grid.set(x, y, TerrainType.Wall);
+        grid.set(x + 1, y, TerrainType.Wall);
+        grid.set(x, y + 1, TerrainType.Wall);
+        grid.set(x + 1, y + 1, TerrainType.Wall);
     }
     plotPillar(3, 3);
     plotPillar(3, room.sizeY - 5);
@@ -3017,7 +3013,7 @@ function tryCreatePillarRoom(room, level) {
     }
     return true;
 }
-function tryPlaceCenterObstacleRoom(rooms, level) {
+function tryPlaceCenterObstacleRoom(rooms, grid) {
     for (let i = 0; i < rooms.length; ++i) {
         const room = rooms[i];
         if (room.sizeX < 15 || room.sizeY < 15)
@@ -3027,7 +3023,7 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
         function plotRect(minX, minY, sizeX, sizeY, type) {
             for (let x = minX; x < minX + sizeX; ++x) {
                 for (let y = minY; y < minY + sizeY; ++y) {
-                    level.set(x, y, type);
+                    grid.set(x, y, type);
                 }
             }
         }
@@ -3036,7 +3032,7 @@ function tryPlaceCenterObstacleRoom(rooms, level) {
         return;
     }
 }
-function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, level) {
+function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, grid) {
     const numLoot = 100;
     const loot = [];
     for (let i = 0; i < 1024 && loot.length < numLoot; ++i) {
@@ -3048,7 +3044,7 @@ function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, lev
         const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
         const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
         const position = vec2.fromValues(x, y);
-        if (isDiscTouchingLevel(position, lootRadius * 2, level)) {
+        if (isDiscTouchingLevel(position, lootRadius * 2, grid)) {
             continue;
         }
         if (isPositionTooCloseToOtherPositions(positionsUsed, 2 * lootRadius + monsterRadius, position)) {
