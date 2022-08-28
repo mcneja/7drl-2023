@@ -1,0 +1,8 @@
+{
+    "compilerOptions": {
+        "outDir": "./web",
+        "allowJs": true,
+        "target": "ES6"
+    },
+    "include": ["./src/**/*"]
+}
