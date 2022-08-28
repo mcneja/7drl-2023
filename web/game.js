@@ -79,7 +79,6 @@ class TerrainTypeGrid {
         this.values[this.sizeX * y + x] = value;
     }
 }
-;
 function loadResourcesThenRun() {
     loadImage('font.png').then((fontImage) => { main(fontImage); });
 }

@@ -105,14 +105,14 @@ class TerrainTypeGrid {
     }
 }
 
-interface Rect {
+type Rect = {
     minX: number;
     minY: number;
     sizeX: number;
     sizeY: number;
 }
 
-interface Player {
+type Player = {
     position: Vec2;
     velocity: Vec2;
     radius: number;
@@ -126,25 +126,25 @@ interface Player {
     dead: boolean;
 };
 
-interface ColliderBody {
+type ColliderBody = {
     position: Vec2;
     velocity: Vec2;
 }
 
-interface Bullet {
+type Bullet = {
     position: Vec2;
     velocity: Vec2;
     timeRemaining: number;
 }
 
-interface Camera {
+type Camera = {
     position: Vec2;
     velocity: Vec2;
     joltOffset: Vec2;
     joltVelocity: Vec2;
 }
 
-interface Lava {
+type Lava = {
     state: LavaState;
     textureScroll: number;
     levelTarget: number;
@@ -152,13 +152,13 @@ interface Lava {
     levelBaseVelocity: number;
 }
 
-interface Disc {
+type Disc = {
     position: Vec2;
     velocity: Vec2;
     radius: number;
 }
 
-interface GlyphDisc {
+type GlyphDisc = {
     position: Vec2;
     radius: number;
     discColor: number;
@@ -166,7 +166,7 @@ interface GlyphDisc {
     glyphColor: number;
 }
 
-interface Spike {
+type Spike = {
     position: Vec2;
     velocity: Vec2;
     radius: number;
@@ -174,7 +174,7 @@ interface Spike {
     dead: boolean;
 }
 
-interface Turret {
+type Turret = {
     position: Vec2;
     velocity: Vec2;
     radius: number;
@@ -183,7 +183,7 @@ interface Turret {
     timeToFire: number;
 }
 
-interface Swarmer {
+type Swarmer = {
     position: Vec2;
     velocity: Vec2;
     radius: number;
@@ -193,16 +193,16 @@ interface Swarmer {
     dead: boolean;
 }
 
-interface Potion {
+type Potion = {
     position: Vec2;
     potionType: number;
 }
 
-interface LootItem {
+type LootItem = {
     position: Vec2;
 }
 
-interface Level {
+type Level = {
     grid: TerrainTypeGrid;
     vertexData: ArrayBuffer;
     playerStartPos: Vec2;
@@ -219,7 +219,7 @@ interface Level {
 
 type AddGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
 
-interface RenderGlyphs {
+type RenderGlyphs = {
     start: (matScreenFromWorld: Mat4) => void;
     addGlyph: AddGlyph;
     flush: () => void;
@@ -236,7 +236,7 @@ type CreateFieldRenderer = (level: Level, distanceField: Float64Grid) => RenderF
 type CreateLightingRenderer = (level: Level, distanceFromEntrance: Float64Grid, distanceFromExit: Float64Grid) => RenderLighting;
 type CreateColoredTrianglesRenderer = (vertexData: ArrayBuffer) => RenderColoredTriangles;
 
-interface Renderer {
+type Renderer = {
     beginFrame: BeginFrame;
     renderDiscs: RenderDiscs;
     renderGlyphs: RenderGlyphs;
@@ -246,7 +246,7 @@ interface Renderer {
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer;
 }
 
-interface State {
+type State = {
     distanceFieldFromEntrance: Float64Grid;
     distanceFieldFromExit: Float64Grid;
     renderField: RenderField;
@@ -2304,7 +2304,7 @@ function areDiscsTouching(pos0: Vec2, radius0: number, pos1: Vec2, radius1: numb
     return d < radius0 + radius1;
 }
 
-interface Plane {
+type Plane = {
     unitDir: Vec2;
     d: number;
 }
@@ -2900,7 +2900,7 @@ function createStripeTexture(gl: WebGL2RenderingContext): WebGLTexture {
     return texture;
 }
 
-interface PriorityQueueElement {
+type PriorityQueueElement = {
     priority: number;
 }
 
@@ -2965,7 +2965,7 @@ function updateDistanceField(grid: TerrainTypeGrid, distanceField: Float64Grid, 
     floodFillImpassableAreas(distanceField);
 }
 
-interface FastMarchVisit {
+type FastMarchVisit = {
     priority: number;
     x: number;
     y: number;
