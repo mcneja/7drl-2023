@@ -248,7 +248,7 @@ type State = {
     renderField: RenderField;
     renderLighting: RenderLighting;
     renderColoredTriangles: RenderColoredTriangles;
-    tLast: number;
+    tLast: number | undefined;
     paused: boolean;
     showMap: boolean;
     mapZoom: number;
