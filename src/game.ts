@@ -217,11 +217,9 @@ type Level = {
     numLootItemsTotal: number;
 }
 
-type AddGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
-
 type RenderGlyphs = {
     start: (matScreenFromWorld: Mat4) => void;
-    addGlyph: AddGlyph;
+    addGlyph: (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
     flush: () => void;
 }
 
@@ -280,7 +278,7 @@ function main(fontImage: HTMLImageElement) {
     const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
 
     if (gl == null) {
-        alert("Unable to initialize WebGL. Your browser or machine may not support it.");
+        alert("Unable to initialize WebGL2. Your browser or machine may not support it.");
         return;
     }
 

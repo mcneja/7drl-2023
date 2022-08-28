@@ -86,7 +86,7 @@ function main(fontImage) {
     const canvas = document.querySelector("#canvas");
     const gl = canvas.getContext("webgl2", { alpha: false, depth: false });
     if (gl == null) {
-        alert("Unable to initialize WebGL. Your browser or machine may not support it.");
+        alert("Unable to initialize WebGL2. Your browser or machine may not support it.");
         return;
     }
     const renderer = createRenderer(gl, fontImage);
