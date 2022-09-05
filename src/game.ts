@@ -13,8 +13,12 @@ const vec2 = glMatrix.vec2;
 const vec4 = glMatrix.vec4;
 const mat4 = glMatrix.mat4;
 
-type vec2 = Float32Array;
-type mat4 = Float32Array;
+type vec2 = [number, number];
+type mat4 =
+    [number, number, number, number,
+     number, number, number, number,
+     number, number, number, number,
+     number, number, number, number];
 
 window.onload = loadResourcesThenRun;
 
@@ -234,6 +238,7 @@ type RenderGlyphs = {
 }
 
 type BeginFrame = (screenSize: vec2) => void;
+type EndFrame = () => void;
 type RenderField = (matScreenFromWorld: mat4, distCutoff: number, uScroll: number) => void;
 type RenderLighting = (matScreenFromWorld: mat4, distCenterFromEntrance: number, distCenterFromExit: number, alphaEntrance: number) => void;
 type RenderColoredTriangles = (matScreenFromWorld: mat4) => void;
@@ -246,6 +251,7 @@ type CreateColoredTrianglesRenderer = (vertexData: ArrayBuffer) => RenderColored
 
 type Renderer = {
     beginFrame: BeginFrame;
+    endFrame: EndFrame;
     renderDiscs: RenderDiscs;
     renderGlyphs: RenderGlyphs;
     renderVignette: RenderVignette;
@@ -279,6 +285,8 @@ type State = {
 }
 
 function loadResourcesThenRun() {
+    glMatrix.glMatrix.setMatrixArrayType(Array);
+
     loadImage('font.png').then((fontImage: HTMLImageElement) => { main(fontImage); });
 }
 
@@ -913,6 +921,7 @@ function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement)
 
     const renderer = {
         beginFrame: createBeginFrame(gl),
+        endFrame: createEndFrame(gl),
         renderDiscs: createDiscRenderer(gl, glyphTexture),
         renderGlyphs: createGlyphRenderer(gl, glyphTexture),
         renderVignette: createVignetteRenderer(gl),
@@ -1056,6 +1065,12 @@ function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         vec2.set(screenSize, screenX, screenY);
+    }
+}
+
+function createEndFrame(gl: WebGL2RenderingContext): EndFrame {
+    return () => {
+        gl.flush();
     }
 }
 
@@ -2558,6 +2573,8 @@ function renderScene(renderer: Renderer, state: State) {
     } else if (state.pickupMessageTimer > 0) {
         renderTextLines(renderer, screenSize, state.pickupMessage);
     }
+
+    renderer.endFrame();
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {

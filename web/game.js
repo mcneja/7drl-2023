@@ -89,6 +89,7 @@ class TerrainTypeGrid {
     }
 }
 function loadResourcesThenRun() {
+    glMatrix.glMatrix.setMatrixArrayType(Array);
     loadImage('font.png').then((fontImage) => { main(fontImage); });
 }
 function main(fontImage) {
@@ -611,6 +612,7 @@ function createRenderer(gl, fontImage) {
     const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
     const renderer = {
         beginFrame: createBeginFrame(gl),
+        endFrame: createEndFrame(gl),
         renderDiscs: createDiscRenderer(gl, glyphTexture),
         renderGlyphs: createGlyphRenderer(gl, glyphTexture),
         renderVignette: createVignetteRenderer(gl),
@@ -729,6 +731,11 @@ function createBeginFrame(gl) {
         gl.viewport(0, 0, screenX, screenY);
         gl.clear(gl.COLOR_BUFFER_BIT);
         vec2.set(screenSize, screenX, screenY);
+    };
+}
+function createEndFrame(gl) {
+    return () => {
+        gl.flush();
     };
 }
 function createFieldRenderer(gl) {
@@ -1969,6 +1976,7 @@ function renderScene(renderer, state) {
     else if (state.pickupMessageTimer > 0) {
         renderTextLines(renderer, screenSize, state.pickupMessage);
     }
+    renderer.endFrame();
 }
 function setupViewMatrix(state, screenSize, matScreenFromWorld) {
     const mapSizeX = state.level.grid.sizeX + 2;
