@@ -1,5 +1,15 @@
+/*
+    TODO
+
+[ ] Figure out how to use gl-matrix with type checking
+[ ] Change distance-field renderer to use a float texture
+[ ] Cleaner initialization that doesn't start with null
+
+*/
+const vec2 = glMatrix.vec2;
+const vec4 = glMatrix.vec4;
+const mat4 = glMatrix.mat4;
 window.onload = loadResourcesThenRun;
-const { mat2, mat3, mat4, vec2, vec3, vec4 } = glMatrix;
 var TerrainType;
 (function (TerrainType) {
     TerrainType[TerrainType["Solid"] = 0] = "Solid";
@@ -698,18 +708,18 @@ function resetState(state, createFieldRenderer, createLightingRenderer, createCo
 }
 function discOverlapsDiscs(disc, discs, minSeparation) {
     for (const disc2 of discs) {
-        const dx = disc2.position.x - disc.position.x;
-        const dy = disc2.position.y - disc.position.y;
-        if (Math.pow(dx, 2) + Math.pow(dy, 2) < Math.pow((disc2.radius + disc.radius + minSeparation), 2)) {
+        const d = vec2.create();
+        vec2.subtract(d, disc2.position, disc.position);
+        if (vec2.squaredLength(d) < Math.pow((disc2.radius + disc.radius + minSeparation), 2)) {
             return true;
         }
     }
     return false;
 }
 function discsOverlap(disc0, disc1) {
-    const dx = disc1.position.x - disc0.position.x;
-    const dy = disc1.position.y - disc0.position.y;
-    return Math.pow(dx, 2) + Math.pow(dy, 2) < Math.pow((disc1.radius + disc0.radius), 2);
+    const d = vec2.create();
+    vec2.subtract(d, disc1.position, disc0.position);
+    return vec2.squaredLength(d) < Math.pow((disc1.radius + disc0.radius), 2);
 }
 function createBeginFrame(gl) {
     return (screenSize) => {

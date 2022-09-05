@@ -1,10 +1,22 @@
-window.onload = loadResourcesThenRun;
+/*
+    TODO
+
+[ ] Figure out how to use gl-matrix with type checking
+[ ] Change distance-field renderer to use a float texture
+[ ] Cleaner initialization that doesn't start with null
+
+*/
 
 declare var glMatrix: any;
-const {mat2, mat3, mat4, vec2, vec3, vec4} = glMatrix;
 
-type Vec2 = typeof vec2;
-type Mat4 = typeof mat4;
+const vec2 = glMatrix.vec2;
+const vec4 = glMatrix.vec4;
+const mat4 = glMatrix.mat4;
+
+type vec2 = Float32Array;
+type mat4 = Float32Array;
+
+window.onload = loadResourcesThenRun;
 
 enum TerrainType {
     Solid,
@@ -111,8 +123,8 @@ type Rect = {
 }
 
 type Player = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
     radius: number;
     numInvulnerabilityPotions: number;
     invulnerabilityTimer: number;
@@ -125,21 +137,21 @@ type Player = {
 };
 
 type ColliderBody = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
 }
 
 type Bullet = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
     timeRemaining: number;
 }
 
 type Camera = {
-    position: Vec2;
-    velocity: Vec2;
-    joltOffset: Vec2;
-    joltVelocity: Vec2;
+    position: vec2;
+    velocity: vec2;
+    joltOffset: vec2;
+    joltVelocity: vec2;
 }
 
 type Lava = {
@@ -151,13 +163,13 @@ type Lava = {
 }
 
 type Disc = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
     radius: number;
 }
 
 type GlyphDisc = {
-    position: Vec2;
+    position: vec2;
     radius: number;
     discColor: number;
     glyphIndex: number;
@@ -165,16 +177,16 @@ type GlyphDisc = {
 }
 
 type Spike = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
     radius: number;
     onContactCooldown: boolean;
     dead: boolean;
 }
 
 type Turret = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
     radius: number;
     onContactCooldown: boolean;
     dead: boolean;
@@ -182,8 +194,8 @@ type Turret = {
 }
 
 type Swarmer = {
-    position: Vec2;
-    velocity: Vec2;
+    position: vec2;
+    velocity: vec2;
     radius: number;
     heading: number;
     headingRate: number;
@@ -192,21 +204,21 @@ type Swarmer = {
 }
 
 type Potion = {
-    position: Vec2;
+    position: vec2;
     potionType: number;
 }
 
 type LootItem = {
-    position: Vec2;
+    position: vec2;
 }
 
 type Level = {
     grid: TerrainTypeGrid;
     vertexData: ArrayBuffer;
-    playerStartPos: Vec2;
+    playerStartPos: vec2;
     startRoom: Rect;
     amuletRoom: Rect;
-    amuletPos: Vec2;
+    amuletPos: vec2;
     spikes: Array<Spike>;
     turrets: Array<Turret>;
     swarmers: Array<Swarmer>;
@@ -216,17 +228,17 @@ type Level = {
 }
 
 type RenderGlyphs = {
-    start: (matScreenFromWorld: Mat4) => void;
+    start: (matScreenFromWorld: mat4) => void;
     addGlyph: (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
     flush: () => void;
 }
 
-type BeginFrame = (screenSize: Vec2) => void;
-type RenderField = (matScreenFromWorld: Mat4, distCutoff: number, uScroll: number) => void;
-type RenderLighting = (matScreenFromWorld: Mat4, distCenterFromEntrance: number, distCenterFromExit: number, alphaEntrance: number) => void;
-type RenderColoredTriangles = (matScreenFromWorld: Mat4) => void;
-type RenderDiscs = (matScreenFromWorld: Mat4, discs: Array<GlyphDisc>) => void;
-type RenderVignette = (matDiscFromScreen: Mat4, radiusInner: number, colorInner: Array<number>, colorOuter: Array<number>) => void;
+type BeginFrame = (screenSize: vec2) => void;
+type RenderField = (matScreenFromWorld: mat4, distCutoff: number, uScroll: number) => void;
+type RenderLighting = (matScreenFromWorld: mat4, distCenterFromEntrance: number, distCenterFromExit: number, alphaEntrance: number) => void;
+type RenderColoredTriangles = (matScreenFromWorld: mat4) => void;
+type RenderDiscs = (matScreenFromWorld: mat4, discs: Array<GlyphDisc>) => void;
+type RenderVignette = (matDiscFromScreen: mat4, radiusInner: number, colorInner: Array<number>, colorOuter: Array<number>) => void;
 
 type CreateFieldRenderer = (level: Level, distanceField: Float64Grid) => RenderField;
 type CreateLightingRenderer = (level: Level, distanceFromEntrance: Float64Grid, distanceFromExit: Float64Grid) => RenderLighting;
@@ -490,7 +502,7 @@ function updatePlayerBullet(state: State, bullet: Bullet, dt: number) {
     return true;
 }
 
-function renderPlayerBullets(state: State, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderPlayerBullets(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const color = 0xffffff40;
     const discs = state.playerBullets.map(bullet => ({
         position: bullet.position,
@@ -503,7 +515,7 @@ function renderPlayerBullets(state: State, renderer: Renderer, matScreenFromWorl
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = [{
         position: state.player.position,
         radius: state.player.radius,
@@ -546,7 +558,7 @@ function updateTurretBullet(state: State, bullet: Bullet, dt: number) {
     return true;
 }
 
-function renderTurretBullets(bullets: Array<Bullet>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderTurretBullets(bullets: Array<Bullet>, renderer: Renderer, matScreenFromWorld: mat4) {
     const color = 0xff4080ff;
     const discs = bullets.map(bullet => ({
         position: bullet.position,
@@ -791,7 +803,7 @@ function updateSwarmers(state: State, dt: number) {
     }
 }
 
-function renderSpikesDead(spikes: Array<Spike>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderSpikesDead(spikes: Array<Spike>, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = spikes.filter(spike => spike.dead).map(spike => ({
         position: spike.position,
         radius: monsterRadius,
@@ -803,7 +815,7 @@ function renderSpikesDead(spikes: Array<Spike>, renderer: Renderer, matScreenFro
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function renderSpikesAlive(spikes: Array<Spike>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderSpikesAlive(spikes: Array<Spike>, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = spikes.filter(spike => !spike.dead).map(spike => ({
         position: spike.position,
         radius: monsterRadius,
@@ -815,7 +827,7 @@ function renderSpikesAlive(spikes: Array<Spike>, renderer: Renderer, matScreenFr
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function renderTurretsDead(turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderTurretsDead(turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: mat4) {
     const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = turrets.filter(turret => turret.dead).map(turret => ({
         position: turret.position,
@@ -828,7 +840,7 @@ function renderTurretsDead(turrets: Array<Turret>, renderer: Renderer, matScreen
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function renderTurretsAlive(state: State, turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderTurretsAlive(state: State, turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: mat4) {
     const colorWindup = 0xff4080ff;
     const color = 0xff404058;
     const discs = turrets.filter(turret => !turret.dead).map(turret => ({
@@ -842,7 +854,7 @@ function renderTurretsAlive(state: State, turrets: Array<Turret>, renderer: Rend
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function renderSwarmersDead(swarmers: Array<Swarmer>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderSwarmersDead(swarmers: Array<Swarmer>, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = swarmers.filter(swarmer => swarmer.dead).map(swarmer => ({
         position: swarmer.position,
         radius: monsterRadius,
@@ -854,7 +866,7 @@ function renderSwarmersDead(swarmers: Array<Swarmer>, renderer: Renderer, matScr
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function renderSwarmersAlive(swarmers: Array<Swarmer>, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderSwarmersAlive(swarmers: Array<Swarmer>, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = swarmers.filter(swarmer => !swarmer.dead).map(swarmer => ({
         position: swarmer.position,
         radius: monsterRadius,
@@ -1018,9 +1030,9 @@ function resetState(
 
 function discOverlapsDiscs(disc: Disc, discs: Array<Disc>, minSeparation: number): boolean {
     for (const disc2 of discs) {
-        const dx = disc2.position.x - disc.position.x;
-        const dy = disc2.position.y - disc.position.y;
-        if (dx**2 + dy**2 < (disc2.radius + disc.radius + minSeparation)**2) {
+        const d = vec2.create();
+        vec2.subtract(d, disc2.position, disc.position);
+        if (vec2.squaredLength(d) < (disc2.radius + disc.radius + minSeparation)**2) {
             return true;
         }
     }
@@ -1028,9 +1040,9 @@ function discOverlapsDiscs(disc: Disc, discs: Array<Disc>, minSeparation: number
 }
 
 function discsOverlap(disc0: Disc, disc1: Disc): boolean {
-    const dx = disc1.position.x - disc0.position.x;
-    const dy = disc1.position.y - disc0.position.y;
-    return dx**2 + dy**2 < (disc1.radius + disc0.radius)**2;
+    const d = vec2.create();
+    vec2.subtract(d, disc1.position, disc0.position);
+    return vec2.squaredLength(d) < (disc1.radius + disc0.radius)**2;
 }
 
 function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
@@ -1654,7 +1666,7 @@ function createGlyphRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLText
     const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
     gl.bindVertexArray(null);
 
-    function setMatScreenFromWorld(matScreenFromWorld: Mat4) {
+    function setMatScreenFromWorld(matScreenFromWorld: mat4) {
         mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
     }
 
@@ -1948,7 +1960,7 @@ function slideToStop(body: Disc, dt: number) {
     vec2.scale(body.velocity, body.velocity, r);
 }
 
-function posInRect(position: Vec2, rect: Rect): boolean {
+function posInRect(position: vec2, rect: Rect): boolean {
     return (position[0] >= rect.minX &&
             position[1] >= rect.minY &&
             position[0] < rect.minX + rect.sizeX &&
@@ -2178,7 +2190,7 @@ function updateCamera(state: State, dt: number) {
     vec2.copy(state.camera.velocity, velNew);
 }
 
-function generateRandomGaussianPair(mean: number, stdDev: number, pairOut: Vec2) {
+function generateRandomGaussianPair(mean: number, stdDev: number, pairOut: vec2) {
     let s: number;
     do {
         pairOut[0] = Math.random() * 2 - 1;
@@ -2190,7 +2202,7 @@ function generateRandomGaussianPair(mean: number, stdDev: number, pairOut: Vec2)
     vec2.add(pairOut, pairOut, vec2.fromValues(mean, mean));
 }
 
-function isPosInLava(state: State, position: Vec2): boolean {
+function isPosInLava(state: State, position: vec2): boolean {
     const distFromExit = estimateDistance(state.distanceFieldFromExit, position);
     return distFromExit < state.lava.levelBase;
 }
@@ -2266,7 +2278,7 @@ function elasticCollision(body0: ColliderBody, body1: ColliderBody, mass0: numbe
     return true;
 }
 
-function isDiscTouchingLevel(discPos: Vec2, discRadius: number, grid: TerrainTypeGrid): boolean {
+function isDiscTouchingLevel(discPos: vec2, discRadius: number, grid: TerrainTypeGrid): boolean {
     const gridMinX = Math.max(0, Math.floor(discPos[0] - discRadius));
     const gridMinY = Math.max(0, Math.floor(discPos[1] - discRadius));
     const gridMaxX = Math.min(grid.sizeX, Math.floor(discPos[0] + discRadius + 1));
@@ -2293,7 +2305,7 @@ function isDiscTouchingLevel(discPos: Vec2, discRadius: number, grid: TerrainTyp
     return false;
 }
 
-function areDiscsTouching(pos0: Vec2, radius0: number, pos1: Vec2, radius1: number): boolean {
+function areDiscsTouching(pos0: vec2, radius0: number, pos1: vec2, radius1: number): boolean {
     const dpos = vec2.create();
     vec2.subtract(dpos, pos1, pos0);
     const d = vec2.length(dpos);
@@ -2301,11 +2313,11 @@ function areDiscsTouching(pos0: Vec2, radius0: number, pos1: Vec2, radius1: numb
 }
 
 type Plane = {
-    unitDir: Vec2;
+    unitDir: vec2;
     d: number;
 }
 
-function fixupPositionAndVelocityAgainstLevel(position: Vec2, velocity: Vec2, radius: number, grid: TerrainTypeGrid) {
+function fixupPositionAndVelocityAgainstLevel(position: vec2, velocity: vec2, radius: number, grid: TerrainTypeGrid) {
 
     let vNormalMin = 0;
 
@@ -2389,13 +2401,13 @@ function separatingAxis(dx: number, dy: number): Plane {
     }
 }
 
-function distanceBetween(pos0: Vec2, pos1: Vec2): number {
+function distanceBetween(pos0: vec2, pos1: vec2): number {
     const dpos = vec2.create();
     vec2.subtract(dpos, pos1, pos0);
     return vec2.length(dpos);
 }
 
-function clearLineOfSight(level: Level, pos0: Vec2, pos1: Vec2): boolean {
+function clearLineOfSight(level: Level, pos0: vec2, pos1: vec2): boolean {
     const dx = Math.abs(pos1[0] - pos0[0]);
     const dy = Math.abs(pos1[1] - pos0[1]);
 
@@ -2447,7 +2459,7 @@ function clearLineOfSight(level: Level, pos0: Vec2, pos1: Vec2): boolean {
     return true;
 }
 
-function fixupPositionAndVelocityAgainstDisc(position: Vec2, velocity: Vec2, radius: number, discPosition: Vec2, discRadius: number): boolean {
+function fixupPositionAndVelocityAgainstDisc(position: vec2, velocity: vec2, radius: number, discPosition: vec2, discRadius: number): boolean {
     const dpos = vec2.create();
     vec2.subtract(dpos, position, discPosition);
     const d = vec2.length(dpos);
@@ -2548,7 +2560,7 @@ function renderScene(renderer: Renderer, state: State) {
     }
 }
 
-function setupViewMatrix(state: State, screenSize: Vec2, matScreenFromWorld: Mat4) {
+function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
     const mapSizeX = state.level.grid.sizeX + 2;
     const mapSizeY = state.level.grid.sizeY + 2;
 
@@ -2585,7 +2597,7 @@ function setupViewMatrix(state: State, screenSize: Vec2, matScreenFromWorld: Mat
     mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
 }
 
-function renderDamageVignette(invulnerabilityTimer: number, hitPoints: number, damageDisplayTimer: number, renderer: Renderer, screenSize: Vec2) {
+function renderDamageVignette(invulnerabilityTimer: number, hitPoints: number, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
     let u = 0;
     let colorInner: Array<number>, colorOuter: Array<number>;
 
@@ -2625,7 +2637,7 @@ function renderDamageVignette(invulnerabilityTimer: number, hitPoints: number, d
     renderer.renderVignette(matDiscFromScreen, radiusInner / radiusOuter, colorInner, colorOuter);
 }
 
-function renderHealthMeter(state: State, renderer: Renderer, screenSize: Vec2) {
+function renderHealthMeter(state: State, renderer: Renderer, screenSize: vec2) {
     const minCharsX = 40;
     const minCharsY = 20;
     const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
@@ -2672,7 +2684,7 @@ function renderHealthMeter(state: State, renderer: Renderer, screenSize: Vec2) {
     renderer.renderGlyphs.flush();
 }
 
-function renderLootCounter(state: State, renderer: Renderer, screenSize: Vec2) {
+function renderLootCounter(state: State, renderer: Renderer, screenSize: vec2) {
     const numLootItemsTotal = state.level.numLootItemsTotal;
     const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
 
@@ -2712,7 +2724,7 @@ function renderLootCounter(state: State, renderer: Renderer, screenSize: Vec2) {
     renderer.renderGlyphs.flush();
 }
 
-function renderBulletAndPotionCounter(state: State, renderer: Renderer, screenSize: Vec2) {
+function renderBulletAndPotionCounter(state: State, renderer: Renderer, screenSize: vec2) {
     const strMsg = '     ' + state.player.numInvulnerabilityPotions + '\xad';
     const cCh = strMsg.length;
 
@@ -2765,7 +2777,7 @@ function renderBulletAndPotionCounter(state: State, renderer: Renderer, screenSi
     renderer.renderGlyphs.flush();
 }
 
-function renderTextLines(renderer: Renderer, screenSize: Vec2, lines: Array<string>) {
+function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {
     let maxLineLength = 0;
     for (const line of lines) {
         maxLineLength = Math.max(maxLineLength, line.length);
@@ -2940,7 +2952,7 @@ function priorityQueuePush<T extends PriorityQueueElement>(q: PriorityQueue<T>, 
     }
 }
 
-function createDistanceField(grid: TerrainTypeGrid, posSource: Vec2): Float64Grid {
+function createDistanceField(grid: TerrainTypeGrid, posSource: vec2): Float64Grid {
     const fieldSizeX = grid.sizeX + 1;
     const fieldSizeY = grid.sizeY + 1;
     const distanceField = new Float64Grid(fieldSizeX, fieldSizeY, Infinity);
@@ -2948,7 +2960,7 @@ function createDistanceField(grid: TerrainTypeGrid, posSource: Vec2): Float64Gri
     return distanceField;
 }
 
-function updateDistanceField(grid: TerrainTypeGrid, distanceField: Float64Grid, posSource: Vec2) {
+function updateDistanceField(grid: TerrainTypeGrid, distanceField: Float64Grid, posSource: vec2) {
     const sourceX = Math.floor(posSource[0]);
     const sourceY = Math.floor(posSource[1]);
 
@@ -3103,7 +3115,7 @@ function estimatedDistanceSimple(distanceField: Float64Grid, x: number, y: numbe
     return d;
 }
 
-function estimateDistance(distanceField: Float64Grid, position: Vec2): number {
+function estimateDistance(distanceField: Float64Grid, position: vec2): number {
     const x = position[0];
     const y = position[1];
 
@@ -3601,7 +3613,7 @@ function createEnemies(
     rooms: Array<Rect>,
     roomDistance: Array<number>,
     grid: TerrainTypeGrid,
-    positionsUsed: Array<Vec2>): [Array<Spike>, Array<Turret>, Array<Swarmer>] {
+    positionsUsed: Array<vec2>): [Array<Spike>, Array<Turret>, Array<Swarmer>] {
     const spikes: Array<Spike> = [];
     const turrets: Array<Turret> = [];
     const swarmers: Array<Swarmer> = [];
@@ -3640,7 +3652,7 @@ function createEnemies(
     return [spikes, turrets, swarmers];
 }
 
-function tryCreateSpike(room: Rect, spikes: Array<Spike>, grid: TerrainTypeGrid, positionsUsed: Array<Vec2>): boolean {
+function tryCreateSpike(room: Rect, spikes: Array<Spike>, grid: TerrainTypeGrid, positionsUsed: Array<vec2>): boolean {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
 
@@ -3667,7 +3679,7 @@ function tryCreateSpike(room: Rect, spikes: Array<Spike>, grid: TerrainTypeGrid,
     return true;
 }
 
-function tryCreateTurret(room: Rect, turrets: Array<Turret>, grid: TerrainTypeGrid, positionsUsed: Array<Vec2>): boolean {
+function tryCreateTurret(room: Rect, turrets: Array<Turret>, grid: TerrainTypeGrid, positionsUsed: Array<vec2>): boolean {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
 
@@ -3695,7 +3707,7 @@ function tryCreateTurret(room: Rect, turrets: Array<Turret>, grid: TerrainTypeGr
     return true;
 }
 
-function tryCreateSwarmer(room: Rect, swarmers: Array<Swarmer>, grid: TerrainTypeGrid, positionsUsed: Array<Vec2>): boolean {
+function tryCreateSwarmer(room: Rect, swarmers: Array<Swarmer>, grid: TerrainTypeGrid, positionsUsed: Array<vec2>): boolean {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
 
@@ -3729,7 +3741,7 @@ function createPotions(
     roomIndexEntrance: number,
     roomIndexExit: number,
     grid: TerrainTypeGrid,
-    positionsUsed: Array<Vec2>): Array<Potion> {
+    positionsUsed: Array<vec2>): Array<Potion> {
     const roomIndices = [];
     for (let i = 0; i < rooms.length; ++i) {
         if (i != roomIndexEntrance && i != roomIndexExit) {
@@ -3952,9 +3964,9 @@ function tryPlaceCenterObstacleRoom(rooms: Array<Rect>, grid: TerrainTypeGrid) {
 
 function createLootItems(
     rooms: Array<Rect>,
-    positionsUsed: Array<Vec2>,
+    positionsUsed: Array<vec2>,
     roomIndexEntrance: number,
-    posAmulet: Vec2,
+    posAmulet: vec2,
     grid: TerrainTypeGrid): Array<LootItem> {
     const numLoot = 100;
     const loot = [];
@@ -3992,7 +4004,7 @@ function createLootItems(
     return loot;
 }
 
-function renderLootItems(state: State, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderLootItems(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = state.level.lootItems.map(lootItem => ({
         position: lootItem.position,
         radius: lootRadius,
@@ -4026,7 +4038,7 @@ function updateLootItems(state: State) {
     });
 }
 
-function renderPotions(state: State, renderer: Renderer, matScreenFromWorld: Mat4) {
+function renderPotions(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const potionHealthGlyphColor = 0xff5555ff;
     const potionInvulnerabilityGlyphColor = 0xffffff55;
 
@@ -4085,7 +4097,7 @@ function canHaveStraightHorizontalHall(room0: Rect, room1: Rect): boolean {
     return overlapSize >= corridorWidth;
 }
 
-function isPositionTooCloseToOtherPositions(positions: Array<Vec2>, separationDistance: number, position: Vec2): boolean {
+function isPositionTooCloseToOtherPositions(positions: Array<vec2>, separationDistance: number, position: vec2): boolean {
     const dpos = vec2.create();
     for (const positionOther of positions) {
         vec2.subtract(dpos, position, positionOther);
