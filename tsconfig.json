@@ -3,10 +3,9 @@
         "outDir": "./web",
         "target": "es6",
         "module": "es6",
+        "strict": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
-        "noImplicitAny": true,
-        "noImplicitThis": true,
     },
     "files": [
         "./src/game.ts",

@@ -2,7 +2,6 @@
     TODO
 
 [ ] Change distance-field renderer to use a float texture
-[ ] Cleaner initialization that doesn't start with null
 
 */
 
@@ -271,7 +270,7 @@ type State = {
 }
 
 function loadResourcesThenRun() {
-    loadImage('font.png').then((fontImage: HTMLImageElement) => { main(fontImage); });
+    loadImage('font.png').then((fontImage) => { main(fontImage as HTMLImageElement); });
 }
 
 function main(fontImage: HTMLImageElement) {
@@ -920,34 +919,93 @@ function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement)
     return renderer;
 }
 
+function createCamera(posPlayer: vec2): Camera {
+    const camera = {
+        position: vec2.create(),
+        velocity: vec2.create(),
+        joltOffset: vec2.create(),
+        joltVelocity: vec2.create(),
+    };
+
+    vec2.copy(camera.position, posPlayer);
+    vec2.zero(camera.velocity);
+    vec2.zero(camera.joltOffset);
+    vec2.zero(camera.joltVelocity);
+
+    return camera;
+}
+
+function createLava(): Lava {
+    return {
+        state: LavaState.Inactive,
+        textureScroll: 0,
+        levelTarget: 0,
+        levelBase: 0,
+        levelBaseVelocity: 0,
+    };
+}
+
+function createPlayer(posStart: vec2): Player {
+    const player = {
+        position: vec2.create(),
+        velocity: vec2.create(),
+        radius: playerRadius,
+        numInvulnerabilityPotions: 1,
+        invulnerabilityTimer: 0,
+        numBullets: bulletMaxCapacity,
+        amuletCollected: false,
+        hitPoints: playerMaxHitPoints,
+        damageDisplayTimer: 0,
+        swarmerAttackCooldown: 0,
+        dead: false,
+    };
+
+    vec2.copy(player.position, posStart);
+    vec2.zero(player.velocity);
+
+    return player;
+}
+
 function initState(
     createFieldRenderer: CreateFieldRenderer,
     createLightingRenderer: CreateLightingRenderer,
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
+    const level = createLevel();
+
+    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
+    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
+
+    const renderField = createFieldRenderer(level, distanceFieldFromExit);
+    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
+    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
+
+    const player = createPlayer(level.playerStartPos);
+    const camera = createCamera(level.playerStartPos);
+    const lava = createLava();
+
     const state: State = {
-        distanceFieldFromEntrance: null,
-        distanceFieldFromExit: null,
-        renderField: null,
-        renderLighting: null,
-        renderColoredTriangles: null,
+        distanceFieldFromEntrance: distanceFieldFromEntrance,
+        distanceFieldFromExit: distanceFieldFromExit,
+        renderField: renderField,
+        renderLighting: renderLighting,
+        renderColoredTriangles: renderColoredTriangles,
         tLast: undefined,
         paused: true,
         showMap: false,
         mapZoom: 1,
         mapZoomVelocity: 0,
         mouseSensitivity: 0,
-        player: null,
+        player: player,
         gameState: GameState.Active,
         timeToGameEndMessage: delayGameEndMessage,
         playerBullets: [],
         turretBullets: [],
-        camera: null,
-        level: null,
-        lava: null,
+        camera: camera,
+        level: level,
+        lava: lava,
         pickupMessage: [],
         pickupMessageTimer: 0,
     };
-    resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer);
     return state;
 }
 
@@ -965,42 +1023,9 @@ function resetState(
     const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
     const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
 
-    const player = {
-        position: vec2.create(),
-        velocity: vec2.create(),
-        radius: playerRadius,
-        numInvulnerabilityPotions: 1,
-        invulnerabilityTimer: 0,
-        numBullets: bulletMaxCapacity,
-        amuletCollected: false,
-        hitPoints: playerMaxHitPoints,
-        damageDisplayTimer: 0,
-        swarmerAttackCooldown: 0,
-        dead: false,
-    };
-
-    vec2.copy(player.position, level.playerStartPos);
-    vec2.zero(player.velocity);
-
-    const camera = {
-        position: vec2.create(),
-        velocity: vec2.create(),
-        joltOffset: vec2.create(),
-        joltVelocity: vec2.create(),
-    };
-
-    vec2.copy(camera.position, player.position);
-    vec2.zero(camera.velocity);
-    vec2.zero(camera.joltOffset);
-    vec2.zero(camera.joltVelocity);
-
-    const lava = {
-        state: LavaState.Inactive,
-        textureScroll: 0,
-        levelTarget: 0,
-        levelBase: 0,
-        levelBaseVelocity: 0,
-    };
+    const player = createPlayer(level.playerStartPos);
+    const camera = createCamera(level.playerStartPos);
+    const lava = createLava();
 
     state.distanceFieldFromEntrance = distanceFieldFromEntrance;
     state.distanceFieldFromExit = distanceFieldFromExit;
@@ -1739,7 +1764,7 @@ function createGlyphIndexBuffer(gl: WebGL2RenderingContext, maxQuads: number): W
         indices[j+5] = k+3;
     }
 
-    const indexBuffer = gl.createBuffer();
+    const indexBuffer = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
@@ -1761,7 +1786,7 @@ function createGlyphTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImag
     const canvas = document.createElement('canvas');
     canvas.width = dstGlyphSizeX;
     canvas.height = dstGlyphSizeY * numGlyphs;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
     for (let y = 0; y < numGlyphsY; ++y) {
         for (let x = 0; x < numGlyphsX; ++x) {
@@ -1775,7 +1800,7 @@ function createGlyphTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImag
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = new Uint8Array(imageData.data.buffer);
 
-    const texture = gl.createTexture();
+    const texture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -2591,7 +2616,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
 
 function renderDamageVignette(invulnerabilityTimer: number, hitPoints: number, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
     let u = 0;
-    let colorInner: Array<number>, colorOuter: Array<number>;
+    let colorInner = [0, 0, 0, 0];
+    let colorOuter = [0, 0, 0, 0];
 
     if (invulnerabilityTimer > 0) {
         if (invulnerabilityTimer > 1) {
@@ -2842,7 +2868,7 @@ function initShaderProgram(gl: WebGL2RenderingContext, vsSource: string, fsSourc
     const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
-    const program = gl.createProgram();
+    const program = gl.createProgram()!;
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
 
@@ -2853,15 +2879,14 @@ function initShaderProgram(gl: WebGL2RenderingContext, vsSource: string, fsSourc
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(program));
-        return null;
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(program))!;
     }
 
     return program;
 }
 
 function loadShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
-    const shader = gl.createShader(type);
+    const shader = gl.createShader(type)!;
 
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
@@ -2869,7 +2894,6 @@ function loadShader(gl: WebGL2RenderingContext, type: number, source: string): W
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
-        return null;
     }
 
     return shader;
@@ -2882,7 +2906,7 @@ function createStripeTexture(gl: WebGL2RenderingContext): WebGLTexture {
         stripeImage[j] = 223 + j / 2;
     }
 
-    const texture = gl.createTexture();
+    const texture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
@@ -3142,7 +3166,7 @@ type Edge = [number, number];
 function createLevel(): Level {
     // Create some rooms in a grid.
 
-    const roomGrid = [];
+    const roomGrid: Array<Array<number>> = [];
     for (let roomY = 0; roomY < numCellsY; ++roomY) {
         roomGrid[roomY] = [];
         for (let roomX = 0; roomX < numCellsX; ++roomX) {
@@ -3789,13 +3813,13 @@ function compressRooms(roomGrid: Array<Array<number>>, edges: Array<[number, num
         let hasBentCorridor = false;
 
         for (let roomX = 0; roomX < numRoomsX; ++roomX) {
-            const roomIndex0 = (roomY > 0) ? roomGrid[roomY - 1][roomX] : undefined;
+            const roomIndex0 = (roomY > 0) ? roomGrid[roomY - 1][roomX] : null;
             const roomIndex1 = roomGrid[roomY][roomX];
-            const room0 = (roomIndex0 === undefined) ? undefined : rooms[roomIndex0];
+            const room0 = (roomIndex0 === null) ? null : rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
-            const gapMinY = (room0 === undefined) ? 0 : room0.minY + room0.sizeY + 2;
+            const gapMinY = (room0 === null) ? 0 : room0.minY + room0.sizeY + 2;
             const gapMaxY = room1.minY - 1;
-            if (room0 !== undefined &&
+            if (room0 !== null &&
                 hasEdge(edges, roomIndex0, roomIndex1) &&
                 !canHaveStraightVerticalHall(room0, room1)) {
                 hasBentCorridor = true;
@@ -3822,13 +3846,13 @@ function compressRooms(roomGrid: Array<Array<number>>, edges: Array<[number, num
         let hasBentCorridor = false;
 
         for (let roomY = 0; roomY < numRoomsY; ++roomY) {
-            const roomIndex0 = (roomX > 0) ? roomGrid[roomY][roomX - 1] : undefined;
+            const roomIndex0 = (roomX > 0) ? roomGrid[roomY][roomX - 1] : null;
             const roomIndex1 = roomGrid[roomY][roomX];
-            const room0 = (roomIndex0 === undefined) ? undefined : rooms[roomIndex0];
+            const room0 = (roomIndex0 === null) ? null : rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
-            const gapMinX = (room0 === undefined) ? 0 : room0.minX + room0.sizeX + 2;
+            const gapMinX = (room0 === null) ? 0 : room0.minX + room0.sizeX + 2;
             const gapMaxX = room1.minX - 1;
-            if (room0 !== undefined &&
+            if (room0 !== null &&
                 hasEdge(edges, roomIndex0, roomIndex1) &&
                 !canHaveStraightHorizontalHall(room0, room1)) {
                 hasBentCorridor = true;
@@ -4071,7 +4095,7 @@ function updatePotions(state: State) {
     });
 }
 
-function hasEdge(edges: Array<[number, number]>, roomIndex0: number, roomIndex1: number): boolean {
+function hasEdge(edges: Array<[number, number]>, roomIndex0: number | null, roomIndex1: number | null): boolean {
     return edges.some(edge => edge[0] === roomIndex0 && edge[1] === roomIndex1);
 }
 

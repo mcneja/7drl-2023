@@ -2,7 +2,6 @@
     TODO
 
 [ ] Change distance-field renderer to use a float texture
-[ ] Cleaner initialization that doesn't start with null
 
 */
 import { vec2, mat4 } from './my-matrix.js';
@@ -620,40 +619,29 @@ function createRenderer(gl, fontImage) {
     gl.clearColor(0, 0, 0, 1);
     return renderer;
 }
-function initState(createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
-    const state = {
-        distanceFieldFromEntrance: null,
-        distanceFieldFromExit: null,
-        renderField: null,
-        renderLighting: null,
-        renderColoredTriangles: null,
-        tLast: undefined,
-        paused: true,
-        showMap: false,
-        mapZoom: 1,
-        mapZoomVelocity: 0,
-        mouseSensitivity: 0,
-        player: null,
-        gameState: GameState.Active,
-        timeToGameEndMessage: delayGameEndMessage,
-        playerBullets: [],
-        turretBullets: [],
-        camera: null,
-        level: null,
-        lava: null,
-        pickupMessage: [],
-        pickupMessageTimer: 0,
+function createCamera(posPlayer) {
+    const camera = {
+        position: vec2.create(),
+        velocity: vec2.create(),
+        joltOffset: vec2.create(),
+        joltVelocity: vec2.create(),
     };
-    resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer);
-    return state;
+    vec2.copy(camera.position, posPlayer);
+    vec2.zero(camera.velocity);
+    vec2.zero(camera.joltOffset);
+    vec2.zero(camera.joltVelocity);
+    return camera;
 }
-function resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
-    const level = createLevel();
-    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
-    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
-    const renderField = createFieldRenderer(level, distanceFieldFromExit);
-    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
-    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
+function createLava() {
+    return {
+        state: LavaState.Inactive,
+        textureScroll: 0,
+        levelTarget: 0,
+        levelBase: 0,
+        levelBaseVelocity: 0,
+    };
+}
+function createPlayer(posStart) {
     const player = {
         position: vec2.create(),
         velocity: vec2.create(),
@@ -667,25 +655,55 @@ function resetState(state, createFieldRenderer, createLightingRenderer, createCo
         swarmerAttackCooldown: 0,
         dead: false,
     };
-    vec2.copy(player.position, level.playerStartPos);
+    vec2.copy(player.position, posStart);
     vec2.zero(player.velocity);
-    const camera = {
-        position: vec2.create(),
-        velocity: vec2.create(),
-        joltOffset: vec2.create(),
-        joltVelocity: vec2.create(),
+    return player;
+}
+function initState(createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
+    const level = createLevel();
+    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
+    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
+    const renderField = createFieldRenderer(level, distanceFieldFromExit);
+    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
+    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
+    const player = createPlayer(level.playerStartPos);
+    const camera = createCamera(level.playerStartPos);
+    const lava = createLava();
+    const state = {
+        distanceFieldFromEntrance: distanceFieldFromEntrance,
+        distanceFieldFromExit: distanceFieldFromExit,
+        renderField: renderField,
+        renderLighting: renderLighting,
+        renderColoredTriangles: renderColoredTriangles,
+        tLast: undefined,
+        paused: true,
+        showMap: false,
+        mapZoom: 1,
+        mapZoomVelocity: 0,
+        mouseSensitivity: 0,
+        player: player,
+        gameState: GameState.Active,
+        timeToGameEndMessage: delayGameEndMessage,
+        playerBullets: [],
+        turretBullets: [],
+        camera: camera,
+        level: level,
+        lava: lava,
+        pickupMessage: [],
+        pickupMessageTimer: 0,
     };
-    vec2.copy(camera.position, player.position);
-    vec2.zero(camera.velocity);
-    vec2.zero(camera.joltOffset);
-    vec2.zero(camera.joltVelocity);
-    const lava = {
-        state: LavaState.Inactive,
-        textureScroll: 0,
-        levelTarget: 0,
-        levelBase: 0,
-        levelBaseVelocity: 0,
-    };
+    return state;
+}
+function resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
+    const level = createLevel();
+    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
+    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
+    const renderField = createFieldRenderer(level, distanceFieldFromExit);
+    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
+    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
+    const player = createPlayer(level.playerStartPos);
+    const camera = createCamera(level.playerStartPos);
+    const lava = createLava();
     state.distanceFieldFromEntrance = distanceFieldFromEntrance;
     state.distanceFieldFromExit = distanceFieldFromExit;
     state.renderField = renderField;
@@ -2003,7 +2021,8 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
 }
 function renderDamageVignette(invulnerabilityTimer, hitPoints, damageDisplayTimer, renderer, screenSize) {
     let u = 0;
-    let colorInner, colorOuter;
+    let colorInner = [0, 0, 0, 0];
+    let colorOuter = [0, 0, 0, 0];
     if (invulnerabilityTimer > 0) {
         if (invulnerabilityTimer > 1) {
             u = 1 - 0.65 * (Math.pow((1 - invulnerabilityTimer / invulnerabilityDuration), 2));
@@ -2176,7 +2195,6 @@ function initShaderProgram(gl, vsSource, fsSource, attribs) {
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(program));
-        return null;
     }
     return program;
 }
@@ -2187,7 +2205,6 @@ function loadShader(gl, type, source) {
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
-        return null;
     }
     return shader;
 }
@@ -2897,13 +2914,13 @@ function compressRooms(roomGrid, edges, rooms) {
         let gapMax = Number.MAX_SAFE_INTEGER;
         let hasBentCorridor = false;
         for (let roomX = 0; roomX < numRoomsX; ++roomX) {
-            const roomIndex0 = (roomY > 0) ? roomGrid[roomY - 1][roomX] : undefined;
+            const roomIndex0 = (roomY > 0) ? roomGrid[roomY - 1][roomX] : null;
             const roomIndex1 = roomGrid[roomY][roomX];
-            const room0 = (roomIndex0 === undefined) ? undefined : rooms[roomIndex0];
+            const room0 = (roomIndex0 === null) ? null : rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
-            const gapMinY = (room0 === undefined) ? 0 : room0.minY + room0.sizeY + 2;
+            const gapMinY = (room0 === null) ? 0 : room0.minY + room0.sizeY + 2;
             const gapMaxY = room1.minY - 1;
-            if (room0 !== undefined &&
+            if (room0 !== null &&
                 hasEdge(edges, roomIndex0, roomIndex1) &&
                 !canHaveStraightVerticalHall(room0, room1)) {
                 hasBentCorridor = true;
@@ -2928,13 +2945,13 @@ function compressRooms(roomGrid, edges, rooms) {
         let gapMax = Number.MAX_SAFE_INTEGER;
         let hasBentCorridor = false;
         for (let roomY = 0; roomY < numRoomsY; ++roomY) {
-            const roomIndex0 = (roomX > 0) ? roomGrid[roomY][roomX - 1] : undefined;
+            const roomIndex0 = (roomX > 0) ? roomGrid[roomY][roomX - 1] : null;
             const roomIndex1 = roomGrid[roomY][roomX];
-            const room0 = (roomIndex0 === undefined) ? undefined : rooms[roomIndex0];
+            const room0 = (roomIndex0 === null) ? null : rooms[roomIndex0];
             const room1 = rooms[roomIndex1];
-            const gapMinX = (room0 === undefined) ? 0 : room0.minX + room0.sizeX + 2;
+            const gapMinX = (room0 === null) ? 0 : room0.minX + room0.sizeX + 2;
             const gapMaxX = room1.minX - 1;
-            if (room0 !== undefined &&
+            if (room0 !== null &&
                 hasEdge(edges, roomIndex0, roomIndex1) &&
                 !canHaveStraightHorizontalHall(room0, room1)) {
                 hasBentCorridor = true;
