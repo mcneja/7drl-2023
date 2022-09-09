@@ -1,24 +1,12 @@
 /*
     TODO
 
-[ ] Figure out how to use gl-matrix with type checking
 [ ] Change distance-field renderer to use a float texture
 [ ] Cleaner initialization that doesn't start with null
 
 */
 
-declare var glMatrix: any;
-
-const vec2 = glMatrix.vec2;
-const vec4 = glMatrix.vec4;
-const mat4 = glMatrix.mat4;
-
-type vec2 = [number, number];
-type mat4 =
-    [number, number, number, number,
-     number, number, number, number,
-     number, number, number, number,
-     number, number, number, number];
+import { vec2, mat4 } from './my-matrix.js';
 
 window.onload = loadResourcesThenRun;
 
@@ -283,8 +271,6 @@ type State = {
 }
 
 function loadResourcesThenRun() {
-    glMatrix.glMatrix.setMatrixArrayType(Array);
-
     loadImage('font.png').then((fontImage: HTMLImageElement) => { main(fontImage); });
 }
 
@@ -1448,7 +1434,7 @@ function createDiscRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLTextu
         vGlyphIndex: 4,
     };
 
-    const vecScaleAndOffsetGlyphFromDisc = vec4.fromValues(1, -0.5, 0.5, 0.45);
+    const vecScaleAndOffsetGlyphFromDisc = [1, -0.5, 0.5, 0.45];
 
     const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
