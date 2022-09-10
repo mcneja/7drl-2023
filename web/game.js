@@ -67,6 +67,23 @@ class Float64Grid {
         this.values[this.sizeX * y + x] = value;
     }
 }
+class BooleanGrid {
+    constructor(sizeX, sizeY, initialValue) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.values = new Uint8Array(sizeX * sizeY);
+        this.fill(initialValue);
+    }
+    fill(value) {
+        this.values.fill(value ? 1 : 0);
+    }
+    get(x, y) {
+        return this.values[this.sizeX * y + x] !== 0;
+    }
+    set(x, y, value) {
+        this.values[this.sizeX * y + x] = value ? 1 : 0;
+    }
+}
 class TerrainTypeGrid {
     constructor(sizeX, sizeY, initialValue) {
         this.sizeX = sizeX;
@@ -272,7 +289,7 @@ function updatePlayerBullet(state, bullet, dt) {
     if (hitSomething) {
         return false;
     }
-    if (isDiscTouchingLevel(bullet.position, bulletRadius, state.level.grid)) {
+    if (isDiscTouchingLevel(bullet.position, bulletRadius, state.level.solid)) {
         return false;
     }
     return true;
@@ -307,7 +324,7 @@ function updateTurretBullet(state, bullet, dt) {
     if (bullet.timeRemaining <= 0) {
         return false;
     }
-    if (isDiscTouchingLevel(bullet.position, bulletRadius, state.level.grid)) {
+    if (isDiscTouchingLevel(bullet.position, bulletRadius, state.level.solid)) {
         return false;
     }
     const playerMass = 1;
@@ -352,7 +369,7 @@ function updateSpikes(state, dt) {
     // Fix up spike positions relative to the environment and other objects.
     for (let i = 0; i < state.level.spikes.length; ++i) {
         const spike0 = state.level.spikes[i];
-        fixupPositionAndVelocityAgainstLevel(spike0.position, spike0.velocity, spike0.radius, state.level.grid);
+        fixupPositionAndVelocityAgainstLevel(spike0.position, spike0.velocity, spike0.radius, state.level.solid);
         if (spike0.dead)
             continue;
         for (let j = i + 1; j < state.level.spikes.length; ++j) {
@@ -410,7 +427,7 @@ function updateTurrets(state, dt) {
     // Fix up turret positions relative to the environment and other objects.
     for (let i = 0; i < state.level.turrets.length; ++i) {
         const turret0 = state.level.turrets[i];
-        fixupPositionAndVelocityAgainstLevel(turret0.position, turret0.velocity, turret0.radius, state.level.grid);
+        fixupPositionAndVelocityAgainstLevel(turret0.position, turret0.velocity, turret0.radius, state.level.solid);
         if (turret0.dead)
             continue;
         for (const spike of state.level.spikes) {
@@ -450,7 +467,7 @@ function updateSwarmers(state, dt) {
                 const dposToTarget = vec2.create();
                 vec2.subtract(dposToTarget, swarmer.position, state.player.position);
                 const distToTarget = vec2.length(dposToTarget);
-                if (distToTarget < 24 && clearLineOfSight(state.level, swarmer.position, state.player.position)) {
+                if (distToTarget < 24 && clearLineOfSight(state.level.solid, swarmer.position, state.player.position)) {
                     vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dposToTarget, -accelerationRate * dt / distToTarget);
                 }
             }
@@ -503,7 +520,7 @@ function updateSwarmers(state, dt) {
     // Fix up swarmer positions relative to the environment and other objects.
     for (let i = 0; i < state.level.swarmers.length; ++i) {
         const swarmer0 = state.level.swarmers[i];
-        fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.grid);
+        fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.solid);
         if (swarmer0.dead)
             continue;
         for (let j = i + 1; j < state.level.swarmers.length; ++j) {
@@ -661,13 +678,13 @@ function createPlayer(posStart) {
 }
 function initState(createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
     const level = createLevel();
-    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
-    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
+    const distanceFieldFromExit = createDistanceField(level.solid, level.amuletPos);
+    const distanceFieldFromEntrance = createDistanceField(level.solid, level.playerStartPos);
     return {
         distanceFieldFromEntrance: distanceFieldFromEntrance,
         distanceFieldFromExit: distanceFieldFromExit,
-        renderField: createFieldRenderer(level, distanceFieldFromExit),
-        renderLighting: createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit),
+        renderField: createFieldRenderer(level.solid, distanceFieldFromExit),
+        renderLighting: createLightingRenderer(level.solid, distanceFieldFromEntrance, distanceFieldFromExit),
         renderColoredTriangles: createColoredTrianglesRenderer(level.vertexData),
         tLast: undefined,
         paused: true,
@@ -689,12 +706,12 @@ function initState(createFieldRenderer, createLightingRenderer, createColoredTri
 }
 function resetState(state, createFieldRenderer, createLightingRenderer, createColoredTrianglesRenderer) {
     const level = createLevel();
-    const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
-    const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
+    const distanceFieldFromExit = createDistanceField(level.solid, level.amuletPos);
+    const distanceFieldFromEntrance = createDistanceField(level.solid, level.playerStartPos);
     state.distanceFieldFromEntrance = distanceFieldFromEntrance;
     state.distanceFieldFromExit = distanceFieldFromExit;
-    state.renderField = createFieldRenderer(level, distanceFieldFromExit);
-    state.renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
+    state.renderField = createFieldRenderer(level.solid, distanceFieldFromExit);
+    state.renderLighting = createLightingRenderer(level.solid, distanceFieldFromEntrance, distanceFieldFromExit);
     state.renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
     state.player = createPlayer(level.playerStartPos);
     state.gameState = GameState.Active;
@@ -782,17 +799,17 @@ function createFieldRenderer(gl) {
     const vertexBuffer = gl.createBuffer();
     const indexBuffer = gl.createBuffer();
     const contourTexture = createStripeTexture(gl);
-    return (level, distanceField) => {
+    return (solid, distanceField) => {
         // First, count how many quads will be created, so we can size the buffers.
-        const gridSizeX = level.grid.sizeX;
-        const gridSizeY = level.grid.sizeY;
+        const gridSizeX = solid.sizeX;
+        const gridSizeY = solid.sizeY;
         let numQuads = 0;
         for (let y = 0; y < gridSizeY; ++y) {
             for (let x = 0; x < gridSizeX; ++x) {
-                const tileType = level.grid.get(x, y);
-                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
-                    continue;
-                ++numQuads;
+                const isSolid = solid.get(x, y);
+                if (!isSolid) {
+                    ++numQuads;
+                }
             }
         }
         // Allocate buffers for vertex data and triangle indices.
@@ -813,8 +830,8 @@ function createFieldRenderer(gl) {
         }
         for (let y0 = 0; y0 < gridSizeY; ++y0) {
             for (let x0 = 0; x0 < gridSizeX; ++x0) {
-                const tileType = level.grid.get(x0, y0);
-                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
+                const isSolid = solid.get(x0, y0);
+                if (isSolid)
                     continue;
                 const x1 = x0 + 1;
                 const y1 = y0 + 1;
@@ -915,17 +932,17 @@ function createLightingRenderer(gl) {
     };
     const vertexBuffer = gl.createBuffer();
     const indexBuffer = gl.createBuffer();
-    return (level, distanceFromEntrance, distanceFromExit) => {
+    return (solid, distanceFromEntrance, distanceFromExit) => {
         // First, count how many quads will be created, so we can size the buffers.
-        const gridSizeX = level.grid.sizeX;
-        const gridSizeY = level.grid.sizeY;
+        const gridSizeX = solid.sizeX;
+        const gridSizeY = solid.sizeY;
         let numQuads = 0;
         for (let y = 0; y < gridSizeY; ++y) {
             for (let x = 0; x < gridSizeX; ++x) {
-                const tileType = level.grid.get(x, y);
-                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
-                    continue;
-                ++numQuads;
+                const isSolid = solid.get(x, y);
+                if (!isSolid) {
+                    ++numQuads;
+                }
             }
         }
         // Allocate buffers for vertex data and triangle indices.
@@ -948,8 +965,8 @@ function createLightingRenderer(gl) {
         }
         for (let y0 = 0; y0 < gridSizeY; ++y0) {
             for (let x0 = 0; x0 < gridSizeX; ++x0) {
-                const tileType = level.grid.get(x0, y0);
-                if (tileType != TerrainType.Hall && tileType != TerrainType.Room)
+                const isSolid = solid.get(x0, y0);
+                if (isSolid)
                     continue;
                 const x1 = x0 + 1;
                 const y1 = y0 + 1;
@@ -1566,7 +1583,7 @@ function updateState(state, dt) {
                 }
             }
         }
-        fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.grid);
+        fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.solid);
     }
 }
 function updateLava(state, dt) {
@@ -1733,15 +1750,15 @@ function elasticCollision(body0, body1, mass0, mass1, elasticity) {
     vec2.scaleAndAdd(body1.velocity, body1.velocity, dpos, -scaleVelFixup * mass0);
     return true;
 }
-function isDiscTouchingLevel(discPos, discRadius, grid) {
+function isDiscTouchingLevel(discPos, discRadius, solid) {
     const gridMinX = Math.max(0, Math.floor(discPos[0] - discRadius));
     const gridMinY = Math.max(0, Math.floor(discPos[1] - discRadius));
-    const gridMaxX = Math.min(grid.sizeX, Math.floor(discPos[0] + discRadius + 1));
-    const gridMaxY = Math.min(grid.sizeY, Math.floor(discPos[1] + discRadius + 1));
+    const gridMaxX = Math.min(solid.sizeX, Math.floor(discPos[0] + discRadius + 1));
+    const gridMaxY = Math.min(solid.sizeY, Math.floor(discPos[1] + discRadius + 1));
     for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
         for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
-            const tileType = grid.get(gridX, gridY);
-            if (tileType == TerrainType.Room || tileType == TerrainType.Hall) {
+            const isSolid = solid.get(gridX, gridY);
+            if (!isSolid) {
                 continue;
             }
             let dx = discPos[0] - gridX;
@@ -1762,18 +1779,18 @@ function areDiscsTouching(pos0, radius0, pos1, radius1) {
     const d = vec2.length(dpos);
     return d < radius0 + radius1;
 }
-function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, grid) {
+function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, solid) {
     let vNormalMin = 0;
     for (let i = 0; i < 4; ++i) {
         const gridMinX = Math.max(0, Math.floor(position[0] - radius));
         const gridMinY = Math.max(0, Math.floor(position[1] - radius));
-        const gridMaxX = Math.min(grid.sizeX, Math.floor(position[0] + radius + 1));
-        const gridMaxY = Math.min(grid.sizeY, Math.floor(position[1] + radius + 1));
+        const gridMaxX = Math.min(solid.sizeX, Math.floor(position[0] + radius + 1));
+        const gridMaxY = Math.min(solid.sizeY, Math.floor(position[1] + radius + 1));
         let smallestSeparatingAxis = { unitDir: vec2.fromValues(0, 0), d: radius };
         for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
             for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
-                const tileType = grid.get(gridX, gridY);
-                if (tileType == TerrainType.Room || tileType == TerrainType.Hall) {
+                const isSolid = solid.get(gridX, gridY);
+                if (!isSolid) {
                     continue;
                 }
                 const dx = position[0] - (0.5 + gridX);
@@ -1794,8 +1811,8 @@ function fixupPositionAndVelocityAgainstLevel(position, velocity, radius, grid) 
     }
     const xMin = radius;
     const yMin = radius;
-    const xMax = grid.sizeX - radius;
-    const yMax = grid.sizeY - radius;
+    const xMax = solid.sizeX - radius;
+    const yMax = solid.sizeY - radius;
     if (position[0] < xMin) {
         position[0] = xMin;
         velocity[0] = 0;
@@ -1843,7 +1860,7 @@ function distanceBetween(pos0, pos1) {
     vec2.subtract(dpos, pos1, pos0);
     return vec2.length(dpos);
 }
-function clearLineOfSight(level, pos0, pos1) {
+function clearLineOfSight(solid, pos0, pos1) {
     const dx = Math.abs(pos1[0] - pos0[0]);
     const dy = Math.abs(pos1[1] - pos0[1]);
     let x = Math.floor(pos0[0]);
@@ -1871,10 +1888,10 @@ function clearLineOfSight(level, pos0, pos1) {
         error -= (pos0[1] - Math.floor(pos0[1])) * dx;
     }
     while (n > 0) {
-        if (x < 0 || y < 0 || x >= level.grid.sizeX || y >= level.grid.sizeY)
+        if (x < 0 || y < 0 || x >= solid.sizeX || y >= solid.sizeY)
             return false;
-        const tileType = level.grid.get(x, y);
-        if (tileType != TerrainType.Room && tileType != TerrainType.Hall)
+        const isSolid = solid.get(x, y);
+        if (isSolid)
             return false;
         if (error > 0) {
             y += yInc;
@@ -1972,8 +1989,8 @@ function renderScene(renderer, state) {
     }
 }
 function setupViewMatrix(state, screenSize, matScreenFromWorld) {
-    const mapSizeX = state.level.grid.sizeX + 2;
-    const mapSizeY = state.level.grid.sizeY + 2;
+    const mapSizeX = state.level.solid.sizeX + 2;
+    const mapSizeY = state.level.solid.sizeY + 2;
     let rxMap, ryMap;
     if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
         // horizontal is limiting dimension
@@ -1985,8 +2002,8 @@ function setupViewMatrix(state, screenSize, matScreenFromWorld) {
         ryMap = mapSizeY / 2;
         rxMap = ryMap * screenSize[0] / screenSize[1];
     }
-    const cxMap = state.level.grid.sizeX / 2;
-    const cyMap = state.level.grid.sizeY / 2;
+    const cxMap = state.level.solid.sizeX / 2;
+    const cyMap = state.level.solid.sizeY / 2;
     const cxGame = state.camera.position[0] + state.camera.joltOffset[0];
     const cyGame = state.camera.position[1] + state.camera.joltOffset[1];
     const rGame = 18;
@@ -2251,19 +2268,19 @@ function priorityQueuePush(q, x) {
         i = iParent;
     }
 }
-function createDistanceField(grid, posSource) {
-    const fieldSizeX = grid.sizeX + 1;
-    const fieldSizeY = grid.sizeY + 1;
+function createDistanceField(solid, posSource) {
+    const fieldSizeX = solid.sizeX + 1;
+    const fieldSizeY = solid.sizeY + 1;
     const distanceField = new Float64Grid(fieldSizeX, fieldSizeY, Infinity);
-    updateDistanceField(grid, distanceField, posSource);
+    updateDistanceField(solid, distanceField, posSource);
     return distanceField;
 }
-function updateDistanceField(grid, distanceField, posSource) {
+function updateDistanceField(solid, distanceField, posSource) {
     const sourceX = Math.floor(posSource[0]);
     const sourceY = Math.floor(posSource[1]);
     distanceField.fill(Infinity);
     let toVisit = [{ priority: 0, x: sourceX, y: sourceY }];
-    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(grid, distanceField, x, y));
+    fastMarchFill(distanceField, toVisit, (x, y) => estimatedDistance(solid, distanceField, x, y));
     floodFillImpassableAreas(distanceField);
 }
 function fastMarchFill(field, toVisit, estimatedDistance) {
@@ -2299,12 +2316,11 @@ function fastMarchFill(field, toVisit, estimatedDistance) {
         }
     }
 }
-function estimatedDistance(grid, distanceField, x, y) {
+function estimatedDistance(solid, distanceField, x, y) {
     function isSolid(x, y) {
-        if (x < 0 || y < 0 || x >= grid.sizeX || y >= grid.sizeY)
+        if (x < 0 || y < 0 || x >= solid.sizeX || y >= solid.sizeY)
             return true;
-        const tileType = grid.get(x, y);
-        return tileType != TerrainType.Hall && tileType != TerrainType.Room;
+        return solid.get(x, y);
     }
     const solidSW = isSolid(x - 1, y - 1);
     const solidSE = isSolid(x, y - 1);
@@ -2713,17 +2729,26 @@ function createLevel() {
     const amuletRoom = rooms[roomIndexExit];
     const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX / 2 - 0.5, amuletRoom.minY + amuletRoom.sizeY / 2 - 0.5);
     const positionsUsed = [amuletPos];
+    // Create a boolean grid indicating which squares on the map are solid and which are open space
+    const solid = new BooleanGrid(grid.sizeX, grid.sizeY, false);
+    for (let x = 0; x < grid.sizeX; ++x) {
+        for (let y = 0; y < grid.sizeY; ++y) {
+            const terrainType = grid.get(x, y);
+            const isSolid = terrainType == TerrainType.Solid || terrainType == TerrainType.Wall;
+            solid.set(x, y, isSolid);
+        }
+    }
     // Enemies
-    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, grid, positionsUsed);
+    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, solid, positionsUsed);
     // Potions
-    const potions = createPotions(rooms, roomIndexEntrance, roomIndexExit, grid, positionsUsed);
+    const potions = createPotions(rooms, roomIndexEntrance, roomIndexExit, solid, positionsUsed);
     // Place loot in the level. Distribute it so rooms that are far from
     // the entrance or the exit have the most? Or so dead ends have the
     // most? Bias toward the rooms that aren't on the path between the
     // entrance and the exit?
-    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, amuletPos, grid);
+    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, amuletPos, solid);
     return {
-        grid: grid,
+        solid: solid,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
         startRoom: startRoom,
@@ -2762,7 +2787,7 @@ function computeDistances(roomDistance, numRooms, edges, roomIndexStart) {
         }
     }
 }
-function createEnemies(rooms, roomDistance, grid, positionsUsed) {
+function createEnemies(rooms, roomDistance, solid, positionsUsed) {
     const spikes = [];
     const turrets = [];
     const swarmers = [];
@@ -2780,13 +2805,13 @@ function createEnemies(rooms, roomDistance, grid, positionsUsed) {
             const monsterKind = Math.random();
             let success = false;
             if (monsterKind < 0.3 || d < 2) {
-                success = tryCreateSpike(room, spikes, grid, positionsUsed);
+                success = tryCreateSpike(room, spikes, solid, positionsUsed);
             }
             else if ((monsterKind < 0.7 || d < 3) && d != 3) {
-                success = tryCreateTurret(room, turrets, grid, positionsUsed);
+                success = tryCreateTurret(room, turrets, solid, positionsUsed);
             }
             else {
-                success = tryCreateSwarmer(room, swarmers, grid, positionsUsed);
+                success = tryCreateSwarmer(room, swarmers, solid, positionsUsed);
             }
             if (success) {
                 ++numEnemies;
@@ -2795,11 +2820,11 @@ function createEnemies(rooms, roomDistance, grid, positionsUsed) {
     }
     return [spikes, turrets, swarmers];
 }
-function tryCreateSpike(room, spikes, grid, positionsUsed) {
+function tryCreateSpike(room, spikes, solid, positionsUsed) {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
     const position = vec2.fromValues(x, y);
-    if (isDiscTouchingLevel(position, monsterRadius * 2, grid)) {
+    if (isDiscTouchingLevel(position, monsterRadius * 2, solid)) {
         return false;
     }
     if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
@@ -2815,11 +2840,11 @@ function tryCreateSpike(room, spikes, grid, positionsUsed) {
     positionsUsed.push(position);
     return true;
 }
-function tryCreateTurret(room, turrets, grid, positionsUsed) {
+function tryCreateTurret(room, turrets, solid, positionsUsed) {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
     const position = vec2.fromValues(x, y);
-    if (isDiscTouchingLevel(position, monsterRadius * 2, grid)) {
+    if (isDiscTouchingLevel(position, monsterRadius * 2, solid)) {
         return false;
     }
     if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
@@ -2836,11 +2861,11 @@ function tryCreateTurret(room, turrets, grid, positionsUsed) {
     positionsUsed.push(position);
     return true;
 }
-function tryCreateSwarmer(room, swarmers, grid, positionsUsed) {
+function tryCreateSwarmer(room, swarmers, solid, positionsUsed) {
     const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
     const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
     const position = vec2.fromValues(x, y);
-    if (isDiscTouchingLevel(position, monsterRadius * 2, grid)) {
+    if (isDiscTouchingLevel(position, monsterRadius * 2, solid)) {
         return false;
     }
     if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
@@ -2858,7 +2883,7 @@ function tryCreateSwarmer(room, swarmers, grid, positionsUsed) {
     positionsUsed.push(position);
     return true;
 }
-function createPotions(rooms, roomIndexEntrance, roomIndexExit, grid, positionsUsed) {
+function createPotions(rooms, roomIndexEntrance, roomIndexExit, solid, positionsUsed) {
     const roomIndices = [];
     for (let i = 0; i < rooms.length; ++i) {
         if (i != roomIndexEntrance && i != roomIndexExit) {
@@ -2875,7 +2900,7 @@ function createPotions(rooms, roomIndexEntrance, roomIndexExit, grid, positionsU
             const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
             const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
             const position = vec2.fromValues(x, y);
-            if (isDiscTouchingLevel(position, lootRadius * 2, grid)) {
+            if (isDiscTouchingLevel(position, lootRadius * 2, solid)) {
                 continue;
             }
             if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * lootRadius, position)) {
@@ -3042,7 +3067,7 @@ function tryPlaceCenterObstacleRoom(rooms, grid) {
         return;
     }
 }
-function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, grid) {
+function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, solid) {
     const numLoot = 100;
     const loot = [];
     for (let i = 0; i < 1024 && loot.length < numLoot; ++i) {
@@ -3054,7 +3079,7 @@ function createLootItems(rooms, positionsUsed, roomIndexEntrance, posAmulet, gri
         const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
         const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
         const position = vec2.fromValues(x, y);
-        if (isDiscTouchingLevel(position, lootRadius * 2, grid)) {
+        if (isDiscTouchingLevel(position, lootRadius * 2, solid)) {
             continue;
         }
         if (isPositionTooCloseToOtherPositions(positionsUsed, 2 * lootRadius + monsterRadius, position)) {
