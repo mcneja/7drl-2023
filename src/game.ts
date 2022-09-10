@@ -970,43 +970,34 @@ function initState(
     createFieldRenderer: CreateFieldRenderer,
     createLightingRenderer: CreateLightingRenderer,
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
-    const level = createLevel();
 
+    const level = createLevel();
     const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
     const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
 
-    const renderField = createFieldRenderer(level, distanceFieldFromExit);
-    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
-    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
-
-    const player = createPlayer(level.playerStartPos);
-    const camera = createCamera(level.playerStartPos);
-    const lava = createLava();
-
-    const state: State = {
+    return {
         distanceFieldFromEntrance: distanceFieldFromEntrance,
         distanceFieldFromExit: distanceFieldFromExit,
-        renderField: renderField,
-        renderLighting: renderLighting,
-        renderColoredTriangles: renderColoredTriangles,
+        renderField: createFieldRenderer(level, distanceFieldFromExit),
+        renderLighting: createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit),
+        renderColoredTriangles: createColoredTrianglesRenderer(level.vertexData),
         tLast: undefined,
         paused: true,
         showMap: false,
         mapZoom: 1,
         mapZoomVelocity: 0,
         mouseSensitivity: 0,
-        player: player,
+        player: createPlayer(level.playerStartPos),
         gameState: GameState.Active,
         timeToGameEndMessage: delayGameEndMessage,
         playerBullets: [],
         turretBullets: [],
-        camera: camera,
+        camera: createCamera(level.playerStartPos),
         level: level,
-        lava: lava,
+        lava: createLava(),
         pickupMessage: [],
         pickupMessageTimer: 0,
     };
-    return state;
 }
 
 function resetState(
@@ -1014,33 +1005,24 @@ function resetState(
     createFieldRenderer: CreateFieldRenderer,
     createLightingRenderer: CreateLightingRenderer,
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer) {
-    const level = createLevel();
 
+    const level = createLevel();
     const distanceFieldFromExit = createDistanceField(level.grid, level.amuletPos);
     const distanceFieldFromEntrance = createDistanceField(level.grid, level.playerStartPos);
 
-    const renderField = createFieldRenderer(level, distanceFieldFromExit);
-    const renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
-    const renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
-
-    const player = createPlayer(level.playerStartPos);
-    const camera = createCamera(level.playerStartPos);
-    const lava = createLava();
-
     state.distanceFieldFromEntrance = distanceFieldFromEntrance;
     state.distanceFieldFromExit = distanceFieldFromExit;
-    state.renderField = renderField;
-    state.renderLighting = renderLighting;
-    state.renderColoredTriangles = renderColoredTriangles;
-    state.tLast = undefined;
-    state.player = player;
+    state.renderField = createFieldRenderer(level, distanceFieldFromExit);
+    state.renderLighting = createLightingRenderer(level, distanceFieldFromEntrance, distanceFieldFromExit);
+    state.renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
+    state.player = createPlayer(level.playerStartPos);
     state.gameState = GameState.Active;
     state.timeToGameEndMessage = delayGameEndMessage;
     state.playerBullets = [];
     state.turretBullets = [];
-    state.camera = camera;
+    state.camera = createCamera(level.playerStartPos);
     state.level = level;
-    state.lava = lava;
+    state.lava = createLava();
     state.pickupMessage = [];
     state.pickupMessageTimer = 0;
 }
