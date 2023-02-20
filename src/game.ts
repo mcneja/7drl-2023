@@ -5,7 +5,8 @@
 
 */
 
-import { vec2, mat4 } from './my-matrix.js';
+import { vec2, mat4 } from './my-matrix.ts';
+var fontImageRequire = require('./font.png');
 
 window.onload = loadResourcesThenRun;
 
@@ -295,7 +296,7 @@ type State = {
 }
 
 function loadResourcesThenRun() {
-    loadImage('font.png').then((fontImage) => { main(fontImage as HTMLImageElement); });
+    loadImage(fontImageRequire).then((fontImage) => { main(fontImage as HTMLImageElement); });
 }
 
 function main(fontImage: HTMLImageElement) {

@@ -1,0 +1,16 @@
+{
+  "name": "7drl-2023",
+  "version": "1.0.0",
+  "description": "Turn-based stealth in Merry Old England.",
+  "source": "src/index.html",
+  "scripts": {
+    "start": "parcel src/index.html",
+    "build": "parcel build src/index.html --public-url ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "parcel": "latest",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {}
+}
