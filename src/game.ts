@@ -20,7 +20,6 @@ enum GameState {
 
 enum PotionType {
     Health,
-    Invulnerability,
 }
 
 const playerRadius = 0.5;
@@ -35,8 +34,6 @@ const turretFireDelayStart = 4.0;
 const turretFireDelayEnd = 2.0;
 const turretFireSpeed = 10.0;
 const turretBulletLifetime = 4.0;
-const invulnerabilityDuration = 6.0;
-const swarmerAttackCooldownDuration = 2.0;
 const pickupMessageDuration = 2.0;
 
 const numCellsX = 4;
@@ -44,32 +41,6 @@ const numCellsY = 4;
 const corridorWidth = 3;
 
 const damageDisplayDuration = 1.5;
-const delayGameEndMessage = 2;
-
-class Float64Grid {
-    sizeX: number;
-    sizeY: number;
-    values: Float64Array;
-
-    constructor(sizeX: number, sizeY: number, initialValue: number) {
-        this.sizeX = sizeX;
-        this.sizeY = sizeY;
-        this.values = new Float64Array(sizeX * sizeY);
-        this.fill(initialValue);
-    }
-
-    fill(value: number) {
-        this.values.fill(value);
-    }
-
-    get(x: number, y: number): number {
-        return this.values[this.sizeX * y + x];
-    }
-
-    set(x: number, y: number, value: number) {
-        this.values[this.sizeX * y + x] = value;
-    }
-}
 
 class BooleanGrid {
     sizeX: number;
@@ -132,13 +103,10 @@ type Player = {
     position: vec2;
     velocity: vec2;
     radius: number;
-    numInvulnerabilityPotions: number;
-    invulnerabilityTimer: number;
     numBullets: number;
     amuletCollected: boolean;
     hitPoints: number;
     damageDisplayTimer: number;
-    swarmerAttackCooldown: number;
     dead: boolean;
 };
 
@@ -181,16 +149,6 @@ type Turret = {
     timeToFire: number;
 }
 
-type Swarmer = {
-    position: vec2;
-    velocity: vec2;
-    radius: number;
-    heading: number;
-    headingRate: number;
-    onContactCooldown: boolean;
-    dead: boolean;
-}
-
 type Potion = {
     position: vec2;
     potionType: number;
@@ -208,7 +166,6 @@ type Level = {
     amuletRoom: Rect;
     amuletPos: vec2;
     turrets: Array<Turret>;
-    swarmers: Array<Swarmer>;
     potions: Array<Potion>;
     lootItems: Array<LootItem>;
     numLootItemsTotal: number;
@@ -245,7 +202,6 @@ type State = {
     mouseSensitivity: number;
     player: Player;
     gameState: GameState;
-    timeToGameEndMessage: number;
     playerBullets: Array<Bullet>;
     turretBullets: Array<Bullet>;
     camera: Camera;
@@ -311,11 +267,6 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
             } else {
                 setPickupMessage(state, ['Mouse sensitivity: ' + state.mouseSensitivity]);
             }
-        } else if (e.code == 'Space') {
-            e.preventDefault();
-            if (!state.paused) {
-                tryDrinkInvulnerabilityPotion(state);
-            }
         }
     });
 
@@ -331,7 +282,6 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
-                state.timeToGameEndMessage = delayGameEndMessage;
                 requestUpdateAndRender();
             }
         } else {
@@ -351,8 +301,6 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
         }
         if (e.button == 0) {
             tryShootBullet(state);
-        } else if (e.button == 2) {
-            tryDrinkInvulnerabilityPotion(state);
         }
     }
 
@@ -385,20 +333,6 @@ function updatePosition(state: State, e: MouseEvent) {
     const movement = vec2.fromValues(e.movementX, -e.movementY);
     const scale = 0.05 * Math.pow(1.1, state.mouseSensitivity);
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
-}
-
-function tryDrinkInvulnerabilityPotion(state: State) {
-    if (state.player.hitPoints <= 0) {
-        return;
-    }
-
-    if (state.player.numInvulnerabilityPotions < 1) {
-        setPickupMessage(state, ['No Invulnerability Potion']);
-        return;
-    }
-
-    state.player.numInvulnerabilityPotions -= 1;
-    state.player.invulnerabilityTimer = Math.max(state.player.invulnerabilityTimer, invulnerabilityDuration);
 }
 
 function tryShootBullet(state: State) {
@@ -448,18 +382,6 @@ function updatePlayerBullet(state: State, bullet: Bullet, dt: number) {
         }
     }
 
-    for (const swarmer of state.level.swarmers) {
-        if (swarmer.dead) {
-            continue;
-        }
-
-        if (areDiscsTouching(bullet.position, bulletRadius, swarmer.position, swarmer.radius)) {
-            swarmer.dead = true;
-            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, bullet.velocity, 0.2);
-            hitSomething = true;
-        }
-    }
-
     if (hitSomething) {
         return false;
     }
@@ -488,7 +410,7 @@ function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4
     const discs = [{
         position: state.player.position,
         radius: state.player.radius,
-        discColor: (state.player.invulnerabilityTimer > 0) ? 0xffffff00 : 0xff000000,
+        discColor: 0xff000000,
         glyphColor: (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff,
         glyphIndex: 1,
     }];
@@ -518,9 +440,7 @@ function updateTurretBullet(state: State, bullet: Bullet, dt: number) {
 
     if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
         elasticCollision(state.player, bullet, playerMass, bulletMass, elasticity);
-        if (state.player.invulnerabilityTimer <= 0) {
-            damagePlayer(state, 1);
-        }
+        damagePlayer(state, 1);
         return false;
     }
 
@@ -617,104 +537,6 @@ function updateTurrets(state: State, dt: number) {
     }
 }
 
-function updateSwarmers(state: State, dt: number) {
-    const uLoot = fractionOfLootCollected(state);
-    const accelerationRate = lerp(10, 20, uLoot);
-    const dragAccelerationRate = 3;
-    const perturbationAccelerationRate = 8;
-    const separationDist = 5;
-    const separationForce = 1;
-
-    const velPrev = vec2.create();
-    const perturbationDir = vec2.create();
-    const dpos = vec2.create();
-
-    for (const swarmer of state.level.swarmers) {
-        vec2.copy(velPrev, swarmer.velocity);
-
-        swarmer.heading += swarmer.headingRate * dt;
-        swarmer.heading -= Math.floor(swarmer.heading);
-
-        if (swarmer.dead) {
-            slideToStop(swarmer, dt);
-        } else {
-            const heading = swarmer.heading * 2 * Math.PI;
-            vec2.set(perturbationDir, Math.cos(heading), Math.sin(heading));
-
-            if (state.player.hitPoints > 0 && state.player.swarmerAttackCooldown <= 0) {
-                const dposToTarget = vec2.create();
-                vec2.subtract(dposToTarget, swarmer.position, state.player.position);
-                const distToTarget = vec2.length(dposToTarget);
-    
-                if (distToTarget < 24 && clearLineOfSight(state.level.solid, swarmer.position, state.player.position)) {            
-                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dposToTarget, -accelerationRate * dt / distToTarget);
-                }
-            }
-
-            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, perturbationDir, perturbationAccelerationRate * dt);
-            vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, velPrev, -dragAccelerationRate * dt);
-
-            // Avoid other turrets and swarmers
-
-            for (const turret of state.level.turrets) {
-                if (turret.dead)
-                    continue;
-                vec2.subtract(dpos, turret.position, swarmer.position);
-                const dist = vec2.length(dpos);
-                if (dist < separationDist) {
-                    const scale = (dist - separationDist) * (separationForce * dt / dist);
-                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dpos, scale);
-                }
-            }
-
-            for (const swarmerOther of state.level.swarmers) {
-                if (swarmerOther.dead)
-                    continue;
-                if (swarmerOther == swarmer)
-                    continue;
-
-                vec2.subtract(dpos, swarmerOther.position, swarmer.position);
-                const dist = vec2.length(dpos);
-                if (dist < separationDist) {
-                    const scale = (dist - separationDist) * (separationForce * dt / dist);
-                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dpos, scale);
-                }
-            }
-        }
-
-        vec2.scaleAndAdd(swarmer.position, swarmer.position, velPrev, dt / 2);
-        vec2.scaleAndAdd(swarmer.position, swarmer.position, swarmer.velocity, dt / 2);
-
-        // Disable cooldown once swarmer is no longer near player.
-
-        if (swarmer.onContactCooldown) {
-            vec2.subtract(dpos, swarmer.position, state.player.position);
-            if (vec2.length(dpos) >= 1.5 * monsterRadius + playerRadius) {
-                swarmer.onContactCooldown = false;
-            }
-        }
-    }
-
-    // Fix up swarmer positions relative to the environment and other objects.
-
-    for (let i = 0; i < state.level.swarmers.length; ++i) {
-        const swarmer0 = state.level.swarmers[i];
-
-        fixupPositionAndVelocityAgainstLevel(swarmer0.position, swarmer0.velocity, swarmer0.radius, state.level.solid);
-
-        if (swarmer0.dead)
-            continue;
-
-        for (let j = i + 1; j < state.level.swarmers.length; ++j) {
-            const swarmer1 = state.level.swarmers[j];
-            if (swarmer1.dead)
-                continue;
-
-            fixupDiscPair(swarmer0, swarmer1);
-        }
-    }
-}
-
 function renderTurretsDead(turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: mat4) {
     const color = { r: 0.45, g: 0.45, b: 0.45 };
     const discs = turrets.filter(turret => turret.dead).map(turret => ({
@@ -737,30 +559,6 @@ function renderTurretsAlive(state: State, turrets: Array<Turret>, renderer: Rend
         discColor: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay(state))),
         glyphColor: 0xff8080b0,
         glyphIndex: 119,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function renderSwarmersDead(swarmers: Array<Swarmer>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const discs = swarmers.filter(swarmer => swarmer.dead).map(swarmer => ({
-        position: swarmer.position,
-        radius: monsterRadius,
-        discColor: 0xff737373,
-        glyphColor: 0xff808080,
-        glyphIndex: 98,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function renderSwarmersAlive(swarmers: Array<Swarmer>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const discs = swarmers.filter(swarmer => !swarmer.dead).map(swarmer => ({
-        position: swarmer.position,
-        radius: monsterRadius,
-        discColor: 0xff202020,
-        glyphColor: 0xff5555ff,
-        glyphIndex: 98,
     }));
 
     renderer.renderDiscs(matScreenFromWorld, discs);
@@ -831,13 +629,10 @@ function createPlayer(posStart: vec2): Player {
         position: vec2.create(),
         velocity: vec2.create(),
         radius: playerRadius,
-        numInvulnerabilityPotions: 1,
-        invulnerabilityTimer: 0,
         numBullets: bulletMaxCapacity,
         amuletCollected: false,
         hitPoints: playerMaxHitPoints,
         damageDisplayTimer: 0,
-        swarmerAttackCooldown: 0,
         dead: false,
     };
 
@@ -862,7 +657,6 @@ function initState(
         mouseSensitivity: 0,
         player: createPlayer(level.playerStartPos),
         gameState: GameState.Active,
-        timeToGameEndMessage: delayGameEndMessage,
         playerBullets: [],
         turretBullets: [],
         camera: createCamera(level.playerStartPos),
@@ -881,7 +675,6 @@ function resetState(
     state.renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
     state.player = createPlayer(level.playerStartPos);
     state.gameState = GameState.Active;
-    state.timeToGameEndMessage = delayGameEndMessage;
     state.playerBullets = [];
     state.turretBullets = [];
     state.camera = createCamera(level.playerStartPos);
@@ -1454,9 +1247,7 @@ function updateState(state: State, dt: number) {
     }
 
     state.pickupMessageTimer = Math.max(0, state.pickupMessageTimer - dt);
-    state.player.swarmerAttackCooldown = Math.max(0, state.player.swarmerAttackCooldown - dt);
     state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
-    state.player.invulnerabilityTimer = Math.max(0, state.player.invulnerabilityTimer - dt);
     if (state.player.hitPoints > 0) {
         state.player.numBullets = Math.min(bulletMaxCapacity, state.player.numBullets + bulletRefillRate * dt);
     }
@@ -1465,13 +1256,10 @@ function updateState(state: State, dt: number) {
 
     // Game-end message
 
-    state.timeToGameEndMessage = Math.max(0, state.timeToGameEndMessage - dt);
-
     if (state.player.amuletCollected &&
         state.gameState == GameState.Active &&
         posInRect(state.player.position, state.level.startRoom)) {
         state.gameState = GameState.Won;
-        state.timeToGameEndMessage = delayGameEndMessage;
     }
 
     // Other
@@ -1480,24 +1268,19 @@ function updateState(state: State, dt: number) {
     updatePotions(state);
     updateCamera(state, dt);
     updateTurrets(state, dt);
-    updateSwarmers(state, dt);
     updatePlayerBullets(state, dt);
     updateTurretBullets(state, dt);
 
     // Collide player against objects and the environment
 
     const turretElasticity = 0.5;
-    const swarmerElasticity = 0.8;
     const turretMass = 1;
-    const swarmerMass = 0.25;
 
     for (let i = 0; i < 4; ++i) {
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
                 if (collideDiscs(state.player, turret, 1, turretMass, turretElasticity)) {
-                    if (state.player.invulnerabilityTimer > 0) {
-                        turret.dead = true;
-                    } else if (!turret.onContactCooldown) {
+                    if (!turret.onContactCooldown) {
                         damagePlayer(state, 1);
                         turret.onContactCooldown = true;
                     }
@@ -1505,20 +1288,6 @@ function updateState(state: State, dt: number) {
             }
         }
 
-        for (const swarmer of state.level.swarmers) {
-            if (!swarmer.dead) {
-                if (collideDiscs(state.player, swarmer, 1, swarmerMass, swarmerElasticity)) {
-                    if (state.player.invulnerabilityTimer > 0) {
-                        swarmer.dead = true;
-                    } else if (!swarmer.onContactCooldown) {
-                        damagePlayer(state, 1);
-                        state.player.swarmerAttackCooldown = swarmerAttackCooldownDuration;
-                        swarmer.onContactCooldown = true;
-                    }
-                }
-            }
-        }
-    
         fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.solid);
     }
 }
@@ -1566,11 +1335,8 @@ function damagePlayer(state: State, numHitPoints: number) {
         state.player.damageDisplayTimer = damageDisplayDuration;
     }
 
-    state.player.invulnerabilityTimer = 0;
-
     if (state.player.hitPoints <= 0 && state.gameState != GameState.Died) {
         state.gameState = GameState.Died;
-        state.timeToGameEndMessage = delayGameEndMessage;
     }
 }
 
@@ -1818,13 +1584,11 @@ function renderScene(renderer: Renderer, state: State) {
     state.renderColoredTriangles(matScreenFromWorld);
 
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
-    renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderLootItems(state, renderer, matScreenFromWorld);
     renderPotions(state, renderer, matScreenFromWorld);
 
     renderTurretsAlive(state, state.level.turrets, renderer, matScreenFromWorld);
-    renderSwarmersAlive(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
     renderPlayerBullets(state, renderer, matScreenFromWorld);
@@ -1833,7 +1597,7 @@ function renderScene(renderer: Renderer, state: State) {
 
     // Damage vignette
 
-    renderDamageVignette(state.player.invulnerabilityTimer, state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
+    renderDamageVignette(state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
 
     // Status displays
 
@@ -1845,7 +1609,7 @@ function renderScene(renderer: Renderer, state: State) {
 
     if (state.paused) {
         renderTextLines(renderer, screenSize, [
-            '          AMULET RAIDER',
+            '          7DRL 2023',
             '',
             '     Paused: Click to unpause',
             '',
@@ -1898,20 +1662,12 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
 }
 
-function renderDamageVignette(invulnerabilityTimer: number, hitPoints: number, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
+function renderDamageVignette(hitPoints: number, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
     let u = 0;
     let colorInner = [0, 0, 0, 0];
     let colorOuter = [0, 0, 0, 0];
 
-    if (invulnerabilityTimer > 0) {
-        if (invulnerabilityTimer > 1) {
-            u = 1 - 0.65 * ((1 - invulnerabilityTimer / invulnerabilityDuration) ** 2);
-        } else {
-            u = (Math.floor(invulnerabilityTimer * 10) % 2) == 0 ? 0.8 : 0.2;
-        }
-        colorInner = [0, 1, 1, 0.05];
-        colorOuter = [0, 1, 1, 0.5];
-    } else if (damageDisplayTimer > 0) {
+    if (damageDisplayTimer > 0) {
         u = Math.max(1, (playerMaxHitPoints - hitPoints)) * damageDisplayTimer / damageDisplayDuration;
         colorInner = [1, 0, 0, Math.min(1.0, u * 0.05)];
         colorOuter = [1, 0, 0, Math.min(1.0, u * 0.5)];
@@ -2027,7 +1783,7 @@ function renderLootCounter(state: State, renderer: Renderer, screenSize: vec2) {
 }
 
 function renderBulletAndPotionCounter(state: State, renderer: Renderer, screenSize: vec2) {
-    const strMsg = '     ' + state.player.numInvulnerabilityPotions + '\xad';
+    const strMsg = '     \xad';
     const cCh = strMsg.length;
 
     const color = 0xffffff55;
@@ -2652,7 +2408,7 @@ function createLevel(): Level {
 
     // Enemies
 
-    const [turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, solid, positionsUsed);
+    const turrets = createEnemies(rooms, roomDistanceFromEntrance, solid, positionsUsed);
 
     // Potions
 
@@ -2673,7 +2429,6 @@ function createLevel(): Level {
         amuletRoom: amuletRoom,
         amuletPos: amuletPos,
         turrets: turrets,
-        swarmers: swarmers,
         potions: potions,
         lootItems: lootItems,
         numLootItemsTotal: lootItems.length,
@@ -2713,9 +2468,8 @@ function createEnemies(
     rooms: Array<Rect>,
     roomDistance: Array<number>,
     solid: BooleanGrid,
-    positionsUsed: Array<vec2>): [Array<Turret>, Array<Swarmer>] {
+    positionsUsed: Array<vec2>): Array<Turret> {
     const turrets: Array<Turret> = [];
-    const swarmers: Array<Swarmer> = [];
 
     const dMax = roomDistance.reduce((d0, d1) => Math.max(d0, d1), 0);
 
@@ -2733,12 +2487,7 @@ function createEnemies(
             // Pick a kind of monster to create.
             const monsterKind = Math.random();
 
-            let success = false;
-            if ((monsterKind < 0.7 || d < 3) && d != 3) {
-                success = tryCreateTurret(room, turrets, solid, positionsUsed);
-            } else {
-                success = tryCreateSwarmer(room, swarmers, solid, positionsUsed);
-            }
+            let success = tryCreateTurret(room, turrets, solid, positionsUsed);
     
             if (success) {
                 ++numEnemies;
@@ -2746,7 +2495,7 @@ function createEnemies(
         }
     }
 
-    return [turrets, swarmers];
+    return turrets;
 }
 
 function tryCreateTurret(room: Rect, turrets: Array<Turret>, solid: BooleanGrid, positionsUsed: Array<vec2>): boolean {
@@ -2777,35 +2526,6 @@ function tryCreateTurret(room: Rect, turrets: Array<Turret>, solid: BooleanGrid,
     return true;
 }
 
-function tryCreateSwarmer(room: Rect, swarmers: Array<Swarmer>, solid: BooleanGrid, positionsUsed: Array<vec2>): boolean {
-    const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
-    const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
-
-    const position = vec2.fromValues(x, y);
-
-    if (isDiscTouchingLevel(position, monsterRadius * 2, solid)) {
-        return false;
-    }
-
-    if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
-        return false;
-    }
-
-    swarmers.push({
-        position: position,
-        velocity: vec2.fromValues(0, 0),
-        radius: monsterRadius,
-        heading: Math.random(),
-        headingRate: (Math.random() * 0.15 + 0.15) * (randomInRange(2) * 2 - 1),
-        onContactCooldown: false,
-        dead: false,
-    });
-
-    positionsUsed.push(position);
-
-    return true;
-}
-
 function createPotions(
     rooms: Array<Rect>,
     roomIndexEntrance: number,
@@ -2821,8 +2541,6 @@ function createPotions(
 
     shuffleArray(roomIndices);
     roomIndices.length = Math.ceil(roomIndices.length * 0.667);
-
-    const numHealthPotions = Math.ceil(roomIndices.length * 0.667);
 
     const potions = [];
 
@@ -2845,7 +2563,7 @@ function createPotions(
 
             potions.push({
                 position: position,
-                potionType: (i < numHealthPotions) ? PotionType.Health : PotionType.Invulnerability,
+                potionType: PotionType.Health,
             });
 
             positionsUsed.push(position);
@@ -3110,13 +2828,12 @@ function updateLootItems(state: State) {
 
 function renderPotions(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const potionHealthGlyphColor = 0xff5555ff;
-    const potionInvulnerabilityGlyphColor = 0xffffff55;
 
     const discs = state.level.potions.map(potion => ({
         position: potion.position,
         radius: lootRadius,
         discColor: 0xff737373,
-        glyphColor: (potion.potionType == PotionType.Health) ? potionHealthGlyphColor : potionInvulnerabilityGlyphColor,
+        glyphColor: potionHealthGlyphColor,
         glyphIndex: 173,
     }));
 
@@ -3141,9 +2858,6 @@ function updatePotions(state: State) {
                 state.player.hitPoints = playerMaxHitPoints;
                 setPickupMessage(state, ['Healing Potion']);
             }
-        } else if (potion.potionType == PotionType.Invulnerability) {
-            state.player.numInvulnerabilityPotions += 1;
-            setPickupMessage(state, ['+1 Invulnerability Potion']);
         }
         return false;
     });
