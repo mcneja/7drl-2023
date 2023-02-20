@@ -12,35 +12,15 @@ enum TerrainType {
     Room,
 }
 
-enum GameState {
-    Active,
-    Died,
-    Won,
-}
-
-enum PotionType {
-    Health,
-}
-
 const playerRadius = 0.5;
 const playerMaxHitPoints = 4;
-const bulletRadius = 0.25;
-const bulletMinSpeed = 4;
-const bulletMaxCapacity = 5;
-const bulletRefillRate = 2.5;
 const monsterRadius = 0.5;
 const lootRadius = 0.5;
-const turretFireDelayStart = 4.0;
-const turretFireDelayEnd = 2.0;
-const turretFireSpeed = 10.0;
-const turretBulletLifetime = 4.0;
 const pickupMessageDuration = 2.0;
 
 const numCellsX = 4;
 const numCellsY = 4;
 const corridorWidth = 3;
-
-const damageDisplayDuration = 1.5;
 
 class BooleanGrid {
     sizeX: number;
@@ -103,23 +83,8 @@ type Player = {
     position: vec2;
     velocity: vec2;
     radius: number;
-    numBullets: number;
-    amuletCollected: boolean;
     hitPoints: number;
-    damageDisplayTimer: number;
-    dead: boolean;
 };
-
-type ColliderBody = {
-    position: vec2;
-    velocity: vec2;
-}
-
-type Bullet = {
-    position: vec2;
-    velocity: vec2;
-    timeRemaining: number;
-}
 
 type Camera = {
     position: vec2;
@@ -140,20 +105,6 @@ type GlyphDisc = {
     glyphColor: number;
 }
 
-type Turret = {
-    position: vec2;
-    velocity: vec2;
-    radius: number;
-    onContactCooldown: boolean;
-    dead: boolean;
-    timeToFire: number;
-}
-
-type Potion = {
-    position: vec2;
-    potionType: number;
-}
-
 type LootItem = {
     position: vec2;
 }
@@ -163,10 +114,6 @@ type Level = {
     vertexData: ArrayBuffer;
     playerStartPos: vec2;
     startRoom: Rect;
-    amuletRoom: Rect;
-    amuletPos: vec2;
-    turrets: Array<Turret>;
-    potions: Array<Potion>;
     lootItems: Array<LootItem>;
     numLootItemsTotal: number;
 }
@@ -180,7 +127,6 @@ type RenderGlyphs = {
 type BeginFrame = (screenSize: vec2) => void;
 type RenderColoredTriangles = (matScreenFromWorld: mat4) => void;
 type RenderDiscs = (matScreenFromWorld: mat4, discs: Array<GlyphDisc>) => void;
-type RenderVignette = (matDiscFromScreen: mat4, radiusInner: number, colorInner: Array<number>, colorOuter: Array<number>) => void;
 
 type CreateColoredTrianglesRenderer = (vertexData: ArrayBuffer) => RenderColoredTriangles;
 
@@ -188,7 +134,6 @@ type Renderer = {
     beginFrame: BeginFrame;
     renderDiscs: RenderDiscs;
     renderGlyphs: RenderGlyphs;
-    renderVignette: RenderVignette;
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer;
 }
 
@@ -201,9 +146,6 @@ type State = {
     mapZoomVelocity: number;
     mouseSensitivity: number;
     player: Player;
-    gameState: GameState;
-    playerBullets: Array<Bullet>;
-    turretBullets: Array<Bullet>;
     camera: Camera;
     level: Level;
     pickupMessage: Array<string>;
@@ -299,9 +241,6 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
         if (state.paused) {
             return;
         }
-        if (e.button == 0) {
-            tryShootBullet(state);
-        }
     }
 
     function onWindowResized() {
@@ -335,77 +274,6 @@ function updatePosition(state: State, e: MouseEvent) {
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
 }
 
-function tryShootBullet(state: State) {
-    if (state.player.hitPoints <= 0 || state.player.numBullets < 1) {
-        return;
-    }
-
-    state.player.numBullets -= 1;
-
-    const pos = vec2.create();
-    vec2.copy(pos, state.player.position);
-    const vel = vec2.create();
-    const playerSpeed = vec2.length(state.player.velocity);
-    const scale = Math.max(2 * playerSpeed, bulletMinSpeed) / Math.max(playerSpeed, 0.001);
-    vec2.scale(vel, state.player.velocity, scale);
-
-    state.playerBullets.push({
-        position: pos,
-        velocity: vel,
-        timeRemaining: 2,
-    });
-}
-
-function updatePlayerBullets(state: State, dt: number) {
-    filterInPlace(state.playerBullets, bullet => updatePlayerBullet(state, bullet, dt));
-}
-
-function updatePlayerBullet(state: State, bullet: Bullet, dt: number) {
-    vec2.scaleAndAdd(bullet.position, bullet.position, bullet.velocity, dt);
-
-    bullet.timeRemaining -= dt;
-    if (bullet.timeRemaining <= 0) {
-        return false;
-    }
-
-    let hitSomething = false;
-
-    for (const turret of state.level.turrets) {
-        if (turret.dead) {
-            continue;
-        }
-
-        if (areDiscsTouching(bullet.position, bulletRadius, turret.position, monsterRadius)) {
-            vec2.scaleAndAdd(turret.velocity, turret.velocity, bullet.velocity, 0.2);
-            turret.dead = true;
-            hitSomething = true;
-        }
-    }
-
-    if (hitSomething) {
-        return false;
-    }
-
-    if (isDiscTouchingLevel(bullet.position, bulletRadius, state.level.solid)) {
-        return false;
-    }
-
-    return true;
-}
-
-function renderPlayerBullets(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
-    const color = 0xffffff40;
-    const discs = state.playerBullets.map(bullet => ({
-        position: bullet.position,
-        radius: bulletRadius,
-        discColor: color,
-        glyphColor: color,
-        glyphIndex: 0,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
 function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const discs = [{
         position: state.player.position,
@@ -418,150 +286,9 @@ function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function updateTurretBullets(state: State, dt: number) {
-    filterInPlace(state.turretBullets, bullet => updateTurretBullet(state, bullet, dt));
-}
-
-function updateTurretBullet(state: State, bullet: Bullet, dt: number) {
-    vec2.scaleAndAdd(bullet.position, bullet.position, bullet.velocity, dt);
-
-    bullet.timeRemaining -= dt;
-    if (bullet.timeRemaining <= 0) {
-        return false;
-    }
-
-    if (isDiscTouchingLevel(bullet.position, bulletRadius, state.level.solid)) {
-        return false;
-    }
-
-    const playerMass = 1;
-    const bulletMass = 0.125;
-    const elasticity = 1;
-
-    if (areDiscsTouching(bullet.position, bulletRadius, state.player.position, playerRadius)) {
-        elasticCollision(state.player, bullet, playerMass, bulletMass, elasticity);
-        damagePlayer(state, 1);
-        return false;
-    }
-
-    return true;
-}
-
-function renderTurretBullets(bullets: Array<Bullet>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const color = 0xff4080ff;
-    const discs = bullets.map(bullet => ({
-        position: bullet.position,
-        radius: bulletRadius,
-        discColor: color,
-        glyphColor: color,
-        glyphIndex: 0,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
 function setPickupMessage(state: State, message: Array<string>) {
     state.pickupMessage = message;
     state.pickupMessageTimer = pickupMessageDuration;
-}
-
-function fractionOfLootCollected(state: State): number {
-    return (state.level.numLootItemsTotal - state.level.lootItems.length) / state.level.numLootItemsTotal;
-}
-
-function turretFireDelay(state: State): number {
-    return lerp(turretFireDelayStart, turretFireDelayEnd, fractionOfLootCollected(state));
-}
-
-function updateTurrets(state: State, dt: number) {
-    const dpos = vec2.create();
-
-    for (const turret of state.level.turrets) {
-        slideToStop(turret, dt);
-        vec2.scaleAndAdd(turret.position, turret.position, turret.velocity, dt);
-
-        // Disable cooldown once turret is no longer near player.
-
-        if (turret.onContactCooldown) {
-            vec2.subtract(dpos, turret.position, state.player.position);
-            if (vec2.length(dpos) >= 1.5 * monsterRadius + playerRadius) {
-                turret.onContactCooldown = false;
-            }
-        }
-
-        if (!turret.dead) {
-            turret.timeToFire -= dt;
-            if (turret.timeToFire <= 0) {
-                turret.timeToFire += turretFireDelay(state);
-
-                if (distanceBetween(turret.position, state.player.position) < 20) {
-                    const dpos = vec2.create();
-                    vec2.subtract(dpos, state.player.position, turret.position);
-                    const d = Math.max(1.0e-6, vec2.length(dpos));
-
-                    const pos = vec2.create();
-                    vec2.scaleAndAdd(pos, turret.position, dpos, turret.radius / d);
-
-                    const vel = vec2.create();
-                    vec2.scale(vel, dpos, turretFireSpeed / d);
-
-                    const bullet = {
-                        position: pos,
-                        velocity: vel,
-                        timeRemaining: turretBulletLifetime,
-                    };
-
-                    state.turretBullets.push(bullet);
-                }
-            }
-        }
-    }
-
-    // Fix up turret positions relative to the environment and other objects.
-
-    for (let i = 0; i < state.level.turrets.length; ++i) {
-        const turret0 = state.level.turrets[i];
-
-        fixupPositionAndVelocityAgainstLevel(turret0.position, turret0.velocity, turret0.radius, state.level.solid);
-
-        if (turret0.dead)
-            continue;
-
-        for (let j = i + 1; j < state.level.turrets.length; ++j) {
-            const turret1 = state.level.turrets[j];
-            if (turret1.dead)
-                continue;
-
-            fixupDiscPair(turret0, turret1);
-        }
-    }
-}
-
-function renderTurretsDead(turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const color = { r: 0.45, g: 0.45, b: 0.45 };
-    const discs = turrets.filter(turret => turret.dead).map(turret => ({
-        position: turret.position,
-        radius: monsterRadius,
-        discColor: 0xff737373,
-        glyphColor: 0xff808080,
-        glyphIndex: 119,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function renderTurretsAlive(state: State, turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const colorWindup = 0xff4080ff;
-    const color = 0xff404058;
-    const discs = turrets.filter(turret => !turret.dead).map(turret => ({
-        position: turret.position,
-        radius: monsterRadius,
-        discColor: colorLerp(colorWindup, color, Math.min(1, 4 * turret.timeToFire / turretFireDelay(state))),
-        glyphColor: 0xff8080b0,
-        glyphIndex: 119,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
 function colorLerp(color0: number, color1: number, u: number): number {
@@ -601,7 +328,6 @@ function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement)
         beginFrame: createBeginFrame(gl),
         renderDiscs: createDiscRenderer(gl, glyphTexture),
         renderGlyphs: createGlyphRenderer(gl, glyphTexture),
-        renderVignette: createVignetteRenderer(gl),
         createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
     };
 
@@ -629,11 +355,7 @@ function createPlayer(posStart: vec2): Player {
         position: vec2.create(),
         velocity: vec2.create(),
         radius: playerRadius,
-        numBullets: bulletMaxCapacity,
-        amuletCollected: false,
         hitPoints: playerMaxHitPoints,
-        damageDisplayTimer: 0,
-        dead: false,
     };
 
     vec2.copy(player.position, posStart);
@@ -656,9 +378,6 @@ function initState(
         mapZoomVelocity: 0,
         mouseSensitivity: 0,
         player: createPlayer(level.playerStartPos),
-        gameState: GameState.Active,
-        playerBullets: [],
-        turretBullets: [],
         camera: createCamera(level.playerStartPos),
         level: level,
         pickupMessage: [],
@@ -674,9 +393,6 @@ function resetState(
 
     state.renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
     state.player = createPlayer(level.playerStartPos);
-    state.gameState = GameState.Active;
-    state.playerBullets = [];
-    state.turretBullets = [];
     state.camera = createCamera(level.playerStartPos);
     state.level = level;
     state.pickupMessage = [];
@@ -1143,99 +859,9 @@ function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColor
     };
 }
 
-function createVignetteRenderer(gl: WebGL2RenderingContext): RenderVignette {
-    const vsSource = `#version 300 es
-        in vec2 vPositionScreen;
-
-        uniform mat4 uMatDiscFromScreen;
-
-        out highp vec2 fPositionDisc;
-
-        void main() {
-            highp vec4 posScreen = vec4(vPositionScreen.xy, 0, 1);
-            fPositionDisc = (uMatDiscFromScreen * posScreen).xy;
-            gl_Position = posScreen;
-        }
-    `;
-
-    const fsSource = `#version 300 es
-        in highp vec2 fPositionDisc;
-
-        uniform highp vec4 uColorInner;
-        uniform highp vec4 uColorOuter;
-        uniform highp float uRadiusInner;
-
-        out lowp vec4 fragColor;
-
-        void main() {
-            highp float r = length(fPositionDisc);
-            highp float u = smoothstep(uRadiusInner, 1.0, r);
-            fragColor = mix(uColorInner, uColorOuter, u);
-        }
-    `;
-
-    const attribs = {
-        vPositionScreen: 0,
-    };
-
-    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
-
-    const uLocMatDiscFromScreen = gl.getUniformLocation(program, 'uMatDiscFromScreen');
-    const uLocColorInner = gl.getUniformLocation(program, 'uColorInner');
-    const uLocColorOuter = gl.getUniformLocation(program, 'uColorOuter');
-    const uLocRadiusInner = gl.getUniformLocation(program, 'uRadiusInner');
-
-    const vertexData = new Float32Array(6 * 2);
-    {
-        let i = 0;
-
-        function makeVert(x: number, y: number) {
-            vertexData[i++] = x;
-            vertexData[i++] = y;
-        }
-
-        makeVert(-1, -1);
-        makeVert( 1, -1);
-        makeVert( 1,  1);
-        makeVert( 1,  1);
-        makeVert(-1,  1);
-        makeVert(-1, -1);
-    }
-
-    const vertexBuffer = gl.createBuffer();
-
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.enableVertexAttribArray(attribs.vPositionScreen);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(attribs.vPositionScreen, 2, gl.FLOAT, false, 0, 0);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
-    gl.bindVertexArray(null);
-
-    return (matDiscFromScreen, radiusInner, colorInner, colorOuter) => {
-        gl.useProgram(program);
-
-        gl.uniformMatrix4fv(uLocMatDiscFromScreen, false, matDiscFromScreen);
-        gl.uniform1f(uLocRadiusInner, radiusInner);
-        gl.uniform4fv(uLocColorInner, colorInner);
-        gl.uniform4fv(uLocColorOuter, colorOuter);
-
-        gl.bindVertexArray(vao);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        gl.bindVertexArray(null);
-    };
-}
-
 function slideToStop(body: Disc, dt: number) {
     const r = Math.exp(-3 * dt);
     vec2.scale(body.velocity, body.velocity, r);
-}
-
-function posInRect(position: vec2, rect: Rect): boolean {
-    return (position[0] >= rect.minX &&
-            position[1] >= rect.minY &&
-            position[0] < rect.minX + rect.sizeX &&
-            position[1] < rect.minY + rect.sizeY);
 }
 
 function updateState(state: State, dt: number) {
@@ -1247,47 +873,17 @@ function updateState(state: State, dt: number) {
     }
 
     state.pickupMessageTimer = Math.max(0, state.pickupMessageTimer - dt);
-    state.player.damageDisplayTimer = Math.max(0, state.player.damageDisplayTimer - dt);
-    if (state.player.hitPoints > 0) {
-        state.player.numBullets = Math.min(bulletMaxCapacity, state.player.numBullets + bulletRefillRate * dt);
-    }
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
-
-    // Game-end message
-
-    if (state.player.amuletCollected &&
-        state.gameState == GameState.Active &&
-        posInRect(state.player.position, state.level.startRoom)) {
-        state.gameState = GameState.Won;
-    }
 
     // Other
 
     updateLootItems(state);
-    updatePotions(state);
     updateCamera(state, dt);
-    updateTurrets(state, dt);
-    updatePlayerBullets(state, dt);
-    updateTurretBullets(state, dt);
 
     // Collide player against objects and the environment
 
-    const turretElasticity = 0.5;
-    const turretMass = 1;
-
     for (let i = 0; i < 4; ++i) {
-        for (const turret of state.level.turrets) {
-            if (!turret.dead) {
-                if (collideDiscs(state.player, turret, 1, turretMass, turretElasticity)) {
-                    if (!turret.onContactCooldown) {
-                        damagePlayer(state, 1);
-                        turret.onContactCooldown = true;
-                    }
-                }
-            }
-        }
-
         fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.solid);
     }
 }
@@ -1325,74 +921,6 @@ function updateCamera(state: State, dt: number) {
     vec2.copy(state.camera.velocity, velNew);
 }
 
-function damagePlayer(state: State, numHitPoints: number) {
-    const hitPointsPrev = state.player.hitPoints;
-    state.player.hitPoints = Math.max(0, state.player.hitPoints - numHitPoints);
-    if (state.player.hitPoints >= hitPointsPrev)
-        return;
-
-    if (hitPointsPrev > 0) {
-        state.player.damageDisplayTimer = damageDisplayDuration;
-    }
-
-    if (state.player.hitPoints <= 0 && state.gameState != GameState.Died) {
-        state.gameState = GameState.Died;
-    }
-}
-
-function fixupDiscPair(disc0: Disc, disc1: Disc) {
-    collideDiscs(disc0, disc1, 1, 1, 0);
-}
-
-function collideDiscs(disc0: Disc, disc1: Disc, mass0: number, mass1: number, elasticity: number) {
-    const dpos = vec2.create();
-    vec2.subtract(dpos, disc1.position, disc0.position);
-    const d = vec2.length(dpos);
-    const dist = d - (disc0.radius + disc1.radius);
-
-    if (dist >= 0) {
-        return false;
-    }
-
-    const scalePosFixup = dist / (d * (mass0 + mass1));
-    vec2.scaleAndAdd(disc0.position, disc0.position, dpos, scalePosFixup * mass1);
-    vec2.scaleAndAdd(disc1.position, disc1.position, dpos, -scalePosFixup * mass0);
-
-    const dvel = vec2.create();
-    vec2.subtract(dvel, disc1.velocity, disc0.velocity);
-    const vn = vec2.dot(dpos, dvel);
-
-    if (vn >= 0) {
-        return false;
-    }
-
-    const scaleVelFixup = ((1 + elasticity) * vn) / (d * d * (mass0 + mass1));
-    vec2.scaleAndAdd(disc0.velocity, disc0.velocity, dpos, scaleVelFixup * mass1);
-    vec2.scaleAndAdd(disc1.velocity, disc1.velocity, dpos, -scaleVelFixup * mass0);
-
-    return true;
-}
-
-function elasticCollision(body0: ColliderBody, body1: ColliderBody, mass0: number, mass1: number, elasticity: number): boolean {
-    const dpos = vec2.create();
-    vec2.subtract(dpos, body1.position, body0.position);
-    const d = vec2.length(dpos);
-
-    const dvel = vec2.create();
-    vec2.subtract(dvel, body1.velocity, body0.velocity);
-    const vn = vec2.dot(dpos, dvel);
-
-    if (vn >= 0) {
-        return false;
-    }
-
-    const scaleVelFixup = ((1 + elasticity) * vn) / (d * d * (mass0 + mass1));
-    vec2.scaleAndAdd(body0.velocity, body0.velocity, dpos, scaleVelFixup * mass1);
-    vec2.scaleAndAdd(body1.velocity, body1.velocity, dpos, -scaleVelFixup * mass0);
-
-    return true;
-}
-
 function isDiscTouchingLevel(discPos: vec2, discRadius: number, solid: BooleanGrid): boolean {
     const gridMinX = Math.max(0, Math.floor(discPos[0] - discRadius));
     const gridMinY = Math.max(0, Math.floor(discPos[1] - discRadius));
@@ -1418,13 +946,6 @@ function isDiscTouchingLevel(discPos: vec2, discRadius: number, solid: BooleanGr
     }
 
     return false;
-}
-
-function areDiscsTouching(pos0: vec2, radius0: number, pos1: vec2, radius1: number): boolean {
-    const dpos = vec2.create();
-    vec2.subtract(dpos, pos1, pos0);
-    const d = vec2.length(dpos);
-    return d < radius0 + radius1;
 }
 
 type Plane = {
@@ -1516,64 +1037,6 @@ function separatingAxis(dx: number, dy: number): Plane {
     }
 }
 
-function distanceBetween(pos0: vec2, pos1: vec2): number {
-    const dpos = vec2.create();
-    vec2.subtract(dpos, pos1, pos0);
-    return vec2.length(dpos);
-}
-
-function clearLineOfSight(solid: BooleanGrid, pos0: vec2, pos1: vec2): boolean {
-    const dx = Math.abs(pos1[0] - pos0[0]);
-    const dy = Math.abs(pos1[1] - pos0[1]);
-
-    let x = Math.floor(pos0[0]);
-    let y = Math.floor(pos0[1]);
-
-    let n = 1;
-    let xInc, yInc, error;
-
-    if (pos1[0] > pos0[0]) {
-        xInc = 1;
-        n += Math.floor(pos1[0]) - x;
-        error = (Math.floor(pos0[0]) + 1 - pos0[0]) * dy;
-    } else {
-        xInc = -1;
-        n += x - Math.floor(pos1[0]);
-        error = (pos0[0] - Math.floor(pos0[0])) * dy;
-    }
-
-    if (pos1[1] > pos0[1]) {
-        yInc = 1;
-        n += Math.floor(pos1[1]) - y;
-        error -= (Math.floor(pos0[1]) + 1 - pos0[1]) * dx;
-    } else {
-        yInc = -1;
-        n += y - Math.floor(pos1[1]);
-        error -= (pos0[1] - Math.floor(pos0[1])) * dx;
-    }
-
-    while (n > 0) {
-        if (x < 0 || y < 0 || x >= solid.sizeX || y >= solid.sizeY)
-            return false;
-
-        const isSolid = solid.get(x, y);
-        if (isSolid)
-            return false;
-
-        if (error > 0) {
-            y += yInc;
-            error -= dx;
-        } else {
-            x += xInc;
-            error += dy;
-        }
-
-        --n;
-    }
-
-    return true;
-}
-
 function renderScene(renderer: Renderer, state: State) {
     const screenSize = vec2.create();
     renderer.beginFrame(screenSize);
@@ -1583,27 +1046,14 @@ function renderScene(renderer: Renderer, state: State) {
 
     state.renderColoredTriangles(matScreenFromWorld);
 
-    renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
-
     renderLootItems(state, renderer, matScreenFromWorld);
-    renderPotions(state, renderer, matScreenFromWorld);
-
-    renderTurretsAlive(state, state.level.turrets, renderer, matScreenFromWorld);
-
-    renderTurretBullets(state.turretBullets, renderer, matScreenFromWorld);
-    renderPlayerBullets(state, renderer, matScreenFromWorld);
 
     renderPlayer(state, renderer, matScreenFromWorld);
-
-    // Damage vignette
-
-    renderDamageVignette(state.player.hitPoints, state.player.damageDisplayTimer, renderer, screenSize);
 
     // Status displays
 
     renderHealthMeter(state, renderer, screenSize);
     renderLootCounter(state, renderer, screenSize);
-    renderBulletAndPotionCounter(state, renderer, screenSize);
 
     // Text
 
@@ -1614,8 +1064,6 @@ function renderScene(renderer: Renderer, state: State) {
             '     Paused: Click to unpause',
             '',
             'Move with mouse',
-            'LMB shoots while moving',
-            'RMB or Space drinks potion',
             '',
             '<>: Mouse sensitivity: ' + state.mouseSensitivity,
             'Esc: Pause, R: Retry, M: Map',
@@ -1660,39 +1108,6 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
 
     mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
-}
-
-function renderDamageVignette(hitPoints: number, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
-    let u = 0;
-    let colorInner = [0, 0, 0, 0];
-    let colorOuter = [0, 0, 0, 0];
-
-    if (damageDisplayTimer > 0) {
-        u = Math.max(1, (playerMaxHitPoints - hitPoints)) * damageDisplayTimer / damageDisplayDuration;
-        colorInner = [1, 0, 0, Math.min(1.0, u * 0.05)];
-        colorOuter = [1, 0, 0, Math.min(1.0, u * 0.5)];
-    }
-
-    if (u <= 0)
-        return;
-
-    colorInner[3] = Math.min(1, colorInner[3] * u);
-    colorOuter[3] = Math.min(1, colorOuter[3] * u);
-
-    const radiusInner = 0.8;
-    const radiusOuter = 1.5;
-
-    const matDiscFromScreen = mat4.create();
-    if (screenSize[0] < screenSize[1]) {
-        matDiscFromScreen[0] = screenSize[0] / screenSize[1];
-    } else {
-        matDiscFromScreen[5] = screenSize[1] / screenSize[0];
-    }
-
-    matDiscFromScreen[0] /= radiusOuter;
-    matDiscFromScreen[5] /= radiusOuter;
-
-    renderer.renderVignette(matDiscFromScreen, radiusInner / radiusOuter, colorInner, colorOuter);
 }
 
 function renderHealthMeter(state: State, renderer: Renderer, screenSize: vec2) {
@@ -1777,59 +1192,6 @@ function renderLootCounter(state: State, renderer: Renderer, screenSize: vec2) {
     for (let i = 0; i < cCh; ++i) {
         const glyphIndex = strMsg.charCodeAt(i);
         renderer.renderGlyphs.addGlyph(i, 0, i + 1, 1, glyphIndex, color);
-    }
-
-    renderer.renderGlyphs.flush();
-}
-
-function renderBulletAndPotionCounter(state: State, renderer: Renderer, screenSize: vec2) {
-    const strMsg = '     \xad';
-    const cCh = strMsg.length;
-
-    const color = 0xffffff55;
-    const colorDim = 0xff202000;
-
-    const minCharsX = 40;
-    const minCharsY = 20;
-    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
-    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
-    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
-    const pixelsPerCharX = 8 * scaleFactor;
-    const pixelsPerCharY = 16 * scaleFactor;
-    const numCharsX = screenSize[0] / pixelsPerCharX;
-    const numCharsY = screenSize[1] / pixelsPerCharY;
-    const offsetX = -Math.floor((screenSize[0] - (cCh + bulletMaxCapacity) * pixelsPerCharX) / 2) / pixelsPerCharX;
-    const offsetY = 0;
-
-    const matScreenFromTextArea = mat4.create();
-    mat4.ortho(
-        matScreenFromTextArea,
-        offsetX,
-        offsetX + numCharsX,
-        offsetY,
-        offsetY + numCharsY,
-        1,
-        -1);
-    renderer.renderGlyphs.start(matScreenFromTextArea);
-
-    const numBullets = Math.floor(state.player.numBullets);
-
-    for (let i = 0; i < bulletMaxCapacity; ++i) {
-        const glyphIndex = 157;
-        renderer.renderGlyphs.addGlyph(
-            i, 0, i + 1, 1,
-            glyphIndex,
-            (i < numBullets) ? color : colorDim
-        );
-    }
-
-    for (let i = 0; i < cCh; ++i) {
-        const glyphIndex = strMsg.charCodeAt(i);
-        renderer.renderGlyphs.addGlyph(
-            i + bulletMaxCapacity, 0, i + bulletMaxCapacity + 1, 1,
-            glyphIndex,
-            color
-        );
     }
 
     renderer.renderGlyphs.flush();
@@ -2389,12 +1751,6 @@ function createLevel(): Level {
     const startRoom = rooms[roomIndexEntrance];
     const playerStartPos = vec2.fromValues(startRoom.minX + startRoom.sizeX/2, startRoom.minY + startRoom.sizeY/2);
 
-    // Put an exit position in the exit room
-
-    const amuletRoom = rooms[roomIndexExit];
-    const amuletPos = vec2.fromValues(amuletRoom.minX + amuletRoom.sizeX/2 - 0.5, amuletRoom.minY + amuletRoom.sizeY/2 - 0.5);
-    const positionsUsed = [amuletPos];
-
     // Create a boolean grid indicating which squares on the map are solid and which are open space
 
     const solid = new BooleanGrid(grid.sizeX, grid.sizeY, false);
@@ -2406,30 +1762,19 @@ function createLevel(): Level {
         }
     }
 
-    // Enemies
-
-    const turrets = createEnemies(rooms, roomDistanceFromEntrance, solid, positionsUsed);
-
-    // Potions
-
-    const potions = createPotions(rooms, roomIndexEntrance, roomIndexExit, solid, positionsUsed);
-
     // Place loot in the level. Distribute it so rooms that are far from
     // the entrance or the exit have the most? Or so dead ends have the
     // most? Bias toward the rooms that aren't on the path between the
     // entrance and the exit?
 
-    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, amuletPos, solid);
+    const positionsUsed: Array<vec2> = [];
+    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, solid);
 
     return {
         solid: solid,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
         startRoom: startRoom,
-        amuletRoom: amuletRoom,
-        amuletPos: amuletPos,
-        turrets: turrets,
-        potions: potions,
         lootItems: lootItems,
         numLootItemsTotal: lootItems.length,
     };
@@ -2462,116 +1807,6 @@ function computeDistances(roomDistance: Array<number>, numRooms: number, edges: 
             }
         }
     }
-}
-
-function createEnemies(
-    rooms: Array<Rect>,
-    roomDistance: Array<number>,
-    solid: BooleanGrid,
-    positionsUsed: Array<vec2>): Array<Turret> {
-    const turrets: Array<Turret> = [];
-
-    const dMax = roomDistance.reduce((d0, d1) => Math.max(d0, d1), 0);
-
-    for (let roomIndex = 0; roomIndex < roomDistance.length; ++roomIndex) {
-        const d = roomDistance[roomIndex];
-        if (d === 0)
-            continue;
-
-        const room = rooms[roomIndex];
-
-        const depthDensity = lerp(0.005, 0.035, d / dMax);
-        const maxEnemies = Math.ceil(room.sizeX * room.sizeY * depthDensity);
-        let numEnemies = 0;
-        for (let i = 0; i < 1024 && numEnemies < maxEnemies; ++i) {
-            // Pick a kind of monster to create.
-            const monsterKind = Math.random();
-
-            let success = tryCreateTurret(room, turrets, solid, positionsUsed);
-    
-            if (success) {
-                ++numEnemies;
-            }
-        }
-    }
-
-    return turrets;
-}
-
-function tryCreateTurret(room: Rect, turrets: Array<Turret>, solid: BooleanGrid, positionsUsed: Array<vec2>): boolean {
-    const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
-    const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
-
-    const position = vec2.fromValues(x, y);
-
-    if (isDiscTouchingLevel(position, monsterRadius * 2, solid)) {
-        return false;
-    }
-
-    if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
-        return false;
-    }
-
-    turrets.push({
-        position: position,
-        velocity: vec2.fromValues(0, 0),
-        radius: monsterRadius,
-        onContactCooldown: false,
-        dead: false,
-        timeToFire: Math.random() * turretFireDelayStart,
-    });
-
-    positionsUsed.push(position);
-
-    return true;
-}
-
-function createPotions(
-    rooms: Array<Rect>,
-    roomIndexEntrance: number,
-    roomIndexExit: number,
-    solid: BooleanGrid,
-    positionsUsed: Array<vec2>): Array<Potion> {
-    const roomIndices = [];
-    for (let i = 0; i < rooms.length; ++i) {
-        if (i != roomIndexEntrance && i != roomIndexExit) {
-            roomIndices.push(i);
-        }
-    }
-
-    shuffleArray(roomIndices);
-    roomIndices.length = Math.ceil(roomIndices.length * 0.667);
-
-    const potions = [];
-
-    for (let i = 0; i < roomIndices.length; ++i) {
-        const room = rooms[roomIndices[i]];
-
-        for (let j = 0; j < 1024; ++j) {
-            const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
-            const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
-
-            const position = vec2.fromValues(x, y);
-
-            if (isDiscTouchingLevel(position, lootRadius * 2, solid)) {
-                continue;
-            }
-
-            if (isPositionTooCloseToOtherPositions(positionsUsed, 3 * lootRadius, position)) {
-                continue;
-            }
-
-            potions.push({
-                position: position,
-                potionType: PotionType.Health,
-            });
-
-            positionsUsed.push(position);
-            break;
-        }
-    }
-
-    return potions;
 }
 
 function compressRooms(roomGrid: Array<Array<number>>, edges: Array<[number, number]>, rooms: Array<Rect>): [number, number] {
@@ -2754,7 +1989,6 @@ function createLootItems(
     rooms: Array<Rect>,
     positionsUsed: Array<vec2>,
     roomIndexEntrance: number,
-    posAmulet: vec2,
     solid: BooleanGrid): Array<LootItem> {
     const numLoot = 100;
     const loot = [];
@@ -2780,11 +2014,6 @@ function createLootItems(
             continue;
         }
 
-        const dposAmulet = vec2.create();
-        vec2.subtract(dposAmulet, posAmulet, position);
-        if (vec2.length(dposAmulet) < 12 * lootRadius)
-            continue;
-
         positionsUsed.push(position);
         loot.push({position: position});
     }
@@ -2801,16 +2030,6 @@ function renderLootItems(state: State, renderer: Renderer, matScreenFromWorld: m
         glyphIndex: 15,
     }));
 
-    if (!state.player.amuletCollected) {
-        discs.push({
-            position: state.level.amuletPos,
-            radius: lootRadius,
-            discColor: 0xff262666,
-            glyphColor: 0xff3737ff,
-            glyphIndex: 12,
-        });
-    }
-
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
@@ -2823,43 +2042,6 @@ function updateLootItems(state: State) {
     filterInPlace(state.level.lootItems, lootItem => {
         vec2.subtract(dpos, lootItem.position, state.player.position);
         return (vec2.length(dpos) > playerRadius + lootRadius);
-    });
-}
-
-function renderPotions(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
-    const potionHealthGlyphColor = 0xff5555ff;
-
-    const discs = state.level.potions.map(potion => ({
-        position: potion.position,
-        radius: lootRadius,
-        discColor: 0xff737373,
-        glyphColor: potionHealthGlyphColor,
-        glyphIndex: 173,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function updatePotions(state: State) {
-    if (state.player.hitPoints <= 0)
-        return;
-
-    const dpos = vec2.create();
-
-    filterInPlace(state.level.potions, potion => {
-        vec2.subtract(dpos, potion.position, state.player.position);
-        if (vec2.length(dpos) > playerRadius + lootRadius)
-            return true;
-        if (potion.potionType == PotionType.Health) {
-            if (state.player.hitPoints >= playerMaxHitPoints) {
-                state.player.hitPoints += 1;
-                setPickupMessage(state, ['Extra Health!']);
-            } else {
-                state.player.hitPoints = playerMaxHitPoints;
-                setPickupMessage(state, ['Healing Potion']);
-            }
-        }
-        return false;
     });
 }
 
