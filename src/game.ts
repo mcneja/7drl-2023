@@ -172,14 +172,6 @@ type GlyphDisc = {
     glyphColor: number;
 }
 
-type Spike = {
-    position: vec2;
-    velocity: vec2;
-    radius: number;
-    onContactCooldown: boolean;
-    dead: boolean;
-}
-
 type Turret = {
     position: vec2;
     velocity: vec2;
@@ -215,7 +207,6 @@ type Level = {
     startRoom: Rect;
     amuletRoom: Rect;
     amuletPos: vec2;
-    spikes: Array<Spike>;
     turrets: Array<Turret>;
     swarmers: Array<Swarmer>;
     potions: Array<Potion>;
@@ -445,17 +436,6 @@ function updatePlayerBullet(state: State, bullet: Bullet, dt: number) {
 
     let hitSomething = false;
 
-    for (const spike of state.level.spikes) {
-        if (spike.dead) {
-            continue;
-        }
-
-        if (areDiscsTouching(bullet.position, bulletRadius, spike.position, monsterRadius)) {
-            spike.dead = true;
-            hitSomething = true;
-        }
-    }
-
     for (const turret of state.level.turrets) {
         if (turret.dead) {
             continue;
@@ -560,45 +540,6 @@ function renderTurretBullets(bullets: Array<Bullet>, renderer: Renderer, matScre
     renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
-function updateSpikes(state: State, dt: number) {
-    const velPrev = vec2.create();
-    const dpos = vec2.create();
-    for (const spike of state.level.spikes) {
-        vec2.copy(velPrev, spike.velocity);
-        slideToStop(spike, dt);
-        vec2.scaleAndAdd(spike.position, spike.position, velPrev, dt / 2);
-        vec2.scaleAndAdd(spike.position, spike.position, spike.velocity, dt / 2);
-
-        // Disable cooldown once spike is no longer near player.
-
-        if (spike.onContactCooldown) {
-            vec2.subtract(dpos, spike.position, state.player.position);
-            if (vec2.length(dpos) >= 1.5 * monsterRadius + playerRadius) {
-                spike.onContactCooldown = false;
-            }
-        }
-    }
-
-    // Fix up spike positions relative to the environment and other objects.
-
-    for (let i = 0; i < state.level.spikes.length; ++i) {
-        const spike0 = state.level.spikes[i];
-
-        fixupPositionAndVelocityAgainstLevel(spike0.position, spike0.velocity, spike0.radius, state.level.solid);
-
-        if (spike0.dead)
-            continue;
-
-        for (let j = i + 1; j < state.level.spikes.length; ++j) {
-            const spike1 = state.level.spikes[j];
-            if (spike1.dead)
-                continue;
-
-            fixupDiscPair(spike0, spike1);
-        }
-    }
-}
-
 function setPickupMessage(state: State, message: Array<string>) {
     state.pickupMessage = message;
     state.pickupMessageTimer = pickupMessageDuration;
@@ -619,7 +560,7 @@ function updateTurrets(state: State, dt: number) {
         slideToStop(turret, dt);
         vec2.scaleAndAdd(turret.position, turret.position, turret.velocity, dt);
 
-        // Disable cooldown once spike is no longer near player.
+        // Disable cooldown once turret is no longer near player.
 
         if (turret.onContactCooldown) {
             vec2.subtract(dpos, turret.position, state.player.position);
@@ -665,13 +606,6 @@ function updateTurrets(state: State, dt: number) {
 
         if (turret0.dead)
             continue;
-
-        for (const spike of state.level.spikes) {
-            if (spike.dead)
-                continue;
-
-            fixupDiscPair(turret0, spike);
-        }
 
         for (let j = i + 1; j < state.level.turrets.length; ++j) {
             const turret1 = state.level.turrets[j];
@@ -720,18 +654,7 @@ function updateSwarmers(state: State, dt: number) {
             vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, perturbationDir, perturbationAccelerationRate * dt);
             vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, velPrev, -dragAccelerationRate * dt);
 
-            // Avoid other spikes, turrets, and swarmers
-
-            for (const spike of state.level.spikes) {
-                if (spike.dead)
-                    continue;
-                vec2.subtract(dpos, spike.position, swarmer.position);
-                const dist = vec2.length(dpos);
-                if (dist < separationDist) {
-                    const scale = (dist - separationDist) * (separationForce * dt / dist);
-                    vec2.scaleAndAdd(swarmer.velocity, swarmer.velocity, dpos, scale);
-                }
-            }
+            // Avoid other turrets and swarmers
 
             for (const turret of state.level.turrets) {
                 if (turret.dead)
@@ -790,30 +713,6 @@ function updateSwarmers(state: State, dt: number) {
             fixupDiscPair(swarmer0, swarmer1);
         }
     }
-}
-
-function renderSpikesDead(spikes: Array<Spike>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const discs = spikes.filter(spike => spike.dead).map(spike => ({
-        position: spike.position,
-        radius: monsterRadius,
-        discColor: 0xff737373,
-        glyphColor: 0xff808080,
-        glyphIndex: 111,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function renderSpikesAlive(spikes: Array<Spike>, renderer: Renderer, matScreenFromWorld: mat4) {
-    const discs = spikes.filter(spike => !spike.dead).map(spike => ({
-        position: spike.position,
-        radius: monsterRadius,
-        discColor: 0xff405840,
-        glyphColor: 0xff80b080,
-        glyphIndex: 111,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
 }
 
 function renderTurretsDead(turrets: Array<Turret>, renderer: Renderer, matScreenFromWorld: mat4) {
@@ -1580,7 +1479,6 @@ function updateState(state: State, dt: number) {
     updateLootItems(state);
     updatePotions(state);
     updateCamera(state, dt);
-    updateSpikes(state, dt);
     updateTurrets(state, dt);
     updateSwarmers(state, dt);
     updatePlayerBullets(state, dt);
@@ -1588,27 +1486,12 @@ function updateState(state: State, dt: number) {
 
     // Collide player against objects and the environment
 
-    const spikeElasticity = 0.2;
     const turretElasticity = 0.5;
     const swarmerElasticity = 0.8;
-    const spikeMass = 1.5;
     const turretMass = 1;
     const swarmerMass = 0.25;
 
     for (let i = 0; i < 4; ++i) {
-        for (const spike of state.level.spikes) {
-            if (!spike.dead) {
-                if (collideDiscs(state.player, spike, 1, spikeMass, spikeElasticity)) {
-                    if (state.player.invulnerabilityTimer > 0) {
-                        spike.dead = true;
-                    } else if (!spike.onContactCooldown) {
-                        damagePlayer(state, 1);
-                        spike.onContactCooldown = true;
-                    }
-                }
-            }
-        }
-
         for (const turret of state.level.turrets) {
             if (!turret.dead) {
                 if (collideDiscs(state.player, turret, 1, turretMass, turretElasticity)) {
@@ -1934,14 +1817,12 @@ function renderScene(renderer: Renderer, state: State) {
 
     state.renderColoredTriangles(matScreenFromWorld);
 
-    renderSpikesDead(state.level.spikes, renderer, matScreenFromWorld);
     renderTurretsDead(state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersDead(state.level.swarmers, renderer, matScreenFromWorld);
 
     renderLootItems(state, renderer, matScreenFromWorld);
     renderPotions(state, renderer, matScreenFromWorld);
 
-    renderSpikesAlive(state.level.spikes, renderer, matScreenFromWorld);
     renderTurretsAlive(state, state.level.turrets, renderer, matScreenFromWorld);
     renderSwarmersAlive(state.level.swarmers, renderer, matScreenFromWorld);
 
@@ -2771,7 +2652,7 @@ function createLevel(): Level {
 
     // Enemies
 
-    const [spikes, turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, solid, positionsUsed);
+    const [turrets, swarmers] = createEnemies(rooms, roomDistanceFromEntrance, solid, positionsUsed);
 
     // Potions
 
@@ -2791,7 +2672,6 @@ function createLevel(): Level {
         startRoom: startRoom,
         amuletRoom: amuletRoom,
         amuletPos: amuletPos,
-        spikes: spikes,
         turrets: turrets,
         swarmers: swarmers,
         potions: potions,
@@ -2833,8 +2713,7 @@ function createEnemies(
     rooms: Array<Rect>,
     roomDistance: Array<number>,
     solid: BooleanGrid,
-    positionsUsed: Array<vec2>): [Array<Spike>, Array<Turret>, Array<Swarmer>] {
-    const spikes: Array<Spike> = [];
+    positionsUsed: Array<vec2>): [Array<Turret>, Array<Swarmer>] {
     const turrets: Array<Turret> = [];
     const swarmers: Array<Swarmer> = [];
 
@@ -2855,9 +2734,7 @@ function createEnemies(
             const monsterKind = Math.random();
 
             let success = false;
-            if (monsterKind < 0.3 || d < 2) {
-                success = tryCreateSpike(room, spikes, solid, positionsUsed);
-            } else if ((monsterKind < 0.7 || d < 3) && d != 3) {
+            if ((monsterKind < 0.7 || d < 3) && d != 3) {
                 success = tryCreateTurret(room, turrets, solid, positionsUsed);
             } else {
                 success = tryCreateSwarmer(room, swarmers, solid, positionsUsed);
@@ -2869,34 +2746,7 @@ function createEnemies(
         }
     }
 
-    return [spikes, turrets, swarmers];
-}
-
-function tryCreateSpike(room: Rect, spikes: Array<Spike>, solid: BooleanGrid, positionsUsed: Array<vec2>): boolean {
-    const x = Math.random() * (room.sizeX - 2 * monsterRadius) + room.minX + monsterRadius;
-    const y = Math.random() * (room.sizeY - 2 * monsterRadius) + room.minY + monsterRadius;
-
-    const position = vec2.fromValues(x, y);
-
-    if (isDiscTouchingLevel(position, monsterRadius * 2, solid)) {
-        return false;
-    }
-
-    if (isPositionTooCloseToOtherPositions(positionsUsed, 4 * monsterRadius, position)) {
-        return false;
-    }
-
-    spikes.push({
-        position: position,
-        velocity: vec2.fromValues(0, 0),
-        radius: monsterRadius,
-        onContactCooldown: false,
-        dead: false,
-    });
-
-    positionsUsed.push(position);
-
-    return true;
+    return [turrets, swarmers];
 }
 
 function tryCreateTurret(room: Rect, turrets: Array<Turret>, solid: BooleanGrid, positionsUsed: Array<vec2>): boolean {
