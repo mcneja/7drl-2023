@@ -4,8 +4,9 @@
   "description": "Turn-based stealth in Merry Old England.",
   "source": "src/index.html",
   "scripts": {
-    "start": "parcel src/index.html",
-    "build": "parcel build src/index.html --public-url ./"
+    "build": "parcel build src/index.html --public-url ./",
+    "check": "tsc --noEmit",
+    "start": "parcel src/index.html"
   },
   "devDependencies": {
     "@types/node": "^18.11.18",

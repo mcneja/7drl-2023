@@ -1,12 +1,7 @@
-/*
-    TODO
+import { vec2, mat4 } from './my-matrix';
 
-[ ] Change distance-field renderer to use a float texture
-
-*/
-
-import { vec2, mat4 } from './my-matrix.ts';
 var fontImageRequire = require('./font.png');
+var tilesImageRequire = require('./tiles.png');
 
 window.onload = loadResourcesThenRun;
 
@@ -296,10 +291,13 @@ type State = {
 }
 
 function loadResourcesThenRun() {
-    loadImage(fontImageRequire).then((fontImage) => { main(fontImage as HTMLImageElement); });
+    Promise.all([
+        loadImage(tilesImageRequire),
+        loadImage(fontImageRequire),
+    ]).then(main);
 }
 
-function main(fontImage: HTMLImageElement) {
+function main([tileImage, fontImage]: Array<HTMLImageElement>) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
     const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
@@ -406,13 +404,14 @@ function main(fontImage: HTMLImageElement) {
     requestUpdateAndRender();
 }
 
-const loadImage = (src: string) =>
-    new Promise((resolve, reject) => {
+function loadImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
         img.onerror = reject;
         img.src = src;
     });
+}
 
 function updatePosition(state: State, e: MouseEvent) {
     if (state.player.hitPoints <= 0) {
@@ -1053,29 +1052,14 @@ function resetState(
     state.pickupMessageTimer = 0;
 }
 
-function discOverlapsDiscs(disc: Disc, discs: Array<Disc>, minSeparation: number): boolean {
-    for (const disc2 of discs) {
-        const d = vec2.create();
-        vec2.subtract(d, disc2.position, disc.position);
-        if (vec2.squaredLength(d) < (disc2.radius + disc.radius + minSeparation)**2) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function discsOverlap(disc0: Disc, disc1: Disc): boolean {
-    const d = vec2.create();
-    vec2.subtract(d, disc1.position, disc0.position);
-    return vec2.squaredLength(d) < (disc1.radius + disc0.radius)**2;
-}
-
 function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
     return (screenSize) => {
-        resizeCanvasToDisplaySize(gl.canvas);
+        const canvas = gl.canvas as HTMLCanvasElement;
 
-        const screenX = gl.canvas.clientWidth;
-        const screenY = gl.canvas.clientHeight;
+        resizeCanvasToDisplaySize(canvas);
+
+        const screenX = canvas.clientWidth;
+        const screenY = canvas.clientHeight;
     
         gl.viewport(0, 0, screenX, screenY);
         gl.clear(gl.COLOR_BUFFER_BIT);
