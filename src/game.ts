@@ -77,7 +77,6 @@ type Rect = {
 
 type Player = {
     position: vec2;
-    velocity: vec2;
     radius: number;
 };
 
@@ -149,18 +148,40 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
     const renderer = createRenderer(gl, fontImage);
     const state = initState(renderer.createColoredTrianglesRenderer);
 
-    canvas.onmousedown = () => {
-        if (state.paused) {
-            canvas.requestPointerLock();
-        }
-    };
-
     document.body.addEventListener('keydown', e => {
-        if (e.code == 'KeyR') {
+        if (e.code == 'Escape' || e.code == 'KeyP') {
+            e.preventDefault();
+            state.paused = !state.paused;
+            if (!state.paused) {
+                state.tLast = undefined;
+                requestUpdateAndRender();
+            }
+        }
+        else if (e.code == 'KeyR') {
             e.preventDefault();
             resetState(state, renderer.createColoredTrianglesRenderer);
             if (state.paused) {
                 requestUpdateAndRender();
+            }
+        } else if (e.code == 'ArrowLeft') {
+            if (!state.paused) {
+                e.preventDefault();
+                tryMovePlayer(state, -1, 0);
+            }
+        } else if (e.code == 'ArrowRight') {
+            if (!state.paused) {
+                e.preventDefault();
+                tryMovePlayer(state, 1, 0);
+            }
+        } else if (e.code == 'ArrowDown') {
+            if (!state.paused) {
+                e.preventDefault();
+                tryMovePlayer(state, 0, -1);
+            }
+        } else if (e.code == 'ArrowUp') {
+            if (!state.paused) {
+                e.preventDefault();
+                tryMovePlayer(state, 0, 1);
             }
         }
     });
@@ -169,43 +190,23 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
 
-    function onLockChanged() {
-        const mouseCaptured = document.pointerLockElement === canvas;
-        if (mouseCaptured) {
-            document.addEventListener("mousemove", onMouseMoved, false);
-            document.addEventListener("mousedown", onMouseDown, false);
-            if (state.paused) {
-                state.paused = false;
-                state.tLast = undefined;
-                requestUpdateAndRender();
-            }
-        } else {
-            document.removeEventListener("mousemove", onMouseMoved, false);
-            document.removeEventListener("mousedown", onMouseDown, false);
-            state.paused = true;
-        }
-    }
-
-    function onMouseMoved(e: MouseEvent) {
-        updatePosition(state, e);
-    }
-
-    function onMouseDown(e: MouseEvent) {
-        if (state.paused) {
-            return;
-        }
-    }
-
     function onWindowResized() {
         requestUpdateAndRender();
     }
 
-    document.addEventListener('pointerlockchange', onLockChanged, false);
-    document.addEventListener('mozpointerlockchange', onLockChanged, false);
-
     window.addEventListener('resize', onWindowResized);
 
     requestUpdateAndRender();
+}
+
+function tryMovePlayer(state: State, dx: number, dy: number) {
+    const x = state.player.position[0] + dx;
+    const y = state.player.position[1] + dy;
+    if (state.level.solid.get(x, y)) {
+        return;
+    }
+    state.player.position[0] = x;
+    state.player.position[1] = y;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -217,15 +218,11 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     });
 }
 
-function updatePosition(state: State, e: MouseEvent) {
-    const movement = vec2.fromValues(e.movementX, -e.movementY);
-    const scale = 0.05;
-    vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
-}
-
 function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
+    const pos = vec2.fromValues(0.5, 0.5);
+    vec2.add(pos, pos, state.player.position);
     const discs = [{
-        position: state.player.position,
+        position: pos,
         radius: state.player.radius,
         discColor: 0xff000000,
         glyphColor: 0xff00ffff,
@@ -233,10 +230,6 @@ function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4
     }];
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function lerp(v0: number, v1: number, u: number): number {
-    return v0 + (v1 - v0) * u;
 }
 
 function filterInPlace<T>(array: Array<T>, condition: (val: T, i: number, array: Array<T>) => boolean) {
@@ -289,12 +282,10 @@ function createCamera(posPlayer: vec2): Camera {
 function createPlayer(posStart: vec2): Player {
     const player = {
         position: vec2.create(),
-        velocity: vec2.create(),
         radius: playerRadius,
     };
 
     vec2.copy(player.position, posStart);
-    vec2.zero(player.velocity);
 
     return player;
 }
@@ -787,20 +778,7 @@ function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColor
 }
 
 function updateState(state: State, dt: number) {
-
-    // Player
-
-    vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
-
-    // Other
-
     updateCamera(state, dt);
-
-    // Collide player against objects and the environment
-
-    for (let i = 0; i < 4; ++i) {
-        fixupPositionAndVelocityAgainstLevel(state.player.position, state.player.velocity, state.player.radius, state.level.solid);
-    }
 }
 
 function updateCamera(state: State, dt: number) {
@@ -827,95 +805,6 @@ function updateCamera(state: State, dt: number) {
     vec2.copy(state.camera.velocity, velNew);
 }
 
-type Plane = {
-    unitDir: vec2;
-    d: number;
-}
-
-function fixupPositionAndVelocityAgainstLevel(position: vec2, velocity: vec2, radius: number, solid: BooleanGrid) {
-
-    let vNormalMin = 0;
-
-    for (let i = 0; i < 4; ++i) {
-        const gridMinX = Math.max(0, Math.floor(position[0] - radius));
-        const gridMinY = Math.max(0, Math.floor(position[1] - radius));
-        const gridMaxX = Math.min(solid.sizeX, Math.floor(position[0] + radius + 1));
-        const gridMaxY = Math.min(solid.sizeY, Math.floor(position[1] + radius + 1));
-
-        let smallestSeparatingAxis = {unitDir: vec2.fromValues(0, 0), d: radius};
-
-        for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
-            for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
-                const isSolid = solid.get(gridX, gridY);
-                if (!isSolid) {
-                    continue;
-                }
-                const dx = position[0] - (0.5 + gridX);
-                const dy = position[1] - (0.5 + gridY);
-
-                const axis = separatingAxis(dx, dy);
-
-                if (axis.d < smallestSeparatingAxis.d) {
-                    smallestSeparatingAxis = axis;
-                }
-            }
-        }
-
-        smallestSeparatingAxis.d -= radius;
-
-        if (smallestSeparatingAxis.d < 0) {
-            vec2.scaleAndAdd(position, position, smallestSeparatingAxis.unitDir, -smallestSeparatingAxis.d);
-            const vNormal = vec2.dot(smallestSeparatingAxis.unitDir, velocity);
-            vNormalMin = Math.min(vNormalMin, vNormal);
-            vec2.scaleAndAdd(velocity, velocity, smallestSeparatingAxis.unitDir, -vNormal);
-        }
-    }
-
-    const xMin = radius;
-    const yMin = radius;
-    const xMax = solid.sizeX - radius;
-    const yMax = solid.sizeY - radius;
-
-    if (position[0] < xMin) {
-        position[0] = xMin;
-        velocity[0] = 0;
-    } else if (position[0] > xMax) {
-        position[0] = xMax;
-        velocity[0] = 0;
-    }
-    if (position[1] < yMin) {
-        position[1] = yMin;
-        velocity[1] = 0;
-    } else if (position[1] > yMax) {
-        position[1] = yMax;
-        velocity[1] = 0;
-    }
-
-    return -vNormalMin;
-}
-
-function separatingAxis(dx: number, dy: number): Plane {
-    const ax = Math.abs(dx) - 0.5;
-    const ay = Math.abs(dy) - 0.5;
-    const sx = Math.sign(dx);
-    const sy = Math.sign(dy);
-    if (ax > ay) {
-        if (ay > 0) {
-            const d = Math.sqrt(ax**2 + ay**2);
-            return {unitDir: vec2.fromValues(sx * ax / d, sy * ay / d), d: d};
-        } else {
-            return {unitDir: vec2.fromValues(sx, 0), d: ax};
-        }
-    } else {
-        if (ax > 0) {
-            const d = Math.sqrt(ax**2 + ay**2);
-            return {unitDir: vec2.fromValues(sx * ax / d, sy * ay / d), d: d};
-        } else {
-            return {unitDir: vec2.fromValues(0, sy), d: ay};
-        }
-    }
-}
-
 function renderScene(renderer: Renderer, state: State) {
     const screenSize = vec2.create();
     renderer.beginFrame(screenSize);
@@ -931,13 +820,11 @@ function renderScene(renderer: Renderer, state: State) {
 
     if (state.paused) {
         renderTextLines(renderer, screenSize, [
-            '       7DRL 2023',
+            '        7DRL 2023',
             '',
-            'Paused: Click to unpause',
-            '',
-            '    Move with mouse',
-            '',
-            '  Esc: Pause, R: Retry',
+            'Paused: Esc or P to unpause',
+            'Move with arrow keys',
+            'R: Retry',
         ]);
     }
 }
@@ -1510,7 +1397,7 @@ function createLevel(): Level {
     // Pick a starting position within the starting room
 
     const startRoom = rooms[roomIndexEntrance];
-    const playerStartPos = vec2.fromValues(startRoom.minX + startRoom.sizeX/2, startRoom.minY + startRoom.sizeY/2);
+    const playerStartPos = vec2.fromValues(Math.floor(startRoom.minX + startRoom.sizeX/2), Math.floor(startRoom.minY + startRoom.sizeY/2));
 
     // Create a boolean grid indicating which squares on the map are solid and which are open space
 
