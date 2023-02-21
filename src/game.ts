@@ -13,10 +13,6 @@ enum TerrainType {
 }
 
 const playerRadius = 0.5;
-const playerMaxHitPoints = 4;
-const monsterRadius = 0.5;
-const lootRadius = 0.5;
-const pickupMessageDuration = 2.0;
 
 const numCellsX = 4;
 const numCellsY = 4;
@@ -83,7 +79,6 @@ type Player = {
     position: vec2;
     velocity: vec2;
     radius: number;
-    hitPoints: number;
 };
 
 type Camera = {
@@ -105,17 +100,11 @@ type GlyphDisc = {
     glyphColor: number;
 }
 
-type LootItem = {
-    position: vec2;
-}
-
 type Level = {
     solid: BooleanGrid;
     vertexData: ArrayBuffer;
     playerStartPos: vec2;
     startRoom: Rect;
-    lootItems: Array<LootItem>;
-    numLootItemsTotal: number;
 }
 
 type RenderGlyphs = {
@@ -144,12 +133,9 @@ type State = {
     showMap: boolean;
     mapZoom: number;
     mapZoomVelocity: number;
-    mouseSensitivity: number;
     player: Player;
     camera: Camera;
     level: Level;
-    pickupMessage: Array<string>;
-    pickupMessageTimer: number;
 }
 
 function loadResourcesThenRun() {
@@ -192,22 +178,6 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
                 state.mapZoom = state.showMap ? 0 : 1;
                 state.mapZoomVelocity = 0;
                 requestUpdateAndRender();
-            }
-        } else if (e.code == 'Period') {
-            e.preventDefault();
-            state.mouseSensitivity += 1;
-            if (state.paused) {
-                requestUpdateAndRender();
-            } else {
-                setPickupMessage(state, ['Mouse sensitivity: ' + state.mouseSensitivity]);
-            }
-        } else if (e.code == 'Comma') {
-            e.preventDefault();
-            state.mouseSensitivity -= 1;
-            if (state.paused) {
-                requestUpdateAndRender();
-            } else {
-                setPickupMessage(state, ['Mouse sensitivity: ' + state.mouseSensitivity]);
             }
         }
     });
@@ -265,12 +235,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 function updatePosition(state: State, e: MouseEvent) {
-    if (state.player.hitPoints <= 0) {
-        return;
-    }
-
     const movement = vec2.fromValues(e.movementX, -e.movementY);
-    const scale = 0.05 * Math.pow(1.1, state.mouseSensitivity);
+    const scale = 0.05;
     vec2.scaleAndAdd(state.player.velocity, state.player.velocity, movement, scale);
 }
 
@@ -279,24 +245,11 @@ function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4
         position: state.player.position,
         radius: state.player.radius,
         discColor: 0xff000000,
-        glyphColor: (state.player.hitPoints > 0) ? 0xff00ffff : 0xff0020ff,
+        glyphColor: 0xff00ffff,
         glyphIndex: 1,
     }];
 
     renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function setPickupMessage(state: State, message: Array<string>) {
-    state.pickupMessage = message;
-    state.pickupMessageTimer = pickupMessageDuration;
-}
-
-function colorLerp(color0: number, color1: number, u: number): number {
-    const r = Math.floor(lerp(color0 & 0xff, color1 & 0xff, u));
-    const g = Math.floor(lerp((color0 >> 8) & 0xff, (color1 >> 8) & 0xff, u));
-    const b = Math.floor(lerp((color0 >> 16) & 0xff, (color1 >> 16) & 0xff, u));
-    const a = Math.floor(lerp((color0 >> 24) & 0xff, (color1 >> 24) & 0xff, u));
-    return (a << 24) + (b << 16) + (g << 8) + r;
 }
 
 function lerp(v0: number, v1: number, u: number): number {
@@ -355,7 +308,6 @@ function createPlayer(posStart: vec2): Player {
         position: vec2.create(),
         velocity: vec2.create(),
         radius: playerRadius,
-        hitPoints: playerMaxHitPoints,
     };
 
     vec2.copy(player.position, posStart);
@@ -376,12 +328,9 @@ function initState(
         showMap: false,
         mapZoom: 1,
         mapZoomVelocity: 0,
-        mouseSensitivity: 0,
         player: createPlayer(level.playerStartPos),
         camera: createCamera(level.playerStartPos),
         level: level,
-        pickupMessage: [],
-        pickupMessageTimer: 0,
     };
 }
 
@@ -395,8 +344,6 @@ function resetState(
     state.player = createPlayer(level.playerStartPos);
     state.camera = createCamera(level.playerStartPos);
     state.level = level;
-    state.pickupMessage = [];
-    state.pickupMessageTimer = 0;
 }
 
 function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
@@ -859,26 +806,14 @@ function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColor
     };
 }
 
-function slideToStop(body: Disc, dt: number) {
-    const r = Math.exp(-3 * dt);
-    vec2.scale(body.velocity, body.velocity, r);
-}
-
 function updateState(state: State, dt: number) {
 
     // Player
-
-    if (state.player.hitPoints <= 0) {
-        slideToStop(state.player, dt);
-    }
-
-    state.pickupMessageTimer = Math.max(0, state.pickupMessageTimer - dt);
 
     vec2.scaleAndAdd(state.player.position, state.player.position, state.player.velocity, dt);
 
     // Other
 
-    updateLootItems(state);
     updateCamera(state, dt);
 
     // Collide player against objects and the environment
@@ -919,33 +854,6 @@ function updateCamera(state: State, dt: number) {
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
     vec2.copy(state.camera.velocity, velNew);
-}
-
-function isDiscTouchingLevel(discPos: vec2, discRadius: number, solid: BooleanGrid): boolean {
-    const gridMinX = Math.max(0, Math.floor(discPos[0] - discRadius));
-    const gridMinY = Math.max(0, Math.floor(discPos[1] - discRadius));
-    const gridMaxX = Math.min(solid.sizeX, Math.floor(discPos[0] + discRadius + 1));
-    const gridMaxY = Math.min(solid.sizeY, Math.floor(discPos[1] + discRadius + 1));
-
-    for (let gridX = gridMinX; gridX <= gridMaxX; ++gridX) {
-        for (let gridY = gridMinY; gridY <= gridMaxY; ++gridY) {
-            const isSolid = solid.get(gridX, gridY);
-            if (!isSolid) {
-                continue;
-            }
-            let dx = discPos[0] - gridX;
-            let dy = discPos[1] - gridY;
-
-            dx = Math.max(-dx, 0, dx - 1);
-            dy = Math.max(-dy, 0, dy - 1);
-            const d = Math.sqrt(dx*dx + dy*dy);
-            if (d < discRadius) {
-                return true;
-            }
-        }
-    }
-
-    return false;
 }
 
 type Plane = {
@@ -1046,14 +954,7 @@ function renderScene(renderer: Renderer, state: State) {
 
     state.renderColoredTriangles(matScreenFromWorld);
 
-    renderLootItems(state, renderer, matScreenFromWorld);
-
     renderPlayer(state, renderer, matScreenFromWorld);
-
-    // Status displays
-
-    renderHealthMeter(state, renderer, screenSize);
-    renderLootCounter(state, renderer, screenSize);
 
     // Text
 
@@ -1065,11 +966,8 @@ function renderScene(renderer: Renderer, state: State) {
             '',
             'Move with mouse',
             '',
-            '<>: Mouse sensitivity: ' + state.mouseSensitivity,
             'Esc: Pause, R: Retry, M: Map',
         ]);
-    } else if (state.pickupMessageTimer > 0) {
-        renderTextLines(renderer, screenSize, state.pickupMessage);
     }
 }
 
@@ -1108,93 +1006,6 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
 
     mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
-}
-
-function renderHealthMeter(state: State, renderer: Renderer, screenSize: vec2) {
-    const minCharsX = 40;
-    const minCharsY = 20;
-    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
-    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
-    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
-    const pixelsPerCharX = 8 * scaleFactor;
-    const pixelsPerCharY = 16 * scaleFactor;
-    const numCharsX = screenSize[0] / pixelsPerCharX;
-    const numCharsY = screenSize[1] / pixelsPerCharY;
-    const offsetX = -1;
-    const offsetY = 0;
-
-    const matScreenFromTextArea = mat4.create();
-    mat4.ortho(
-        matScreenFromTextArea,
-        offsetX,
-        offsetX + numCharsX,
-        offsetY,
-        offsetY + numCharsY,
-        1,
-        -1);
-    renderer.renderGlyphs.start(matScreenFromTextArea);
-
-    const glyphColorHeartFilled = 0xff0000aa;
-    const glyphColorHeartEmpty = 0xff202020;
-    const glyphColorHeartOvercharge = 0xff5555ff;
-
-    for (let i = 0; i < playerMaxHitPoints; ++i) {
-        renderer.renderGlyphs.addGlyph(
-            i, 0, i + 1, 1,
-            3,
-            i < state.player.hitPoints ? glyphColorHeartFilled : glyphColorHeartEmpty
-        );
-    }
-
-    for (let i = playerMaxHitPoints; i < state.player.hitPoints; ++i) {
-        renderer.renderGlyphs.addGlyph(
-            i, 0, i + 1, 1,
-            3,
-            glyphColorHeartOvercharge
-        );
-    }
-
-    renderer.renderGlyphs.flush();
-}
-
-function renderLootCounter(state: State, renderer: Renderer, screenSize: vec2) {
-    const numLootItemsTotal = state.level.numLootItemsTotal;
-    const numLootItemsCollected = numLootItemsTotal - state.level.lootItems.length;
-
-    const strMsg = numLootItemsCollected + '/' + numLootItemsTotal + '\x0f';
-    const cCh = strMsg.length;
-
-    const minCharsX = 40;
-    const minCharsY = 20;
-    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
-    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
-    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
-    const pixelsPerCharX = 8 * scaleFactor;
-    const pixelsPerCharY = 16 * scaleFactor;
-    const numCharsX = screenSize[0] / pixelsPerCharX;
-    const numCharsY = screenSize[1] / pixelsPerCharY;
-    const offsetX = (cCh + 1) - numCharsX;
-    const offsetY = 0;
-
-    const matScreenFromTextArea = mat4.create();
-    mat4.ortho(
-        matScreenFromTextArea,
-        offsetX,
-        offsetX + numCharsX,
-        offsetY,
-        offsetY + numCharsY,
-        1,
-        -1);
-    renderer.renderGlyphs.start(matScreenFromTextArea);
-
-    const color = 0xff55ffff;
-
-    for (let i = 0; i < cCh; ++i) {
-        const glyphIndex = strMsg.charCodeAt(i);
-        renderer.renderGlyphs.addGlyph(i, 0, i + 1, 1, glyphIndex, color);
-    }
-
-    renderer.renderGlyphs.flush();
 }
 
 function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {
@@ -1762,21 +1573,11 @@ function createLevel(): Level {
         }
     }
 
-    // Place loot in the level. Distribute it so rooms that are far from
-    // the entrance or the exit have the most? Or so dead ends have the
-    // most? Bias toward the rooms that aren't on the path between the
-    // entrance and the exit?
-
-    const positionsUsed: Array<vec2> = [];
-    const lootItems = createLootItems(rooms, positionsUsed, roomIndexEntrance, solid);
-
     return {
         solid: solid,
         vertexData: vertexData,
         playerStartPos: playerStartPos,
         startRoom: startRoom,
-        lootItems: lootItems,
-        numLootItemsTotal: lootItems.length,
     };
 }
 
@@ -1983,66 +1784,6 @@ function tryPlaceCenterObstacleRoom(rooms: Array<Rect>, grid: TerrainTypeGrid) {
 
         return;
     }
-}
-
-function createLootItems(
-    rooms: Array<Rect>,
-    positionsUsed: Array<vec2>,
-    roomIndexEntrance: number,
-    solid: BooleanGrid): Array<LootItem> {
-    const numLoot = 100;
-    const loot = [];
-
-    for (let i = 0; i < 1024 && loot.length < numLoot; ++i) {
-        const roomIndex = randomInRange(rooms.length);
-        if (roomIndex == roomIndexEntrance) {
-            continue;
-        }
-
-        const room = rooms[roomIndex];
-
-        const x = Math.random() * (room.sizeX - 2 * lootRadius) + room.minX + lootRadius;
-        const y = Math.random() * (room.sizeY - 2 * lootRadius) + room.minY + lootRadius;
-
-        const position = vec2.fromValues(x, y);
-
-        if (isDiscTouchingLevel(position, lootRadius * 2, solid)) {
-            continue;
-        }
-
-        if (isPositionTooCloseToOtherPositions(positionsUsed, 2 * lootRadius + monsterRadius, position)) {
-            continue;
-        }
-
-        positionsUsed.push(position);
-        loot.push({position: position});
-    }
-
-    return loot;
-}
-
-function renderLootItems(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
-    const discs = state.level.lootItems.map(lootItem => ({
-        position: lootItem.position,
-        radius: lootRadius,
-        discColor: 0xff737373,
-        glyphColor: 0xff37ffff,
-        glyphIndex: 15,
-    }));
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
-}
-
-function updateLootItems(state: State) {
-    if (state.player.hitPoints <= 0)
-        return;
-
-    const dpos = vec2.create();
-
-    filterInPlace(state.level.lootItems, lootItem => {
-        vec2.subtract(dpos, lootItem.position, state.player.position);
-        return (vec2.length(dpos) > playerRadius + lootRadius);
-    });
 }
 
 function hasEdge(edges: Array<[number, number]>, roomIndex0: number | null, roomIndex1: number | null): boolean {
