@@ -86,12 +86,6 @@ type Camera = {
     velocity: vec2;
 }
 
-type Disc = {
-    position: vec2;
-    velocity: vec2;
-    radius: number;
-}
-
 type GlyphDisc = {
     position: vec2;
     radius: number;
@@ -130,9 +124,6 @@ type State = {
     renderColoredTriangles: RenderColoredTriangles;
     tLast: number | undefined;
     paused: boolean;
-    showMap: boolean;
-    mapZoom: number;
-    mapZoomVelocity: number;
     player: Player;
     camera: Camera;
     level: Level;
@@ -169,14 +160,6 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
             e.preventDefault();
             resetState(state, renderer.createColoredTrianglesRenderer);
             if (state.paused) {
-                requestUpdateAndRender();
-            }
-        } else if (e.code == 'KeyM') {
-            e.preventDefault();
-            state.showMap = !state.showMap;
-            if (state.paused) {
-                state.mapZoom = state.showMap ? 0 : 1;
-                state.mapZoomVelocity = 0;
                 requestUpdateAndRender();
             }
         }
@@ -325,9 +308,6 @@ function initState(
         renderColoredTriangles: createColoredTrianglesRenderer(level.vertexData),
         tLast: undefined,
         paused: true,
-        showMap: false,
-        mapZoom: 1,
-        mapZoomVelocity: 0,
         player: createPlayer(level.playerStartPos),
         camera: createCamera(level.playerStartPos),
         level: level,
@@ -825,15 +805,6 @@ function updateState(state: State, dt: number) {
 
 function updateCamera(state: State, dt: number) {
 
-    // Animate map zoom
-
-    const mapZoomTarget = state.showMap ? 0 : 1;
-    const kSpringMapZoom = 12;
-    const mapZoomAccel = ((mapZoomTarget - state.mapZoom) * kSpringMapZoom - 2 * state.mapZoomVelocity) * kSpringMapZoom;
-    const mapZoomVelNew = state.mapZoomVelocity + mapZoomAccel * dt;
-    state.mapZoom += (state.mapZoomVelocity + mapZoomVelNew) * (dt / 2);
-    state.mapZoomVelocity = mapZoomVelNew;
-
     // Update player follow
 
     const posError = vec2.create();
@@ -960,34 +931,18 @@ function renderScene(renderer: Renderer, state: State) {
 
     if (state.paused) {
         renderTextLines(renderer, screenSize, [
-            '          7DRL 2023',
+            '       7DRL 2023',
             '',
-            '     Paused: Click to unpause',
+            'Paused: Click to unpause',
             '',
-            'Move with mouse',
+            '    Move with mouse',
             '',
-            'Esc: Pause, R: Retry, M: Map',
+            '  Esc: Pause, R: Retry',
         ]);
     }
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
-    const mapSizeX = state.level.solid.sizeX + 2;
-    const mapSizeY = state.level.solid.sizeY + 2;
-
-    let rxMap: number, ryMap: number;
-    if (screenSize[0] * mapSizeY < screenSize[1] * mapSizeX) {
-        // horizontal is limiting dimension
-        rxMap = mapSizeX / 2;
-        ryMap = rxMap * screenSize[1] / screenSize[0];
-    } else {
-        // vertical is limiting dimension
-        ryMap = mapSizeY / 2;
-        rxMap = ryMap * screenSize[0] / screenSize[1];
-    }
-    const cxMap = state.level.solid.sizeX / 2;
-    const cyMap = state.level.solid.sizeY / 2;
-
     const cxGame = state.camera.position[0];
     const cyGame = state.camera.position[1];
     const rGame = 18;
@@ -1000,12 +955,7 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
         rxGame = rGame * screenSize[0] / screenSize[1];
     }
 
-    const rxZoom = lerp(rxMap, rxGame, state.mapZoom);
-    const ryZoom = lerp(ryMap, ryGame, state.mapZoom);
-    const cxZoom = lerp(cxMap, cxGame, state.mapZoom);
-    const cyZoom = lerp(cyMap, cyGame, state.mapZoom);
-
-    mat4.ortho(matScreenFromWorld, cxZoom - rxZoom, cxZoom + rxZoom, cyZoom - ryZoom, cyZoom + ryZoom, 1, -1);
+    mat4.ortho(matScreenFromWorld, cxGame - rxGame, cxGame + rxGame, cyGame - ryGame, cyGame + ryGame, 1, -1);
 }
 
 function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {
