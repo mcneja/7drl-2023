@@ -123,6 +123,8 @@ type State = {
     renderColoredTriangles: RenderColoredTriangles;
     tLast: number | undefined;
     paused: boolean;
+    shiftModifierActive: boolean;
+    shiftUp: number;
     player: Player;
     camera: Camera;
     level: Level;
@@ -148,7 +150,15 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
     const renderer = createRenderer(gl, fontImage);
     const state = initState(renderer.createColoredTrianglesRenderer);
 
-    document.body.addEventListener('keydown', e => {
+    document.body.addEventListener('keydown', onKeyDown);
+    document.body.addEventListener('keyup', onKeyUp);
+
+    function onKeyDown(e: KeyboardEvent) {
+        if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
+            state.shiftModifierActive = true;
+            return;
+        }
+
         if (e.code == 'Escape' || e.code == 'KeyP') {
             e.preventDefault();
             state.paused = !state.paused;
@@ -163,28 +173,31 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
             if (state.paused) {
                 requestUpdateAndRender();
             }
-        } else if (e.code == 'ArrowLeft') {
-            if (!state.paused) {
+        } else if (!state.paused) {
+            const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUp) < 1.0) ? 2 : 1;
+            if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
                 e.preventDefault();
-                tryMovePlayer(state, -1, 0);
-            }
-        } else if (e.code == 'ArrowRight') {
-            if (!state.paused) {
+                tryMovePlayer(state, -speed, 0);
+            } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
                 e.preventDefault();
-                tryMovePlayer(state, 1, 0);
-            }
-        } else if (e.code == 'ArrowDown') {
-            if (!state.paused) {
+                tryMovePlayer(state, speed, 0);
+            } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, -1);
-            }
-        } else if (e.code == 'ArrowUp') {
-            if (!state.paused) {
+                tryMovePlayer(state, 0, -speed);
+            } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, 1);
+                tryMovePlayer(state, 0, speed);
             }
         }
-    });
+
+        state.shiftModifierActive = false;
+    }
+
+    function onKeyUp(e: KeyboardEvent) {
+        if (e.code == 'ShiftLeft' || e.code == 'ShiftRight') {
+            state.shiftUp = e.timeStamp;
+        }
+    }
 
     function requestUpdateAndRender() {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
@@ -299,6 +312,8 @@ function initState(
         renderColoredTriangles: createColoredTrianglesRenderer(level.vertexData),
         tLast: undefined,
         paused: true,
+        shiftModifierActive: false,
+        shiftUp: -Infinity,
         player: createPlayer(level.playerStartPos),
         camera: createCamera(level.playerStartPos),
         level: level,
