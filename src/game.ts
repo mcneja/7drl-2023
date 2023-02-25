@@ -124,7 +124,7 @@ type State = {
     tLast: number | undefined;
     paused: boolean;
     shiftModifierActive: boolean;
-    shiftUp: number;
+    shiftUpLastTimeStamp: number;
     player: Player;
     camera: Camera;
     level: Level;
@@ -174,7 +174,7 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
                 requestUpdateAndRender();
             }
         } else if (!state.paused) {
-            const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUp) < 1.0) ? 2 : 1;
+            const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
                 e.preventDefault();
                 tryMovePlayer(state, -speed, 0);
@@ -195,7 +195,7 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
 
     function onKeyUp(e: KeyboardEvent) {
         if (e.code == 'ShiftLeft' || e.code == 'ShiftRight') {
-            state.shiftUp = e.timeStamp;
+            state.shiftUpLastTimeStamp = e.timeStamp;
         }
     }
 
@@ -313,7 +313,7 @@ function initState(
         tLast: undefined,
         paused: true,
         shiftModifierActive: false,
-        shiftUp: -Infinity,
+        shiftUpLastTimeStamp: -Infinity,
         player: createPlayer(level.playerStartPos),
         camera: createCamera(level.playerStartPos),
         level: level,
@@ -1654,18 +1654,6 @@ function canHaveStraightHorizontalHall(room0: Rect, room1: Rect): boolean {
     const overlapMax = Math.min(room0.minY + room0.sizeY, room1.minY + room1.sizeY) - 1;
     const overlapSize = Math.max(0, overlapMax - overlapMin);
     return overlapSize >= corridorWidth;
-}
-
-function isPositionTooCloseToOtherPositions(positions: Array<vec2>, separationDistance: number, position: vec2): boolean {
-    const dpos = vec2.create();
-    for (const positionOther of positions) {
-        vec2.subtract(dpos, position, positionOther);
-        const d = vec2.length(dpos);
-        if (d < separationDistance) {
-            return true;
-        }
-    }
-    return false;
 }
 
 function shuffleArray<T>(array: Array<T>) {
