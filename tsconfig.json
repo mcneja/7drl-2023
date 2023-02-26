@@ -11,5 +11,6 @@
         "./src/createMap.ts",
         "./src/game.ts",
         "./src/my-matrix.ts",
+        "./src/render.ts",
     ]
 }
