@@ -51,12 +51,6 @@ type GlyphDisc = {
     glyphColor: number;
 }
 
-type Level = {
-    solid: BooleanGrid;
-    vertexData: ArrayBuffer;
-    playerStartPos: vec2;
-}
-
 type RenderGlyphs = {
     start: (matScreenFromWorld: mat4) => void;
     addGlyph: (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
@@ -84,7 +78,7 @@ type State = {
     shiftUpLastTimeStamp: number;
     player: Player;
     camera: Camera;
-    level: Level;
+    solid: BooleanGrid;
 }
 
 function loadResourcesThenRun() {
@@ -172,7 +166,7 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
 function tryMovePlayer(state: State, dx: number, dy: number) {
     const x = state.player.position[0] + dx;
     const y = state.player.position[1] + dy;
-    if (state.level.solid.get(x, y)) {
+    if (state.solid.get(x, y)) {
         return;
     }
     state.player.position[0] = x;
@@ -246,17 +240,18 @@ function initState(
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
 
     const gameMap = createGameMap();
-    const level = convertLevel(gameMap);
+    const solid = solidMapFromGameMap(gameMap);
+    const vertexData = vertexDataFromGameMap(gameMap);
 
     return {
-        renderColoredTriangles: createColoredTrianglesRenderer(level.vertexData),
+        renderColoredTriangles: createColoredTrianglesRenderer(vertexData),
         tLast: undefined,
         paused: true,
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
-        player: createPlayer(level.playerStartPos),
-        camera: createCamera(level.playerStartPos),
-        level: level,
+        player: createPlayer(gameMap.playerStartPos),
+        camera: createCamera(gameMap.playerStartPos),
+        solid: solid,
     };
 }
 
@@ -265,12 +260,13 @@ function resetState(
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer) {
 
     const gameMap = createGameMap();
-    const level = convertLevel(gameMap);
+    const solid = solidMapFromGameMap(gameMap);
+    const vertexData = vertexDataFromGameMap(gameMap);
 
-    state.renderColoredTriangles = createColoredTrianglesRenderer(level.vertexData);
-    state.player = createPlayer(level.playerStartPos);
-    state.camera = createCamera(level.playerStartPos);
-    state.level = level;
+    state.renderColoredTriangles = createColoredTrianglesRenderer(vertexData);
+    state.player = createPlayer(gameMap.playerStartPos);
+    state.camera = createCamera(gameMap.playerStartPos);
+    state.solid = solid;
 }
 
 function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
@@ -905,11 +901,9 @@ function loadShader(gl: WebGL2RenderingContext, type: number, source: string): W
     return shader;
 }
 
-function convertLevel(gameMap: GameMap): Level {
-
-    // Create a boolean grid indicating which squares on the map are solid and which are open space
-
+function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
     const solid = new BooleanGrid(gameMap.terrainTypeGrid.sizeX, gameMap.terrainTypeGrid.sizeY, false);
+
     for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
         for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
             const terrainType = gameMap.terrainTypeGrid.get(x, y);
@@ -918,8 +912,10 @@ function convertLevel(gameMap: GameMap): Level {
         }
     }
 
-    // Convert to colored squares.
+    return solid;
+}
 
+function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
     const roomColor = 0xff808080;
     const hallColor = 0xff707070;
     const wallColor = 0xff0055aa;
@@ -980,9 +976,5 @@ function convertLevel(gameMap: GameMap): Level {
         vertexDataAsUint32[j+17] = color;
     }
 
-    return {
-        solid: solid,
-        vertexData: vertexData,
-        playerStartPos: gameMap.playerStartPos,
-    };
+    return vertexData;
 }
