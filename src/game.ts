@@ -172,7 +172,7 @@ function createPlayer(posStart: vec2): Player {
 }
 
 function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
-    const level = 0;
+    const level = 3;
     const gameMap = createGameMap(level);
     const solid = solidMapFromGameMap(gameMap);
     const vertexData = vertexDataFromGameMap(gameMap);
@@ -350,7 +350,7 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
     for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
         for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
             const terrainType = gameMap.terrainTypeGrid.get(x, y);
-            const isSolid = terrainType == TerrainType.Wall;
+            const isSolid = terrainType == TerrainType.Wall0000;
             solid.set(x, y, isSolid);
         }
     }
@@ -359,6 +359,7 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
 }
 
 function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
+    const normalColor = 0xff202020;
     const grassColor = 0xff104000;
     const woodColor = 0xff004488;
     const marbleColor = 0xff606020;
@@ -371,6 +372,9 @@ function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
             const type = gameMap.terrainTypeGrid.get(x, y);
             let color;
             switch (type) {
+            case TerrainType.GroundNormal:
+                color = normalColor;
+                break;
             case TerrainType.GroundGrass:
                 color = grassColor;
                 break;
@@ -383,8 +387,11 @@ function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
             case TerrainType.GroundWood:
                 color = woodColor;
                 break;
-            case TerrainType.Wall:
+            case TerrainType.Wall0000:
                 color = wallColor;
+                break;
+            default:
+                color = 0xffff00ff;
                 break;
             }
             squares.push({x: x, y: y, color: color});
