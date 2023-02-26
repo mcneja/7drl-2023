@@ -27,6 +27,7 @@ type State = {
     shiftUpLastTimeStamp: number;
     player: Player;
     camera: Camera;
+    level: number;
     solid: BooleanGrid;
 }
 
@@ -185,6 +186,7 @@ function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRendere
         shiftUpLastTimeStamp: -Infinity,
         player: createPlayer(gameMap.playerStartPos),
         camera: createCamera(gameMap.playerStartPos),
+        level: level,
         solid: solid,
     };
 }
@@ -193,8 +195,7 @@ function resetState(
     state: State,
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer) {
 
-    const level = 0;
-    const gameMap = createGameMap(level);
+    const gameMap = createGameMap(state.level);
     const solid = solidMapFromGameMap(gameMap);
     const vertexData = vertexDataFromGameMap(gameMap);
 
