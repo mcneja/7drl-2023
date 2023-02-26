@@ -359,7 +359,7 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
 }
 
 function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
-    const grassColor = 0xff204000;
+    const grassColor = 0xff104000;
     const woodColor = 0xff004488;
     const marbleColor = 0xff606020;
     const wallColor = 0xffa0a0a0;

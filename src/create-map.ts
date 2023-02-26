@@ -408,9 +408,7 @@ function gameMapFromCellMap(cells: CellGrid): GameMap {
 
     for (let x = 0; x < sizeX; ++x) {
         for (let y = 0; y < sizeY; ++y) {
-            if (cells.at(x, y).type === TerrainType.Wall) {
-                terrainTypeGrid.set(x, y, TerrainType.Wall);
-            }
+            terrainTypeGrid.set(x, y, cells.at(x, y).type);
         }
     }
 
