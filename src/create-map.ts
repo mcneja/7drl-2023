@@ -1,4 +1,4 @@
-export { GameMap, TerrainType, TerrainTypeGrid, createGameMap };
+export { BooleanGrid, GameMap, TerrainType, TerrainTypeGrid, createGameMap };
 
 import { vec2 } from './my-matrix';
 
@@ -6,11 +6,68 @@ const numCellsX = 4;
 const numCellsY = 4;
 const corridorWidth = 3;
 
+const roomSizeX = 5;
+const roomSizeY = 5;
+const outerBorder = 3;
+
 enum TerrainType {
-    Solid,
+    GroundGrass,
+    GroundWater,
+    GroundMarble,
+    GroundWood,
     Wall,
-    Hall,
-    Room,
+}
+
+// TODO: Figure out how to make a generic grid data structure
+
+class BooleanGrid {
+    sizeX: number;
+    sizeY: number;
+    values: Uint8Array;
+
+    constructor(sizeX: number, sizeY: number, initialValue: boolean) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.values = new Uint8Array(sizeX * sizeY);
+        this.fill(initialValue);
+    }
+
+    fill(value: boolean) {
+        this.values.fill(value ? 1 : 0);
+    }
+
+    get(x: number, y: number): boolean {
+        return this.values[this.sizeX * y + x] !== 0;
+    }
+
+    set(x: number, y: number, value: boolean) {
+        this.values[this.sizeX * y + x] = value ? 1 : 0;
+    }
+}
+
+class Int32Grid {
+    sizeX: number;
+    sizeY: number;
+    values: Int32Array;
+
+    constructor(sizeX: number, sizeY: number, initialValue: number) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.values = new Int32Array(sizeX * sizeY);
+        this.fill(initialValue);
+    }
+
+    fill(value: number) {
+        this.values.fill(value);
+    }
+
+    get(x: number, y: number): number {
+        return this.values[this.sizeX * y + x];
+    }
+
+    set(x: number, y: number, value: number) {
+        this.values[this.sizeX * y + x] = value;
+    }
 }
 
 class TerrainTypeGrid {
@@ -38,6 +95,34 @@ class TerrainTypeGrid {
     }
 }
 
+type Cell = {
+    type: TerrainType;
+    lit: boolean;
+}
+
+class CellGrid {
+    sizeX: number;
+    sizeY: number;
+    values: Array<Cell>;
+
+    constructor(sizeX: number, sizeY: number) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        const size = sizeX * sizeY;
+        this.values = new Array<Cell>(size);
+        for (let i = 0; i < size; ++i) {
+            this.values[i] = {
+                type: TerrainType.GroundGrass,
+                lit: false
+            };
+        }
+    }
+
+    at(x: number, y: number): Cell {
+        return this.values[this.sizeX * y + x];
+    }
+}
+
 type GameMap = {
     terrainTypeGrid: TerrainTypeGrid;
     playerStartPos: vec2;
@@ -52,7 +137,292 @@ type Rect = {
 
 type Edge = [number, number];
 
-function createGameMap(): GameMap {
+function createGameMap(level: number): GameMap {
+    const sizeX = randomHouseWidth(level);
+    const sizeY = randomHouseDepth(level);
+
+    const inside = makeSiheyuanRoomGrid(sizeX, sizeY);
+
+    const mirrorX: boolean = true;
+    const mirrorY: boolean = false;
+
+    const [offsetX, offsetY] = offsetWalls(mirrorX, mirrorY, inside);
+
+    const cells = plotWalls(inside, offsetX, offsetY);
+
+    // TODO: generate the various wall-tile types based on adjacent walls
+    // fixupWalls(cells);
+
+    return gameMapFromCellMap(cells);
+}
+
+function randomHouseWidth(level: number): number {
+    let sizeX = 0;
+    const c = Math.min(3, level);
+    for (let i = 0; i < c; ++i) {
+        sizeX += randomInRange(2);
+    }
+    return sizeX * 2 + 3;
+}
+
+function randomHouseDepth(level: number): number {
+    if (level === 0) {
+        return 2;
+    } else {
+        let sizeY = 3;
+        const c = Math.min(4, level - 1);
+        for (let i = 0; i < c; ++i) {
+            sizeY += randomInRange(2);
+        }
+        return sizeY;
+    }
+}
+
+function makeSiheyuanRoomGrid(sizeX: number, sizeY: number): BooleanGrid {
+    const inside = new BooleanGrid(sizeX, sizeY, true);
+
+    const halfX = Math.floor((sizeX + 1) / 2);
+
+    const numCourtyardRoomsHalf = Math.floor((sizeY * halfX) / 4);
+    for (let i = numCourtyardRoomsHalf; i > 0; --i) {
+        const x = randomInRange(halfX);
+        const y = randomInRange(sizeY);
+        inside.set(x, y, false);
+    }
+
+    for (let y = 0; y < sizeY; ++y) {
+        for (let x = halfX; x < sizeX; ++x) {
+            inside.set(x, y, inside.get((sizeX - 1) - x, y));
+        }
+    }
+
+    return inside;
+}
+
+function offsetWalls(
+    mirrorX: boolean,
+    mirrorY: boolean,
+    inside: BooleanGrid): [offsetX: Int32Grid, offsetY: Int32Grid]
+{
+    const roomsX = inside.sizeX;
+    const roomsY = inside.sizeY;
+
+    const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
+    const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
+
+    let i = randomInRange(3) - 1;
+    for (let y = 0; y < roomsY; ++y)
+        offsetX.set(0, y, i);
+
+    i = randomInRange(3) - 1;
+    for (let y = 0; y < roomsY; ++y)
+        offsetX.set(roomsX, y, i);
+
+    i = randomInRange(3) - 1;
+    for (let x = 0; x < roomsX; ++x)
+        offsetY.set(x, 0, i);
+
+    i = randomInRange(3) - 1;
+    for (let x = 0; x < roomsX; ++x)
+        offsetY.set(x, roomsY, i);
+
+    for (let x = 1; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            offsetX.set(x, y, randomInRange(3) - 1);
+        }
+    }
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 1; y < roomsY; ++y) {
+            offsetY.set(x, y, randomInRange(3) - 1);
+        }
+    }
+
+    for (let x = 1; x < roomsX; ++x) {
+        for (let y = 1; y < roomsY; ++y) {
+            if (randomInRange(2) === 0) {
+                offsetX.set(x, y, offsetX.get(x, y-1));
+            } else {
+                offsetY.set(x, y, offsetY.get(x-1, y));
+            }
+        }
+    }
+
+    if (mirrorX) {
+        if ((roomsX & 1) === 0) {
+            const xMid = Math.floor(roomsX / 2);
+            for (let y = 0; y < roomsY; ++y) {
+                offsetX.set(xMid, y, 0);
+            }
+        }
+
+        for (let x = 0; x < Math.floor((roomsX + 1) / 2); ++x) {
+            for (let y = 0; y < roomsY; ++y) {
+                offsetX.set(roomsX - x, y, 1 - offsetX.get(x, y));
+            }
+        }
+
+        for (let x = 0; x < Math.floor(roomsX / 2); ++x) {
+            for (let y = 0; y < roomsY + 1; ++y) {
+                offsetY.set((roomsX - 1) - x, y, offsetY.get(x, y));
+            }
+        }
+    }
+
+    if (mirrorY) {
+        if ((roomsY & 1) === 0) {
+            const yMid = roomsY / 2;
+            for (let x = 0; x < roomsX; ++x) {
+                offsetY.set(x, yMid, 0);
+            }
+        }
+
+        for (let y = 0; y < Math.floor((roomsY + 1) / 2); ++y) {
+            for (let x = 0; x < roomsX; ++x) {
+                offsetY.set(x, roomsY - y, 1 - offsetY.get(x, y));
+            }
+        }
+
+        for (let y = 0; y < Math.floor(roomsY / 2); ++y) {
+            for (let x = 0; x < roomsX + 1; ++x) {
+                offsetX.set(x, (roomsY - 1) - y, offsetX.get(x, y));
+            }
+        }
+    }
+
+    let roomOffsetX = Number.MIN_SAFE_INTEGER;
+    let roomOffsetY = Number.MIN_SAFE_INTEGER;
+
+    for (let y = 0; y < roomsY; ++y) {
+        roomOffsetX = Math.max(roomOffsetX, -offsetX.get(0, y));
+    }
+
+    for (let x = 0; x < roomsX; ++x) {
+        roomOffsetY = Math.max(roomOffsetY, -offsetY.get(x, 0));
+    }
+
+    roomOffsetX += outerBorder;
+    roomOffsetY += outerBorder;
+
+    for (let x = 0; x < roomsX + 1; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            const z = offsetX.get(x, y) + roomOffsetX + x * roomSizeX;
+            offsetX.set(x, y, z);
+        }
+    }
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY + 1; ++y) {
+            offsetY.set(x, y, offsetY.get(x, y) + roomOffsetY + y * roomSizeY);
+        }
+    }
+
+    return [offsetX, offsetY];
+}
+
+function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid): CellGrid {
+    const cx = inside.sizeX;
+    const cy = inside.sizeY;
+
+    let mapSizeX = 0;
+    let mapSizeY = 0;
+
+    for (let y = 0; y < cy; ++y) {
+        mapSizeX = Math.max(mapSizeX, offsetX.get(cx, y));
+    }
+
+    for (let x = 0; x < cx; ++x) {
+        mapSizeY = Math.max(mapSizeY, offsetY.get(x, cy));
+    }
+
+    mapSizeX += outerBorder + 1;
+    mapSizeY += outerBorder + 1;
+
+    const map = new CellGrid(mapSizeX, mapSizeY);
+
+    // Super hacky: put down grass under all the rooms to plug holes, and light the interior.
+
+    for (let rx = 0; rx < cx; ++rx) {
+        for (let ry = 0; ry < cy; ++ry) {
+            const x0 = offsetX.get(rx, ry);
+            const x1 = offsetX.get(rx + 1, ry) + 1;
+            const y0 = offsetY.get(rx, ry);
+            const y1 = offsetY.get(rx, ry + 1) + 1;
+
+            for (let x = x0; x < x1; ++x) {
+                for (let y = y0; y < y1; ++y) {
+                    const cell = map.at(x, y);
+                    cell.type = TerrainType.GroundGrass;
+                    cell.lit = true;
+                }
+            }
+        }
+    }
+
+    // Draw walls. Really this should be done in createExits, where the
+    //  walls are getting decorated with doors and windows.
+
+    for (let rx = 0; rx < cx; ++rx) {
+        for (let ry = 0; ry < cy; ++ry) {
+            const isInside = inside.get(rx, ry);
+
+            const x0 = offsetX.get(rx, ry);
+            const x1 = offsetX.get(rx + 1, ry);
+            const y0 = offsetY.get(rx, ry);
+            const y1 = offsetY.get(rx, ry + 1);
+
+            if (rx == 0 || isInside) {
+                plotNSWall(map, x0, y0, y1);
+            }
+            if (rx == cx - 1 || isInside) {
+                plotNSWall(map, x1, y0, y1);
+            }
+            if (ry == 0 || isInside) {
+                plotEWWall(map, x0, y0, x1);
+            }
+            if (ry == cy - 1 || isInside) {
+                plotEWWall(map, x0, y1, x1);
+            }
+        }
+    }
+
+    return map;
+}
+
+function plotNSWall(map: CellGrid, x0: number, y0: number, y1: number) {
+    for (let y = y0; y <= y1; ++y) {
+        map.at(x0, y).type = TerrainType.Wall;
+    }
+}
+
+function plotEWWall(map: CellGrid, x0: number, y0: number, x1: number) {
+    for (let x = x0; x <= x1; ++x) {
+        map.at(x, y0).type = TerrainType.Wall;
+    }
+}
+
+function gameMapFromCellMap(cells: CellGrid): GameMap {
+    const sizeX = cells.sizeX;
+    const sizeY = cells.sizeY;
+    const terrainTypeGrid = new TerrainTypeGrid(sizeX, sizeY, TerrainType.GroundWood);
+
+    for (let x = 0; x < sizeX; ++x) {
+        for (let y = 0; y < sizeY; ++y) {
+            if (cells.at(x, y).type === TerrainType.Wall) {
+                terrainTypeGrid.set(x, y, TerrainType.Wall);
+            }
+        }
+    }
+
+    const playerStartPos = vec2.fromValues(Math.floor(sizeX / 2), 0);
+
+    return {
+        terrainTypeGrid: terrainTypeGrid,
+        playerStartPos: playerStartPos
+    };
+}
+
+function createGameMapOld(level: number): GameMap {
     // Create some rooms in a grid.
 
     const roomGrid: Array<Array<number>> = [];
@@ -253,12 +623,12 @@ function createGameMap(): GameMap {
 
     // Plot rooms into a grid
 
-    const grid = new TerrainTypeGrid(mapSizeX, mapSizeY, TerrainType.Solid);
+    const grid = new TerrainTypeGrid(mapSizeX, mapSizeY, TerrainType.Wall);
 
     for (const room of rooms) {
         for (let y = 0; y < room.sizeY; ++y) {
             for (let x = 0; x < room.sizeX; ++x) {
-                grid.set(x + room.minX, y + room.minY, TerrainType.Room);
+                grid.set(x + room.minX, y + room.minY, TerrainType.GroundWood);
             }
         }
 
@@ -311,13 +681,13 @@ function createGameMap(): GameMap {
 
             for (let x = xMin; x < xMid; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    grid.set(x, yMinLeft + y, TerrainType.Hall);
+                    grid.set(x, yMinLeft + y, TerrainType.Wall);
                 }
             }
 
             for (let x = xMid + corridorWidth; x < xMax; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    grid.set(x, yMinRight + y, TerrainType.Hall);
+                    grid.set(x, yMinRight + y, TerrainType.Wall);
                 }
             }
 
@@ -325,7 +695,7 @@ function createGameMap(): GameMap {
             const yMax = Math.max(yMinLeft, yMinRight);
             for (let y = yMin; y < yMax + corridorWidth; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    grid.set(xMid + x, y, TerrainType.Hall);
+                    grid.set(xMid + x, y, TerrainType.Wall);
                 }
             }
         }
@@ -361,13 +731,13 @@ function createGameMap(): GameMap {
 
             for (let y = yMin; y < yMid; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    grid.set(xMinLower + x, y, TerrainType.Hall);
+                    grid.set(xMinLower + x, y, TerrainType.Wall);
                 }
             }
 
             for (let y = yMid + corridorWidth; y < yMax; ++y) {
                 for (let x = 0; x < corridorWidth; ++x) {
-                    grid.set(xMinUpper + x, y, TerrainType.Hall);
+                    grid.set(xMinUpper + x, y, TerrainType.Wall);
                 }
             }
 
@@ -375,7 +745,7 @@ function createGameMap(): GameMap {
             const xMax = Math.max(xMinLower, xMinUpper);
             for (let x = xMin; x < xMax + corridorWidth; ++x) {
                 for (let y = 0; y < corridorWidth; ++y) {
-                    grid.set(x, yMid + y, TerrainType.Hall);
+                    grid.set(x, yMid + y, TerrainType.Wall);
                 }
             }
         }
@@ -591,7 +961,6 @@ function tryPlaceCenterObstacleRoom(rooms: Array<Rect>, grid: TerrainTypeGrid) {
         }
 
         plotRect(room.minX + 6, room.minY + 6, room.sizeX - 12, room.sizeY - 12, TerrainType.Wall);
-        plotRect(room.minX + 7, room.minY + 7, room.sizeX - 14, room.sizeY - 14, TerrainType.Solid);
 
         return;
     }

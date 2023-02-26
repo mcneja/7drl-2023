@@ -1,5 +1,5 @@
 import { vec2, mat4 } from './my-matrix';
-import { GameMap, TerrainType, createGameMap } from './create-map';
+import { BooleanGrid, GameMap, TerrainType, createGameMap } from './create-map';
 import { CreateColoredTrianglesRenderer, RenderColoredTriangles, Renderer, createRenderer } from './render';
 
 var fontImageRequire = require('./font.png');
@@ -8,31 +8,6 @@ var tilesImageRequire = require('./tiles.png');
 window.onload = loadResourcesThenRun;
 
 const playerRadius = 0.5;
-
-class BooleanGrid {
-    sizeX: number;
-    sizeY: number;
-    values: Uint8Array;
-
-    constructor(sizeX: number, sizeY: number, initialValue: boolean) {
-        this.sizeX = sizeX;
-        this.sizeY = sizeY;
-        this.values = new Uint8Array(sizeX * sizeY);
-        this.fill(initialValue);
-    }
-
-    fill(value: boolean) {
-        this.values.fill(value ? 1 : 0);
-    }
-
-    get(x: number, y: number): boolean {
-        return this.values[this.sizeX * y + x] !== 0;
-    }
-
-    set(x: number, y: number, value: boolean) {
-        this.values[this.sizeX * y + x] = value ? 1 : 0;
-    }
-}
 
 type Player = {
     position: vec2;
@@ -140,6 +115,9 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
 function tryMovePlayer(state: State, dx: number, dy: number) {
     const x = state.player.position[0] + dx;
     const y = state.player.position[1] + dy;
+    if (x < 0 || y < 0 || x >= state.solid.sizeX || y >= state.solid.sizeY) {
+        return;
+    }
     if (state.solid.get(x, y)) {
         return;
     }
@@ -194,7 +172,8 @@ function createPlayer(posStart: vec2): Player {
 }
 
 function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
-    const gameMap = createGameMap();
+    const level = 0;
+    const gameMap = createGameMap(level);
     const solid = solidMapFromGameMap(gameMap);
     const vertexData = vertexDataFromGameMap(gameMap);
 
@@ -214,7 +193,8 @@ function resetState(
     state: State,
     createColoredTrianglesRenderer: CreateColoredTrianglesRenderer) {
 
-    const gameMap = createGameMap();
+    const level = 0;
+    const gameMap = createGameMap(level);
     const solid = solidMapFromGameMap(gameMap);
     const vertexData = vertexDataFromGameMap(gameMap);
 
@@ -283,11 +263,7 @@ function renderScene(renderer: Renderer, state: State) {
 
     if (state.paused) {
         renderTextLines(renderer, screenSize, [
-            '        7DRL 2023',
-            '',
             'Paused: Esc or P to unpause',
-            'Move with arrow keys',
-            'R: Retry',
         ]);
     }
 }
@@ -374,7 +350,7 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
     for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
         for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
             const terrainType = gameMap.terrainTypeGrid.get(x, y);
-            const isSolid = terrainType == TerrainType.Solid || terrainType == TerrainType.Wall;
+            const isSolid = terrainType == TerrainType.Wall;
             solid.set(x, y, isSolid);
         }
     }
@@ -383,21 +359,35 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
 }
 
 function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
-    const roomColor = 0xff808080;
-    const hallColor = 0xff707070;
-    const wallColor = 0xff0055aa;
+    const grassColor = 0xff204000;
+    const woodColor = 0xff004488;
+    const marbleColor = 0xff606020;
+    const wallColor = 0xffa0a0a0;
+    const waterColor = 0xff400000;
 
     const squares = [];
     for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
         for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
             const type = gameMap.terrainTypeGrid.get(x, y);
-            if (type == TerrainType.Room) {
-                squares.push({x: x, y: y, color: roomColor});
-            } else if (type == TerrainType.Hall) {
-                squares.push({x: x, y: y, color: hallColor});
-            } else if (type == TerrainType.Wall) {
-                squares.push({x: x, y: y, color: wallColor});
+            let color;
+            switch (type) {
+            case TerrainType.GroundGrass:
+                color = grassColor;
+                break;
+            case TerrainType.GroundWater:
+                color = waterColor;
+                break;
+            case TerrainType.GroundMarble:
+                color = marbleColor;
+                break;
+            case TerrainType.GroundWood:
+                color = woodColor;
+                break;
+            case TerrainType.Wall:
+                color = wallColor;
+                break;
             }
+            squares.push({x: x, y: y, color: color});
         }
     }
 
