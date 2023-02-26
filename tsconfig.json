@@ -8,7 +8,7 @@
         "noFallthroughCasesInSwitch": true,
     },
     "files": [
-        "./src/createMap.ts",
+        "./src/create-map.ts",
         "./src/game.ts",
         "./src/my-matrix.ts",
         "./src/render.ts",

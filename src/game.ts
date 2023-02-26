@@ -1,5 +1,5 @@
 import { vec2, mat4 } from './my-matrix';
-import { GameMap, TerrainType, createGameMap } from './createMap';
+import { GameMap, TerrainType, createGameMap } from './create-map';
 import { CreateColoredTrianglesRenderer, RenderColoredTriangles, Renderer, createRenderer } from './render';
 
 var fontImageRequire = require('./font.png');
