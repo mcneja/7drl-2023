@@ -59,6 +59,8 @@ function createGameMap(level: number): GameMap {
     vec2.copy(map.playerStartPos, posStart);
 
     placeLoot(rooms, adjacencies, map);
+    placeExteriorBushes(map);
+    placeFrontPillars(map);
 
     fixupWalls(cells);
 
@@ -1405,6 +1407,68 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap)
 
         placeItem(map, pos[0], pos[1], ItemType.Coin);
         break;
+    }
+}
+
+function placeExteriorBushes(map: GameMap) {
+    let sx = map.cells.sizeX;
+    let sy = map.cells.sizeY;
+
+    for (let x = 0; x < sx; ++x) {
+        for (let y = sy - outerBorder + 1; y < sy; ++y) {
+            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
+                continue;
+            }
+
+            let cell = map.cells.at(x, y);
+            cell.type = TerrainType.GroundGrass;
+            cell.seen = true;
+        }
+
+        if ((x & 1) == 0 && Math.random() < 0.8) {
+            placeItem(map, x, sy - 1, ItemType.Bush);
+        }
+    }
+
+    for (let y = outerBorder; y < sy - outerBorder + 1; ++y) {
+        for (let x = 0; x < outerBorder-1; ++x) {
+            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
+                continue;
+            }
+
+            let cell = map.cells.at(x, y);
+            cell.type = TerrainType.GroundGrass;
+            cell.seen = true;
+        }
+
+        for (let x = (sx - outerBorder + 1); x < sx; ++x) {
+            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
+                continue;
+            }
+
+            let cell = map.cells.at(x, y);
+            cell.type = TerrainType.GroundGrass;
+            cell.seen = true;
+        }
+
+        if (((sy - y) & 1) != 0) {
+            if (Math.random() < 0.8) {
+                placeItem(map, 0, y, ItemType.Bush);
+            }
+            if (Math.random() < 0.8) {
+                placeItem(map, sx - 1, y, ItemType.Bush);
+            }
+        }
+    }
+}
+
+function placeFrontPillars(map: GameMap) {
+    let sx = map.cells.sizeX - 1;
+    let cx = Math.floor(map.cells.sizeX / 2);
+
+    for (let x = outerBorder; x < cx; x += 5) {
+        map.cells.at(x, 1).type = TerrainType.Wall0000;
+        map.cells.at(sx - x, 1).type = TerrainType.Wall0000;
     }
 }
 

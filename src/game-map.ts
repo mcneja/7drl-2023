@@ -117,6 +117,7 @@ class TerrainTypeGrid {
 type Cell = {
     type: TerrainType;
     lit: boolean;
+    seen: boolean;
 }
 
 class CellGrid {
@@ -133,6 +134,7 @@ class CellGrid {
             this.values[i] = {
                 type: TerrainType.GroundNormal,
                 lit: false,
+                seen: false,
             };
         }
     }
