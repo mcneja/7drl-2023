@@ -203,9 +203,9 @@ const colorForTerrainType: Array<number> = [
 function renderWorld(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     renderer.renderGlyphs.start(matScreenFromWorld, 1);
 
-    for (let x = 0; x < state.gameMap.terrainTypeGrid.sizeX; ++x) {
-        for (let y = 0; y < state.gameMap.terrainTypeGrid.sizeY; ++y) {
-            const terrainType = state.gameMap.terrainTypeGrid.get(x, y);
+    for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
+        for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
+            const terrainType = state.gameMap.cells.at(x, y).type;
             const tileIndex = tileIndexForTerrainType[terrainType];
             const color = colorForTerrainType[terrainType];
             renderer.renderGlyphs.addGlyph(x, y, x+1, y+1, tileIndex, color);
@@ -420,11 +420,11 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
 }
 
 function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
-    const solid = new BooleanGrid(gameMap.terrainTypeGrid.sizeX, gameMap.terrainTypeGrid.sizeY, false);
+    const solid = new BooleanGrid(gameMap.cells.sizeX, gameMap.cells.sizeY, false);
 
-    for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
-        for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
-            const terrainType = gameMap.terrainTypeGrid.get(x, y);
+    for (let x = 0; x < gameMap.cells.sizeX; ++x) {
+        for (let y = 0; y < gameMap.cells.sizeY; ++y) {
+            const terrainType = gameMap.cells.at(x, y).type;
             const isSolid = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.Wall1111;
             solid.set(x, y, isSolid);
         }

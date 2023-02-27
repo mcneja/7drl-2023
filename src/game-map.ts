@@ -1,41 +1,6 @@
-export { BooleanGrid, Cell, CellGrid, Int32Grid, GameMap, TerrainType, TerrainTypeGrid };
+export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, TerrainTypeGrid };
 
 import { vec2 } from './my-matrix';
-
-enum TerrainType {
-    GroundNormal,
-    GroundGrass,
-    GroundWater,
-    GroundMarble,
-    GroundWood,
-
-    //  NSEW
-    Wall0000,
-    Wall0001,
-    Wall0010,
-    Wall0011,
-    Wall0100,
-    Wall0101,
-    Wall0110,
-    Wall0111,
-    Wall1000,
-    Wall1001,
-    Wall1010,
-    Wall1011,
-    Wall1100,
-    Wall1101,
-    Wall1110,
-    Wall1111,
-
-    OneWayWindowE,
-    OneWayWindowW,
-    OneWayWindowN,
-    OneWayWindowS,
-    PortcullisNS,
-    PortcullisEW,
-    DoorNS,
-    DoorEW,
-}
 
 // TODO: Figure out how to make a generic grid data structure
 
@@ -89,6 +54,41 @@ class Int32Grid {
     }
 }
 
+enum TerrainType {
+    GroundNormal,
+    GroundGrass,
+    GroundWater,
+    GroundMarble,
+    GroundWood,
+
+    //  NSEW
+    Wall0000,
+    Wall0001,
+    Wall0010,
+    Wall0011,
+    Wall0100,
+    Wall0101,
+    Wall0110,
+    Wall0111,
+    Wall1000,
+    Wall1001,
+    Wall1010,
+    Wall1011,
+    Wall1100,
+    Wall1101,
+    Wall1110,
+    Wall1111,
+
+    OneWayWindowE,
+    OneWayWindowW,
+    OneWayWindowN,
+    OneWayWindowS,
+    PortcullisNS,
+    PortcullisEW,
+    DoorNS,
+    DoorEW,
+}
+
 class TerrainTypeGrid {
     sizeX: number;
     sizeY: number;
@@ -117,7 +117,6 @@ class TerrainTypeGrid {
 type Cell = {
     type: TerrainType;
     lit: boolean;
-    inner: boolean;
 }
 
 class CellGrid {
@@ -134,7 +133,6 @@ class CellGrid {
             this.values[i] = {
                 type: TerrainType.GroundNormal,
                 lit: false,
-                inner: false,
             };
         }
     }
@@ -147,7 +145,24 @@ class CellGrid {
     }
 }
 
+enum ItemType {
+    Chair,
+    Table,
+    Bush,
+    Coin,
+    DoorNS,
+    DoorEW,
+    PortcullisNS,
+    PortcullisEW,
+}
+
+type Item = {
+    pos: vec2;
+    type: ItemType;
+}
+
 type GameMap = {
-    terrainTypeGrid: TerrainTypeGrid;
+    cells: CellGrid;
+    items: Array<Item>;
     playerStartPos: vec2;
 }
