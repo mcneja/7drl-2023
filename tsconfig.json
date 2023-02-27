@@ -10,6 +10,7 @@
     "files": [
         "./src/create-map.ts",
         "./src/game.ts",
+        "./src/game-map.ts",
         "./src/my-matrix.ts",
         "./src/render.ts",
     ]
