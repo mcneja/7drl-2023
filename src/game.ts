@@ -200,16 +200,53 @@ const colorForTerrainType: Array<number> = [
     0xffa8a8a8, // TerrainType.DoorEW,
 ];
 
+const tileIndexForItemType: Array<number> = [
+    100, // ItemType.Chair,
+    98, // ItemType.Table,
+    96, // ItemType.Bush,
+    110, // ItemType.Coin,
+    92, // ItemType.DoorNS,
+    91, // ItemType.DoorEW,
+    50, // ItemType.PortcullisNS,
+    50, // ItemType.PortcullisEW,
+];
+
+const colorForItemType: Array<number> = [
+    0xff0054a8, // ItemType.Chair,
+    0xff0054a8, // ItemType.Table,
+    0xff00a800, // ItemType.Bush,
+    0xff54fefe, // ItemType.Coin,
+    0xff0054a8, // ItemType.DoorNS,
+    0xff0054a8, // ItemType.DoorEW,
+    0xffa8a8a8, // ItemType.PortcullisNS,
+    0xffa8a8a8, // ItemType.PortcullisEW,
+]
+
+const unlitColor: number = 0xfffe5454;
+
 function renderWorld(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     renderer.renderGlyphs.start(matScreenFromWorld, 1);
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
-            const terrainType = state.gameMap.cells.at(x, y).type;
+            const cell = state.gameMap.cells.at(x, y);
+            const terrainType = cell.type;
             const tileIndex = tileIndexForTerrainType[terrainType];
-            const color = colorForTerrainType[terrainType];
+            const color = cell.lit ? colorForTerrainType[terrainType] : unlitColor;
             renderer.renderGlyphs.addGlyph(x, y, x+1, y+1, tileIndex, color);
         }
+    }
+
+    for (const item of state.gameMap.items) {
+        const cell = state.gameMap.cells.at(item.pos[0], item.pos[1]);
+        /*
+        if (!cell.seen && !state.see_all) {
+            continue;
+        }
+        */
+        const tileIndex = tileIndexForItemType[item.type];
+        const color = cell.lit ? colorForItemType[item.type] : unlitColor;
+        renderer.renderGlyphs.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
     }
 
     renderer.renderGlyphs.flush();
