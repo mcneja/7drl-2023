@@ -153,6 +153,7 @@ class TerrainTypeGrid {
 type Cell = {
     type: TerrainType;
     lit: boolean;
+    inner: boolean;
 }
 
 class CellGrid {
@@ -168,7 +169,8 @@ class CellGrid {
         for (let i = 0; i < size; ++i) {
             this.values[i] = {
                 type: TerrainType.GroundNormal,
-                lit: false
+                lit: false,
+                inner: false,
             };
         }
     }
@@ -210,8 +212,7 @@ function createGameMap(level: number): GameMap {
 
     const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, cells);
 
-    // TODO: generate the various wall-tile types based on adjacent walls
-    // fixupWalls(cells);
+    fixupWalls(cells);
 
     return gameMapFromCellMap(cells, posStart);
 }
@@ -1346,15 +1347,13 @@ function renderRooms(level: number, rooms: Array<Room>, map: CellGrid) {
             }
         }
 
-        /*
         if (room.roomType == RoomType.PrivateCourtyard || room.roomType == RoomType.PrivateRoom) {
             for (let x = room.posMin[0] - 1; x < room.posMax[0] + 1; ++x) {
                 for (let y = room.posMin[1] - 1; y < room.posMax[1] + 1; ++y) {
-                    map.set(x, y).inner = true;
+                    map.at(x, y).inner = true;
                 }
             }
         }
-        */
 
         let dx = room.posMax[0] - room.posMin[0];
         let dy = room.posMax[1] - room.posMin[1];
@@ -1367,12 +1366,10 @@ function renderRooms(level: number, rooms: Array<Room>, map: CellGrid) {
                     }
                 }
             } else if (dx >= 2 && dy >= 2) {
-                /*
                 try_place_bush(map, room.posMin[0], room.posMin[1]);
                 try_place_bush(map, room.posMax[0] - 1, room.posMin[1]);
                 try_place_bush(map, room.posMin[0], room.posMax[1] - 1);
                 try_place_bush(map, room.posMax[0] - 1, room.posMax[1] - 1);
-                */
             }
         } else if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
             if (dx >= 5 && dy >= 5) {
@@ -1389,62 +1386,61 @@ function renderRooms(level: number, rooms: Array<Room>, map: CellGrid) {
                 map.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
                 map.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
             } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
-                /*
                 for (let y = 1; y < dy-1; ++y) {
-                    place_item(map, room.posMin.0 + 1, room.posMin.1 + y, ItemKind::Chair);
-                    place_item(map, room.posMin.0 + 2, room.posMin.1 + y, ItemKind::Table);
-                    place_item(map, room.posMin.0 + 3, room.posMin.1 + y, ItemKind::Chair);
+                    try_place_chair(map, room.posMin[0] + 1, room.posMin[1] + y);
+                    try_place_table(map, room.posMin[0] + 2, room.posMin[1] + y);
+                    try_place_chair(map, room.posMin[0] + 3, room.posMin[1] + y);
                 }
-                */
             } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
-                /*
-                for x in 1..dx-1 {
-                    place_item(map, room.posMin.0 + x, room.posMin.1 + 1, ItemKind::Chair);
-                    place_item(map, room.posMin.0 + x, room.posMin.1 + 2, ItemKind::Table);
-                    place_item(map, room.posMin.0 + x, room.posMin.1 + 3, ItemKind::Chair);
+                for (let x = 1; x < dx-1; ++x) {
+                    try_place_chair(map, room.posMin[0] + x, room.posMin[1] + 1);
+                    try_place_table(map, room.posMin[0] + x, room.posMin[1] + 2);
+                    try_place_chair(map, room.posMin[0] + x, room.posMin[1] + 3);
                 }
-                */
             } else if (dx > dy && (dy & 1) == 1 && Math.random() < 0.66667) {
-                /*
-                let y = room.posMin.1 + dy / 2;
+                let y = Math.floor(room.posMin[1] + dy / 2);
 
-                if room.roomType == RoomType.PublicRoom {
-                    try_place_table(map, room.posMin.0 + 1, y);
-                    try_place_table(map, room.posMax.0 - 2, y);
+                if (room.roomType == RoomType.PublicRoom) {
+                    try_place_table(map, room.posMin[0] + 1, y);
+                    try_place_table(map, room.posMax[0] - 2, y);
                 } else {
-                    try_place_chair(map, room.posMin.0 + 1, y);
-                    try_place_chair(map, room.posMax.0 - 2, y);
+                    try_place_chair(map, room.posMin[0] + 1, y);
+                    try_place_chair(map, room.posMax[0] - 2, y);
                 }
-                */
             } else if (dy > dx && (dx & 1) == 1 && Math.random() < 0.66667) {
-                /*
-                let x = room.posMin.0 + dx / 2;
+                let x = Math.floor(room.posMin[0] + dx / 2);
 
-                if room.roomType == RoomType.PublicRoom {
-                    try_place_table(map, x, room.posMin.1 + 1);
-                    try_place_table(map, x, room.posMax.1 - 2);
+                if (room.roomType == RoomType.PublicRoom) {
+                    try_place_table(map, x, room.posMin[1] + 1);
+                    try_place_table(map, x, room.posMax[1] - 2);
                 } else {
-                    try_place_chair(map, x, room.posMin.1 + 1);
-                    try_place_chair(map, x, room.posMax.1 - 2);
+                    try_place_chair(map, x, room.posMin[1] + 1);
+                    try_place_chair(map, x, room.posMax[1] - 2);
                 }
-                */
             } else if (dx > 3 && dy > 3) {
-                /*
-                if room.roomType == RoomType.PublicRoom {
-                    try_place_table(map, room.posMin.0, room.posMin.1);
-                    try_place_table(map, room.posMax.0 - 1, room.posMin.1);
-                    try_place_table(map, room.posMin.0, room.posMax.1 - 1);
-                    try_place_table(map, room.posMax.0 - 1, room.posMax.1 - 1);
+                if (room.roomType == RoomType.PublicRoom) {
+                    try_place_table(map, room.posMin[0], room.posMin[1]);
+                    try_place_table(map, room.posMax[0] - 1, room.posMin[1]);
+                    try_place_table(map, room.posMin[0], room.posMax[1] - 1);
+                    try_place_table(map, room.posMax[0] - 1, room.posMax[1] - 1);
                 } else {
-                    try_place_chair(map, room.posMin.0, room.posMin.1);
-                    try_place_chair(map, room.posMax.0 - 1, room.posMin.1);
-                    try_place_chair(map, room.posMin.0, room.posMax.1 - 1);
-                    try_place_chair(map, room.posMax.0 - 1, room.posMax.1 - 1);
+                    try_place_chair(map, room.posMin[0], room.posMin[1]);
+                    try_place_chair(map, room.posMax[0] - 1, room.posMin[1]);
+                    try_place_chair(map, room.posMin[0], room.posMax[1] - 1);
+                    try_place_chair(map, room.posMax[0] - 1, room.posMax[1] - 1);
                 }
-                */
             }
         }
     }
+}
+
+function try_place_bush(map: CellGrid, x: number, y: number) {
+}
+
+function try_place_table(map: CellGrid, x: number, y: number) {
+}
+
+function try_place_chair(map: CellGrid, x: number, y: number) {
 }
 
 function isCourtyardRoomType(roomType: RoomType): boolean {
@@ -1455,6 +1451,46 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     case RoomType.PrivateCourtyard: return true;
     case RoomType.PrivateRoom: return false;
     }
+}
+
+function fixupWalls(map: CellGrid) {
+    for (let x = 0; x < map.sizeX; ++x) {
+        for (let y = 0; y < map.sizeY; ++y) {
+            const terrainType = map.at(x, y).type;
+            if (terrainType == TerrainType.Wall0000) {
+                map.at(x, y).type = wallTypeFromNeighbors(neighboringWalls(map, x, y));
+            }
+        }
+    }
+}
+
+function wallTypeFromNeighbors(neighbors: number): TerrainType {
+    return TerrainType.Wall0000 + neighbors;
+}
+
+function isWall(terrainType: TerrainType): boolean {
+    return terrainType >= TerrainType.Wall0000;
+}
+
+function neighboringWalls(map: CellGrid, x: number, y: number): number {
+    const sizeX = map.sizeX;
+    const sizeY = map.sizeY;
+    let wallBits = 0;
+
+    if (y < sizeY-1 && isWall(map.at(x, y+1).type)) {
+        wallBits |= 8;
+    }
+    if (y > 0 && isWall(map.at(x, y-1).type)) {
+        wallBits |= 4;
+    }
+    if (x < sizeX-1 && isWall(map.at(x+1, y).type)) {
+        wallBits |= 2;
+    }
+    if (x > 0 && isWall(map.at(x-1, y).type)) {
+        wallBits |= 1;
+    }
+
+    return wallBits
 }
 
 function gameMapFromCellMap(cells: CellGrid, playerStartPos: vec2): GameMap {

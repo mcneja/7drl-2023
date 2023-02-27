@@ -351,7 +351,7 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
     for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
         for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
             const terrainType = gameMap.terrainTypeGrid.get(x, y);
-            const isSolid = terrainType == TerrainType.Wall0000;
+            const isSolid = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.Wall1111;
             solid.set(x, y, isSolid);
         }
     }
@@ -389,6 +389,21 @@ function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
                 color = woodColor;
                 break;
             case TerrainType.Wall0000:
+            case TerrainType.Wall0001:
+            case TerrainType.Wall0010:
+            case TerrainType.Wall0011:
+            case TerrainType.Wall0100:
+            case TerrainType.Wall0101:
+            case TerrainType.Wall0110:
+            case TerrainType.Wall0111:
+            case TerrainType.Wall1000:
+            case TerrainType.Wall1001:
+            case TerrainType.Wall1010:
+            case TerrainType.Wall1011:
+            case TerrainType.Wall1100:
+            case TerrainType.Wall1101:
+            case TerrainType.Wall1110:
+            case TerrainType.Wall1111:
                 color = wallColor;
                 break;
             default:
