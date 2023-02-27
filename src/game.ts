@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { BooleanGrid, GameMap, TerrainType, createGameMap } from './create-map';
-import { CreateColoredTrianglesRenderer, RenderColoredTriangles, Renderer, createRenderer } from './render';
+import { Renderer, createRenderer } from './render';
 
 var fontImageRequire = require('./font.png');
 var tilesImageRequire = require('./tiles.png');
@@ -20,7 +20,6 @@ type Camera = {
 }
 
 type State = {
-    renderColoredTriangles: RenderColoredTriangles;
     tLast: number | undefined;
     paused: boolean;
     shiftModifierActive: boolean;
@@ -29,16 +28,17 @@ type State = {
     camera: Camera;
     level: number;
     solid: BooleanGrid;
+    gameMap: GameMap;
 }
 
 function loadResourcesThenRun() {
     Promise.all([
-        loadImage(tilesImageRequire),
         loadImage(fontImageRequire),
+        loadImage(tilesImageRequire),
     ]).then(main);
 }
 
-function main([tileImage, fontImage]: Array<HTMLImageElement>) {
+function main(images: Array<HTMLImageElement>) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
     const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
@@ -48,8 +48,8 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
         return;
     }
 
-    const renderer = createRenderer(gl, fontImage);
-    const state = initState(renderer.createColoredTrianglesRenderer);
+    const renderer = createRenderer(gl, images);
+    const state = initState();
 
     document.body.addEventListener('keydown', onKeyDown);
     document.body.addEventListener('keyup', onKeyUp);
@@ -70,7 +70,7 @@ function main([tileImage, fontImage]: Array<HTMLImageElement>) {
         }
         else if (e.code == 'KeyR') {
             e.preventDefault();
-            resetState(state, renderer.createColoredTrianglesRenderer);
+            resetState(state);
             if (state.paused) {
                 requestUpdateAndRender();
             }
@@ -135,6 +135,85 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     });
 }
 
+const tileIndexForTerrainType: Array<number> = [
+    112, // TerrainType.GroundNormal,
+    116, // TerrainType.GroundGrass,
+    118, // TerrainType.GroundWater,
+    120, // TerrainType.GroundMarble,
+    122, // TerrainType.GroundWood,
+    64, // TerrainType.Wall0000,
+    65, // TerrainType.Wall0001,
+    65, // TerrainType.Wall0010,
+    65, // TerrainType.Wall0011,
+    66, // TerrainType.Wall0100,
+    67, // TerrainType.Wall0101,
+    70, // TerrainType.Wall0110,
+    73, // TerrainType.Wall0111,
+    66, // TerrainType.Wall1000,
+    68, // TerrainType.Wall1001,
+    69, // TerrainType.Wall1010,
+    72, // TerrainType.Wall1011,
+    66, // TerrainType.Wall1100,
+    74, // TerrainType.Wall1101,
+    71, // TerrainType.Wall1110,
+    75, // TerrainType.Wall1111,
+    52, // TerrainType.OneWayWindowE,
+    53, // TerrainType.OneWayWindowW,
+    54, // TerrainType.OneWayWindowN,
+    55, // TerrainType.OneWayWindowS,
+    50, // TerrainType.PortcullisNS,
+    50, // TerrainType.PortcullisEW,
+    77, // TerrainType.DoorNS,
+    76, // TerrainType.DoorEW,
+];
+
+const colorForTerrainType: Array<number> = [
+    0xffa8a8a8, // TerrainType.GroundNormal,
+    0xff00a800, // TerrainType.GroundGrass,
+    0xffa80000, // TerrainType.GroundWater,
+    0xffa8a800, // TerrainType.GroundMarble,
+    0xff0054a8, // TerrainType.GroundWood,
+    0xffa8a8a8, // TerrainType.Wall0000,
+    0xffa8a8a8, // TerrainType.Wall0001,
+    0xffa8a8a8, // TerrainType.Wall0010,
+    0xffa8a8a8, // TerrainType.Wall0011,
+    0xffa8a8a8, // TerrainType.Wall0100,
+    0xffa8a8a8, // TerrainType.Wall0101,
+    0xffa8a8a8, // TerrainType.Wall0110,
+    0xffa8a8a8, // TerrainType.Wall0111,
+    0xffa8a8a8, // TerrainType.Wall1000,
+    0xffa8a8a8, // TerrainType.Wall1001,
+    0xffa8a8a8, // TerrainType.Wall1010,
+    0xffa8a8a8, // TerrainType.Wall1011,
+    0xffa8a8a8, // TerrainType.Wall1100,
+    0xffa8a8a8, // TerrainType.Wall1101,
+    0xffa8a8a8, // TerrainType.Wall1110,
+    0xffa8a8a8, // TerrainType.Wall1111,
+    0xffa8a8a8, // TerrainType.OneWayWindowE,
+    0xffa8a8a8, // TerrainType.OneWayWindowW,
+    0xffa8a8a8, // TerrainType.OneWayWindowN,
+    0xffa8a8a8, // TerrainType.OneWayWindowS,
+    0xffa8a8a8, // TerrainType.PortcullisNS,
+    0xffa8a8a8, // TerrainType.PortcullisEW,
+    0xffa8a8a8, // TerrainType.DoorNS,
+    0xffa8a8a8, // TerrainType.DoorEW,
+];
+
+function renderWorld(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
+    renderer.renderGlyphs.start(matScreenFromWorld, 1);
+
+    for (let x = 0; x < state.gameMap.terrainTypeGrid.sizeX; ++x) {
+        for (let y = 0; y < state.gameMap.terrainTypeGrid.sizeY; ++y) {
+            const terrainType = state.gameMap.terrainTypeGrid.get(x, y);
+            const tileIndex = tileIndexForTerrainType[terrainType];
+            const color = colorForTerrainType[terrainType];
+            renderer.renderGlyphs.addGlyph(x, y, x+1, y+1, tileIndex, color);
+        }
+    }
+
+    renderer.renderGlyphs.flush();
+}
+
 function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
     const pos = vec2.fromValues(0.5, 0.5);
     vec2.add(pos, pos, state.player.position);
@@ -172,14 +251,12 @@ function createPlayer(posStart: vec2): Player {
     return player;
 }
 
-function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRenderer): State {
+function initState(): State {
     const level = 3;
     const gameMap = createGameMap(level);
     const solid = solidMapFromGameMap(gameMap);
-    const vertexData = vertexDataFromGameMap(gameMap);
 
     return {
-        renderColoredTriangles: createColoredTrianglesRenderer(vertexData),
         tLast: undefined,
         paused: true,
         shiftModifierActive: false,
@@ -188,21 +265,18 @@ function initState(createColoredTrianglesRenderer: CreateColoredTrianglesRendere
         camera: createCamera(gameMap.playerStartPos),
         level: level,
         solid: solid,
+        gameMap: gameMap,
     };
 }
 
-function resetState(
-    state: State,
-    createColoredTrianglesRenderer: CreateColoredTrianglesRenderer) {
-
+function resetState(state: State) {
     const gameMap = createGameMap(state.level);
     const solid = solidMapFromGameMap(gameMap);
-    const vertexData = vertexDataFromGameMap(gameMap);
 
-    state.renderColoredTriangles = createColoredTrianglesRenderer(vertexData);
     state.player = createPlayer(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.solid = solid;
+    state.gameMap = gameMap;
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
@@ -256,8 +330,7 @@ function renderScene(renderer: Renderer, state: State) {
     const matScreenFromWorld = mat4.create();
     setupViewMatrix(state, screenSize, matScreenFromWorld);
 
-    state.renderColoredTriangles(matScreenFromWorld);
-
+    renderWorld(state, renderer, matScreenFromWorld);
     renderPlayer(state, renderer, matScreenFromWorld);
 
     // Text
@@ -313,7 +386,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
         offsetY + numCharsY,
         1,
         -1);
-    renderer.renderGlyphs.start(matScreenFromTextArea);
+    renderer.renderGlyphs.start(matScreenFromTextArea, 0);
 
     const colorText = 0xffeeeeee;
     const colorBackground = 0xe0555555;
@@ -357,104 +430,4 @@ function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
     }
 
     return solid;
-}
-
-function vertexDataFromGameMap(gameMap: GameMap): ArrayBuffer {
-    const normalColor = 0xff202020;
-    const grassColor = 0xff104000;
-    const woodColor = 0xff004488;
-    const marbleColor = 0xff606020;
-    const wallColor = 0xffa0a0a0;
-    const waterColor = 0xff400000;
-
-    const squares = [];
-    for (let y = 0; y < gameMap.terrainTypeGrid.sizeY; ++y) {
-        for (let x = 0; x < gameMap.terrainTypeGrid.sizeX; ++x) {
-            const type = gameMap.terrainTypeGrid.get(x, y);
-            let color;
-            switch (type) {
-            case TerrainType.GroundNormal:
-                color = normalColor;
-                break;
-            case TerrainType.GroundGrass:
-                color = grassColor;
-                break;
-            case TerrainType.GroundWater:
-                color = waterColor;
-                break;
-            case TerrainType.GroundMarble:
-                color = marbleColor;
-                break;
-            case TerrainType.GroundWood:
-                color = woodColor;
-                break;
-            case TerrainType.Wall0000:
-            case TerrainType.Wall0001:
-            case TerrainType.Wall0010:
-            case TerrainType.Wall0011:
-            case TerrainType.Wall0100:
-            case TerrainType.Wall0101:
-            case TerrainType.Wall0110:
-            case TerrainType.Wall0111:
-            case TerrainType.Wall1000:
-            case TerrainType.Wall1001:
-            case TerrainType.Wall1010:
-            case TerrainType.Wall1011:
-            case TerrainType.Wall1100:
-            case TerrainType.Wall1101:
-            case TerrainType.Wall1110:
-            case TerrainType.Wall1111:
-                color = wallColor;
-                break;
-            default:
-                color = 0xffff00ff;
-                break;
-            }
-            squares.push({x: x, y: y, color: color});
-        }
-    }
-
-    // Convert squares to triangles
-
-    const numVertices = squares.length * 6;
-    const bytesPerVertex = 12;
-
-    const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
-    const vertexDataAsFloat32 = new Float32Array(vertexData);
-    const vertexDataAsUint32 = new Uint32Array(vertexData);
-
-    for (let i = 0; i < squares.length; ++i) {
-        const j = 18 * i;
-        const color = squares[i].color;
-        const x0 = squares[i].x;
-        const y0 = squares[i].y;
-        const x1 = x0 + 1;
-        const y1 = y0 + 1;
-
-        vertexDataAsFloat32[j+0] = x0;
-        vertexDataAsFloat32[j+1] = y0;
-        vertexDataAsUint32[j+2] = color;
-
-        vertexDataAsFloat32[j+3] = x1;
-        vertexDataAsFloat32[j+4] = y0;
-        vertexDataAsUint32[j+5] = color;
-
-        vertexDataAsFloat32[j+6] = x0;
-        vertexDataAsFloat32[j+7] = y1;
-        vertexDataAsUint32[j+8] = color;
-
-        vertexDataAsFloat32[j+9] = x0;
-        vertexDataAsFloat32[j+10] = y1;
-        vertexDataAsUint32[j+11] = color;
-
-        vertexDataAsFloat32[j+12] = x1;
-        vertexDataAsFloat32[j+13] = y0;
-        vertexDataAsUint32[j+14] = color;
-
-        vertexDataAsFloat32[j+15] = x1;
-        vertexDataAsFloat32[j+16] = y1;
-        vertexDataAsUint32[j+17] = color;
-    }
-
-    return vertexData;
 }

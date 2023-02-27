@@ -1,4 +1,4 @@
-export { CreateColoredTrianglesRenderer, RenderColoredTriangles, RenderDiscs, RenderGlyphs, Renderer, createRenderer };
+export { RenderDiscs, RenderGlyphs, Renderer, createRenderer };
 
 import { vec2, mat4 } from './my-matrix';
 
@@ -11,32 +11,27 @@ type GlyphDisc = {
 }
 
 type RenderGlyphs = {
-    start: (matScreenFromWorld: mat4) => void;
+    start: (matScreenFromWorld: mat4, textureIndex: number) => void;
     addGlyph: (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
     flush: () => void;
 }
 
 type BeginFrame = (screenSize: vec2) => void;
-type RenderColoredTriangles = (matScreenFromWorld: mat4) => void;
 type RenderDiscs = (matScreenFromWorld: mat4, discs: Array<GlyphDisc>) => void;
-
-type CreateColoredTrianglesRenderer = (vertexData: ArrayBuffer) => RenderColoredTriangles;
 
 type Renderer = {
     beginFrame: BeginFrame;
     renderDiscs: RenderDiscs;
     renderGlyphs: RenderGlyphs;
-    createColoredTrianglesRenderer: CreateColoredTrianglesRenderer;
 }
 
-function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement): Renderer {
-    const glyphTexture = createGlyphTextureFromImage(gl, fontImage);
+function createRenderer(gl: WebGL2RenderingContext, images: Array<HTMLImageElement>): Renderer {
+    const textures = images.map((image) => createTextureFromImage(gl, image));
 
     const renderer = {
         beginFrame: createBeginFrame(gl),
-        renderDiscs: createDiscRenderer(gl, glyphTexture),
-        renderGlyphs: createGlyphRenderer(gl, glyphTexture),
-        createColoredTrianglesRenderer: createColoredTrianglesRenderer(gl),
+        renderDiscs: createDiscRenderer(gl, textures[0]),
+        renderGlyphs: createGlyphRenderer(gl, textures),
     };
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -44,68 +39,6 @@ function createRenderer(gl: WebGL2RenderingContext, fontImage: HTMLImageElement)
     gl.clearColor(0, 0, 0, 1);
 
     return renderer;
-}
-
-function createColoredTrianglesRenderer(gl: WebGL2RenderingContext): CreateColoredTrianglesRenderer {
-    const vsSource = `#version 300 es
-        in vec2 vPosition;
-        in vec4 vColor;
-
-        uniform mat4 uProjectionMatrix;
-
-        out highp vec4 fColor;
-
-        void main() {
-            fColor = vColor;
-            gl_Position = uProjectionMatrix * vec4(vPosition.xy, 0, 1);
-        }
-    `;
-
-    const fsSource = `#version 300 es
-        in highp vec4 fColor;
-        out lowp vec4 fragColor;
-        void main() {
-            fragColor = fColor;
-        }
-    `;
-
-    const attribs = {
-        vPosition: 0,
-        vColor: 1,
-    };
-
-    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
-
-    const projectionMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
-
-    const vertexBuffer = gl.createBuffer();
-
-    const bytesPerVertex = 12; // two 4-byte floats and one 32-bit color
-
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.enableVertexAttribArray(attribs.vPosition);
-    gl.enableVertexAttribArray(attribs.vColor);
-    gl.bindVertexArray(null);
-
-    return vertexData => {
-        const numVerts = Math.floor(vertexData.byteLength / bytesPerVertex);
-
-        gl.bindVertexArray(vao);
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, bytesPerVertex, 0);
-        gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 8);
-        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
-        gl.bindVertexArray(null);
-
-        return matScreenFromWorld => {
-            gl.useProgram(program);
-            gl.uniformMatrix4fv(projectionMatrixLoc, false, matScreenFromWorld);
-            gl.bindVertexArray(vao);
-            gl.drawArrays(gl.TRIANGLES, 0, numVerts);
-            gl.bindVertexArray(null);
-        };
-    };
 }
 
 function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
@@ -292,7 +225,7 @@ function createDiscVertexBuffer(gl: WebGL2RenderingContext) {
     return vertexBuffer;
 }
 
-function createGlyphRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLTexture): RenderGlyphs {
+function createGlyphRenderer(gl: WebGL2RenderingContext, textures: Array<WebGLTexture>): RenderGlyphs {
     const vsSource = `#version 300 es
         in vec2 vPosition;
         in vec3 vTexcoord;
@@ -362,8 +295,11 @@ function createGlyphRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLText
     const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
     gl.bindVertexArray(null);
 
-    function setMatScreenFromWorld(matScreenFromWorld: mat4) {
+    function start(matScreenFromWorld: mat4, textureIndex: number) {
         mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
     }
 
     function addGlyph(x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) {
@@ -406,8 +342,6 @@ function createGlyphRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLText
 
         gl.bindVertexArray(vao);
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, glyphTexture);
         gl.uniform1i(uOpacityLoc, 0);
 
         gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorldCached);
@@ -423,7 +357,7 @@ function createGlyphRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLText
     }
 
     return {
-        start: setMatScreenFromWorld,
+        start: start,
         addGlyph: addGlyph,
         flush: flushQuads,
     };
@@ -450,7 +384,7 @@ function createGlyphIndexBuffer(gl: WebGL2RenderingContext, maxQuads: number): W
     return indexBuffer;
 }
 
-function createGlyphTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImageElement): WebGLTexture {
+function createTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImageElement): WebGLTexture {
     const numGlyphsX = 16;
     const numGlyphsY = 16;
     const numGlyphs = numGlyphsX * numGlyphsY;
