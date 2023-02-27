@@ -1,5 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
-import { BooleanGrid, GameMap, TerrainType, createGameMap } from './create-map';
+import { createGameMap } from './create-map';
+import { BooleanGrid, GameMap, TerrainType } from './game-map';
 import { Renderer, createRenderer } from './render';
 
 var fontImageRequire = require('./font.png');
