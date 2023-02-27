@@ -1034,13 +1034,16 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
     }
 }
 
-const ONE_WAY_WINDOW: Array<TerrainType> = [
+const oneWayWindowTerrainType: Array<TerrainType> = [
     TerrainType.OneWayWindowS,
     TerrainType.OneWayWindowE,
-    TerrainType.OneWayWindowE, // not used
-    TerrainType.OneWayWindowW,
     TerrainType.OneWayWindowN,
+    TerrainType.OneWayWindowW,
 ];
+
+function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
+    return oneWayWindowTerrainType[dir[0] + 2 * Math.max(0, dir[1]) + 1];
+}
 
 function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: CellGrid) {
 
@@ -1109,7 +1112,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Cel
                             vec2.negate(dir, dir);
                         }
 
-                        map.at(p[0], p[1]).type = ONE_WAY_WINDOW[2 * dir[0] + dir[1] + 2];
+                        map.at(p[0], p[1]).type = oneWayWindowTerrainTypeFromDir(dir);
                     }
                 }
             } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
@@ -1123,7 +1126,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Cel
                             vec2.negate(dir, dir);
                         }
 
-                        let windowType = ONE_WAY_WINDOW[2 * dir[0] + dir[1] + 2];
+                        let windowType = oneWayWindowTerrainTypeFromDir(dir);
 
                         const p = vec2.create();
                         vec2.scaleAndAdd(p, a.origin, a.dir, k);
