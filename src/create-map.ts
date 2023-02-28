@@ -1,6 +1,7 @@
 export { createGameMap };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, GameMap, TerrainType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion } from './game-map';
+import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
 
 const roomSizeX = 5;
@@ -50,8 +51,12 @@ function createGameMap(level: number): GameMap {
 
     const map = {
         cells: cells,
+        patrolRegions: [],
+        patrolRoutes: [],
         items: [],
-        playerStartPos: vec2.create()
+        guards: [],
+        playerStartPos: vec2.create(),
+        totalLoot: 0,
     };
 
     const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, map);
@@ -61,6 +66,9 @@ function createGameMap(level: number): GameMap {
     placeLoot(rooms, adjacencies, map);
     placeExteriorBushes(map);
     placeFrontPillars(map);
+    placeGuards(level, rooms, map);
+
+    markExteriorAsSeen(map);
 
     fixupWalls(cells);
 
@@ -372,7 +380,7 @@ function createExits(
 
     // Generate pathing information.
 
-//    generate_patrol_routes(map, rooms, adjacencies);
+    generatePatrolRoutes(map, rooms, adjacencies);
 
     // Render doors and windows.
 
@@ -1046,6 +1054,105 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
     }
 }
 
+function generatePatrolRoutes(map: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>) {
+    const includeRoom = Array(rooms.length).fill(true);
+
+    // Exclude exterior rooms.
+
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        if (rooms[iRoom].roomType == RoomType.Exterior) {
+            includeRoom[iRoom] = false;
+        }
+    }
+
+    // Trim dead ends out repeatedly until no more can be trimmed.
+
+    while (true) {
+        let trimmed = false;
+
+        for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+            if (!includeRoom[iRoom]) {
+                continue;
+            }
+
+            const room = rooms[iRoom];
+
+            let numExits = 0;
+            for (const iAdj of room.edges) {
+                const adj = adjacencies[iAdj];
+
+                if (!adj.door) {
+                    continue;
+                }
+
+                let iRoomOther = (adj.room_left != iRoom) ? adj.room_left : adj.room_right;
+
+                if (includeRoom[iRoomOther]) {
+                    numExits += 1;
+                }
+            }
+
+            if (numExits < 2) {
+                includeRoom[iRoom] = false;
+                trimmed = true;
+            }
+        }
+
+        if (!trimmed) {
+            break;
+        }
+    }
+
+    // Generate patrol regions for included rooms.
+
+    const roomPatrolRegion = Array(rooms.length).fill(invalidRegion);
+
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        if (includeRoom[iRoom]) {
+            roomPatrolRegion[iRoom] = addPatrolRegion(map, rooms[iRoom].posMin, rooms[iRoom].posMax);
+        }
+    }
+
+    // Add connections between included rooms.
+
+    for (const adj of adjacencies) {
+        if (!adj.door) {
+            continue;
+        }
+
+        let region0 = roomPatrolRegion[adj.room_left];
+        let region1 = roomPatrolRegion[adj.room_right];
+
+        if (region0 == invalidRegion || region1 == invalidRegion) {
+            continue;
+        }
+
+        addPatrolRoute(map, region0, region1);
+    }
+}
+
+function addPatrolRegion(map: GameMap, posMin: vec2, posMax: vec2): number {
+    let iPatrolRegion = map.patrolRegions.length;
+
+    map.patrolRegions.push({ posMin, posMax });
+
+    // Plot the region into the map.
+
+    for (let x = posMin[0]; x < posMax[0]; ++x) {
+        for (let y = posMin[1]; y < posMax[1]; ++y) {
+            map.cells.at(x, y).region = iPatrolRegion;
+        }
+    }
+
+    return iPatrolRegion;
+}
+
+function addPatrolRoute(map: GameMap, region0: number, region1: number) {
+    console.assert(region0 < map.patrolRegions.length);
+    console.assert(region1 < map.patrolRegions.length);
+    map.patrolRoutes.push([region0, region1]);
+}
+
 const oneWayWindowTerrainType: Array<TerrainType> = [
     TerrainType.OneWayWindowS,
     TerrainType.OneWayWindowE,
@@ -1495,6 +1602,81 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     case RoomType.PublicRoom: return false;
     case RoomType.PrivateCourtyard: return true;
     case RoomType.PrivateRoom: return false;
+    }
+}
+
+function placeGuards(level: number, rooms: Array<Room>, map: GameMap) {
+    if (level <= 0) {
+        return;
+    }
+
+    // Count number of internal rooms.
+
+    let numRooms = 0;
+    for (const room of rooms) {
+        if (room.roomType != RoomType.Exterior) {
+            numRooms += 1;
+        }
+    }
+
+    // Generate guards
+
+    let numGuards = (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
+
+    while (numGuards > 0) {
+        const pos = generateInitialGuardPos(map);
+        if (pos === undefined) {
+            break;
+        }
+        map.guards.push(new Guard(pos, map));
+        numGuards -= 1;
+    }
+}
+
+function generateInitialGuardPos(map: GameMap): vec2 | undefined {
+    let sizeX = map.cells.sizeX;
+    let sizeY = map.cells.sizeY;
+    for (let i = 0; i < 1000; ++i) {
+        let pos = vec2.fromValues(randomInRange(sizeX), randomInRange(sizeY));
+
+        if (vec2.squaredDistance(map.playerStartPos, pos) < 64) {
+            continue;
+        }
+
+        let cellType = map.cells.at(pos[0], pos[1]).type;
+
+        if (cellType != TerrainType.GroundWood && cellType != TerrainType.GroundMarble) {
+            continue;
+        }
+
+        if (isItemAtPos(map, pos[0], pos[1])) {
+            continue;
+        }
+
+        return pos;
+    }
+
+    return undefined;
+}
+
+function markExteriorAsSeen(map: GameMap) {
+    let sx = map.cells.sizeX;
+    let sy = map.cells.sizeY;
+
+    for (let x = 0; x < sx; ++x) {
+        for (let y = 0; y < sy; ++y) {
+            if (map.cells.at(x, y).type == TerrainType.GroundNormal ||
+                (x > 0 && map.cells.at(x-1, y).type == TerrainType.GroundNormal) ||
+                (x > 0 && y > 0 && map.cells.at(x-1, y-1).type == TerrainType.GroundNormal) ||
+                (x > 0 && y+1 < sy && map.cells.at(x-1, y+1).type == TerrainType.GroundNormal) ||
+                (y > 0 && map.cells.at(x, y-1).type == TerrainType.GroundNormal) ||
+                (y+1 < sy && map.cells.at(x, y+1).type == TerrainType.GroundNormal) ||
+                (x+1 < sx && map.cells.at(x+1, y).type == TerrainType.GroundNormal) ||
+                (x+1 < sx && y > 0 && map.cells.at(x+1, y-1).type == TerrainType.GroundNormal) ||
+                (x+1 < sx && y+1 < sy && map.cells.at(x+1, y+1).type == TerrainType.GroundNormal)) {
+                map.cells.at(x, y).seen = true;
+            }
+        }
     }
 }
 

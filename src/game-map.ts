@@ -1,6 +1,9 @@
-export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, TerrainTypeGrid };
+export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, TerrainTypeGrid, invalidRegion };
 
+import { Guard } from './guard';
 import { vec2 } from './my-matrix';
+
+const invalidRegion: number = -1;
 
 // TODO: Figure out how to make a generic grid data structure
 
@@ -116,6 +119,7 @@ class TerrainTypeGrid {
 
 type Cell = {
     type: TerrainType;
+    region: number;
     lit: boolean;
     seen: boolean;
 }
@@ -133,6 +137,7 @@ class CellGrid {
         for (let i = 0; i < size; ++i) {
             this.values[i] = {
                 type: TerrainType.GroundNormal,
+                region: invalidRegion,
                 lit: false,
                 seen: false,
             };
@@ -163,8 +168,16 @@ type Item = {
     type: ItemType;
 }
 
+type Rect = {
+    posMin: vec2;
+    posMax: vec2;
+}
+
 type GameMap = {
     cells: CellGrid;
+    patrolRegions: Array<Rect>,
+    patrolRoutes: Array<[number, number]>,
     items: Array<Item>;
+    guards: Array<Guard>;
     playerStartPos: vec2;
 }
