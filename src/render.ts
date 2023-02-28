@@ -252,7 +252,7 @@ function createGlyphRenderer(gl: WebGL2RenderingContext, textures: Array<WebGLTe
         out lowp vec4 fragColor;
 
         void main() {
-            fragColor = fColor * vec4(1, 1, 1, texture(uOpacity, fTexcoord));
+            fragColor = fColor * texture(uOpacity, fTexcoord);
         }
     `;
 
