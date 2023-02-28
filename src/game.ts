@@ -224,16 +224,16 @@ const colorForItemType: Array<number> = [
 
 const unlitColor: number = 0xfffe5454;
 
-function renderWorld(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
-    renderer.renderGlyphs.start(matScreenFromWorld, 1);
+type AddGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
 
+function renderWorld(state: State, addGlyph: AddGlyph) {
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
             const cell = state.gameMap.cells.at(x, y);
             const terrainType = cell.type;
             const tileIndex = tileIndexForTerrainType[terrainType];
             const color = cell.lit ? colorForTerrainType[terrainType] : unlitColor;
-            renderer.renderGlyphs.addGlyph(x, y, x+1, y+1, tileIndex, color);
+            addGlyph(x, y, x+1, y+1, tileIndex, color);
         }
     }
 
@@ -246,24 +246,14 @@ function renderWorld(state: State, renderer: Renderer, matScreenFromWorld: mat4)
         */
         const tileIndex = tileIndexForItemType[item.type];
         const color = cell.lit ? colorForItemType[item.type] : unlitColor;
-        renderer.renderGlyphs.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
+        addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
     }
-
-    renderer.renderGlyphs.flush();
 }
 
-function renderPlayer(state: State, renderer: Renderer, matScreenFromWorld: mat4) {
-    const pos = vec2.fromValues(0.5, 0.5);
-    vec2.add(pos, pos, state.player.position);
-    const discs = [{
-        position: pos,
-        radius: state.player.radius,
-        discColor: 0xff000000,
-        glyphColor: 0xff00ffff,
-        glyphIndex: 1,
-    }];
-
-    renderer.renderDiscs(matScreenFromWorld, discs);
+function renderPlayer(state: State, addGlyph: AddGlyph) {
+    const x = state.player.position[0];
+    const y = state.player.position[1];
+    addGlyph(x, y, x+1, y+1, 32, 0xffa8a8a8);
 }
 
 function createCamera(posPlayer: vec2): Camera {
@@ -368,8 +358,10 @@ function renderScene(renderer: Renderer, state: State) {
     const matScreenFromWorld = mat4.create();
     setupViewMatrix(state, screenSize, matScreenFromWorld);
 
-    renderWorld(state, renderer, matScreenFromWorld);
-    renderPlayer(state, renderer, matScreenFromWorld);
+    renderer.renderGlyphs.start(matScreenFromWorld, 1);
+    renderWorld(state, renderer.renderGlyphs.addGlyph);
+    renderPlayer(state, renderer.renderGlyphs.addGlyph);
+    renderer.renderGlyphs.flush();
 
     // Text
 

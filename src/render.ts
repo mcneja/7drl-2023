@@ -1,14 +1,6 @@
-export { RenderDiscs, RenderGlyphs, Renderer, createRenderer };
+export { RenderGlyphs, Renderer, createRenderer };
 
 import { vec2, mat4 } from './my-matrix';
-
-type GlyphDisc = {
-    position: vec2;
-    radius: number;
-    discColor: number;
-    glyphIndex: number;
-    glyphColor: number;
-}
 
 type RenderGlyphs = {
     start: (matScreenFromWorld: mat4, textureIndex: number) => void;
@@ -17,11 +9,9 @@ type RenderGlyphs = {
 }
 
 type BeginFrame = (screenSize: vec2) => void;
-type RenderDiscs = (matScreenFromWorld: mat4, discs: Array<GlyphDisc>) => void;
 
 type Renderer = {
     beginFrame: BeginFrame;
-    renderDiscs: RenderDiscs;
     renderGlyphs: RenderGlyphs;
 }
 
@@ -30,7 +20,6 @@ function createRenderer(gl: WebGL2RenderingContext, images: Array<HTMLImageEleme
 
     const renderer = {
         beginFrame: createBeginFrame(gl),
-        renderDiscs: createDiscRenderer(gl, textures[0]),
         renderGlyphs: createGlyphRenderer(gl, textures),
     };
 
@@ -55,174 +44,6 @@ function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
 
         vec2.set(screenSize, screenX, screenY);
     }
-}
-
-function createDiscRenderer(gl: WebGL2RenderingContext, glyphTexture: WebGLTexture): RenderDiscs {
-    const vsSource = `#version 300 es
-        // per-vertex parameters
-        in highp vec2 vPosition;
-        // per-instance parameters
-        in highp vec4 vScaleAndOffset;
-        in highp vec4 vDiscColorAndOpacity;
-        in highp vec3 vGlyphColor;
-        in highp float vGlyphIndex;
-
-        uniform mat4 uMatScreenFromWorld;
-        uniform vec4 uScaleAndOffsetGlyphFromDisc;
-
-        out highp vec2 fDiscPosition;
-        out highp vec3 fGlyphTexCoord;
-        out highp vec4 fDiscColorAndOpacity;
-        out highp vec3 fGlyphColor;
-
-        void main() {
-            fDiscPosition = vPosition;
-            fGlyphTexCoord = vec3(vPosition * uScaleAndOffsetGlyphFromDisc.xy + uScaleAndOffsetGlyphFromDisc.zw, vGlyphIndex);
-            fDiscColorAndOpacity = vDiscColorAndOpacity;
-            fGlyphColor = vGlyphColor;
-            gl_Position = uMatScreenFromWorld * vec4(vPosition * vScaleAndOffset.xy + vScaleAndOffset.zw, 0, 1);
-        }
-    `;
-
-    const fsSource = `#version 300 es
-        in highp vec2 fDiscPosition;
-        in highp vec3 fGlyphTexCoord;
-        in highp vec4 fDiscColorAndOpacity;
-        in highp vec3 fGlyphColor;
-
-        uniform highp sampler2DArray uGlyphOpacity;
-
-        out lowp vec4 fragColor;
-
-        void main() {
-            highp float glyphOpacity =
-                step(0.0, fGlyphTexCoord.x) *
-                step(0.0, 1.0 - fGlyphTexCoord.x) *
-                step(0.0, fGlyphTexCoord.y) *
-                step(0.0, 1.0 - fGlyphTexCoord.y) *
-                texture(uGlyphOpacity, fGlyphTexCoord).x;
-            highp float r = length(fDiscPosition);
-            highp float aaf = fwidth(r);
-            highp float discOpacity = fDiscColorAndOpacity.w * (1.0 - smoothstep(1.0 - aaf, 1.0, r));
-            highp vec3 color = mix(fDiscColorAndOpacity.xyz, fGlyphColor, glyphOpacity);
-            fragColor = vec4(color, discOpacity);
-        }
-    `;
-
-    const attribs = {
-        vPosition: 0,
-        vScaleAndOffset: 1,
-        vDiscColorAndOpacity: 2,
-        vGlyphColor: 3,
-        vGlyphIndex: 4,
-    };
-
-    const vecScaleAndOffsetGlyphFromDisc = [1, -0.5, 0.5, 0.45];
-
-    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
-
-    const locMatScreenFromWorld = gl.getUniformLocation(program, 'uMatScreenFromWorld');
-    const locScaleAndOffsetGlyphFromDisc = gl.getUniformLocation(program, 'uScaleAndOffsetGlyphFromDisc');
-    const locGlyphOpacity = gl.getUniformLocation(program, 'uGlyphOpacity');
-
-    const maxInstances = 64;
-    const bytesPerInstance = 24; // 2 float scale, 2 float offset, 4 byte disc color/opacity, 4 byte glyph color/index
-    const instanceData = new ArrayBuffer(maxInstances * bytesPerInstance);
-    const instanceDataAsFloat32 = new Float32Array(instanceData);
-    const instanceDataAsUint32 = new Uint32Array(instanceData);
-
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-
-    // per-vertex attributes
-    const vertexBuffer = createDiscVertexBuffer(gl);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.enableVertexAttribArray(attribs.vPosition);
-    gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, 0, 0);
-
-    // per-instance attributes
-    const instanceBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, instanceData.byteLength, gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(attribs.vScaleAndOffset);
-    gl.enableVertexAttribArray(attribs.vDiscColorAndOpacity);
-    gl.enableVertexAttribArray(attribs.vGlyphColor);
-    gl.enableVertexAttribArray(attribs.vGlyphIndex);
-    gl.vertexAttribPointer(attribs.vScaleAndOffset, 4, gl.FLOAT, false, bytesPerInstance, 0);
-    gl.vertexAttribPointer(attribs.vDiscColorAndOpacity, 4, gl.UNSIGNED_BYTE, true, bytesPerInstance, 16);
-    gl.vertexAttribPointer(attribs.vGlyphColor, 3, gl.UNSIGNED_BYTE, true, bytesPerInstance, 20);
-    gl.vertexAttribPointer(attribs.vGlyphIndex, 1, gl.UNSIGNED_BYTE, false, bytesPerInstance, 23);
-    gl.vertexAttribDivisor(attribs.vScaleAndOffset, 1);
-    gl.vertexAttribDivisor(attribs.vDiscColorAndOpacity, 1);
-    gl.vertexAttribDivisor(attribs.vGlyphColor, 1);
-    gl.vertexAttribDivisor(attribs.vGlyphIndex, 1);
-
-    gl.bindVertexArray(null);
-
-    return (matScreenFromWorld, discs) => {
-        gl.useProgram(program);
-
-        gl.bindVertexArray(vao);
-
-        gl.uniformMatrix4fv(locMatScreenFromWorld, false, matScreenFromWorld);
-        gl.uniform4fv(locScaleAndOffsetGlyphFromDisc, vecScaleAndOffsetGlyphFromDisc);
-
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, glyphTexture);
-        gl.uniform1i(locGlyphOpacity, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-
-        let discIndexStart = 0;
-        while (discIndexStart < discs.length) {
-            const numInstances = Math.min(maxInstances, discs.length - discIndexStart);
-
-            // Load disc data into the instance buffer
-
-            for (let i = 0; i < numInstances; ++i) {
-                const disc = discs[discIndexStart + i];
-
-                let j = i * bytesPerInstance / 4;
-                instanceDataAsFloat32[j + 0] = disc.radius;
-                instanceDataAsFloat32[j + 1] = disc.radius;
-                instanceDataAsFloat32[j + 2] = disc.position[0];
-                instanceDataAsFloat32[j + 3] = disc.position[1];
-                instanceDataAsUint32[j + 4] = disc.discColor;
-                instanceDataAsUint32[j + 5] = (disc.glyphColor & 0xffffff) + (disc.glyphIndex << 24);
-            }
-
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, instanceData); // would like to only submit data for instances we will draw, not the whole buffer
-
-            gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, numInstances);
-
-            discIndexStart += numInstances;
-        }
-
-        gl.bindVertexArray(null);
-    };
-}
-
-function createDiscVertexBuffer(gl: WebGL2RenderingContext) {
-    const v = new Float32Array(6 * 2);
-    let i = 0;
-
-    function makeVert(x: number, y: number) {
-        v[i++] = x;
-        v[i++] = y;
-    }
-
-    makeVert(-1, -1);
-    makeVert( 1, -1);
-    makeVert( 1,  1);
-    makeVert( 1,  1);
-    makeVert(-1,  1);
-    makeVert(-1, -1);
-
-    const vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, v, gl.STATIC_DRAW);
-
-    return vertexBuffer;
 }
 
 function createGlyphRenderer(gl: WebGL2RenderingContext, textures: Array<WebGLTexture>): RenderGlyphs {
