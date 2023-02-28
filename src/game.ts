@@ -205,8 +205,8 @@ const tileIndexForItemType: Array<number> = [
     98, // ItemType.Table,
     96, // ItemType.Bush,
     110, // ItemType.Coin,
-    92, // ItemType.DoorNS,
-    91, // ItemType.DoorEW,
+    89, // ItemType.DoorNS,
+    87, // ItemType.DoorEW,
     50, // ItemType.PortcullisNS,
     50, // ItemType.PortcullisEW,
 ];
