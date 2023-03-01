@@ -8,9 +8,11 @@
         "noFallthroughCasesInSwitch": true,
     },
     "files": [
+        "./src/color-preset.ts",
         "./src/create-map.ts",
         "./src/game.ts",
         "./src/game-map.ts",
+        "./src/guard.ts",
         "./src/my-matrix.ts",
         "./src/render.ts",
     ]

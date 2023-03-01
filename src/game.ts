@@ -1,7 +1,9 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
 import { BooleanGrid, GameMap, TerrainType } from './game-map';
+import { GuardMode } from './guard';
 import { Renderer, createRenderer } from './render';
+import * as colorPreset from './color-preset';
 
 var fontImageRequire = require('./font.png');
 var tilesImageRequire = require('./tiles.png');
@@ -169,35 +171,35 @@ const tileIndexForTerrainType: Array<number> = [
 ];
 
 const colorForTerrainType: Array<number> = [
-    0xffa8a8a8, // TerrainType.GroundNormal,
-    0xff00a800, // TerrainType.GroundGrass,
-    0xffa80000, // TerrainType.GroundWater,
-    0xffa8a800, // TerrainType.GroundMarble,
-    0xff0054a8, // TerrainType.GroundWood,
-    0xffa8a8a8, // TerrainType.Wall0000,
-    0xffa8a8a8, // TerrainType.Wall0001,
-    0xffa8a8a8, // TerrainType.Wall0010,
-    0xffa8a8a8, // TerrainType.Wall0011,
-    0xffa8a8a8, // TerrainType.Wall0100,
-    0xffa8a8a8, // TerrainType.Wall0101,
-    0xffa8a8a8, // TerrainType.Wall0110,
-    0xffa8a8a8, // TerrainType.Wall0111,
-    0xffa8a8a8, // TerrainType.Wall1000,
-    0xffa8a8a8, // TerrainType.Wall1001,
-    0xffa8a8a8, // TerrainType.Wall1010,
-    0xffa8a8a8, // TerrainType.Wall1011,
-    0xffa8a8a8, // TerrainType.Wall1100,
-    0xffa8a8a8, // TerrainType.Wall1101,
-    0xffa8a8a8, // TerrainType.Wall1110,
-    0xffa8a8a8, // TerrainType.Wall1111,
-    0xffa8a8a8, // TerrainType.OneWayWindowE,
-    0xffa8a8a8, // TerrainType.OneWayWindowW,
-    0xffa8a8a8, // TerrainType.OneWayWindowN,
-    0xffa8a8a8, // TerrainType.OneWayWindowS,
-    0xffa8a8a8, // TerrainType.PortcullisNS,
-    0xffa8a8a8, // TerrainType.PortcullisEW,
-    0xffa8a8a8, // TerrainType.DoorNS,
-    0xffa8a8a8, // TerrainType.DoorEW,
+    colorPreset.lightGray, // TerrainType.GroundNormal,
+    colorPreset.darkGreen, // TerrainType.GroundGrass,
+    colorPreset.lightBlue, // TerrainType.GroundWater,
+    colorPreset.darkCyan, // TerrainType.GroundMarble,
+    colorPreset.darkBrown, // TerrainType.GroundWood,
+    colorPreset.lightGray, // TerrainType.Wall0000,
+    colorPreset.lightGray, // TerrainType.Wall0001,
+    colorPreset.lightGray, // TerrainType.Wall0010,
+    colorPreset.lightGray, // TerrainType.Wall0011,
+    colorPreset.lightGray, // TerrainType.Wall0100,
+    colorPreset.lightGray, // TerrainType.Wall0101,
+    colorPreset.lightGray, // TerrainType.Wall0110,
+    colorPreset.lightGray, // TerrainType.Wall0111,
+    colorPreset.lightGray, // TerrainType.Wall1000,
+    colorPreset.lightGray, // TerrainType.Wall1001,
+    colorPreset.lightGray, // TerrainType.Wall1010,
+    colorPreset.lightGray, // TerrainType.Wall1011,
+    colorPreset.lightGray, // TerrainType.Wall1100,
+    colorPreset.lightGray, // TerrainType.Wall1101,
+    colorPreset.lightGray, // TerrainType.Wall1110,
+    colorPreset.lightGray, // TerrainType.Wall1111,
+    colorPreset.lightGray, // TerrainType.OneWayWindowE,
+    colorPreset.lightGray, // TerrainType.OneWayWindowW,
+    colorPreset.lightGray, // TerrainType.OneWayWindowN,
+    colorPreset.lightGray, // TerrainType.OneWayWindowS,
+    colorPreset.lightGray, // TerrainType.PortcullisNS,
+    colorPreset.lightGray, // TerrainType.PortcullisEW,
+    colorPreset.lightGray, // TerrainType.DoorNS,
+    colorPreset.lightGray, // TerrainType.DoorEW,
 ];
 
 const tileIndexForItemType: Array<number> = [
@@ -212,17 +214,17 @@ const tileIndexForItemType: Array<number> = [
 ];
 
 const colorForItemType: Array<number> = [
-    0xff0054a8, // ItemType.Chair,
-    0xff0054a8, // ItemType.Table,
-    0xff00a800, // ItemType.Bush,
-    0xff54fefe, // ItemType.Coin,
-    0xff0054a8, // ItemType.DoorNS,
-    0xff0054a8, // ItemType.DoorEW,
-    0xffa8a8a8, // ItemType.PortcullisNS,
-    0xffa8a8a8, // ItemType.PortcullisEW,
+    colorPreset.darkBrown, // ItemType.Chair,
+    colorPreset.darkBrown, // ItemType.Table,
+    colorPreset.darkGreen, // ItemType.Bush,
+    colorPreset.lightYellow, // ItemType.Coin,
+    colorPreset.darkBrown, // ItemType.DoorNS,
+    colorPreset.darkBrown, // ItemType.DoorEW,
+    colorPreset.lightGray, // ItemType.PortcullisNS,
+    colorPreset.lightGray, // ItemType.PortcullisEW,
 ]
 
-const unlitColor: number = 0xfffe5454;
+const unlitColor: number = colorPreset.lightBlue;
 
 type AddGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
 
@@ -253,7 +255,41 @@ function renderWorld(state: State, addGlyph: AddGlyph) {
 function renderPlayer(state: State, addGlyph: AddGlyph) {
     const x = state.player.position[0];
     const y = state.player.position[1];
-    addGlyph(x, y, x+1, y+1, 32, 0xffa8a8a8);
+    addGlyph(x, y, x+1, y+1, 32, colorPreset.lightGray);
+}
+
+function renderGuards(state: State, addGlyph: AddGlyph) {
+    for (const guard of state.gameMap.guards) {
+        const tileIndex = 33 + tileIndexOffsetForDir(guard.dir);
+        const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
+
+        const visible = true; // game.see_all || cell.seen || guard.speaking;
+
+        if (!visible && vec2.squaredDistance(state.player.position, guard.pos) > 36) {
+            continue;
+        }
+
+        const color =
+            !visible ? colorPreset.darkGray :
+            (guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) ? unlitColor :
+            colorPreset.lightMagenta;
+
+        addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileIndex, color);
+    }
+}
+
+function tileIndexOffsetForDir(dir: vec2): number {
+    if (dir[1] > 0) {
+        return 1;
+    } else if (dir[1] < 0) {
+        return 3;
+    } else if (dir[0] > 0) {
+        return 0;
+    } else if (dir[0] < 0) {
+        return 2;
+    } else {
+        return 3;
+    }
 }
 
 function createCamera(posPlayer: vec2): Camera {
@@ -361,6 +397,7 @@ function renderScene(renderer: Renderer, state: State) {
     renderer.renderGlyphs.start(matScreenFromWorld, 1);
     renderWorld(state, renderer.renderGlyphs.addGlyph);
     renderPlayer(state, renderer.renderGlyphs.addGlyph);
+    renderGuards(state, renderer.renderGlyphs.addGlyph);
     renderer.renderGlyphs.flush();
 
     // Text
