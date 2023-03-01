@@ -24,7 +24,6 @@ type Camera = {
 
 type State = {
     tLast: number | undefined;
-    paused: boolean;
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
     player: Player;
@@ -63,21 +62,10 @@ function main(images: Array<HTMLImageElement>) {
             return;
         }
 
-        if (e.code == 'Escape' || e.code == 'KeyP') {
-            e.preventDefault();
-            state.paused = !state.paused;
-            if (!state.paused) {
-                state.tLast = undefined;
-                requestUpdateAndRender();
-            }
-        }
-        else if (e.code == 'KeyR') {
+        if (e.code == 'KeyR') {
             e.preventDefault();
             resetState(state);
-            if (state.paused) {
-                requestUpdateAndRender();
-            }
-        } else if (!state.paused) {
+        } else {
             const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
                 e.preventDefault();
@@ -322,7 +310,6 @@ function initState(): State {
 
     return {
         tLast: undefined,
-        paused: true,
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
         player: createPlayer(gameMap.playerStartPos),
@@ -345,7 +332,7 @@ function resetState(state: State) {
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
     const t = now / 1000;
-    const dt = (state.paused || state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
+    const dt = (state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
     state.tLast = t;
 
     if (dt > 0) {
@@ -354,9 +341,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 
     renderScene(renderer, state);
 
-    if (!state.paused) {
-        requestAnimationFrame(now => updateAndRender(now, renderer, state));
-    }
+    requestAnimationFrame(now => updateAndRender(now, renderer, state));
 }
 
 function updateState(state: State, dt: number) {
@@ -399,14 +384,6 @@ function renderScene(renderer: Renderer, state: State) {
     renderPlayer(state, renderer.renderGlyphs.addGlyph);
     renderGuards(state, renderer.renderGlyphs.addGlyph);
     renderer.renderGlyphs.flush();
-
-    // Text
-
-    if (state.paused) {
-        renderTextLines(renderer, screenSize, [
-            'Paused: Esc or P to unpause',
-        ]);
-    }
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
