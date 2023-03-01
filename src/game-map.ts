@@ -1,4 +1,4 @@
-export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, TerrainTypeGrid, invalidRegion };
+export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion };
 
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
@@ -63,6 +63,7 @@ enum TerrainType {
     GroundWater,
     GroundMarble,
     GroundWood,
+    GroundWoodCreaky,
 
     //  NSEW
     Wall0000,
@@ -90,31 +91,6 @@ enum TerrainType {
     PortcullisEW,
     DoorNS,
     DoorEW,
-}
-
-class TerrainTypeGrid {
-    sizeX: number;
-    sizeY: number;
-    values: Uint8Array;
-
-    constructor(sizeX: number, sizeY: number, initialValue: TerrainType) {
-        this.sizeX = sizeX;
-        this.sizeY = sizeY;
-        this.values = new Uint8Array(sizeX * sizeY);
-        this.values.fill(initialValue);
-    }
-
-    fill(value: TerrainType) {
-        this.values.fill(value);
-    }
-
-    get(x: number, y: number): TerrainType {
-        return this.values[this.sizeX * y + x];
-    }
-
-    set(x: number, y: number, value: TerrainType) {
-        this.values[this.sizeX * y + x] = value;
-    }
 }
 
 type Cell = {

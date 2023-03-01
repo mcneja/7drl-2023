@@ -1576,6 +1576,8 @@ function placeFrontPillars(map: GameMap) {
     for (let x = outerBorder; x < cx; x += 5) {
         map.cells.at(x, 1).type = TerrainType.Wall0000;
         map.cells.at(sx - x, 1).type = TerrainType.Wall0000;
+        map.cells.at(x, 1).lit = true;
+        map.cells.at(sx - x, 1).lit = true;
     }
 }
 
