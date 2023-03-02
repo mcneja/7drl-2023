@@ -1,7 +1,7 @@
 export { createGameMap };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion } from './game-map';
-import { Guard, GuardMode } from './guard';
+import { BooleanGrid, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion, guardMoveCostForItemType } from './game-map';
+import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 
 const roomSizeX = 5;
@@ -49,7 +49,7 @@ function createGameMap(level: number): GameMap {
 
     const cells = plotWalls(inside, offsetX, offsetY);
 
-    const map = {
+    const map: GameMap = {
         cells: cells,
         patrolRegions: [],
         patrolRoutes: [],
@@ -69,6 +69,10 @@ function createGameMap(level: number): GameMap {
     placeGuards(level, rooms, map);
 
     markExteriorAsSeen(map);
+
+    cacheCellInfo(map);
+
+    map.totalLoot = map.items.reduce((totalLoot, item) => totalLoot + ((item.type == ItemType.Coin) ? 1 : 0), 0);
 
     fixupWalls(cells);
 
@@ -1678,6 +1682,42 @@ function markExteriorAsSeen(map: GameMap) {
                 (x+1 < sx && y+1 < sy && map.cells.at(x+1, y+1).type == TerrainType.GroundNormal)) {
                 map.cells.at(x, y).seen = true;
             }
+        }
+    }
+}
+
+function cacheCellInfo(map: GameMap) {
+    let sx = map.cells.sizeX;
+    let sy = map.cells.sizeY;
+
+    for (let x = 0; x < sx; ++x) {
+        for (let y = 0; y < sy; ++y) {
+            const cell = map.cells.at(x, y);
+            const cellType = cell.type;
+            const isWall = cellType >= TerrainType.Wall0000 && cellType <= TerrainType.Wall1111;
+            const isWindow = cellType >= TerrainType.OneWayWindowE && cellType <= TerrainType.OneWayWindowS;
+            const isWater = cellType == TerrainType.GroundWater;
+            cell.moveCost = (isWall || isWindow) ? Infinity : isWater ? 4096 : 0;
+            cell.blocksPlayerMove = isWall;
+            cell.blocksPlayerSight = isWall;
+            cell.blocksSight = isWall || isWindow;
+            cell.blocksSound = isWall;
+            cell.hidesPlayer = false;
+        }
+    }
+
+    for (const item of map.items) {
+        let cell = map.cells.at(item.pos[0], item.pos[1]);
+        let itemType = item.type;
+        cell.moveCost = Math.max(cell.moveCost, guardMoveCostForItemType(itemType));
+        if (itemType == ItemType.DoorNS || itemType == ItemType.DoorEW) {
+            cell.blocksPlayerSight = true;
+        }
+        if (itemType == ItemType.DoorNS || itemType == ItemType.DoorEW || itemType == ItemType.PortcullisNS || itemType == ItemType.PortcullisEW || itemType == ItemType.Bush) {
+            cell.blocksSight = true;
+        }
+        if (itemType == ItemType.Table || itemType == ItemType.Bush) {
+            cell.hidesPlayer = true;
         }
     }
 }

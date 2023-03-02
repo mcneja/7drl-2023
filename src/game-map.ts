@@ -1,6 +1,6 @@
-export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion };
+export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, Player, TerrainType, guardMoveCostForItemType, invalidRegion };
 
-import { Guard } from './guard';
+import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
 
 const invalidRegion: number = -1;
@@ -95,7 +95,13 @@ enum TerrainType {
 
 type Cell = {
     type: TerrainType;
+    moveCost: number;
     region: number;
+    blocksPlayerMove: boolean;
+    blocksPlayerSight: boolean;
+    blocksSight: boolean;
+    blocksSound: boolean;
+    hidesPlayer: boolean;
     lit: boolean;
     seen: boolean;
 }
@@ -113,7 +119,13 @@ class CellGrid {
         for (let i = 0; i < size; ++i) {
             this.values[i] = {
                 type: TerrainType.GroundNormal,
+                moveCost: Infinity,
                 region: invalidRegion,
+                blocksPlayerMove: false,
+                blocksPlayerSight: false,
+                blocksSight: false,
+                blocksSound: false,
+                hidesPlayer: false,
                 lit: false,
                 seen: false,
             };
@@ -144,6 +156,64 @@ type Item = {
     type: ItemType;
 }
 
+function guardMoveCostForItemType(itemType: ItemType): number {
+    switch (itemType) {
+        case ItemType.Chair: return 4;
+        case ItemType.Table: return 10;
+        case ItemType.Bush: return 10;
+        case ItemType.Coin: return 0;
+        case ItemType.DoorNS: return 0;
+        case ItemType.DoorEW: return 0;
+        case ItemType.PortcullisNS: return 0;
+        case ItemType.PortcullisEW: return 0;
+    }
+}
+
+const maxPlayerHealth: number = 5;
+
+class Player {
+    pos: vec2;
+    dir: vec2;
+    health: number;
+    gold: number;
+    noisy: boolean; // did the player make noise last turn?
+    damagedLastTurn: boolean;
+    turnsRemainingUnderwater: number;
+
+    constructor(pos: vec2) {
+        this.pos = vec2.clone(pos);
+        this.dir = vec2.fromValues(0, -1);
+        this.health = maxPlayerHealth;
+        this.gold = 0;
+        this.noisy = false;
+        this.damagedLastTurn = false;
+        this.turnsRemainingUnderwater = 0;
+    }
+
+    applyDamage(d: number) {
+        this.health -= Math.min(d, this.health);
+        this.damagedLastTurn = true;
+    }
+
+    hidden(map: GameMap): boolean {
+        if (map.guards.find((guard) => guard.mode == GuardMode.ChaseVisibleTarget) !== undefined) {
+            return false;
+        }
+
+        if (map.cells.at(this.pos[0], this.pos[1]).hidesPlayer) {
+            return true;
+        }
+
+        let cellType = map.cells.at(this.pos[0], this.pos[1]).type;
+
+        if (cellType == TerrainType.GroundWater && this.turnsRemainingUnderwater > 0) {
+            return true;
+        }
+
+        return false;
+    }
+}
+
 type Rect = {
     posMin: vec2;
     posMax: vec2;
@@ -156,4 +226,5 @@ type GameMap = {
     items: Array<Item>;
     guards: Array<Guard>;
     playerStartPos: vec2;
+    totalLoot: number;
 }

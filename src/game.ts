@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
-import { BooleanGrid, GameMap, TerrainType } from './game-map';
+import { GameMap, Player, TerrainType } from './game-map';
 import { GuardMode } from './guard';
 import { Renderer, createRenderer } from './render';
 import * as colorPreset from './color-preset';
@@ -9,13 +9,6 @@ var fontImageRequire = require('./font.png');
 var tilesImageRequire = require('./tiles.png');
 
 window.onload = loadResourcesThenRun;
-
-const playerRadius = 0.5;
-
-type Player = {
-    position: vec2;
-    radius: number;
-};
 
 type Camera = {
     position: vec2;
@@ -27,9 +20,9 @@ type State = {
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
     player: Player;
+    seeAll : boolean;
     camera: Camera;
     level: number;
-    solid: BooleanGrid;
     gameMap: GameMap;
 }
 
@@ -65,6 +58,14 @@ function main(images: Array<HTMLImageElement>) {
         if (e.code == 'KeyR') {
             e.preventDefault();
             resetState(state);
+        } else if (e.code == 'KeyA') {
+            e.preventDefault();
+            if (e.ctrlKey) {
+                state.seeAll = !state.seeAll;
+            } else {
+                const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
+                tryMovePlayer(state, -speed, 0);
+            }
         } else {
             const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
@@ -105,16 +106,68 @@ function main(images: Array<HTMLImageElement>) {
 }
 
 function tryMovePlayer(state: State, dx: number, dy: number) {
-    const x = state.player.position[0] + dx;
-    const y = state.player.position[1] + dy;
-    if (x < 0 || y < 0 || x >= state.solid.sizeX || y >= state.solid.sizeY) {
+
+    const player = state.player;
+
+    // Can't move if you're dead.
+
+    if (player.health == 0) {
         return;
     }
-    if (state.solid.get(x, y)) {
+
+    // Are we trying to exit the level?
+
+    const posNew = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
+    if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= state.gameMap.cells.sizeX || posNew[1] >= state.gameMap.cells.sizeY) {
         return;
     }
-    state.player.position[0] = x;
-    state.player.position[1] = y;
+
+    // Is something in the way?
+
+    if (blocked(state.gameMap, player.pos, posNew)) {
+        return;
+    }
+
+    player.pos = posNew;
+}
+
+function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
+    if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= map.cells.sizeX || posNew[1] >= map.cells.sizeY) {
+        return true;
+    }
+
+    if (posOld[0] == posNew[0] && posOld[1] == posNew[1]) {
+        return false;
+    }
+
+    const cell = map.cells.at(posNew[0], posNew[1]);
+    const tileType = cell.type;
+
+    if (cell.blocksPlayerMove) {
+        return true;
+    }
+
+    if (tileType == TerrainType.OneWayWindowE && posNew[0] <= posOld[0]) {
+        return true;
+    }
+
+    if (tileType == TerrainType.OneWayWindowW && posNew[0] >= posOld[0]) {
+        return true;
+    }
+
+    if (tileType == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) {
+        return true;
+    }
+
+    if (tileType == TerrainType.OneWayWindowS && posNew[1] >= posOld[1]) {
+        return true;
+    }
+
+    if (map.guards.find((guard) => guard.pos[0] == posNew[0] && guard.pos[1] == posNew[1]) !== undefined) {
+        return true;
+    }
+
+    return false;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -222,6 +275,9 @@ function renderWorld(state: State, addGlyph: AddGlyph) {
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
             const cell = state.gameMap.cells.at(x, y);
+            if (!cell.seen && !state.seeAll) {
+                continue;
+            }
             const terrainType = cell.type;
             const tileIndex = tileIndexForTerrainType[terrainType];
             const color = cell.lit ? colorForTerrainType[terrainType] : unlitColor;
@@ -231,11 +287,9 @@ function renderWorld(state: State, addGlyph: AddGlyph) {
 
     for (const item of state.gameMap.items) {
         const cell = state.gameMap.cells.at(item.pos[0], item.pos[1]);
-        /*
-        if (!cell.seen && !state.see_all) {
+        if (!cell.seen && !state.seeAll) {
             continue;
         }
-        */
         const tileIndex = tileIndexForItemType[item.type];
         const color = cell.lit ? colorForItemType[item.type] : unlitColor;
         addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
@@ -243,9 +297,19 @@ function renderWorld(state: State, addGlyph: AddGlyph) {
 }
 
 function renderPlayer(state: State, addGlyph: AddGlyph) {
-    const x = state.player.position[0];
-    const y = state.player.position[1];
-    addGlyph(x, y, x+1, y+1, 32, colorPreset.lightGray);
+    const player = state.player;
+    const x = player.pos[0];
+    const y = player.pos[1];
+    const lit = state.gameMap.cells.at(x, y).lit;
+    const hidden = player.hidden(state.gameMap);
+    const color =
+        player.damagedLastTurn ? 0xff0000ff :
+        player.noisy ? colorPreset.lightCyan :
+        hidden ? 0xd0101010 :
+        !lit ? colorPreset.lightBlue :
+        colorPreset.lightGray;
+
+    addGlyph(x, y, x+1, y+1, 32, color);
 }
 
 function renderGuards(state: State, addGlyph: AddGlyph) {
@@ -253,9 +317,9 @@ function renderGuards(state: State, addGlyph: AddGlyph) {
         const tileIndex = 33 + tileIndexOffsetForDir(guard.dir);
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
 
-        const visible = true; // game.see_all || cell.seen || guard.speaking;
+        const visible = state.seeAll || cell.seen || guard.speaking;
 
-        if (!visible && vec2.squaredDistance(state.player.position, guard.pos) > 36) {
+        if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
         }
 
@@ -294,41 +358,27 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
-function createPlayer(posStart: vec2): Player {
-    const player = {
-        position: vec2.create(),
-        radius: playerRadius,
-    };
-
-    vec2.copy(player.position, posStart);
-
-    return player;
-}
-
 function initState(): State {
     const level = 3;
     const gameMap = createGameMap(level);
-    const solid = solidMapFromGameMap(gameMap);
 
     return {
         tLast: undefined,
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
-        player: createPlayer(gameMap.playerStartPos),
+        player: new Player(gameMap.playerStartPos),
+        seeAll : true,
         camera: createCamera(gameMap.playerStartPos),
         level: level,
-        solid: solid,
         gameMap: gameMap,
     };
 }
 
 function resetState(state: State) {
     const gameMap = createGameMap(state.level);
-    const solid = solidMapFromGameMap(gameMap);
 
-    state.player = createPlayer(gameMap.playerStartPos);
+    state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
-    state.solid = solid;
     state.gameMap = gameMap;
 }
 
@@ -355,7 +405,7 @@ function updateCamera(state: State, dt: number) {
     // Update player follow
 
     const posError = vec2.create();
-    vec2.subtract(posError, state.player.position, state.camera.position);
+    vec2.subtract(posError, state.player.pos, state.camera.position);
 
     const velError = vec2.create();
     vec2.negate(velError, state.camera.velocity);
@@ -462,18 +512,4 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
     }
 
     renderer.renderGlyphs.flush();
-}
-
-function solidMapFromGameMap(gameMap: GameMap): BooleanGrid {
-    const solid = new BooleanGrid(gameMap.cells.sizeX, gameMap.cells.sizeY, false);
-
-    for (let x = 0; x < gameMap.cells.sizeX; ++x) {
-        for (let y = 0; y < gameMap.cells.sizeY; ++y) {
-            const terrainType = gameMap.cells.at(x, y).type;
-            const isSolid = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.Wall1111;
-            solid.set(x, y, isSolid);
-        }
-    }
-
-    return solid;
 }
