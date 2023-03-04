@@ -515,7 +515,7 @@ class GameMap {
     }
 
     isGuardAt(x: number, y: number): boolean {
-        return this.guards.find((guard) => guard.pos[0] == x && guard.pos[1] == y) != undefined;
+        return this.guards.find((guard) => guard.hasMoved && guard.pos[0] == x && guard.pos[1] == y) != undefined;
     }
 
     randomNeighborRegion(region: number, regionExclude: number): number {

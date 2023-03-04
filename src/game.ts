@@ -188,7 +188,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-    guardActAll(state.seeAll, /* state.popups, state.lines, */ state.gameMap, state.player);
+    guardActAll(/* state.popups, state.lines, */ state.gameMap, state.player);
 
     updateMapVisibility(state.gameMap, state.player.pos);
 

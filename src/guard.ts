@@ -52,14 +52,7 @@ class Guard {
         this.updateDirInitial(map);
     }
 
-    preTurn() {
-        this.heardGuard = this.hearingGuard;
-        this.hearingGuard = false;
-        this.speaking = false;
-        this.hasMoved = false;
-    }
-
-    act(seeAll: boolean, /* popups: Popups, lines: Lines, */ player: Player, map: GameMap, shouts: Array<Shout>) {
+    act(/* popups: Popups, lines: Lines, */ player: Player, map: GameMap, shouts: Array<Shout>) {
         const modePrev = this.mode;
         const posPrev = this.pos;
     
@@ -315,19 +308,23 @@ type Shout = {
     pos_target: vec2; // where are they reporting the player is?
 }
 
-function guardActAll(seeAll: boolean, /* popups: Popups, lines: Lines, */ map: GameMap, player: Player) {
+function guardActAll(/* popups: Popups, lines: Lines, */ map: GameMap, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
     for (const guard of map.guards) {
-        guard.preTurn();
+        guard.heardGuard = guard.hearingGuard;
+        guard.hearingGuard = false;
+        guard.speaking = false;
+        guard.hasMoved = false;
     }
 
     // Update each guard for this turn.
 
     const shouts: Array<Shout> = [];
     for (const guard of map.guards) {
-        guard.act(seeAll, /* popups, lines, */ player, map, shouts);
+        guard.act(/* popups, lines, */ player, map, shouts);
+        guard.hasMoved = true;
     }
 
     // Process shouts
