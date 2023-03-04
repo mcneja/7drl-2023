@@ -3,6 +3,7 @@ export { createGameMap };
 import { BooleanGrid, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion, guardMoveCostForItemType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
+import { randomInRange, shuffleArray } from './random';
 
 const roomSizeX = 5;
 const roomSizeY = 5;
@@ -49,15 +50,7 @@ function createGameMap(level: number): GameMap {
 
     const cells = plotWalls(inside, offsetX, offsetY);
 
-    const map: GameMap = {
-        cells: cells,
-        patrolRegions: [],
-        patrolRoutes: [],
-        items: [],
-        guards: [],
-        playerStartPos: vec2.create(),
-        totalLoot: 0,
-    };
+    const map = new GameMap(cells);
 
     const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, map);
 
@@ -1591,13 +1584,11 @@ function isItemAtPos(map: GameMap, x: number, y: number): boolean {
             return true;
         }
     }
-    /*
-    for guard in &map.guards {
-        if guard.pos.0 == x && guard.pos.1 == y {
+    for (const guard of map.guards) {
+        if (guard.pos[0] == x && guard.pos[1] == y) {
             return true;
         }
     }
-    */
     return false;
 }
 
@@ -1760,61 +1751,4 @@ function neighboringWalls(map: CellGrid, x: number, y: number): number {
     }
 
     return wallBits
-}
-
-function randomInRange(n: number): number {
-    return Math.floor(Math.random() * n);
-}
-
-function shuffleArray<T>(array: Array<T>) {
-    for (let i = array.length - 1; i > 0; --i) {
-        let j = randomInRange(i + 1);
-        let temp = array[i];
-        array[i] = array[j];
-        array[j] = temp;
-    }
-}
-
-type PriorityQueueElement = {
-    priority: number;
-}
-
-type PriorityQueue<T> = Array<T>;
-
-function priorityQueuePop<T extends PriorityQueueElement>(q: PriorityQueue<T>): T {
-    const x = q[0];
-    q[0] = q[q.length - 1]; // q.at(-1);
-    q.pop();
-    let i = 0;
-    const c = q.length;
-    while (true) {
-        let iChild = i;
-        const iChild0 = 2*i + 1;
-        if (iChild0 < c && q[iChild0].priority < q[iChild].priority) {
-            iChild = iChild0;
-        }
-        const iChild1 = iChild0 + 1;
-        if (iChild1 < c && q[iChild1].priority < q[iChild].priority) {
-            iChild = iChild1;
-        }
-        if (iChild == i) {
-            break;
-        }
-        [q[i], q[iChild]] = [q[iChild], q[i]];
-        i = iChild;
-    }
-    return x;
-}
-
-function priorityQueuePush<T extends PriorityQueueElement>(q: PriorityQueue<T>, x: T) {
-    q.push(x);
-    let i = q.length - 1;
-    while (i > 0) {
-        const iParent = Math.floor((i - 1) / 2);
-        if (q[i].priority >= q[iParent].priority) {
-            break;
-        }
-        [q[i], q[iParent]] = [q[iParent], q[i]];
-        i = iParent;
-    }
 }

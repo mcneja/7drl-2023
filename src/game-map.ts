@@ -1,7 +1,21 @@
-export { BooleanGrid, Cell, CellGrid, Int32Grid, ItemType, GameMap, Player, TerrainType, guardMoveCostForItemType, invalidRegion };
+export {
+    BooleanGrid,
+    Cell,
+    CellGrid,
+    Float64Grid,
+    Int32Grid,
+    ItemType,
+    GameMap,
+    Player,
+    TerrainType,
+    guardMoveCostForItemType,
+    guardsInEarshot,
+    invalidRegion
+};
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
+import { randomInRange } from './random';
 
 const invalidRegion: number = -1;
 
@@ -41,6 +55,31 @@ class Int32Grid {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.values = new Int32Array(sizeX * sizeY);
+        this.fill(initialValue);
+    }
+
+    fill(value: number) {
+        this.values.fill(value);
+    }
+
+    get(x: number, y: number): number {
+        return this.values[this.sizeX * y + x];
+    }
+
+    set(x: number, y: number, value: number) {
+        this.values[this.sizeX * y + x] = value;
+    }
+}
+
+class Float64Grid {
+    sizeX: number;
+    sizeY: number;
+    values: Float64Array;
+
+    constructor(sizeX: number, sizeY: number, initialValue: number) {
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.values = new Float64Array(sizeX * sizeY);
         this.fill(initialValue);
     }
 
@@ -219,12 +258,521 @@ type Rect = {
     posMax: vec2;
 }
 
-type GameMap = {
+type PortalInfo = {
+    // offset of left corner of portal relative to lower-left corner of cell:
+    lx: number;
+    ly: number;
+    // offset of right corner of portal relative to lower-left-corner of cell:
+    rx: number;
+    ry: number;
+    // offset of neighboring cell relative to this cell's coordinates:
+    nx: number;
+    ny: number;
+}
+
+const portals: Array<PortalInfo> = [
+    { lx: -1, ly: -1, rx: -1, ry:  1, nx: -1, ny:  0 },
+    { lx: -1, ly:  1, rx:  1, ry:  1, nx:  0, ny:  1 },
+    { lx:  1, ly:  1, rx:  1, ry: -1, nx:  1, ny:  0 },
+    { lx:  1, ly: -1, rx: -1, ry: -1, nx:  0, ny: -1 },
+];
+
+function aRightOfB(ax: number, ay: number, bx: number, by: number): boolean {
+    return ax * by > ay * bx;
+}
+
+function allowedDirection(terrainType: TerrainType, dx: number, dy: number): boolean {
+    switch (terrainType) {
+    case TerrainType.OneWayWindowE: return dx > 0;
+    case TerrainType.OneWayWindowW: return dx < 0;
+    case TerrainType.OneWayWindowN: return dy > 0;
+    case TerrainType.OneWayWindowS: return dy < 0;
+    default: return true;
+    }
+}
+
+type AdjacentMove = {
+    dx: number;
+    dy: number;
+    cost: number;
+}
+
+const adjacentMoves: Array<AdjacentMove> = [
+    { dx:  1, dy:  0, cost: 2 },
+    { dx: -1, dy:  0, cost: 2 },
+    { dx:  0, dy:  1, cost: 2 },
+    { dx:  0, dy: -1, cost: 2 },
+    { dx: -1, dy: -1, cost: 3 },
+    { dx:  1, dy: -1, cost: 3 },
+    { dx: -1, dy:  1, cost: 3 },
+    { dx:  1, dy:  1, cost: 3 },
+];
+
+const soundNeighbors: Array<vec2> = [
+    vec2.fromValues(-1, 0),
+    vec2.fromValues(1, 0),
+    vec2.fromValues(0, -1),
+    vec2.fromValues(0, 1),
+];
+
+type DistPos = {
+    priority: number; // = distance; needs to be named priority for PriorityQueueElement
+    pos: vec2;
+}
+
+class GameMap {
     cells: CellGrid;
-    patrolRegions: Array<Rect>,
-    patrolRoutes: Array<[number, number]>,
+    patrolRegions: Array<Rect>;
+    patrolRoutes: Array<[number, number]>;
     items: Array<Item>;
     guards: Array<Guard>;
     playerStartPos: vec2;
     totalLoot: number;
+
+    constructor(cells: CellGrid) {
+        this.cells = cells;
+        this.patrolRegions = [];
+        this.patrolRoutes = [];
+        this.items = [];
+        this.guards = [];
+        this.playerStartPos = vec2.create();
+        this.totalLoot = 0;
+    }
+
+    collectLootAt(x: number, y: number): number {
+        let gold = 0;
+        this.items = this.items.filter((item) => {
+            if (item.type == ItemType.Coin && item.pos[0] == x && item.pos[1] == y) {
+                ++gold;
+                return false;
+            } else {
+                return true;
+            }
+        });
+        return gold;
+    }
+    
+    collectAllLoot(): number {
+        let gold = 0;
+        this.items = this.items.filter((item) => {
+            if (item.type == ItemType.Coin) {
+                ++gold;
+                return true;
+            } else {
+                return false;
+            }
+        });
+        return gold;
+    }
+
+    allSeen(): boolean {
+        for (const cell of this.cells.values) {
+            if (!cell.seen) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    percentSeen(): number {
+        let numSeen = 0;
+        for (const cell of this.cells.values) {
+            if (cell.seen) {
+                ++numSeen;
+            }
+        }
+    
+        return Math.floor((numSeen * 100) / this.cells.values.length);
+    }
+    
+    markAllSeen() {
+        for (const cell of this.cells.values) {
+            cell.seen = true;
+        }
+    }
+    
+    markAllUnseen() {
+        for (const cell of this.cells.values) {
+            cell.seen = false;
+        }
+    }
+
+    recomputeVisibility(posViewer: vec2) {
+        for (const portal of portals) {
+            this.computeVisibility
+            (
+                posViewer[0], posViewer[1],
+                posViewer[0], posViewer[1],
+                portal.lx, portal.ly,
+                portal.rx, portal.ry
+            );
+        }
+    }
+    
+    playerCanSeeInDirection(posViewer: vec2, dir: vec2): boolean {
+        const posTarget = vec2.create();
+        vec2.add(posTarget, posViewer, dir);
+        if (posTarget[0] < 0 ||
+            posTarget[1] < 0 ||
+            posTarget[0] >= this.cells.sizeX ||
+            posTarget[1] >= this.cells.sizeY) {
+            return true;
+        }
+    
+        if (!allowedDirection(this.cells.at(posTarget[0], posTarget[1]).type, dir[0], dir[1])) {
+            return false;
+        }
+
+        return !this.cells.at(posTarget[0], posTarget[1]).blocksPlayerSight;
+    }
+
+    computeVisibility(
+        // Viewer map coordinates:
+        viewerX: number,
+        viewerY: number,
+        // Target cell map coordinates:
+        targetX: number,
+        targetY: number,
+        // Left edge of current view frustum (relative to viewer):
+        ldx: number,
+        ldy: number,
+        // Right edge of current view frustum (relative to viewer):
+        rdx: number,
+        rdy: number
+    ) {
+        // End recursion if the target cell is out of bounds.
+        if (targetX < 0 || targetY < 0 || targetX >= this.cells.sizeX || targetY >= this.cells.sizeY) {
+            return;
+        }
+    
+        // End recursion if the target square is too far away.
+        const dx = 2 * (targetX - viewerX);
+        const dy = 2 * (targetY - viewerY);
+    
+        if (dx*dx + dy*dy > 1600) {
+            return;
+        }
+    
+        // End recursion if the incoming direction is not allowed by the current cell type.
+        if (!allowedDirection(this.cells.at(targetX, targetY).type, dx, dy)) {
+            return;
+        }
+    
+        // This square is visible.
+        this.cells.at(targetX, targetY).seen = true;
+    
+        // End recursion if the target square occludes the view.
+        if (this.cells.at(targetX, targetY).blocksPlayerSight) {
+            return;
+        }
+    
+        // Mark diagonally-adjacent squares as visible if their corners are visible
+        for (let x = 0; x < 2; ++x) {
+            for (let y = 0; y < 2; ++y) {
+                let nx = targetX + 2*x - 1;
+                let ny = targetY + 2*y - 1;
+                let cdx = dx + 2*x - 1;
+                let cdy = dy + 2*y - 1;
+                
+                if (nx >= 0 &&
+                    ny >= 0 &&
+                    nx < this.cells.sizeX &&
+                    ny < this.cells.sizeY &&
+                    !aRightOfB(ldx, ldy, cdx, cdy) &&
+                    !aRightOfB(cdx, cdy, rdx, rdy)) {
+                    this.cells.at(nx, ny).seen = true;
+                }
+            }
+        }
+    
+        // Clip portals to adjacent squares and recurse through the visible portions
+        for (const portal of portals) {
+            // Relative positions of the portal's left and right endpoints:
+            const pldx = dx + portal.lx;
+            const pldy = dy + portal.ly;
+            const prdx = dx + portal.rx;
+            const prdy = dy + portal.ry;
+    
+            // Clip portal against current view frustum:
+            const [cldx, cldy] = aRightOfB(ldx, ldy, pldx, pldy) ? [ldx, ldy] : [pldx, pldy];
+            const [crdx, crdy] = aRightOfB(rdx, rdy, prdx, prdy) ? [prdx, prdy] : [rdx, rdy];
+    
+            // If we can see through the clipped portal, recurse through it.
+            if (aRightOfB(crdx, crdy, cldx, cldy)) {
+                this.computeVisibility
+                (
+                    viewerX, viewerY,
+                    targetX + portal.nx, targetY + portal.ny,
+                    cldx, cldy,
+                    crdx, crdy
+                );
+            }
+        }
+    }
+    
+    allLootCollected(): boolean {
+        return this.items.find((item) => item.type == ItemType.Coin) != undefined;
+    }
+
+    isGuardAt(x: number, y: number): boolean {
+        return this.guards.find((guard) => guard.pos[0] == x && guard.pos[1] == y) != undefined;
+    }
+
+    randomNeighborRegion(region: number, regionExclude: number): number {
+        const neighbors = [];
+    
+        for (const [region0, region1] of this.patrolRoutes) {
+            if (region0 == region && region1 != regionExclude) {
+                neighbors.push(region1);
+            } else if (region1 == region && region0 != regionExclude) {
+                neighbors.push(region0);
+            }
+        }
+    
+        if (neighbors.length === 0) {
+            return region;
+        }
+
+        return neighbors[randomInRange(neighbors.length)];
+    }
+
+    guardMoveCost(posOld: vec2, posNew: vec2): number {
+        let cost = this.cells.at(posNew[0], posNew[1]).moveCost;
+    
+        if (cost == Infinity) {
+            return cost;
+        }
+    
+        // Guards are not allowed to move diagonally around corners.
+    
+        if (posOld[0] != posNew[0] &&
+            posOld[1] != posNew[1] &&
+            (this.cells.at(posOld[0], posNew[1]).moveCost == Infinity ||
+             this.cells.at(posNew[0], posOld[1]).moveCost == Infinity)) {
+            return Infinity;
+        }
+    
+        return cost;
+    }
+
+    closestRegion(pos: vec2): number {
+
+        const sizeX = this.cells.sizeX;
+        const sizeY = this.cells.sizeY;
+
+        const distField = new Float64Grid(sizeX, sizeY, Infinity);
+        const heap: PriorityQueue<DistPos> = [];
+
+        priorityQueuePush(heap, { priority: 0, pos: pos });
+
+        while (heap.length > 0) {
+            const state = priorityQueuePop(heap);
+            const dist = state.priority;
+            const pos = state.pos;
+    
+            const region = this.cells.at(pos[0], pos[1]).region;
+            if (region != invalidRegion) {
+                return region;
+            }
+    
+            if (dist >= distField.get(pos[0], pos[1])) {
+                continue;
+            }
+    
+            distField.set(pos[0], pos[1], dist);
+    
+            for (const adjacentMove of adjacentMoves) {
+                const posNew = vec2.fromValues(pos[0] + adjacentMove.dx, pos[1] + adjacentMove.dy);
+                if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
+                    continue;
+                }
+    
+                const moveCost = this.guardMoveCost(pos, posNew);
+                if (moveCost == Infinity) {
+                    continue;
+                }
+    
+                let distNew = dist + moveCost + adjacentMove.cost;
+    
+                if (distNew < distField.get(posNew[0], posNew[1])) {
+                    priorityQueuePush(heap, { priority: distNew, pos: posNew });
+                }
+            }
+        }
+    
+        return invalidRegion;
+    }
+
+    computeDistancesToRegion(iRegionGoal: number): Float64Grid {
+        console.assert(iRegionGoal < this.patrolRegions.length);
+    
+        let region = this.patrolRegions[iRegionGoal];
+    
+        // Fill the priority queue with all of the region's locations.
+    
+        const goal = [];
+    
+        for (let x = region.posMin[0]; x < region.posMax[0]; ++x) {
+            for (let y = region.posMin[1]; y < region.posMax[1]; ++y) {
+                const p = vec2.fromValues(x, y);
+                const guardMoveCost = this.cells.at(x, y).moveCost;
+                goal.push({ priority: guardMoveCost, pos: p });
+            }
+        }
+    
+        return this.computeDistanceField(goal);
+    }
+    
+    computeDistancesToPosition(pos_goal: vec2): Float64Grid {
+        console.assert(pos_goal[0] >= 0);
+        console.assert(pos_goal[1] >= 0);
+        console.assert(pos_goal[0] < this.cells.sizeX);
+        console.assert(pos_goal[1] < this.cells.sizeY);
+    
+        return this.computeDistanceField([{ priority: 0, pos: pos_goal }]);
+    }
+
+    computeDistanceField(initialDistances: Array<DistPos>): Float64Grid {
+        let sizeX = this.cells.sizeX;
+        let sizeY = this.cells.sizeY;
+
+        const heap: PriorityQueue<DistPos> = [];
+        const distField = new Float64Grid(sizeX, sizeY, Infinity);
+    
+        for (const distPos of initialDistances) {
+            priorityQueuePush(heap, distPos);
+        }
+    
+        while (heap.length > 0) {
+            const distPos = priorityQueuePop(heap);
+            if (distPos.priority >= distField.get(distPos.pos[0], distPos.pos[1])) {
+                continue;
+            }
+    
+            distField.set(distPos.pos[0], distPos.pos[1], distPos.priority);
+    
+            for (const adjacentMove of adjacentMoves) {
+                const posNew = vec2.fromValues(distPos.pos[0] + adjacentMove.dx, distPos.pos[1] + adjacentMove.dy);
+                if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
+                    continue;
+                }
+    
+                const moveCost = this.guardMoveCost(distPos.pos, posNew);
+                if (moveCost == Infinity) {
+                    continue;
+                }
+    
+                const distNew = distPos.priority + moveCost + adjacentMove.cost;
+    
+                if (distNew < distField.get(posNew[0], posNew[1])) {
+                    priorityQueuePush(heap, { priority: distNew, pos: posNew });
+                }
+            }
+        }
+    
+        return distField;
+    }
+}
+
+function guardsInEarshot(gameMap: GameMap, soundPos: vec2, radius: number): Array<Guard> {
+    return []; // TODO not yet implemented
+}
+
+/* TODO finish porting
+function coords_in_earshot(gameMap: GameMap, soundPos: vec2, radius: number): Array<vec2> {
+    // Flood-fill from the emitter position.
+
+    const sizeX = gameMap.cells.sizeX;
+    const sizeY = gameMap.cells.sizeY;
+
+    const capacity = sizeX * sizeY;
+    const coordsVisited: Array<vec2> = []; // TODO: won't work due to non-value comparisons on vec2
+    const coords_to_visit = [];
+
+    coords_to_visit.push(soundPos);
+
+    while (let Some(pos) = coords_to_visit.pop_front()) {
+
+        coordsVisited.insert(pos);
+
+        for (const dir of soundNeighbors) {
+            let newPos = vec2.create();
+            vec2.add(newPos, pos, dir);
+
+            // Skip positions that are off the map.
+
+            if (newPos[0] < 0 || newPos[0] >= sizeX ||
+                newPos[1] < 0 || newPos[1] >= sizeY) {
+                continue;
+            }
+
+            // Skip neighbors that have already been visited.
+
+            if (coordsVisited.contains(newPos)) {
+                continue;
+            }
+
+            // Skip neighbors that are outside of the hearing radius.
+
+            let d2 = vec2.squaredDistance(soundPos, newPos);
+            if (d2 >= radius) {
+                continue;
+            }
+
+            // Skip neighbors that don't transmit sound
+
+            if (gameMap.cells.at(newPos[0], newPos[1]).blocksSound) {
+                continue;
+            }
+
+            coords_to_visit.push(newPos);
+        }
+    }
+
+    return coordsVisited;
+}
+*/
+
+type PriorityQueueElement = {
+    priority: number;
+}
+
+type PriorityQueue<T> = Array<T>;
+
+function priorityQueuePop<T extends PriorityQueueElement>(q: PriorityQueue<T>): T {
+    const x = q[0];
+    q[0] = q[q.length - 1]; // q.at(-1);
+    q.pop();
+    let i = 0;
+    const c = q.length;
+    while (true) {
+        let iChild = i;
+        const iChild0 = 2*i + 1;
+        if (iChild0 < c && q[iChild0].priority < q[iChild].priority) {
+            iChild = iChild0;
+        }
+        const iChild1 = iChild0 + 1;
+        if (iChild1 < c && q[iChild1].priority < q[iChild].priority) {
+            iChild = iChild1;
+        }
+        if (iChild == i) {
+            break;
+        }
+        [q[i], q[iChild]] = [q[iChild], q[i]];
+        i = iChild;
+    }
+    return x;
+}
+
+function priorityQueuePush<T extends PriorityQueueElement>(q: PriorityQueue<T>, x: T) {
+    q.push(x);
+    let i = q.length - 1;
+    while (i > 0) {
+        const iParent = Math.floor((i - 1) / 2);
+        if (q[i].priority >= q[iParent].priority) {
+            break;
+        }
+        [q[i], q[iParent]] = [q[iParent], q[i]];
+        i = iParent;
+    }
 }

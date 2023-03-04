@@ -128,7 +128,26 @@ function tryMovePlayer(state: State, dx: number, dy: number) {
         return;
     }
 
+    /* TODO
+    preTurn(state);
+    */
+
     player.pos = posNew;
+    player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+
+    // Generate movement noises.
+
+    let cellType = state.gameMap.cells.at(player.pos[0], player.pos[1]).type;
+
+    if ((dx != 0 || dy != 0) && cellType == TerrainType.GroundWoodCreaky) {
+        /* TODO
+        make_noise(state.gameMap, player, state.gameMap.popups, "\u{ab}creak\u{bb}");
+        */
+    }
+
+    /* TODO
+    advance_time(game);
+    */
 }
 
 function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
