@@ -511,7 +511,7 @@ class GameMap {
     }
     
     allLootCollected(): boolean {
-        return this.items.find((item) => item.type == ItemType.Coin) != undefined;
+        return this.items.find((item) => item.type == ItemType.Coin) === undefined;
     }
 
     isGuardAt(x: number, y: number): boolean {

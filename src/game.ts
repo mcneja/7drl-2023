@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
 import { GameMap, Player, TerrainType } from './game-map';
-import { GuardMode } from './guard';
+import { GuardMode, guardActAll } from './guard';
 import { Renderer, createRenderer } from './render';
 import * as colorPreset from './color-preset';
 
@@ -20,6 +20,7 @@ type State = {
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
     player: Player;
+    finishedLevel: boolean;
     seeAll : boolean;
     camera: Camera;
     level: number;
@@ -80,6 +81,9 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
                 e.preventDefault();
                 tryMovePlayer(state, 0, speed);
+            } else if (e.code == 'Period' || e.code == 'Numpad5') {
+                e.preventDefault();
+                tryMovePlayer(state, 0, 0);
             }
         }
 
@@ -105,6 +109,23 @@ function main(images: Array<HTMLImageElement>) {
     requestUpdateAndRender();
 }
 
+function advanceToNextLevel(state: State) {
+    state.level += 1;
+    state.gameMap = createGameMap(state.level);
+    state.finishedLevel = false;
+
+    state.player.pos = state.gameMap.playerStartPos;
+    state.player.dir = vec2.fromValues(0, -1);
+    state.player.gold = 0;
+    state.player.noisy = false;
+    state.player.damagedLastTurn = false;
+    state.player.turnsRemainingUnderwater = 0;
+
+    state.camera = createCamera(state.gameMap.playerStartPos);
+
+    updateMapVisibility(state.gameMap, state.player.pos);
+}
+
 function tryMovePlayer(state: State, dx: number, dy: number) {
 
     const player = state.player;
@@ -119,6 +140,9 @@ function tryMovePlayer(state: State, dx: number, dy: number) {
 
     const posNew = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
     if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= state.gameMap.cells.sizeX || posNew[1] >= state.gameMap.cells.sizeY) {
+        if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+            advanceToNextLevel(state);
+        }
         return;
     }
 
@@ -128,9 +152,7 @@ function tryMovePlayer(state: State, dx: number, dy: number) {
         return;
     }
 
-    /* TODO
     preTurn(state);
-    */
 
     player.pos = posNew;
     player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
@@ -145,9 +167,53 @@ function tryMovePlayer(state: State, dx: number, dy: number) {
         */
     }
 
+    advanceTime(state);
+}
+
+function preTurn(state: State) {
     /* TODO
-    advance_time(game);
+    state.show_msgs = true;
+    state.popups.clear();
     */
+    state.player.noisy = false;
+    state.player.damagedLastTurn = false;
+}
+
+function advanceTime(state: State) {
+    if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
+        if (state.player.turnsRemainingUnderwater > 0) {
+            --state.player.turnsRemainingUnderwater;
+        }
+    } else {
+        state.player.turnsRemainingUnderwater = 7;
+    }
+
+    guardActAll(state.seeAll, /* state.popups, state.lines, */ state.gameMap, state.player);
+
+    updateMapVisibility(state.gameMap, state.player.pos);
+
+    if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+        state.finishedLevel = true;
+    }
+}
+
+const cardinalDirections: Array<vec2> = [
+    vec2.fromValues(-1, 0),
+    vec2.fromValues(1, 0),
+    vec2.fromValues(0, -1),
+    vec2.fromValues(0, 1),
+];
+
+function updateMapVisibility(map: GameMap, pos_viewer: vec2) {
+    map.recomputeVisibility(pos_viewer);
+
+    for (const dir of cardinalDirections) {
+        if (map.playerCanSeeInDirection(pos_viewer, dir)) {
+            const pos = vec2.create();
+            vec2.add(pos, pos_viewer, dir);
+            map.recomputeVisibility(pos);
+        }
+    }
 }
 
 function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
@@ -378,17 +444,18 @@ function createCamera(posPlayer: vec2): Camera {
 }
 
 function initState(): State {
-    const level = 3;
-    const gameMap = createGameMap(level);
+    const initialLevel = 0;
+    const gameMap = createGameMap(initialLevel);
 
     return {
         tLast: undefined,
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
         player: new Player(gameMap.playerStartPos),
-        seeAll : true,
+        finishedLevel: false,
+        seeAll : false,
         camera: createCamera(gameMap.playerStartPos),
-        level: level,
+        level: initialLevel,
         gameMap: gameMap,
     };
 }
@@ -396,6 +463,7 @@ function initState(): State {
 function resetState(state: State) {
     const gameMap = createGameMap(state.level);
 
+    state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
