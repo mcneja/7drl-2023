@@ -45,10 +45,9 @@ class Guard {
         this.heardGuardPos = pos;
         this.goal = pos;
         this.modeTimeout = 0;
-        this.regionGoal = invalidRegion;
+        this.regionGoal = map.closestRegion(pos);
         this.regionPrev = invalidRegion;
 
-        this.setupGoalRegion(map);
         this.updateDirInitial(map);
     }
 
@@ -226,7 +225,7 @@ class Guard {
     patrolStep(map: GameMap, player: Player) {
         const bumpedThief = this.moveTowardRegion(map, player);
     
-        if (map.cells.at(this.pos[0], this.pos[1]).region == this.regionGoal) {
+        if (map.cells.at(this.pos[0], this.pos[1]).region === this.regionGoal) {
             const regionPrev = this.regionPrev;
             this.regionPrev = this.regionGoal;
             this.regionGoal = map.randomNeighborRegion(this.regionGoal, regionPrev);
@@ -252,7 +251,7 @@ class Guard {
     }
 
     moveTowardRegion(map: GameMap, player: Player): boolean {
-        if (this.regionGoal == invalidRegion) {
+        if (this.regionGoal === invalidRegion) {
             return false;
         }
 
@@ -290,11 +289,11 @@ class Guard {
     setupGoalRegion(map: GameMap) {
         const regionCur = map.cells.at(this.pos[0], this.pos[1]).region;
     
-        if (this.regionGoal != invalidRegion && regionCur == this.regionPrev) {
+        if (this.regionGoal !== invalidRegion && regionCur === this.regionPrev) {
             return;
         }
     
-        if (regionCur == invalidRegion) {
+        if (regionCur === invalidRegion) {
             this.regionGoal = map.closestRegion(this.pos);
         } else {
             this.regionGoal = map.randomNeighborRegion(regionCur, this.regionPrev);

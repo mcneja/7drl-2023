@@ -522,9 +522,9 @@ class GameMap {
         const neighbors = [];
     
         for (const [region0, region1] of this.patrolRoutes) {
-            if (region0 == region && region1 != regionExclude) {
+            if (region0 === region && region1 !== regionExclude) {
                 neighbors.push(region1);
-            } else if (region1 == region && region0 != regionExclude) {
+            } else if (region1 === region && region0 !== regionExclude) {
                 neighbors.push(region0);
             }
         }
@@ -537,9 +537,9 @@ class GameMap {
     }
 
     guardMoveCost(posOld: vec2, posNew: vec2): number {
-        let cost = this.cells.at(posNew[0], posNew[1]).moveCost;
+        const cost = this.cells.at(posNew[0], posNew[1]).moveCost;
     
-        if (cost == Infinity) {
+        if (cost === Infinity) {
             return cost;
         }
     
@@ -547,31 +547,34 @@ class GameMap {
     
         if (posOld[0] != posNew[0] &&
             posOld[1] != posNew[1] &&
-            (this.cells.at(posOld[0], posNew[1]).moveCost == Infinity ||
-             this.cells.at(posNew[0], posOld[1]).moveCost == Infinity)) {
+            (this.cells.at(posOld[0], posNew[1]).moveCost === Infinity ||
+             this.cells.at(posNew[0], posOld[1]).moveCost === Infinity)) {
             return Infinity;
         }
     
         return cost;
     }
 
-    closestRegion(pos: vec2): number {
+    closestRegion(posStart: vec2): number {
+        if (this.patrolRegions.length === 0) {
+            return invalidRegion;
+        }
 
         const sizeX = this.cells.sizeX;
         const sizeY = this.cells.sizeY;
 
         const distField = new Float64Grid(sizeX, sizeY, Infinity);
-        const heap: PriorityQueue<DistPos> = [];
+        const toVisit: PriorityQueue<DistPos> = [];
 
-        priorityQueuePush(heap, { priority: 0, pos: pos });
+        priorityQueuePush(toVisit, { priority: 0, pos: posStart });
 
-        while (heap.length > 0) {
-            const state = priorityQueuePop(heap);
-            const dist = state.priority;
-            const pos = state.pos;
-    
+        while (toVisit.length > 0) {
+            const distPos = priorityQueuePop(toVisit);
+            const dist = distPos.priority;
+            const pos = distPos.pos;
+
             const region = this.cells.at(pos[0], pos[1]).region;
-            if (region != invalidRegion) {
+            if (region !== invalidRegion) {
                 return region;
             }
     
@@ -595,7 +598,7 @@ class GameMap {
                 let distNew = dist + moveCost + adjacentMove.cost;
     
                 if (distNew < distField.get(posNew[0], posNew[1])) {
-                    priorityQueuePush(heap, { priority: distNew, pos: posNew });
+                    priorityQueuePush(toVisit, { priority: distNew, pos: posNew });
                 }
             }
         }
@@ -604,6 +607,7 @@ class GameMap {
     }
 
     computeDistancesToRegion(iRegionGoal: number): Float64Grid {
+        console.assert(iRegionGoal >= 0);
         console.assert(iRegionGoal < this.patrolRegions.length);
     
         let region = this.patrolRegions[iRegionGoal];
@@ -615,8 +619,8 @@ class GameMap {
         for (let x = region.posMin[0]; x < region.posMax[0]; ++x) {
             for (let y = region.posMin[1]; y < region.posMax[1]; ++y) {
                 const p = vec2.fromValues(x, y);
-                const guardMoveCost = this.cells.at(x, y).moveCost;
-                goal.push({ priority: guardMoveCost, pos: p });
+                const cost = this.cells.at(x, y).moveCost;
+                goal.push({ priority: cost, pos: p });
             }
         }
     
@@ -636,15 +640,15 @@ class GameMap {
         let sizeX = this.cells.sizeX;
         let sizeY = this.cells.sizeY;
 
-        const heap: PriorityQueue<DistPos> = [];
+        const toVisit: PriorityQueue<DistPos> = [];
         const distField = new Float64Grid(sizeX, sizeY, Infinity);
     
         for (const distPos of initialDistances) {
-            priorityQueuePush(heap, distPos);
+            priorityQueuePush(toVisit, distPos);
         }
     
-        while (heap.length > 0) {
-            const distPos = priorityQueuePop(heap);
+        while (toVisit.length > 0) {
+            const distPos = priorityQueuePop(toVisit);
             if (distPos.priority >= distField.get(distPos.pos[0], distPos.pos[1])) {
                 continue;
             }
@@ -665,7 +669,7 @@ class GameMap {
                 const distNew = distPos.priority + moveCost + adjacentMove.cost;
     
                 if (distNew < distField.get(posNew[0], posNew[1])) {
-                    priorityQueuePush(heap, { priority: distNew, pos: posNew });
+                    priorityQueuePush(toVisit, { priority: distNew, pos: posNew });
                 }
             }
         }

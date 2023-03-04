@@ -38,6 +38,16 @@ type Adjacency = {
 }
 
 function createGameMap(level: number): GameMap {
+    let map = createGameMapInternal(level);
+
+    for (let iTry = 0; map.patrolRegions.length === 0 && iTry < 100; ++iTry) {
+        map = createGameMapInternal(level);
+    }
+
+    return map;
+}
+
+function createGameMapInternal(level: number): GameMap {
     const sizeX = randomHouseWidth(level);
     const sizeY = randomHouseDepth(level);
 
@@ -59,15 +69,15 @@ function createGameMap(level: number): GameMap {
     placeLoot(rooms, adjacencies, map);
     placeExteriorBushes(map);
     placeFrontPillars(map);
+
+    fixupWalls(cells);
+    cacheCellInfo(map);
+
     placeGuards(level, rooms, map);
 
     markExteriorAsSeen(map);
 
-    cacheCellInfo(map);
-
     map.totalLoot = map.items.reduce((totalLoot, item) => totalLoot + ((item.type == ItemType.Coin) ? 1 : 0), 0);
-
-    fixupWalls(cells);
 
     return map;
 }
@@ -1120,7 +1130,7 @@ function generatePatrolRoutes(map: GameMap, rooms: Array<Room>, adjacencies: Arr
         let region0 = roomPatrolRegion[adj.room_left];
         let region1 = roomPatrolRegion[adj.room_right];
 
-        if (region0 == invalidRegion || region1 == invalidRegion) {
+        if (region0 === invalidRegion || region1 === invalidRegion) {
             continue;
         }
 
