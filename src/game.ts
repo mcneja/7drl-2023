@@ -410,35 +410,42 @@ function renderPlayer(state: State, addGlyph: AddGlyph) {
 
 function renderGuards(state: State, addGlyph: AddGlyph) {
     for (const guard of state.gameMap.guards) {
-        const tileIndex = 33 + tileIndexOffsetForDir(guard.dir);
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
-
         const visible = state.seeAll || cell.seen || guard.speaking;
-
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
         }
 
+        const tileIndex = 33 + tileIndexOffsetForDir(guard.dir);
         const color =
             !visible ? colorPreset.darkGray :
             (guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) ? unlitColor :
             colorPreset.lightMagenta;
 
-        addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileIndex, color);
+            const x = guard.pos[0];
+            const y = guard.pos[1];
+    
+            addGlyph(x, y, x+1, y+1, tileIndex, color);
     }
 }
 
 function renderGuardOverheadIcons(state: State, addGlyph: AddGlyph) {
     for (const guard of state.gameMap.guards) {
-        const overheadIcon = guard.overheadIcon(state.gameMap, state.player, state.seeAll);
-        if (overheadIcon == undefined) {
+        const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
+        const visible = state.seeAll || cell.seen || guard.speaking;
+        if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
+            continue;
+        }
+
+        const tileIndex = guard.overheadIcon();
+        if (tileIndex === undefined) {
             continue;
         }
 
         const x = guard.pos[0];
         const y = guard.pos[1] + 0.625;
 
-        addGlyph(x, y, x+1, y+1, overheadIcon, colorPreset.lightYellow);
+        addGlyph(x, y, x+1, y+1, tileIndex, colorPreset.lightYellow);
     }
 }
 

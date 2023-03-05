@@ -51,18 +51,11 @@ class Guard {
         this.updateDirInitial(map);
     }
 
-    overheadIcon(map: GameMap, player: Player, seeAll: boolean): number | undefined {
+    overheadIcon(): number | undefined {
         if (this.mode == GuardMode.Patrol) {
             return undefined;
         }
     
-        let cell = map.cells.at(this.pos[0], this.pos[1]);
-    
-        let visible = seeAll || cell.seen || this.speaking;
-        if (!visible && vec2.squaredDistance(this.pos, player.pos) > 25) {
-            return undefined;
-        }
-
         return (this.mode == GuardMode.ChaseVisibleTarget) ? 40 : 39;
     }
 
