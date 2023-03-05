@@ -61,7 +61,7 @@ class Guard {
 
     act(/* popups: Popups, lines: Lines, */ player: Player, map: GameMap, shouts: Array<Shout>) {
         const modePrev = this.mode;
-        const posPrev = this.pos;
+        const posPrev = vec2.clone(this.pos);
     
         // See if senses will kick us into a new mode
     
