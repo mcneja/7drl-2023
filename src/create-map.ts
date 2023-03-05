@@ -1311,9 +1311,10 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
             for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
                 if (cellType == TerrainType.GroundWood && level > 3 && Math.random() < 0.02) {
-                    cellType = TerrainType.GroundWoodCreaky;
+                    map.cells.at(x, y).type = TerrainType.GroundWoodCreaky;
+                } else {
+                    map.cells.at(x, y).type = cellType;
                 }
-                map.cells.at(x, y).type = cellType;
             }
         }
 

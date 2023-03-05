@@ -314,7 +314,7 @@ const colorForTerrainType: Array<number> = [
     colorPreset.lightBlue, // TerrainType.GroundWater,
     colorPreset.darkCyan, // TerrainType.GroundMarble,
     colorPreset.darkBrown, // TerrainType.GroundWood,
-    colorPreset.darkBrown, // TerrainType.GroundWoodCreaky,
+    0xff004070, // TerrainType.GroundWoodCreaky,
     colorPreset.lightGray, // TerrainType.Wall0000,
     colorPreset.lightGray, // TerrainType.Wall0001,
     colorPreset.lightGray, // TerrainType.Wall0010,
