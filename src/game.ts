@@ -428,6 +428,20 @@ function renderGuards(state: State, addGlyph: AddGlyph) {
     }
 }
 
+function renderGuardOverheadIcons(state: State, addGlyph: AddGlyph) {
+    for (const guard of state.gameMap.guards) {
+        const overheadIcon = guard.overheadIcon(state.gameMap, state.player, state.seeAll);
+        if (overheadIcon == undefined) {
+            continue;
+        }
+
+        const x = guard.pos[0];
+        const y = guard.pos[1] + 0.625;
+
+        addGlyph(x, y, x+1, y+1, overheadIcon, colorPreset.lightYellow);
+    }
+}
+
 function tileIndexOffsetForDir(dir: vec2): number {
     if (dir[1] > 0) {
         return 1;
@@ -533,6 +547,8 @@ function renderScene(renderer: Renderer, state: State) {
     renderWorld(state, renderer.renderGlyphs.addGlyph);
     renderPlayer(state, renderer.renderGlyphs.addGlyph);
     renderGuards(state, renderer.renderGlyphs.addGlyph);
+    renderGuardOverheadIcons(state, renderer.renderGlyphs.addGlyph);
+
     renderer.renderGlyphs.flush();
 }
 
