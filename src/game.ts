@@ -164,7 +164,7 @@ function tryMovePlayer(state: State, dx: number, dy: number) {
     if (((dx != 0 || dy != 0) && cellType == TerrainType.GroundWoodCreaky)) {
         makeNoise(state.gameMap, player, 17 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
     } else if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-        makeNoise(state.gameMap, player, 17 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
+        makeNoise(state.gameMap, player, 8 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
     }
 
     advanceTime(state);
