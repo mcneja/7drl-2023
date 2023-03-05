@@ -59,6 +59,7 @@ function main(images: Array<HTMLImageElement>) {
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
+            resetState(state);
         } else {
             const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
