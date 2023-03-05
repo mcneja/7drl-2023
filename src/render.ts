@@ -1,40 +1,62 @@
-export { RenderGlyphs, Renderer, createRenderer };
+export { Renderer, GlyphRenderer, createRenderer };
 
 import { vec2, mat4 } from './my-matrix';
 
-type RenderGlyphs = {
-    start: (matScreenFromWorld: mat4, textureIndex: number) => void;
-    addGlyph: (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
-    flush: () => void;
+function createRenderer(name:string='webgl', canvas:HTMLCanvasElement, images: Array<HTMLImageElement>):Renderer {
+    if(name==='webgl') {
+        const ctx = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
+        return new WebGLRenderer(ctx, images); 
+    } 
+    if(name==='canvas') {
+        const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+        return new CanvasRenderer(ctx, images); 
+    } 
+    if(name==='null') {
+        return new Renderer(); 
+    } 
+    throw new Error(`Invalid renderer ${name}`)    
 }
 
-type BeginFrame = (screenSize: vec2) => void;
-
-type Renderer = {
-    beginFrame: BeginFrame;
-    renderGlyphs: RenderGlyphs;
+class GlyphRenderer {
+    start(matScreenFromWorld: mat4, textureIndex: number):void {}
+    addGlyph(x0: number, y0: number, x1: number, y1: number, glyphIndex: number|[number,number], color: number):void {}
+    flush():void {}
 }
 
-function createRenderer(gl: WebGL2RenderingContext, images: Array<HTMLImageElement>): Renderer {
-    const textures = images.map((image) => createTextureFromImage(gl, image));
-
-    const renderer = {
-        beginFrame: createBeginFrame(gl),
-        renderGlyphs: createGlyphRenderer(gl, textures),
+class Renderer {
+    name: string = 'null';
+    renderGlyphs: GlyphRenderer;
+    constructor() {
+        this.renderGlyphs = new GlyphRenderer();
+    }
+    beginFrame(screenSize: vec2, mapSize:vec2) {
     };
+    endFrame() {}
+} 
 
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.BLEND);
-    gl.clearColor(0, 0, 0, 1);
+// #####################
+// Web-GL Renderer
+// #####################
 
-    return renderer;
-}
-
-function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
-    return (screenSize) => {
+class WebGLRenderer extends Renderer {
+    gl: WebGL2RenderingContext;
+    constructor(gl: WebGL2RenderingContext, images: Array<HTMLImageElement>) {
+        super();
+        this.gl = gl;
+        const textures = images.map((image) => createTextureFromImage(gl, image));
+    
+        this.name = 'webgl';
+        this.renderGlyphs = new WebGLGlyphRenderer(gl, textures),
+    
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND);
+        gl.clearColor(0, 0, 0, 1);
+    }
+    beginFrame(screenSize:vec2, mapSize:vec2) {
+        const gl = this.gl;
         const canvas = gl.canvas as HTMLCanvasElement;
 
-        resizeCanvasToDisplaySize(canvas);
+        resizeCanvasToDisplaySize(canvas); //TODO: Put this in a listener for window size changes
 
         const screenX = canvas.clientWidth;
         const screenY = canvas.clientHeight;
@@ -44,144 +66,142 @@ function createBeginFrame(gl: WebGL2RenderingContext): BeginFrame {
 
         vec2.set(screenSize, screenX, screenY);
     }
+    endFrame() {}
 }
 
-function createGlyphRenderer(gl: WebGL2RenderingContext, textures: Array<WebGLTexture>): RenderGlyphs {
-    const vsSource = `#version 300 es
-        in vec2 vPosition;
-        in vec3 vTexcoord;
-        in vec4 vColor;
+class WebGLGlyphRenderer extends GlyphRenderer {
+    constructor(gl: WebGL2RenderingContext, textures: Array<WebGLTexture>) {
+        super();
+            const vsSource = `#version 300 es
+            in vec2 vPosition;
+            in vec3 vTexcoord;
+            in vec4 vColor;
 
-        uniform mat4 uMatScreenFromWorld;
+            uniform mat4 uMatScreenFromWorld;
 
-        out highp vec3 fTexcoord;
-        out highp vec4 fColor;
+            out highp vec3 fTexcoord;
+            out highp vec4 fColor;
 
-        void main() {
-            fTexcoord = vTexcoord;
-            fColor = vColor;
-            gl_Position = uMatScreenFromWorld * vec4(vPosition, 0, 1);
-        }
-    `;
+            void main() {
+                fTexcoord = vTexcoord;
+                fColor = vColor;
+                gl_Position = uMatScreenFromWorld * vec4(vPosition, 0, 1);
+            }
+        `;
 
-    const fsSource = `#version 300 es
-        in highp vec3 fTexcoord;
-        in highp vec4 fColor;
+        const fsSource = `#version 300 es
+            in highp vec3 fTexcoord;
+            in highp vec4 fColor;
 
-        uniform highp sampler2DArray uOpacity;
+            uniform highp sampler2DArray uOpacity;
 
-        out lowp vec4 fragColor;
+            out lowp vec4 fragColor;
 
-        void main() {
-            fragColor = fColor * texture(uOpacity, fTexcoord);
-        }
-    `;
+            void main() {
+                fragColor = fColor * texture(uOpacity, fTexcoord);
+            }
+        `;
 
-    const attribs = {
-        vPosition: 0,
-        vTexcoord: 1,
-        vColor: 2,
-    };
+        const attribs = {
+            vPosition: 0,
+            vTexcoord: 1,
+            vColor: 2,
+        };
 
-    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
+        const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
-    const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromWorld');
-    const uOpacityLoc = gl.getUniformLocation(program, 'uOpacity');
+        const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromWorld');
+        const uOpacityLoc = gl.getUniformLocation(program, 'uOpacity');
 
-    const maxQuads = 64;
-    const numVertices = 4 * maxQuads;
-    const bytesPerVertex = 2 * Float32Array.BYTES_PER_ELEMENT + 2 * Uint32Array.BYTES_PER_ELEMENT;
-    const wordsPerQuad = bytesPerVertex; // divide by four bytes per word, but also multiply by four vertices per quad
+        const maxQuads = 64;
+        const numVertices = 4 * maxQuads;
+        const bytesPerVertex = 2 * Float32Array.BYTES_PER_ELEMENT + 2 * Uint32Array.BYTES_PER_ELEMENT;
+        const wordsPerQuad = bytesPerVertex; // divide by four bytes per word, but also multiply by four vertices per quad
 
-    const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
-    const vertexDataAsFloat32 = new Float32Array(vertexData);
-    const vertexDataAsUint32 = new Uint32Array(vertexData);
+        const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
+        const vertexDataAsFloat32 = new Float32Array(vertexData);
+        const vertexDataAsUint32 = new Uint32Array(vertexData);
 
-    const vertexBuffer = gl.createBuffer();
+        const vertexBuffer = gl.createBuffer();
 
-    let numQuads = 0;
+        let numQuads = 0;
 
-    const matScreenFromWorldCached = mat4.create();
+        const matScreenFromWorldCached = mat4.create();
 
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.enableVertexAttribArray(attribs.vPosition);
-    gl.enableVertexAttribArray(attribs.vTexcoord);
-    gl.enableVertexAttribArray(attribs.vColor);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, bytesPerVertex, 0);
-    gl.vertexAttribPointer(attribs.vTexcoord, 3, gl.UNSIGNED_BYTE, false, bytesPerVertex, 8);
-    gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 12);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
-    const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
-    gl.bindVertexArray(null);
-
-    function start(matScreenFromWorld: mat4, textureIndex: number) {
-        mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
-
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
-    }
-
-    function addGlyph(x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) {
-        if (numQuads >= maxQuads) {
-            flushQuads();
-        }
-
-        const i = numQuads * wordsPerQuad;
-        const srcBase = glyphIndex << 16;
-
-        vertexDataAsFloat32[i+0] = x0;
-        vertexDataAsFloat32[i+1] = y0;
-        vertexDataAsUint32[i+2] = srcBase + 256;
-        vertexDataAsUint32[i+3] = color;
-
-        vertexDataAsFloat32[i+4] = x1;
-        vertexDataAsFloat32[i+5] = y0;
-        vertexDataAsUint32[i+6] = srcBase + 257;
-        vertexDataAsUint32[i+7] = color;
-
-        vertexDataAsFloat32[i+8] = x0;
-        vertexDataAsFloat32[i+9] = y1;
-        vertexDataAsUint32[i+10] = srcBase;
-        vertexDataAsUint32[i+11] = color;
-
-        vertexDataAsFloat32[i+12] = x1;
-        vertexDataAsFloat32[i+13] = y1;
-        vertexDataAsUint32[i+14] = srcBase + 1;
-        vertexDataAsUint32[i+15] = color;
-
-        ++numQuads;
-    }
-
-    function flushQuads() {
-        if (numQuads <= 0) {
-            return;
-        }
-
-        gl.useProgram(program);
-
+        const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
-
-        gl.uniform1i(uOpacityLoc, 0);
-
-        gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorldCached);
-
+        gl.enableVertexAttribArray(attribs.vPosition);
+        gl.enableVertexAttribArray(attribs.vTexcoord);
+        gl.enableVertexAttribArray(attribs.vColor);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexDataAsFloat32, 0);
-
-        gl.drawElements(gl.TRIANGLES, 6 * numQuads, gl.UNSIGNED_SHORT, 0);
-
+        gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, bytesPerVertex, 0);
+        gl.vertexAttribPointer(attribs.vTexcoord, 3, gl.UNSIGNED_BYTE, false, bytesPerVertex, 8);
+        gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 12);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+        const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
         gl.bindVertexArray(null);
 
-        numQuads = 0;
-    }
+        this.start = (matScreenFromWorld: mat4, textureIndex: number) => {
+            mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
 
-    return {
-        start: start,
-        addGlyph: addGlyph,
-        flush: flushQuads,
-    };
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
+        }
+
+        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => {
+            if (numQuads >= maxQuads) {
+                this.flush();
+            }
+
+            const i = numQuads * wordsPerQuad;
+            const srcBase = glyphIndex << 16;
+
+            vertexDataAsFloat32[i+0] = x0;
+            vertexDataAsFloat32[i+1] = y0;
+            vertexDataAsUint32[i+2] = srcBase + 256;
+            vertexDataAsUint32[i+3] = color;
+
+            vertexDataAsFloat32[i+4] = x1;
+            vertexDataAsFloat32[i+5] = y0;
+            vertexDataAsUint32[i+6] = srcBase + 257;
+            vertexDataAsUint32[i+7] = color;
+
+            vertexDataAsFloat32[i+8] = x0;
+            vertexDataAsFloat32[i+9] = y1;
+            vertexDataAsUint32[i+10] = srcBase;
+            vertexDataAsUint32[i+11] = color;
+
+            vertexDataAsFloat32[i+12] = x1;
+            vertexDataAsFloat32[i+13] = y1;
+            vertexDataAsUint32[i+14] = srcBase + 1;
+            vertexDataAsUint32[i+15] = color;
+
+            ++numQuads;
+        }
+
+        this.flush = () => {
+            if (numQuads <= 0) {
+                return;
+            }
+
+            gl.useProgram(program);
+
+            gl.bindVertexArray(vao);
+
+            gl.uniform1i(uOpacityLoc, 0);
+
+            gl.uniformMatrix4fv(uProjectionMatrixLoc, false, matScreenFromWorldCached);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexDataAsFloat32, 0);
+
+            gl.drawElements(gl.TRIANGLES, 6 * numQuads, gl.UNSIGNED_SHORT, 0);
+
+            gl.bindVertexArray(null);
+
+            numQuads = 0;
+        }
+    }
 }
 
 function createGlyphIndexBuffer(gl: WebGL2RenderingContext, maxQuads: number): WebGLBuffer {
@@ -287,4 +307,196 @@ function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
         canvas.width = rect.width;
         canvas.height = rect.height;
     }
+}
+
+// #####################
+// Canvas-based Renderer
+// #####################
+
+class CanvasRenderer extends Renderer {
+    ctx: CanvasRenderingContext2D;
+    shake: vec2;
+    offset: vec2;
+    gridCellSize: vec2;
+    renderGlyphs: CanvasGlyphRenderer;
+    constructor(ctx: CanvasRenderingContext2D, images: Array<HTMLImageElement>) {
+        super();
+        const textures = images.map(im => new SpriteSheet(ctx, flattenImage(im), [16,16]));
+        this.name = 'canvas';
+        this.ctx = ctx;
+        this.renderGlyphs = new CanvasGlyphRenderer(textures);
+//        this.gridCellSize = [24,24];
+        this.gridCellSize = [16,16]; //size in pixel of each cell
+        this.offset = [0,0];
+        this.shake = [0,0];
+    }
+    beginFrame(screenSize:vec2, mapSize:vec2) {
+        resizeCanvasToDisplaySize(this.ctx.canvas);
+        this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+        this.ctx.save();
+        this.ctx.translate(this.offset[0] + this.shake[0], this.offset[1] + this.shake[1]);
+        this.ctx.scale(...this.gridCellSize);
+        // this.ctx.translate(this.offset[0] + this.shake[0], this.ctx.canvas.height - this.offset[1] - this.shake[1]);
+        // this.ctx.scale(this.gridCellSize[0], -this.gridCellSize[1]);
+        this.renderGlyphs.mapSize = mapSize;
+        vec2.set(screenSize, this.ctx.canvas.width, this.ctx.canvas.height);
+    }
+    endFrame() {
+        this.ctx.restore();
+    }
+}
+
+class CanvasGlyphRenderer extends GlyphRenderer {
+    textures: Array<SpriteSheet>;
+    activeTexture: SpriteSheet|null;
+    tileSize: vec2;
+    mapSize: vec2;
+    constructor(textures: Array<SpriteSheet>) { //ctx: CanvasRenderingContext2D, 
+        super();
+        this.textures = textures;
+        this.activeTexture = null;
+//        this.tileSize = [24,36];
+        this.tileSize = [16,16];
+        this.mapSize = [0,0];
+    }
+    start(matScreenFromWorld: mat4, textureIndex: number) {
+        this.activeTexture = this.textures[textureIndex];
+        this.activeTexture.ctx.imageSmoothingEnabled = false;
+    }
+    addGlyph(x0: number, y0: number, x1: number, y1: number, glyphIndex: number|[number, number], color: number) {
+        //todo: use color
+        if(this.activeTexture!==null) this.activeTexture.draw(glyphIndex, x0, this.mapSize[1]-y0);
+    }
+    flush() {
+    }
+}
+
+class SpriteSheet {
+    spriteSize:[number,number];
+    sheet:HTMLImageElement;
+    ctx:CanvasRenderingContext2D;
+    constructor(ctx: CanvasRenderingContext2D, src_file:string, spriteSize:[number,number]=[16,16]) {
+        this.spriteSize = spriteSize;
+        this.sheet = new Image();
+        this.sheet.src = src_file;
+        this.ctx = ctx;
+    }
+    draw(spriteLoc:number|[number,number], x:number, y:number, flipx:boolean=false):void {
+        if(typeof spriteLoc==='number') spriteLoc = [0,spriteLoc];
+        let flipped = 1 - 2*Number(flipx);
+        if(flipx) {
+            this.ctx.scale(-1,1);
+        }
+        this.ctx.drawImage(
+            this.sheet,
+            spriteLoc[0]*this.spriteSize[0],
+            spriteLoc[1]*this.spriteSize[1],
+            this.spriteSize[0],
+            this.spriteSize[1],
+            flipped*x,
+            y,
+            flipped,
+            1
+        );
+        if(flipx) {
+            this.ctx.scale(-1,1);
+        }
+    }
+    drawScaled(spriteLoc:[number,number], x:number, y:number, scale:number, flipx=false):void {
+        let flipped = 1 - 2*Number(flipx);
+        if(flipx) {
+            this.ctx.scale(-1,1);
+        }
+        this.ctx.drawImage(
+            this.sheet,
+            spriteLoc[0]*this.spriteSize[0],
+            spriteLoc[1]*this.spriteSize[1],
+            this.spriteSize[0],
+            this.spriteSize[1],
+            flipped*(x),
+            y,
+            flipped*scale,
+            scale
+        );
+        if(flipx) {
+            this.ctx.scale(-1,1);
+        }
+    }
+    drawRotated(spriteLoc:[number,number], x:number, y:number, angle:number, flipx:boolean=false, 
+            anchor:[number,number]|'center'='center'):void {
+        this.ctx.save();
+        if(anchor=='center') anchor = [0.5, 0.5];
+        this.ctx.translate(x, y);
+        this.ctx.rotate(angle * Math.PI / 180);
+        if(flipx) this.ctx.scale(-1,1);
+        this.ctx.translate(-anchor[0], -anchor[1]);
+        this.ctx.drawImage(
+            this.sheet,
+            spriteLoc[0]*this.spriteSize[0],
+            spriteLoc[1]*this.spriteSize[1],
+            this.spriteSize[0],
+            this.spriteSize[1],
+            0,
+            0,
+            1,
+            1
+        );
+        this.ctx.restore();
+    }
+    drawRotatedMultitile(spriteLoc:[number,number,number,number], x:number, y:number, angle:number, 
+            flipx:boolean=false, anchor:[number,number]|'center'='center'):void { 
+        //same as drawRotated but spriteloc is 4-item array referencing the sprite location: [x,y,w,h]
+        this.ctx.save();
+        let tw = spriteLoc[2];
+        let th = spriteLoc[3];
+        if(anchor == 'center') anchor = [tw/2,th/2];
+        this.ctx.translate(x + anchor[0], y + anchor[1]);
+        this.ctx.rotate(angle * Math.PI / 180);
+        if(flipx) {
+            this.ctx.scale(-1,1);
+        }
+        this.ctx.translate(-anchor[0], -anchor[1]);
+        this.ctx.drawImage(
+            this.sheet,
+            spriteLoc[0]*this.spriteSize[0],
+            spriteLoc[1]*this.spriteSize[1],
+            this.spriteSize[0]*tw,
+            this.spriteSize[1]*th,
+            0,
+            0,
+            tw,
+            th
+        );
+        this.ctx.restore();
+    }
+}
+
+
+function flattenImage(image: HTMLImageElement): string {
+    const numGlyphsX = 16;
+    const numGlyphsY = 16;
+    const numGlyphs = numGlyphsX * numGlyphsY;
+    const srcGlyphSizeX = image.naturalWidth / numGlyphsX;
+    const srcGlyphSizeY = image.naturalHeight / numGlyphsY;
+    const scaleFactor = 1;
+    const dstGlyphSizeX = srcGlyphSizeX * scaleFactor;
+    const dstGlyphSizeY = srcGlyphSizeY * scaleFactor;
+
+    // Rearrange the glyph data from a grid to a vertical array
+
+    const canvas = document.createElement('canvas');
+    canvas.width = dstGlyphSizeX;
+    canvas.height = dstGlyphSizeY * numGlyphs;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    for (let y = 0; y < numGlyphsY; ++y) {
+        for (let x = 0; x < numGlyphsX; ++x) {
+            const sx = x * srcGlyphSizeX;
+            const sy = y * srcGlyphSizeY;
+            const dx = 0;
+            const dy = (numGlyphsX * y + x) * dstGlyphSizeY;
+            ctx.drawImage(image, sx, sy, srcGlyphSizeX, srcGlyphSizeY, dx, dy, dstGlyphSizeX, dstGlyphSizeY);
+        }
+    }
+    return canvas.toDataURL();
 }

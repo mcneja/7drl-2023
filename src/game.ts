@@ -2,7 +2,7 @@ import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
 import { GameMap, Player, TerrainType } from './game-map';
 import { GuardMode, guardActAll } from './guard';
-import { Renderer, createRenderer } from './render';
+import { Renderer, createRenderer, GlyphRenderer } from './render';
 import * as colorPreset from './color-preset';
 
 var fontImageRequire = require('./font.png');
@@ -37,14 +37,10 @@ function loadResourcesThenRun() {
 function main(images: Array<HTMLImageElement>) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
-    const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
 
-    if (gl == null) {
-        alert("Unable to initialize WebGL2. Your browser or machine may not support it.");
-        return;
-    }
+    const renderEngine = 'webgl';
 
-    const renderer = createRenderer(gl, images);
+    const renderer = createRenderer(renderEngine, canvas, images);
     const state = initState();
 
     document.body.addEventListener('keydown', onKeyDown);
@@ -275,6 +271,40 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     });
 }
 
+const altTileIndexForTerrainType: Array<[number, number]> = [
+    [1, 4], // TerrainType.GroundNormal,
+    [7, 3], // TerrainType.GroundGrass,
+    [7, 7], // TerrainType.GroundWater,
+    [1, 4], // TerrainType.GroundMarble,
+    [1, 4], // TerrainType.GroundWood,
+    [1, 4], // TerrainType.GroundWoodCreaky,
+    [0, 0], // TerrainType.Wall0000,
+    [3, 2], // TerrainType.Wall0001,
+    [3, 3], // TerrainType.Wall0010,
+    [3, 5], // TerrainType.Wall0011,
+    [3, 1], // TerrainType.Wall0100,
+    [2, 3], // TerrainType.Wall0101,
+    [2, 1], // TerrainType.Wall0110,
+    [2, 5], // TerrainType.Wall0111,
+    [3, 0], // TerrainType.Wall1000,
+    [2, 3], // TerrainType.Wall1001,
+    [2, 2], // TerrainType.Wall1010,
+    [2, 4], // TerrainType.Wall1011,
+    [3, 4], // TerrainType.Wall1100,
+    [2, 7], // TerrainType.Wall1101,
+    [2, 8], // TerrainType.Wall1110,
+    [0, 0], // TerrainType.Wall1111,
+    [0, 4], // TerrainType.OneWayWindowE,
+    [0, 3], // TerrainType.OneWayWindowW,
+    [0, 2], // TerrainType.OneWayWindowN,
+    [1, 2], // TerrainType.OneWayWindowS,
+    [1, 0], // TerrainType.PortcullisNS,
+    [1, 1], // TerrainType.PortcullisEW,
+    [0, 5], // TerrainType.DoorNS,
+    [0, 6], // TerrainType.DoorEW,
+
+];
+
 const tileIndexForTerrainType: Array<number> = [
     112, // TerrainType.GroundNormal,
     116, // TerrainType.GroundGrass,
@@ -365,9 +395,7 @@ const colorForItemType: Array<number> = [
 
 const unlitColor: number = colorPreset.lightBlue;
 
-type AddGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => void;
-
-function renderWorld(state: State, addGlyph: AddGlyph) {
+function renderWorld(state: State, glyphRenderer: GlyphRenderer) {
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
             const cell = state.gameMap.cells.at(x, y);
@@ -377,7 +405,7 @@ function renderWorld(state: State, addGlyph: AddGlyph) {
             const terrainType = cell.type;
             const tileIndex = tileIndexForTerrainType[terrainType];
             const color = cell.lit ? colorForTerrainType[terrainType] : unlitColor;
-            addGlyph(x, y, x+1, y+1, tileIndex, color);
+            glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, color);
         }
     }
 
@@ -388,11 +416,11 @@ function renderWorld(state: State, addGlyph: AddGlyph) {
         }
         const tileIndex = tileIndexForItemType[item.type];
         const color = cell.lit ? colorForItemType[item.type] : unlitColor;
-        addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
+        glyphRenderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
     }
 }
 
-function renderPlayer(state: State, addGlyph: AddGlyph) {
+function renderPlayer(state: State, glyphRenderer: GlyphRenderer) {
     const player = state.player;
     const x = player.pos[0];
     const y = player.pos[1];
@@ -405,10 +433,10 @@ function renderPlayer(state: State, addGlyph: AddGlyph) {
         !lit ? colorPreset.lightBlue :
         colorPreset.lightGray;
 
-    addGlyph(x, y, x+1, y+1, 32, color);
+    glyphRenderer.addGlyph(x, y, x+1, y+1, 32, color);
 }
 
-function renderGuards(state: State, addGlyph: AddGlyph) {
+function renderGuards(state: State, glyphRenderer: GlyphRenderer) {
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -422,14 +450,14 @@ function renderGuards(state: State, addGlyph: AddGlyph) {
             (guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) ? unlitColor :
             colorPreset.lightMagenta;
 
-            const x = guard.pos[0];
-            const y = guard.pos[1];
-    
-            addGlyph(x, y, x+1, y+1, tileIndex, color);
+        const x = guard.pos[0];
+        const y = guard.pos[1];
+
+        glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, color);
     }
 }
 
-function renderGuardOverheadIcons(state: State, addGlyph: AddGlyph) {
+function renderGuardOverheadIcons(state: State, glyphRenderer: GlyphRenderer) {
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -445,7 +473,7 @@ function renderGuardOverheadIcons(state: State, addGlyph: AddGlyph) {
         const x = guard.pos[0];
         const y = guard.pos[1] + 0.625;
 
-        addGlyph(x, y, x+1, y+1, tileIndex, colorPreset.lightYellow);
+        glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, colorPreset.lightYellow);
     }
 }
 
@@ -545,17 +573,16 @@ function updateCamera(state: State, dt: number) {
 
 function renderScene(renderer: Renderer, state: State) {
     const screenSize = vec2.create();
-    renderer.beginFrame(screenSize);
+    renderer.beginFrame(screenSize, [state.gameMap.cells.sizeX, state.gameMap.cells.sizeY]);
 
     const matScreenFromWorld = mat4.create();
     setupViewMatrix(state, screenSize, matScreenFromWorld);
 
     renderer.renderGlyphs.start(matScreenFromWorld, 1);
-    renderWorld(state, renderer.renderGlyphs.addGlyph);
-    renderPlayer(state, renderer.renderGlyphs.addGlyph);
-    renderGuards(state, renderer.renderGlyphs.addGlyph);
-    renderGuardOverheadIcons(state, renderer.renderGlyphs.addGlyph);
-
+    renderWorld(state, renderer.renderGlyphs);
+    renderPlayer(state, renderer.renderGlyphs);
+    renderGuards(state, renderer.renderGlyphs);
+    renderGuardOverheadIcons(state, renderer.renderGlyphs);
     renderer.renderGlyphs.flush();
 }
 
