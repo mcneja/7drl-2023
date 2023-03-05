@@ -52,34 +52,30 @@ function main(images: Array<HTMLImageElement>) {
             return;
         }
 
-        if (e.code == 'KeyR') {
-            e.preventDefault();
-            resetState(state);
-        } else if (e.code == 'KeyA') {
-            e.preventDefault();
-            if (e.ctrlKey) {
+        if (e.ctrlKey) {
+            if (e.code === 'KeyA') {
+                e.preventDefault();
                 state.seeAll = !state.seeAll;
-            } else {
-                const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
-                tryMovePlayer(state, -speed, 0);
             }
+        } else if (e.code == 'KeyR') {
+            e.preventDefault();
         } else {
             const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
                 e.preventDefault();
-                tryMovePlayer(state, -speed, 0);
+                tryMovePlayer(state, -1, 0, speed);
             } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
                 e.preventDefault();
-                tryMovePlayer(state, speed, 0);
+                tryMovePlayer(state, 1, 0, speed);
             } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, -speed);
+                tryMovePlayer(state, 0, -1, speed);
             } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, speed);
-            } else if (e.code == 'Period' || e.code == 'Numpad5') {
+                tryMovePlayer(state, 0, 1, speed);
+            } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, 0);
+                tryMovePlayer(state, 0, 0, 1);
             }
         }
 
@@ -122,48 +118,95 @@ function advanceToNextLevel(state: State) {
     updateMapVisibility(state.gameMap, state.player.pos);
 }
 
-function tryMovePlayer(state: State, dx: number, dy: number) {
+function tryMovePlayer(state: State, dx: number, dy: number, speed: number) {
 
     const player = state.player;
 
     // Can't move if you're dead.
 
-    if (player.health == 0) {
+    if (player.health <= 0) {
         return;
     }
 
-    // Are we trying to exit the level?
+    // If just passing time, do that.
 
-    const posNew = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
-    if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= state.gameMap.cells.sizeX || posNew[1] >= state.gameMap.cells.sizeY) {
-        if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
-            advanceToNextLevel(state);
-        }
+    if ((dx === 0 && dy === 0) || speed <= 0) {
+        preTurn(state);
+        advanceTime(state);
         return;
     }
 
-    // Is something in the way?
-
-    if (blocked(state.gameMap, player.pos, posNew)) {
+    let dist = playerMoveDistAllowed(state, dx, dy, speed);
+    if (dist <= 0) {
         return;
     }
+
+    // Execute the move. Collect loot along the way; advance to next level when moving off the edge.
 
     preTurn(state);
 
-    player.pos = posNew;
-    player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+    for (; dist > 0; --dist) {
+        player.pos[0] += dx;
+        player.pos[1] += dy;
+
+        if (player.pos[0] < 0 ||
+            player.pos[1] < 0 ||
+            player.pos[0] >= state.gameMap.cells.sizeX ||
+            player.pos[1] >= state.gameMap.cells.sizeY) {
+            advanceToNextLevel(state);
+            return;
+        }
+
+        player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+    }
 
     // Generate movement noises.
 
     let cellType = state.gameMap.cells.at(player.pos[0], player.pos[1]).type;
-
-    if (((dx != 0 || dy != 0) && cellType == TerrainType.GroundWoodCreaky)) {
+    if (cellType == TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, 17 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
-    } else if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-        makeNoise(state.gameMap, player, 8 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
     }
 
     advanceTime(state);
+}
+
+function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
+    const player = state.player;
+
+    let posPrev = vec2.clone(player.pos);
+
+    let distAllowed = 0;
+
+    for (let d = 1; d <= maxDist; ++d) {
+        const pos = vec2.fromValues(player.pos[0] + dx * d, player.pos[1] + dy * d);
+
+        if (pos[0] < 0 ||
+            pos[1] < 0 ||
+            pos[0] >= state.gameMap.cells.sizeX ||
+            pos[1] >= state.gameMap.cells.sizeY) {
+            if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+                distAllowed = d;
+            }
+            break;
+        } else if (blocked(state.gameMap, posPrev, pos)) {
+            break;
+        } else {
+            distAllowed = d;
+        }
+
+        posPrev = pos;
+    }
+
+    // If the move would end on a guard, reject it
+
+    if (distAllowed > 0) {
+        const pos = vec2.fromValues(player.pos[0] + dx * distAllowed, player.pos[1] + dy * distAllowed);
+        if (state.gameMap.guards.find((guard) => guard.pos[0] == pos[0] && guard.pos[1] == pos[1]) !== undefined) {
+            distAllowed = 0;
+        }
+    }
+
+    return distAllowed;
 }
 
 function makeNoise(map: GameMap, player: Player, radius: number /*, popups: &mut Popups, noise: &'static str */) {
@@ -252,10 +295,6 @@ function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
     }
 
     if (tileType == TerrainType.OneWayWindowS && posNew[1] >= posOld[1]) {
-        return true;
-    }
-
-    if (map.guards.find((guard) => guard.pos[0] == posNew[0] && guard.pos[1] == posNew[1]) !== undefined) {
         return true;
     }
 
