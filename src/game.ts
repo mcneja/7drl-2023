@@ -161,13 +161,24 @@ function tryMovePlayer(state: State, dx: number, dy: number) {
 
     let cellType = state.gameMap.cells.at(player.pos[0], player.pos[1]).type;
 
-    if ((dx != 0 || dy != 0) && cellType == TerrainType.GroundWoodCreaky) {
-        /* TODO
-        make_noise(state.gameMap, player, state.gameMap.popups, "\u{ab}creak\u{bb}");
-        */
+    if (((dx != 0 || dy != 0) && cellType == TerrainType.GroundWoodCreaky)) {
+        makeNoise(state.gameMap, player, 17 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
+    } else if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        makeNoise(state.gameMap, player, 17 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
     }
 
     advanceTime(state);
+}
+
+function makeNoise(map: GameMap, player: Player, radius: number /*, popups: &mut Popups, noise: &'static str */) {
+    player.noisy = true;
+    /* TODO
+    popups.noise(player.pos, noise);
+    */
+
+    for (const guard of map.guardsInEarshot(player.pos, radius)) {
+        guard.heardThief = true;
+    }
 }
 
 function preTurn(state: State) {

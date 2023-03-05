@@ -9,7 +9,6 @@ export {
     Player,
     TerrainType,
     guardMoveCostForItemType,
-    guardsInEarshot,
     invalidRegion
 };
 
@@ -676,66 +675,57 @@ class GameMap {
     
         return distField;
     }
-}
 
-function guardsInEarshot(gameMap: GameMap, soundPos: vec2, radius: number): Array<Guard> {
-    return []; // TODO not yet implemented
-}
-
-/* TODO finish porting
-function coords_in_earshot(gameMap: GameMap, soundPos: vec2, radius: number): Array<vec2> {
-    // Flood-fill from the emitter position.
-
-    const sizeX = gameMap.cells.sizeX;
-    const sizeY = gameMap.cells.sizeY;
-
-    const capacity = sizeX * sizeY;
-    const coordsVisited: Array<vec2> = []; // TODO: won't work due to non-value comparisons on vec2
-    const coords_to_visit = [];
-
-    coords_to_visit.push(soundPos);
-
-    while (let Some(pos) = coords_to_visit.pop_front()) {
-
-        coordsVisited.insert(pos);
-
-        for (const dir of soundNeighbors) {
-            let newPos = vec2.create();
-            vec2.add(newPos, pos, dir);
-
-            // Skip positions that are off the map.
-
-            if (newPos[0] < 0 || newPos[0] >= sizeX ||
-                newPos[1] < 0 || newPos[1] >= sizeY) {
-                continue;
-            }
-
-            // Skip neighbors that have already been visited.
-
-            if (coordsVisited.contains(newPos)) {
-                continue;
-            }
-
-            // Skip neighbors that are outside of the hearing radius.
-
-            let d2 = vec2.squaredDistance(soundPos, newPos);
-            if (d2 >= radius) {
-                continue;
-            }
-
-            // Skip neighbors that don't transmit sound
-
-            if (gameMap.cells.at(newPos[0], newPos[1]).blocksSound) {
-                continue;
-            }
-
-            coords_to_visit.push(newPos);
-        }
+    guardsInEarshot(soundPos: vec2, radius: number): Array<Guard> {
+        const coords = this.coordsInEarshot(soundPos, radius);
+        return this.guards.filter(guard => coords.has(this.cells.sizeX * guard.pos[1] + guard.pos[0]));
     }
 
-    return coordsVisited;
+    coordsInEarshot(soundPos: vec2, costCutoff: number): Set<number> {
+        let sizeX = this.cells.sizeX;
+        let sizeY = this.cells.sizeY;
+    
+        const toVisit: PriorityQueue<DistPos> = [];
+        const distField = new Float64Grid(sizeX, sizeY, Infinity);
+        const coordsVisited: Set<number> = new Set();
+    
+        priorityQueuePush(toVisit, { priority: 0, pos: soundPos });
+    
+        while (toVisit.length > 0) {
+            const distPos = priorityQueuePop(toVisit);
+            if (distPos.priority >= distField.get(distPos.pos[0], distPos.pos[1])) {
+                continue;
+            }
+    
+            distField.set(distPos.pos[0], distPos.pos[1], distPos.priority);
+            coordsVisited.add(sizeX * distPos.pos[1] + distPos.pos[0]);
+    
+            for (const adjacentMove of adjacentMoves) {
+                const posNew = vec2.fromValues(distPos.pos[0] + adjacentMove.dx, distPos.pos[1] + adjacentMove.dy);
+                if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
+                    continue;
+                }
+    
+                const costNew = distPos.priority + adjacentMove.cost;
+                if (costNew > costCutoff) {
+                    continue;
+                }
+    
+                if (this.cells.at(posNew[0], posNew[1]).blocksSound) {
+                    continue;
+                }
+    
+                if (costNew >= distField.get(posNew[0], posNew[1])) {
+                    continue;
+                }
+    
+                priorityQueuePush(toVisit, { priority: costNew, pos: posNew });
+            }
+        }
+    
+        return coordsVisited;
+    }
 }
-*/
 
 type PriorityQueueElement = {
     priority: number;

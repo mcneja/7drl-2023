@@ -1,6 +1,6 @@
 export { Guard, GuardMode, guardActAll };
 
-import { Float64Grid, GameMap, Player, TerrainType, guardsInEarshot, invalidRegion } from './game-map';
+import { Float64Grid, GameMap, Player, TerrainType, invalidRegion } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 
@@ -334,7 +334,7 @@ function guardActAll(/* popups: Popups, lines: Lines, */ map: GameMap, player: P
 }
 
 function alertNearbyGuards(map: GameMap, shout: Shout) {
-    for (const guard of guardsInEarshot(map, shout.pos_shouter, 150)) {
+    for (const guard of map.guardsInEarshot(shout.pos_shouter, 25)) {
         if (guard.pos[0] != shout.pos_shouter[0] || guard.pos[1] != shout.pos_shouter[1]) {
             guard.hearingGuard = true;
             vec2.copy(guard.heardGuardPos, shout.pos_shouter);
