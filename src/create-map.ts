@@ -44,6 +44,9 @@ function createGameMap(level: number): GameMap {
         map = createGameMapInternal(level);
     }
 
+    map.computeLighting();
+    map.recomputeVisibility(map.playerStartPos);
+
     return map;
 }
 
@@ -78,8 +81,6 @@ function createGameMapInternal(level: number): GameMap {
     markExteriorAsSeen(map);
 
     map.totalLoot = map.items.reduce((totalLoot, item) => totalLoot + ((item.type == ItemType.Coin) ? 1 : 0), 0);
-
-    map.computeLighting();
 
     return map;
 }
