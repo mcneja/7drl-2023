@@ -66,9 +66,9 @@ function createGameMapInternal(level: number): GameMap {
 
     vec2.copy(map.playerStartPos, posStart);
 
-    placeLoot(rooms, adjacencies, map);
     placeExteriorBushes(map);
     placeFrontPillars(map);
+    placeLoot(rooms, adjacencies, map);
 
     fixupWalls(cells);
     cacheCellInfo(map);
@@ -78,6 +78,8 @@ function createGameMapInternal(level: number): GameMap {
     markExteriorAsSeen(map);
 
     map.totalLoot = map.items.reduce((totalLoot, item) => totalLoot + ((item.type == ItemType.Coin) ? 1 : 0), 0);
+
+    map.computeLighting();
 
     return map;
 }
@@ -266,7 +268,7 @@ function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid):
 
     const map = new CellGrid(mapSizeX, mapSizeY);
 
-    // Super hacky: put down grass under all the rooms to plug holes, and light the interior.
+    // Super hacky: put down grass under all the rooms to plug holes.
 
     for (let rx = 0; rx < cx; ++rx) {
         for (let ry = 0; ry < cy; ++ry) {
@@ -279,7 +281,6 @@ function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid):
                 for (let y = y0; y < y1; ++y) {
                     const cell = map.at(x, y);
                     cell.type = TerrainType.GroundGrass;
-                    cell.lit = true;
                 }
             }
         }
@@ -1329,10 +1330,22 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                     }
                 }
             } else if (dx >= 2 && dy >= 2) {
-                tryPlaceBush(map, room.posMin[0], room.posMin[1]);
-                tryPlaceBush(map, room.posMax[0] - 1, room.posMin[1]);
-                tryPlaceBush(map, room.posMin[0], room.posMax[1] - 1);
-                tryPlaceBush(map, room.posMax[0] - 1, room.posMax[1] - 1);
+                const itemTypes = [ItemType.TorchLit, ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
+                shuffleArray(itemTypes);
+                const itemPositions = [
+                    [room.posMin[0], room.posMin[1]],
+                    [room.posMax[0] - 1, room.posMin[1]],
+                    [room.posMin[0], room.posMax[1] - 1],
+                    [room.posMax[0] - 1, room.posMax[1] - 1],
+                ];
+                for (let i = 0; i < itemPositions.length; ++i) {
+                    const [x, y] = itemPositions[i];
+                    if (map.cells.at(x, y).type != TerrainType.GroundGrass) {
+                        continue;
+                    }
+                
+                    tryPlaceItem(map, x, y, itemTypes[i]);
+                }
             }
         } else if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
             if (dx >= 5 && dy >= 5) {
@@ -1349,80 +1362,59 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                 map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
                 map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
             } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
+                const itemTypes = new Array(dy - 2).fill(ItemType.Table);
+                itemTypes.push((Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit);
+                shuffleArray(itemTypes);
                 for (let y = 1; y < dy-1; ++y) {
                     placeItem(map, room.posMin[0] + 1, room.posMin[1] + y, ItemType.Chair);
-                    placeItem(map, room.posMin[0] + 2, room.posMin[1] + y, ItemType.Table);
+                    placeItem(map, room.posMin[0] + 2, room.posMin[1] + y, itemTypes[y - 1]);
                     placeItem(map, room.posMin[0] + 3, room.posMin[1] + y, ItemType.Chair);
                 }
             } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
+                const itemTypes = new Array(dx - 2).fill(ItemType.Table);
+                itemTypes.push((Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit);
+                shuffleArray(itemTypes);
                 for (let x = 1; x < dx-1; ++x) {
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 1, ItemType.Chair);
-                    placeItem(map, room.posMin[0] + x, room.posMin[1] + 2, ItemType.Table);
+                    placeItem(map, room.posMin[0] + x, room.posMin[1] + 2, itemTypes[x - 1]);
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 3, ItemType.Chair);
                 }
             } else if (dx > dy && (dy & 1) == 1 && Math.random() < 0.66667) {
                 let y = Math.floor(room.posMin[1] + dy / 2);
-
-                if (room.roomType == RoomType.PublicRoom) {
-                    tryPlaceTable(map, room.posMin[0] + 1, y);
-                    tryPlaceTable(map, room.posMax[0] - 2, y);
-                } else {
-                    tryPlaceChair(map, room.posMin[0] + 1, y);
-                    tryPlaceChair(map, room.posMax[0] - 2, y);
-                }
+                const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
+                const torchType = (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+                const itemTypes = [torchType, furnitureType];
+                shuffleArray(itemTypes);
+                tryPlaceItem(map, room.posMin[0] + 1, y, itemTypes[0]);
+                tryPlaceItem(map, room.posMax[0] - 2, y, itemTypes[1]);
             } else if (dy > dx && (dx & 1) == 1 && Math.random() < 0.66667) {
                 let x = Math.floor(room.posMin[0] + dx / 2);
-
-                if (room.roomType == RoomType.PublicRoom) {
-                    tryPlaceTable(map, x, room.posMin[1] + 1);
-                    tryPlaceTable(map, x, room.posMax[1] - 2);
-                } else {
-                    tryPlaceChair(map, x, room.posMin[1] + 1);
-                    tryPlaceChair(map, x, room.posMax[1] - 2);
-                }
+                const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
+                const torchType = (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+                const itemTypes = [torchType, furnitureType];
+                shuffleArray(itemTypes);
+                tryPlaceItem(map, x, room.posMin[1] + 1, itemTypes[0]);
+                tryPlaceItem(map, x, room.posMax[1] - 2, itemTypes[1]);
             } else if (dx > 3 && dy > 3) {
-                if (room.roomType == RoomType.PublicRoom) {
-                    tryPlaceTable(map, room.posMin[0], room.posMin[1]);
-                    tryPlaceTable(map, room.posMax[0] - 1, room.posMin[1]);
-                    tryPlaceTable(map, room.posMin[0], room.posMax[1] - 1);
-                    tryPlaceTable(map, room.posMax[0] - 1, room.posMax[1] - 1);
-                } else {
-                    tryPlaceChair(map, room.posMin[0], room.posMin[1]);
-                    tryPlaceChair(map, room.posMax[0] - 1, room.posMin[1]);
-                    tryPlaceChair(map, room.posMin[0], room.posMax[1] - 1);
-                    tryPlaceChair(map, room.posMax[0] - 1, room.posMax[1] - 1);
-                }
+                const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
+                const torchType = (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+                const itemTypes = [torchType, furnitureType, furnitureType, furnitureType];
+                shuffleArray(itemTypes);
+                tryPlaceItem(map, room.posMin[0], room.posMin[1], itemTypes[0]);
+                tryPlaceItem(map, room.posMax[0] - 1, room.posMin[1], itemTypes[1]);
+                tryPlaceItem(map, room.posMin[0], room.posMax[1] - 1, itemTypes[2]);
+                tryPlaceItem(map, room.posMax[0] - 1, room.posMax[1] - 1, itemTypes[3]);
             }
         }
     }
 }
 
-function tryPlaceBush(map: GameMap, x: number, y: number) {
-    if (map.cells.at(x, y).type != TerrainType.GroundGrass) {
-        return;
-    }
-
+function tryPlaceItem(map: GameMap, x: number, y: number, itemType: ItemType) {
     if (doorAdjacent(map.cells, x, y)) {
         return;
     }
 
-    placeItem(map, x, y, ItemType.Bush);
-}
-
-function tryPlaceTable(map: GameMap, x: number, y: number) {
-    if (doorAdjacent(map.cells, x, y)) {
-        return;
-    }
-
-    placeItem(map, x, y, ItemType.Table);
-}
-
-function tryPlaceChair(map: GameMap, x: number, y: number) {
-    if (doorAdjacent(map.cells, x, y)) {
-        return;
-    }
-
-    placeItem(map, x, y, ItemType.Chair);
+    placeItem(map, x, y, itemType);
 }
 
 function doorAdjacent(map: CellGrid, x: number, y: number): boolean {
@@ -1587,8 +1579,6 @@ function placeFrontPillars(map: GameMap) {
     for (let x = outerBorder; x < cx; x += 5) {
         map.cells.at(x, 1).type = TerrainType.Wall0000;
         map.cells.at(sx - x, 1).type = TerrainType.Wall0000;
-        map.cells.at(x, 1).lit = true;
-        map.cells.at(sx - x, 1).lit = true;
     }
 }
 

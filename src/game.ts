@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
-import { GameMap, Player, TerrainType } from './game-map';
+import { ItemType, GameMap, Player, TerrainType } from './game-map';
 import { GuardMode, guardActAll } from './guard';
 import { Renderer, createRenderer, GlyphRenderer } from './render';
 import * as colorPreset from './color-preset';
@@ -61,19 +61,19 @@ function main(images: Array<HTMLImageElement>) {
             e.preventDefault();
             resetState(state);
         } else {
-            const speed = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
+            const distDesired = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
                 e.preventDefault();
-                tryMovePlayer(state, -1, 0, speed);
+                tryMovePlayer(state, -1, 0, distDesired);
             } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
                 e.preventDefault();
-                tryMovePlayer(state, 1, 0, speed);
+                tryMovePlayer(state, 1, 0, distDesired);
             } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, -1, speed);
+                tryMovePlayer(state, 0, -1, distDesired);
             } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
                 e.preventDefault();
-                tryMovePlayer(state, 0, 1, speed);
+                tryMovePlayer(state, 0, 1, distDesired);
             } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
                 e.preventDefault();
                 tryMovePlayer(state, 0, 0, 1);
@@ -119,7 +119,7 @@ function advanceToNextLevel(state: State) {
     updateMapVisibility(state.gameMap, state.player.pos);
 }
 
-function tryMovePlayer(state: State, dx: number, dy: number, speed: number) {
+function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
     const player = state.player;
 
@@ -131,14 +131,22 @@ function tryMovePlayer(state: State, dx: number, dy: number, speed: number) {
 
     // If just passing time, do that.
 
-    if ((dx === 0 && dy === 0) || speed <= 0) {
+    if ((dx === 0 && dy === 0) || distDesired <= 0) {
         preTurn(state);
         advanceTime(state);
         return;
     }
 
-    let dist = playerMoveDistAllowed(state, dx, dy, speed);
+    let dist = playerMoveDistAllowed(state, dx, dy, distDesired);
     if (dist <= 0) {
+        const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
+        const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
+        if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
+            preTurn(state);
+            item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
+            state.gameMap.computeLighting();
+            advanceTime(state);
+        }
         return;
     }
 
@@ -204,6 +212,16 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         const pos = vec2.fromValues(player.pos[0] + dx * distAllowed, player.pos[1] + dy * distAllowed);
         if (state.gameMap.guards.find((guard) => guard.pos[0] == pos[0] && guard.pos[1] == pos[1]) !== undefined) {
             distAllowed = 0;
+        }
+    }
+
+    // If the move would end on a torch, shorten it
+
+    if (distAllowed > 0) {
+        const pos = vec2.fromValues(player.pos[0] + dx * distAllowed, player.pos[1] + dy * distAllowed);
+        if (state.gameMap.items.find((item) => item.pos[0] === pos[0] && item.pos[1] === pos[1] &&
+                (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) !== undefined) {
+            --distAllowed;
         }
     }
 
@@ -420,6 +438,8 @@ const tileIndexForItemType: Array<number> = [
     87, // ItemType.DoorEW,
     50, // ItemType.PortcullisNS,
     50, // ItemType.PortcullisEW,
+    80, // ItemType.TorchUnlit,
+    80, // ItemType.TorchLit,
 ];
 
 const colorForItemType: Array<number> = [
@@ -431,6 +451,8 @@ const colorForItemType: Array<number> = [
     colorPreset.darkBrown, // ItemType.DoorEW,
     colorPreset.lightGray, // ItemType.PortcullisNS,
     colorPreset.lightGray, // ItemType.PortcullisEW,
+    colorPreset.darkGray, // ItemType.TorchUnlit,
+    colorPreset.lightYellow, // ItemType.TorchLit,
 ]
 
 const unlitColor: number = colorPreset.lightBlue;
@@ -444,7 +466,9 @@ function renderWorld(state: State, glyphRenderer: GlyphRenderer) {
             }
             const terrainType = cell.type;
             const tileIndex = tileIndexForTerrainType[terrainType];
-            const color = cell.lit ? colorForTerrainType[terrainType] : unlitColor;
+            const alwaysLit = terrainType >= TerrainType.Wall0000;
+            const lit = alwaysLit || cell.lit;
+            const color = lit ? colorForTerrainType[terrainType] : unlitColor;
             glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, color);
         }
     }
@@ -455,7 +479,9 @@ function renderWorld(state: State, glyphRenderer: GlyphRenderer) {
             continue;
         }
         const tileIndex = tileIndexForItemType[item.type];
-        const color = cell.lit ? colorForItemType[item.type] : unlitColor;
+        const alwaysLit = item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW;
+        const lit = alwaysLit || cell.lit;
+        const color = lit ? colorForItemType[item.type] : unlitColor;
         glyphRenderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
     }
 }

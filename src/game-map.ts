@@ -187,6 +187,8 @@ enum ItemType {
     DoorEW,
     PortcullisNS,
     PortcullisEW,
+    TorchUnlit,
+    TorchLit,
 }
 
 type Item = {
@@ -204,6 +206,8 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.DoorEW: return 0;
         case ItemType.PortcullisNS: return 0;
         case ItemType.PortcullisEW: return 0;
+        case ItemType.TorchUnlit: return Infinity;
+        case ItemType.TorchLit: return Infinity;
     }
 }
 
@@ -504,6 +508,110 @@ class GameMap {
                     targetX + portal.nx, targetY + portal.ny,
                     cldx, cldy,
                     crdx, crdy
+                );
+            }
+        }
+    }
+
+    computeLighting() {
+        for (const cell of this.cells.values) {
+            cell.lit = false;
+        }
+        for (const item of this.items) {
+            if (item.type == ItemType.TorchLit) {
+                this.castLight(item.pos, 180);
+            }
+        }
+    }
+
+    castLight(posLight: vec2, radiusSquared: number) {
+        for (const portal of portals) {
+            this.castLightRecursive(
+                posLight[0], posLight[1],
+                posLight[0], posLight[1],
+                portal.lx, portal.ly,
+                portal.rx, portal.ry,
+                radiusSquared
+            );
+        }
+    }
+
+    castLightRecursive(
+        // Light source map coordinates:
+        lightX: number,
+        lightY: number,
+        // Target cell map coordinates:
+        targetX: number,
+        targetY: number,
+        // Left edge of current view frustum (relative to viewer):
+        ldx: number,
+        ldy: number,
+        // Right edge of current view frustum (relative to viewer):
+        rdx: number,
+        rdy: number,
+        // Max radius of light source
+        radiusSquared: number) {
+        // End recursion if the target cell is out of bounds.
+        if (targetX < 0 || targetY < 0 || targetX >= this.cells.sizeX || targetY >= this.cells.sizeY) {
+            return;
+        }
+    
+        // End recursion if the target square is too far away.
+        const dx = 2 * (targetX - lightX);
+        const dy = 2 * (targetY - lightY);
+    
+        if (dx**2 + dy**2 > radiusSquared) {
+            return;
+        }
+
+        // The cell is lit
+        const cell = this.cells.at(targetX, targetY);
+        cell.lit = true;
+
+        // A solid target square blocks all further light through it.
+        if (cell.blocksSight) {
+            return;
+        }
+    
+        // Mark diagonally-adjacent squares as lit if their corners are lit
+        for (let x = 0; x < 2; ++x) {
+            for (let y = 0; y < 2; ++y) {
+                let nx = targetX + 2*x - 1;
+                let ny = targetY + 2*y - 1;
+                let cdx = dx + 2*x - 1;
+                let cdy = dy + 2*y - 1;
+                
+                if (nx >= 0 &&
+                    ny >= 0 &&
+                    nx < this.cells.sizeX &&
+                    ny < this.cells.sizeY &&
+                    !aRightOfB(ldx, ldy, cdx, cdy) &&
+                    !aRightOfB(cdx, cdy, rdx, rdy)) {
+                    this.cells.at(nx, ny).lit = true;
+                }
+            }
+        }
+    
+        // Clip portals to adjacent squares and recurse through the visible portions
+        for (const portal of portals) {
+            // Relative positions of the portal's left and right endpoints:
+            const pldx = dx + portal.lx;
+            const pldy = dy + portal.ly;
+            const prdx = dx + portal.rx;
+            const prdy = dy + portal.ry;
+    
+            // Clip portal against current view frustum:
+            const [cldx, cldy] = aRightOfB(ldx, ldy, pldx, pldy) ? [ldx, ldy] : [pldx, pldy];
+            const [crdx, crdy] = aRightOfB(rdx, rdy, prdx, prdy) ? [prdx, prdy] : [rdx, rdy];
+    
+            // If we can see through the clipped portal, recurse through it.
+            if (aRightOfB(crdx, crdy, cldx, cldy)) {
+                this.castLightRecursive(
+                    lightX, lightY,
+                    targetX + portal.nx, targetY + portal.ny,
+                    cldx, cldy,
+                    crdx, crdy,
+                    radiusSquared
                 );
             }
         }
