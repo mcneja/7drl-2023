@@ -231,7 +231,7 @@ function createTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImageElem
     const numGlyphs = numGlyphsX * numGlyphsY;
     const srcGlyphSizeX = image.naturalWidth / numGlyphsX;
     const srcGlyphSizeY = image.naturalHeight / numGlyphsY;
-    const scaleFactor = 4;
+    const scaleFactor = 1;
     const dstGlyphSizeX = srcGlyphSizeX * scaleFactor;
     const dstGlyphSizeY = srcGlyphSizeY * scaleFactor;
 
@@ -258,10 +258,9 @@ function createTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImageElem
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, dstGlyphSizeX, dstGlyphSizeY, numGlyphs, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
     return texture;
 }
 

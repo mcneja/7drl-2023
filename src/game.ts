@@ -116,7 +116,7 @@ function advanceToNextLevel(state: State) {
 
     state.camera = createCamera(state.gameMap.playerStartPos);
 
-    updateMapVisibility(state.gameMap, state.player.pos);
+    state.gameMap.recomputeVisibility(state.player.pos);
 }
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
@@ -259,29 +259,10 @@ function advanceTime(state: State) {
 
     guardActAll(/* state.popups, state.lines, */ state.gameMap, state.player);
 
-    updateMapVisibility(state.gameMap, state.player.pos);
+    state.gameMap.recomputeVisibility(state.player.pos);
 
     if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
         state.finishedLevel = true;
-    }
-}
-
-const cardinalDirections: Array<vec2> = [
-    vec2.fromValues(-1, 0),
-    vec2.fromValues(1, 0),
-    vec2.fromValues(0, -1),
-    vec2.fromValues(0, 1),
-];
-
-function updateMapVisibility(map: GameMap, pos_viewer: vec2) {
-    map.recomputeVisibility(pos_viewer);
-
-    for (const dir of cardinalDirections) {
-        if (map.playerCanSeeInDirection(pos_viewer, dir)) {
-            const pos = vec2.create();
-            vec2.add(pos, pos_viewer, dir);
-            map.recomputeVisibility(pos);
-        }
     }
 }
 
@@ -653,19 +634,43 @@ function renderScene(renderer: Renderer, state: State) {
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
-    const cxGame = state.camera.position[0];
-    const cyGame = state.camera.position[1];
-    const rGame = 18;
-    let rxGame: number, ryGame: number;
-    if (screenSize[0] < screenSize[1]) {
-        rxGame = rGame;
-        ryGame = rGame * screenSize[1] / screenSize[0];
+    const pixelsPerTileX = 16; // width of unzoomed tile
+    const pixelsPerTileY = 16; // height of unzoomed tile
+
+    const viewTileSizeDesiredX = 32; // desired minimum viewport tile width
+    const viewTileSizeDesiredY = 32; // desired minimum viewport tile height
+
+    const viewPixelSizeDesiredX = viewTileSizeDesiredX * pixelsPerTileX;
+    const viewPixelSizeDesiredY = viewTileSizeDesiredY * pixelsPerTileY;
+
+    let tileZoom;
+    if (screenSize[0] * viewPixelSizeDesiredY < screenSize[1] * viewPixelSizeDesiredX) {
+        tileZoom = Math.max(1, Math.floor(screenSize[0] / viewPixelSizeDesiredX + 0.5));
     } else {
-        ryGame = rGame;
-        rxGame = rGame * screenSize[0] / screenSize[1];
+        tileZoom = Math.max(1, Math.floor(screenSize[1] / viewPixelSizeDesiredY + 0.5));
     }
 
-    mat4.ortho(matScreenFromWorld, cxGame - rxGame, cxGame + rxGame, cyGame - ryGame, cyGame + ryGame, 1, -1);
+    const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
+    const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;
+
+    const viewWorldSizeX = screenSize[0] / zoomedPixelsPerTileX;
+    const viewWorldSizeY = screenSize[1] / zoomedPixelsPerTileY;
+
+    const viewWorldCenterX = state.camera.position[0] + 0.5;
+    const viewWorldCenterY = state.camera.position[1] + 0.5;
+
+    const viewWorldMinX = viewWorldCenterX - viewWorldSizeX / 2;
+    const viewWorldMinY = viewWorldCenterY - viewWorldSizeY / 2;
+
+    mat4.ortho(
+        matScreenFromWorld,
+        viewWorldMinX,
+        viewWorldMinX + viewWorldSizeX,
+        viewWorldMinY,
+        viewWorldMinY + viewWorldSizeY,
+        1,
+        -1
+    );
 }
 
 function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {

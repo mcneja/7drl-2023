@@ -18,6 +18,13 @@ import { randomInRange } from './random';
 
 const invalidRegion: number = -1;
 
+const cardinalDirections: Array<vec2> = [
+    vec2.fromValues(-1, 0),
+    vec2.fromValues(1, 0),
+    vec2.fromValues(0, -1),
+    vec2.fromValues(0, 1),
+];
+
 // TODO: Figure out how to make a generic grid data structure
 
 class BooleanGrid {
@@ -401,6 +408,19 @@ class GameMap {
     }
 
     recomputeVisibility(posViewer: vec2) {
+        this.recomputeVisibilityFromPos(posViewer);
+
+        const pos = vec2.create();
+
+        for (const dir of cardinalDirections) {
+            if (this.playerCanSeeInDirection(posViewer, dir)) {
+                vec2.add(pos, posViewer, dir);
+                this.recomputeVisibilityFromPos(pos);
+            }
+        }
+    }
+
+    recomputeVisibilityFromPos(posViewer: vec2) {
         for (const portal of portals) {
             this.computeVisibility
             (
