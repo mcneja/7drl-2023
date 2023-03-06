@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
-import { ItemType, GameMap, Player, TerrainType } from './game-map';
-import { GuardMode, guardActAll } from './guard';
+import { BooleanGrid, ItemType, GameMap, Player, TerrainType } from './game-map';
+import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer, createRenderer, GlyphRenderer } from './render';
 import * as colorPreset from './color-preset';
 
@@ -21,7 +21,8 @@ type State = {
     shiftUpLastTimeStamp: number;
     player: Player;
     finishedLevel: boolean;
-    seeAll : boolean;
+    seeAll: boolean;
+    seeGuardSight: boolean;
     camera: Camera;
     level: number;
     gameMap: GameMap;
@@ -56,6 +57,9 @@ function main(images: Array<HTMLImageElement>) {
             if (e.code === 'KeyA') {
                 e.preventDefault();
                 state.seeAll = !state.seeAll;
+            } else if (e.code === 'KeyV') {
+                e.preventDefault();
+                state.seeGuardSight = !state.seeGuardSight;
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
@@ -524,6 +528,64 @@ function renderGuardOverheadIcons(state: State, glyphRenderer: GlyphRenderer) {
     }
 }
 
+function renderGuardSight(state: State, glyphRenderer: GlyphRenderer) {
+    if (!state.seeGuardSight) {
+        return;
+    }
+
+    const mapSizeX = state.gameMap.cells.sizeX;
+    const mapSizeY = state.gameMap.cells.sizeY;
+
+    const seenByGuard = new BooleanGrid(mapSizeX, mapSizeY, false);
+
+    const pos = vec2.create();
+    const dpos = vec2.create();
+
+    for (const guard of state.gameMap.guards) {
+        const maxSightCutoff = 3;
+        const xMin = Math.max(0, Math.floor(guard.pos[0] - maxSightCutoff));
+        const xMax = Math.min(mapSizeX, Math.floor(guard.pos[0] + maxSightCutoff) + 1);
+        const yMin = Math.max(0, Math.floor(guard.pos[1] - maxSightCutoff));
+        const yMax = Math.min(mapSizeY, Math.floor(guard.pos[1] + maxSightCutoff) + 1);
+        for (let y = yMin; y < yMax; ++y) {
+            for (let x = xMin; x < xMax; ++x) {
+                vec2.set(pos, x, y);
+                vec2.subtract(dpos, pos, guard.pos);
+                const cell = state.gameMap.cells.at(x, y);
+
+                if (seenByGuard.get(x, y)) {
+                    continue;
+                }
+                if (cell.blocksPlayerMove) {
+                    continue;
+                }
+                if (!state.seeAll && !cell.seen) {
+                    continue;
+                }
+                if (vec2.dot(guard.dir, dpos) < 0) {
+                    continue;
+                }
+                if (vec2.squaredLength(dpos) >= guard.sightCutoff(cell.lit)) {
+                    continue;
+                }
+                if (!lineOfSight(state.gameMap, guard.pos, pos)) {
+                    continue;
+                }
+        
+                seenByGuard.set(x, y, true);
+            }
+        }
+    }
+
+    for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
+        for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
+            if (seenByGuard.get(x, y)) {
+                glyphRenderer.addGlyph(x, y, x+1, y+1, 15, 0xa0004080);
+            }
+        }
+    }
+}
+
 function tileIndexOffsetForDir(dir: vec2): number {
     if (dir[1] > 0) {
         return 1;
@@ -560,7 +622,8 @@ function initState(): State {
         shiftUpLastTimeStamp: -Infinity,
         player: new Player(gameMap.playerStartPos),
         finishedLevel: false,
-        seeAll : false,
+        seeAll: false,
+        seeGuardSight: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
         gameMap: gameMap,
@@ -630,6 +693,7 @@ function renderScene(renderer: Renderer, state: State) {
     renderPlayer(state, renderer.renderGlyphs);
     renderGuards(state, renderer.renderGlyphs);
     renderGuardOverheadIcons(state, renderer.renderGlyphs);
+    renderGuardSight(state, renderer.renderGlyphs);
     renderer.renderGlyphs.flush();
 }
 

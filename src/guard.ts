@@ -1,4 +1,4 @@
-export { Guard, GuardMode, guardActAll };
+export { Guard, GuardMode, guardActAll, lineOfSight };
 
 import { Float64Grid, GameMap, Player, TerrainType, invalidRegion } from './game-map';
 import { vec2 } from './my-matrix';
