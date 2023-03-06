@@ -1634,7 +1634,11 @@ function placeGuards(level: number, rooms: Array<Room>, map: GameMap) {
         if (pos === undefined) {
             break;
         }
-        map.guards.push(new Guard(pos, map));
+        const guard = new Guard(pos, map);
+        if (numGuards < 2) {
+            guard.hasTorch = true;
+        }
+        map.guards.push(guard);
         numGuards -= 1;
     }
 }

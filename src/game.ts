@@ -148,7 +148,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
             preTurn(state);
             item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
-            state.gameMap.computeLighting();
             advanceTime(state);
         }
         return;
@@ -263,6 +262,7 @@ function advanceTime(state: State) {
 
     guardActAll(/* state.popups, state.lines, */ state.gameMap, state.player);
 
+    state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
 
     if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {

@@ -4,6 +4,7 @@ export {
     CellGrid,
     Float64Grid,
     Int32Grid,
+    Item,
     ItemType,
     GameMap,
     Player,
@@ -542,13 +543,19 @@ class GameMap {
                 this.castLight(item.pos, 180);
             }
         }
+        for (const guard of this.guards) {
+            if (guard.hasTorch) {
+                this.castLight(guard.pos, 60);
+            }
+        }
     }
 
     castLight(posLight: vec2, radiusSquared: number) {
+        this.cells.at(posLight[0], posLight[1]).lit = true;
         for (const portal of portals) {
             this.castLightRecursive(
                 posLight[0], posLight[1],
-                posLight[0], posLight[1],
+                posLight[0] + portal.nx, posLight[1] + portal.ny,
                 portal.lx, portal.ly,
                 portal.rx, portal.ry,
                 radiusSquared
