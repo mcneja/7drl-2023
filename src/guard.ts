@@ -64,24 +64,19 @@ class Guard {
         const posPrev = vec2.clone(this.pos);
     
         // See if senses will kick us into a new mode
-    
-        if (this.seesThief(map, player)) {
-            vec2.copy(this.goal, player.pos);
-    
-            if (this.mode == GuardMode.Patrol && !this.adjacentTo(player.pos)) {
-                this.mode = GuardMode.Look;
-                this.modeTimeout = 2 + randomInRange(4);
-                updateDir(this.dir, this.pos, player.pos);
-            } else {
+
+        if (this.mode !== GuardMode.Patrol) {
+            if (this.seesThief(map, player)) {
+                vec2.copy(this.goal, player.pos);
                 this.mode = GuardMode.ChaseVisibleTarget;
+            } else if (this.mode === GuardMode.ChaseVisibleTarget) {
+                vec2.copy(this.goal, player.pos);
+                this.mode = GuardMode.MoveToLastSighting;
+                this.modeTimeout = 3;
             }
-        } else if (this.mode == GuardMode.ChaseVisibleTarget) {
-            this.mode = GuardMode.MoveToLastSighting;
-            this.modeTimeout = 3;
-            vec2.copy(this.goal, player.pos);
         }
-    
-        if (this.mode != GuardMode.ChaseVisibleTarget) {
+
+        if (this.mode !== GuardMode.ChaseVisibleTarget) {
             if (this.heardGuard) {
                 this.mode = GuardMode.MoveToGuardShout;
                 this.modeTimeout = 2 + randomInRange(4);
@@ -92,7 +87,7 @@ class Guard {
                 if (this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.ChaseVisibleTarget;
                     vec2.copy(this.goal, player.pos);
-                } else if (this.mode == GuardMode.Patrol) {
+                } else if (this.mode === GuardMode.Patrol) {
                     this.mode = GuardMode.Listen;
                     this.modeTimeout = 2 + randomInRange(4);
                     updateDir(this.dir, this.pos, player.pos);
@@ -153,20 +148,18 @@ class Guard {
     
         if (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1]) {
             if (this.seesThief(map, player)) {
-                vec2.copy(this.goal, player.pos);
-    
                 if (this.mode == GuardMode.Patrol && !this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.Look;
                     this.modeTimeout = 2 + randomInRange(4);
                 } else {
+                    vec2.copy(this.goal, player.pos);
+                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
-    
-                updateDir(this.dir, this.pos, player.pos);
             } else if (this.mode == GuardMode.ChaseVisibleTarget) {
+                vec2.copy(this.goal, player.pos);
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
-                vec2.copy(this.goal, player.pos);
             }
         }
     
