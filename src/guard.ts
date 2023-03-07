@@ -46,8 +46,8 @@ class Guard {
         this.heardThief = false;
         this.hearingGuard = false;
         this.heardGuard = false;
-        this.heardGuardPos = pos;
-        this.goal = pos;
+        this.heardGuardPos = vec2.clone(pos);
+        this.goal = vec2.clone(pos);
         this.modeTimeout = 0;
         this.regionGoal = map.closestRegion(pos);
         this.regionPrev = invalidRegion;
@@ -267,7 +267,7 @@ class Guard {
     
         if (bumpedThief) {
             this.mode = GuardMode.ChaseVisibleTarget;
-            this.goal = player.pos;
+            vec2.copy(this.goal, player.pos);
             updateDir(this.dir, this.pos, this.goal);
         }
     }
