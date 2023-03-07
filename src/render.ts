@@ -29,8 +29,8 @@ class Renderer {
     constructor() {
         this.renderGlyphs = new GlyphRenderer();
     }
-    beginFrame(screenSize: vec2, mapSize:vec2) {
-    };
+    getScreenSize(screenSize: vec2) {}
+    beginFrame(screenSize: vec2, mapSize:vec2) {}
     endFrame() {}
 } 
 
@@ -51,6 +51,13 @@ class WebGLRenderer extends Renderer {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
         gl.clearColor(0, 0, 0, 1);
+    }
+    getScreenSize(screenSize: vec2) {
+        const canvas = this.gl.canvas as HTMLCanvasElement;
+        resizeCanvasToDisplaySize(canvas);
+        const screenX = canvas.clientWidth;
+        const screenY = canvas.clientHeight;
+        vec2.set(screenSize, screenX, screenY);
     }
     beginFrame(screenSize:vec2, mapSize:vec2) {
         const gl = this.gl;
@@ -328,6 +335,12 @@ class CanvasRenderer extends Renderer {
         this.gridCellSize = [16,16]; //size in pixel of each cell
         this.offset = [0,0];
         this.shake = [0,0];
+    }
+    getScreenSize(screenSize: vec2) {
+        resizeCanvasToDisplaySize(this.ctx.canvas);
+        const screenX = this.ctx.canvas.clientWidth;
+        const screenY = this.ctx.canvas.clientHeight;
+        vec2.set(screenSize, screenX, screenY);
     }
     beginFrame(screenSize:vec2, mapSize:vec2) {
         resizeCanvasToDisplaySize(this.ctx.canvas);

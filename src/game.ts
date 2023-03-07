@@ -10,9 +10,18 @@ var tilesImageRequire = require('./tiles.png');
 
 window.onload = loadResourcesThenRun;
 
+const targetStatusBarWidthInChars: number = 65;
+const statusBarCharPixelSizeX: number = 8;
+const statusBarCharPixelSizeY: number = 16;
+const pixelsPerTileX: number = 16; // width of unzoomed tile
+const pixelsPerTileY: number = 16; // height of unzoomed tile
+const viewTileSizeDesiredX: number = 32; // desired minimum viewport tile width
+const viewTileSizeDesiredY: number = 32; // desired minimum viewport tile height
+
 type Camera = {
     position: vec2;
     velocity: vec2;
+    snapped: boolean;
 }
 
 type State = {
@@ -604,6 +613,7 @@ function createCamera(posPlayer: vec2): Camera {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        snapped: false,
     };
 
     vec2.copy(camera.position, posPlayer);
@@ -644,25 +654,60 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     const dt = (state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
     state.tLast = t;
 
-    if (dt > 0) {
-        updateState(state, dt);
+    const screenSize = vec2.create();
+    renderer.getScreenSize(screenSize);
+
+    if (!state.camera.snapped) {
+        state.camera.snapped = true;
+        snapCamera(state, screenSize);
     }
 
-    renderScene(renderer, state);
+    if (dt > 0) {
+        updateState(state, screenSize, dt);
+    }
+
+    renderScene(renderer, screenSize, state);
 
     requestAnimationFrame(now => updateAndRender(now, renderer, state));
 }
 
-function updateState(state: State, dt: number) {
-    updateCamera(state, dt);
+function updateState(state: State, screenSize: vec2, dt: number) {
+    updateCamera(state, screenSize, dt);
 }
 
-function updateCamera(state: State, dt: number) {
+function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
+    renderer.beginFrame(screenSize, [state.gameMap.cells.sizeX, state.gameMap.cells.sizeY]);
+
+    const matScreenFromWorld = mat4.create();
+    setupViewMatrix(state, screenSize, matScreenFromWorld);
+
+    renderer.renderGlyphs.start(matScreenFromWorld, 1);
+    renderWorld(state, renderer.renderGlyphs);
+    renderPlayer(state, renderer.renderGlyphs);
+    renderGuards(state, renderer.renderGlyphs);
+    renderGuardOverheadIcons(state, renderer.renderGlyphs);
+    renderGuardSight(state, renderer.renderGlyphs);
+    renderer.renderGlyphs.flush();
+
+    renderBottomStatusBar(renderer, screenSize, state);
+}
+
+function updateCamera(state: State, screenSize: vec2, dt: number) {
+
+    // Figure out where the camera should be pointed
+
+    const posCameraTarget = vec2.create();
+    cameraTargetCenterPosition(
+        posCameraTarget,
+        vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
+        screenSize,
+        state.player.pos
+    );
 
     // Update player follow
 
     const posError = vec2.create();
-    vec2.subtract(posError, state.player.pos, state.camera.position);
+    vec2.subtract(posError, posCameraTarget, state.camera.position);
 
     const velError = vec2.create();
     vec2.negate(velError, state.camera.velocity);
@@ -681,49 +726,61 @@ function updateCamera(state: State, dt: number) {
     vec2.copy(state.camera.velocity, velNew);
 }
 
-function renderScene(renderer: Renderer, state: State) {
-    const screenSize = vec2.create();
-    renderer.beginFrame(screenSize, [state.gameMap.cells.sizeX, state.gameMap.cells.sizeY]);
+function snapCamera(state: State, screenSize: vec2) {
+    cameraTargetCenterPosition(
+        state.camera.position,
+        vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
+        screenSize,
+        state.player.pos
+    );
+    vec2.zero(state.camera.velocity);
+}
 
-    const matScreenFromWorld = mat4.create();
-    setupViewMatrix(state, screenSize, matScreenFromWorld);
+function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, screenSize: vec2, posPlayer: vec2) {
+    const posCenterMin = vec2.create();
+    const posCenterMax = vec2.create();
+    cameraCenterPositionLegalRange(worldSize, screenSize, posCenterMin, posCenterMax);
 
-    renderer.renderGlyphs.start(matScreenFromWorld, 1);
-    renderWorld(state, renderer.renderGlyphs);
-    renderPlayer(state, renderer.renderGlyphs);
-    renderGuards(state, renderer.renderGlyphs);
-    renderGuardOverheadIcons(state, renderer.renderGlyphs);
-    renderGuardSight(state, renderer.renderGlyphs);
-    renderer.renderGlyphs.flush();
+    posCameraCenter[0] = Math.max(posCenterMin[0], Math.min(posCenterMax[0], posPlayer[0] + 0.5));
+    posCameraCenter[1] = Math.max(posCenterMin[1], Math.min(posCenterMax[1], posPlayer[1] + 0.5));
+}
 
-    renderBottomStatusBar(renderer, screenSize, state);
+function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, posLegalMin: vec2, posLegalMax: vec2) {
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - statusBarPixelSizeY);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize);
+
+    let viewCenterMinX = viewWorldSizeX / 2;
+    let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
+
+    if (viewCenterMinX > viewCenterMaxX) {
+        viewCenterMinX = viewCenterMaxX = worldSize[0] / 2;
+    }
+
+    let viewCenterMinY = viewWorldSizeY / 2;
+    let viewCenterMaxY = worldSize[1] - viewWorldSizeY / 2;
+
+    if (viewCenterMinY > viewCenterMaxY) {
+        viewCenterMinY = viewCenterMaxY = worldSize[1] / 2;
+    }
+
+    posLegalMin[0] = viewCenterMinX;
+    posLegalMin[1] = viewCenterMinY;
+
+    posLegalMax[0] = viewCenterMaxX;
+    posLegalMax[1] = viewCenterMaxY;
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
-    const pixelsPerTileX = 16; // width of unzoomed tile
-    const pixelsPerTileY = 16; // height of unzoomed tile
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - statusBarPixelSizeY);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize);
 
-    const viewTileSizeDesiredX = 32; // desired minimum viewport tile width
-    const viewTileSizeDesiredY = 32; // desired minimum viewport tile height
+    const viewWorldCenterX = state.camera.position[0];
+    const viewWorldCenterY = state.camera.position[1];
 
-    const viewPixelSizeDesiredX = viewTileSizeDesiredX * pixelsPerTileX;
-    const viewPixelSizeDesiredY = viewTileSizeDesiredY * pixelsPerTileY;
-
-    let tileZoom;
-    if (screenSize[0] * viewPixelSizeDesiredY < screenSize[1] * viewPixelSizeDesiredX) {
-        tileZoom = Math.max(1, Math.floor(screenSize[0] / viewPixelSizeDesiredX + 0.5));
-    } else {
-        tileZoom = Math.max(1, Math.floor(screenSize[1] / viewPixelSizeDesiredY + 0.5));
-    }
-
-    const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
-    const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;
-
-    const viewWorldSizeX = screenSize[0] / zoomedPixelsPerTileX;
-    const viewWorldSizeY = screenSize[1] / zoomedPixelsPerTileY;
-
-    const viewWorldCenterX = state.camera.position[0] + 0.5;
-    const viewWorldCenterY = state.camera.position[1] + 0.5;
+    const tileZoom = worldTileZoom(viewportPixelSize);
+    const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * tileZoom);
 
     const viewWorldMinX = viewWorldCenterX - viewWorldSizeX / 2;
     const viewWorldMinY = viewWorldCenterY - viewWorldSizeY / 2;
@@ -732,21 +789,48 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
         matScreenFromWorld,
         viewWorldMinX,
         viewWorldMinX + viewWorldSizeX,
-        viewWorldMinY,
+        viewWorldMinY - statusBarWorldSizeY,
         viewWorldMinY + viewWorldSizeY,
         1,
         -1
     );
 }
 
+function viewWorldSize(viewportPixelSize: vec2): [number, number] {
+    const tileZoom = worldTileZoom(viewportPixelSize);
+
+    const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
+    const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;
+
+    const viewWorldSizeX = viewportPixelSize[0] / zoomedPixelsPerTileX;
+    const viewWorldSizeY = viewportPixelSize[1] / zoomedPixelsPerTileY;
+
+    return [viewWorldSizeX, viewWorldSizeY];
+}
+
+function worldTileZoom(viewportPixelSize: vec2): number {
+    const viewPixelSizeDesiredX = viewTileSizeDesiredX * pixelsPerTileX;
+    const viewPixelSizeDesiredY = viewTileSizeDesiredY * pixelsPerTileY;
+
+    let tileZoom;
+    if (viewportPixelSize[0] * viewPixelSizeDesiredY < viewportPixelSize[1] * viewPixelSizeDesiredX) {
+        tileZoom = Math.max(1, Math.floor(viewportPixelSize[0] / viewPixelSizeDesiredX + 0.5));
+    } else {
+        tileZoom = Math.max(1, Math.floor(viewportPixelSize[1] / viewPixelSizeDesiredY + 0.5));
+    }
+
+    return tileZoom;
+}
+
+function statusBarZoom(screenSizeX: number): number {
+    return Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX)));
+}
+
 function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
-    const pixelsPerTileX = 8; // width of unzoomed tile
-    const pixelsPerTileY = 16; // height of unzoomed tile
+    const tileZoom = statusBarZoom(screenSize[0]);
 
-    const tileZoom = Math.max(1, Math.floor(screenSize[0] / (80 * pixelsPerTileX) + 0.5));
-
-    const screenSizeInTilesX = screenSize[0] / (tileZoom * pixelsPerTileX);
-    const screenSizeInTilesY = screenSize[1] / (tileZoom * pixelsPerTileY);
+    const screenSizeInTilesX = screenSize[0] / (tileZoom * statusBarCharPixelSizeX);
+    const screenSizeInTilesY = screenSize[1] / (tileZoom * statusBarCharPixelSizeY);
 
     const matScreenFromWorld = mat4.create();
 
@@ -780,10 +864,11 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         renderer.renderGlyphs.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, glyphHeart, color);
     }
 
+    // Underwater indicator
+
     const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
     if (playerUnderwater) {
-        const breathMsgLengthMax = 8;
-        const breathX = Math.floor(statusBarTileSizeX / 4 - breathMsgLengthMax / 2 + 0.5);
+        const breathX = healthX + maxPlayerHealth + 88;
 
         putString(breathX, "Air", colorPreset.lightCyan);
 
