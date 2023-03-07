@@ -10,7 +10,8 @@ export {
     Player,
     TerrainType,
     guardMoveCostForItemType,
-    invalidRegion
+    invalidRegion,
+    maxPlayerHealth,
 };
 
 import { Guard, GuardMode } from './guard';

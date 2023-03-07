@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
-import { BooleanGrid, ItemType, GameMap, Player, TerrainType } from './game-map';
+import { BooleanGrid, ItemType, GameMap, Player, TerrainType, maxPlayerHealth } from './game-map';
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer, createRenderer, GlyphRenderer } from './render';
 import * as colorPreset from './color-preset';
@@ -695,6 +695,8 @@ function renderScene(renderer: Renderer, state: State) {
     renderGuardOverheadIcons(state, renderer.renderGlyphs);
     renderGuardSight(state, renderer.renderGlyphs);
     renderer.renderGlyphs.flush();
+
+    renderBottomStatusBar(renderer, screenSize, state);
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
@@ -735,6 +737,82 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
         1,
         -1
     );
+}
+
+function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
+    const pixelsPerTileX = 8; // width of unzoomed tile
+    const pixelsPerTileY = 16; // height of unzoomed tile
+
+    const tileZoom = Math.max(1, Math.floor(screenSize[0] / (80 * pixelsPerTileX) + 0.5));
+
+    const screenSizeInTilesX = screenSize[0] / (tileZoom * pixelsPerTileX);
+    const screenSizeInTilesY = screenSize[1] / (tileZoom * pixelsPerTileY);
+
+    const matScreenFromWorld = mat4.create();
+
+    mat4.ortho(
+        matScreenFromWorld,
+        0, screenSizeInTilesX,
+        0, screenSizeInTilesY,
+        1, -1
+    );
+
+    renderer.renderGlyphs.start(matScreenFromWorld, 0);
+
+    const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
+    const barBackgroundColor = 0xff101010;
+    renderer.renderGlyphs.addGlyph(0, 0, statusBarTileSizeX, 1, 219, barBackgroundColor);
+
+    function putString(x: number, s: string, color: number) {
+        for (let i = 0; i < s.length; ++i) {
+            const glyphIndex = s.charCodeAt(i);
+            renderer.renderGlyphs.addGlyph(x + i, 0, x + i + 1, 1, glyphIndex, color);
+        }
+    }
+
+    const healthX = 1;
+
+    putString(healthX, "Health", colorPreset.darkRed);
+
+    for (let i = 0; i < maxPlayerHealth; ++i) {
+        const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
+        const glyphHeart = 3;
+        renderer.renderGlyphs.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, glyphHeart, color);
+    }
+
+    const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
+    if (playerUnderwater) {
+        const breathMsgLengthMax = 8;
+        const breathX = Math.floor(statusBarTileSizeX / 4 - breathMsgLengthMax / 2 + 0.5);
+
+        putString(breathX, "Air", colorPreset.lightCyan);
+
+        for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
+            const glyphBubble = 9;
+            renderer.renderGlyphs.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, glyphBubble, colorPreset.lightCyan);
+        }
+    }
+
+    // Draw the tallies of what's been seen and collected.
+
+    const percentSeen = state.gameMap.percentSeen();
+
+    const seenMsg = 'Level ' + (state.level + 1) + ': ' + percentSeen + '% Seen';
+
+    const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
+    putString(seenX, seenMsg, colorPreset.lightGray);
+
+    let lootMsg = 'Loot ' + state.player.gold + '/';
+    if (percentSeen < 100) {
+        lootMsg += '?';
+    } else {
+        lootMsg += state.gameMap.totalLoot;
+    }
+
+    const lootX = statusBarTileSizeX - (lootMsg.length + 1);
+    putString(lootX, lootMsg, colorPreset.lightYellow);
+
+    renderer.renderGlyphs.flush();
 }
 
 function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {
