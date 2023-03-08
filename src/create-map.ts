@@ -1644,7 +1644,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
 }
 
 function randomlyLitTorch(): ItemType {
-    return (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+    return (Math.random() < 0.5) ? ItemType.TorchUnlit : ItemType.TorchLit;
 }
 
 function tryPlaceItem(map: GameMap, x: number, y: number, itemType: ItemType) {
