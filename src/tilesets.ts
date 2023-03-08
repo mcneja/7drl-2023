@@ -112,6 +112,8 @@ const canvasTilesetThreeQuarter:TileSet = {
         {textureIndex: r([1, 1]),  unlitColor:0xFFa05050}, // TerrainType.PortcullisEW,
         {textureIndex: r([6, 0]),  unlitColor:0xFFa05050}, // TerrainType.DoorNS,
         {textureIndex: r([5, 0]),  unlitColor:0xFFa05050}, // TerrainType.DoorEW,
+        {textureIndex: r([6, 3]),  unlitColor:0xFFa05050}, // TerrainType.GardenDoorNS,
+        {textureIndex: r([6, 3]),  unlitColor:0xFFa05050}, // TerrainType.GardenDoorEW,
     ], 
     itemTiles: [
         {textureIndex: r([5, 5]),  color:colorPreset.darkBrown  , unlitColor:colorPreset.darkGray}, // ItemType.Chair,
@@ -207,6 +209,8 @@ var webGLBasicTileset:TileSet = {
         {textureIndex:50,  color:colorPreset.lightGray, unlitColor:colorPreset.darkBlue}, // TerrainType.PortcullisEW,
         {textureIndex:77,  color:colorPreset.lightGray, unlitColor:colorPreset.darkBlue}, // TerrainType.DoorNS,
         {textureIndex:76,  color:colorPreset.lightGray, unlitColor:colorPreset.darkBlue}, // TerrainType.DoorEW,
+        {textureIndex:116, color:colorPreset.darkGreen, unlitColor:colorPreset.darkBlue}, // TerrainType.GardenDoorNS,
+        {textureIndex:116, color:colorPreset.darkGreen, unlitColor:colorPreset.darkBlue}, // TerrainType.GardenDoorEW,
     ],    
     itemTiles: [
         {textureIndex:100, color:colorPreset.darkBrown  , unlitColor:colorPreset.darkGray}, // ItemType.Chair,

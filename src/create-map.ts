@@ -1522,10 +1522,6 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
         const type0 = rooms[adj0.room_left].roomType;
         const type1 = rooms[adj0.room_right].roomType;
 
-        if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
-            continue;
-        }
-
         const j = adj0.next_matching;
 
         if (j < i) {
@@ -1605,17 +1601,19 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
             let orientNS = (a.dir[0] == 0);
 
-            map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
-
             let roomTypeLeft = rooms[a.room_left].roomType;
             let roomTypeRight = rooms[a.room_right].roomType;
 
             if (roomTypeLeft == RoomType.Exterior || roomTypeRight == RoomType.Exterior) {
                 map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
                 placeItem(map, p[0], p[1], orientNS ? ItemType.PortcullisNS : ItemType.PortcullisEW);
+            } else if (isCourtyardRoomType(roomTypeLeft) && isCourtyardRoomType(roomTypeRight)) {
+                map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.GardenDoorNS : TerrainType.GardenDoorEW;
             } else if (roomTypeLeft != RoomType.PrivateRoom || roomTypeRight != RoomType.PrivateRoom || installMasterSuiteDoor) {
                 map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
                 placeItem(map, p[0], p[1], orientNS ? ItemType.DoorNS : ItemType.DoorEW);
+            } else {
+                map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
             }
         }
     }
@@ -2048,7 +2046,7 @@ function wallTypeFromNeighbors(neighbors: number): TerrainType {
 }
 
 function isWall(terrainType: TerrainType): boolean {
-    return terrainType >= TerrainType.Wall0000;
+    return terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
 }
 
 function neighboringWalls(map: CellGrid, x: number, y: number): number {

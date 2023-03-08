@@ -353,7 +353,8 @@ const altTileIndexForTerrainType: Array<[number, number]> = [
     [1, 1], // TerrainType.PortcullisEW,
     [0, 5], // TerrainType.DoorNS,
     [0, 6], // TerrainType.DoorEW,
-
+    [0, 5], // TerrainType.GardenDoorNS,
+    [0, 6], // TerrainType.GardenDoorEW,
 ];
 
 const tileIndexForTerrainType: Array<number> = [
@@ -387,6 +388,8 @@ const tileIndexForTerrainType: Array<number> = [
     50, // TerrainType.PortcullisEW,
     77, // TerrainType.DoorNS,
     76, // TerrainType.DoorEW,
+    77, // TerrainType.GardenDoorNS,
+    76, // TerrainType.GardenDoorEW,
 ];
 
 const colorForTerrainType: Array<number> = [
@@ -420,6 +423,8 @@ const colorForTerrainType: Array<number> = [
     colorPreset.lightGray, // TerrainType.PortcullisEW,
     colorPreset.lightGray, // TerrainType.DoorNS,
     colorPreset.lightGray, // TerrainType.DoorEW,
+    colorPreset.darkGreen, // TerrainType.GardenDoorNS,
+    colorPreset.darkGreen, // TerrainType.GardenDoorEW,
 ];
 
 const tileIndexForItemType: Array<number> = [
@@ -465,7 +470,7 @@ function renderWorld(state: State, renderer: Renderer) {
                 continue;
             }
             const terrainType = cell.type;
-            const alwaysLit = terrainType >= TerrainType.Wall0000;
+            const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
             // const tileIndex = tileIndexForTerrainType[terrainType];
             // const color = lit ? colorForTerrainType[terrainType] : unlitColor;

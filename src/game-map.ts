@@ -135,6 +135,8 @@ enum TerrainType {
     PortcullisEW,
     DoorNS,
     DoorEW,
+    GardenDoorNS,
+    GardenDoorEW,
 }
 
 type Cell = {
