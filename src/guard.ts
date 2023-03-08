@@ -179,29 +179,27 @@ class Guard {
             break;
         }
     
-        // If we moved, update state based on target visibility from new position
-    
-        if (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1] || this.mode === GuardMode.PostRelightTorch) {
-            if (this.seesThief(map, player)) {
-                if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
-                    this.mode = GuardMode.Look;
-                    this.modeTimeout = 2 + randomInRange(4);
-                } else {
-                    vec2.copy(this.goal, player.pos);
-                    updateDir(this.dir, this.pos, this.goal);
-                    this.mode = GuardMode.ChaseVisibleTarget;
-                }
-            } else if (this.mode == GuardMode.ChaseVisibleTarget) {
+        // Update state based on target visibility from new position
+
+        if (this.seesThief(map, player)) {
+            if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
+                this.mode = GuardMode.Look;
+                this.modeTimeout = 2 + randomInRange(4);
+            } else {
                 vec2.copy(this.goal, player.pos);
-                this.mode = GuardMode.MoveToLastSighting;
+                updateDir(this.dir, this.pos, this.goal);
+                this.mode = GuardMode.ChaseVisibleTarget;
+            }
+        } else if (this.mode == GuardMode.ChaseVisibleTarget) {
+            vec2.copy(this.goal, player.pos);
+            this.mode = GuardMode.MoveToLastSighting;
+            this.modeTimeout = 3;
+        } else if (this.mode === GuardMode.Patrol) {
+            const torch = torchNeedingRelighting(map, this.pos);
+            if (torch !== undefined) {
+                vec2.copy(this.goal, torch.pos);
+                this.mode = GuardMode.RelightTorch;
                 this.modeTimeout = 3;
-            } else if (this.mode === GuardMode.Patrol) {
-                const torch = torchNeedingRelighting(map, this.pos);
-                if (torch !== undefined) {
-                    vec2.copy(this.goal, torch.pos);
-                    this.mode = GuardMode.RelightTorch;
-                    this.modeTimeout = 3;
-                }
             }
         }
     
