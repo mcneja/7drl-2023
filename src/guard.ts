@@ -1,6 +1,6 @@
 export { Guard, GuardMode, guardActAll, lineOfSight };
 
-import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, invalidRegion } from './game-map';
+import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates, invalidRegion } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 
@@ -55,12 +55,12 @@ class Guard {
         this.updateDirInitial(map);
     }
 
-    overheadIcon(): number | undefined {
+    overheadIcon(): number {
         if (isRelaxedGuardMode(this.mode)) {
-            return undefined;
+            return GuardStates.Relaxed;
         }
     
-        return (this.mode == GuardMode.ChaseVisibleTarget) ? 40 : 39;
+        return (this.mode == GuardMode.ChaseVisibleTarget) ? GuardStates.Chasing : GuardStates.Alerted;
     }
 
     act(/* popups: Popups, lines: Lines, */ player: Player, map: GameMap, shouts: Array<Shout>) {
