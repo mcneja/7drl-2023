@@ -116,6 +116,8 @@ const sinCityTileSet:TileSet = {
         {textureIndex: r([10, 2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisEW,
         {textureIndex: r([6,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.DoorNS,
         {textureIndex: r([4,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.DoorEW,
+        {textureIndex: r([2,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorNS,
+        {textureIndex: r([2,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorEW,
     ], 
     itemTiles: [
         {textureIndex: r([3,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.Chair,
