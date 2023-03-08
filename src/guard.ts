@@ -45,7 +45,8 @@ class Guard {
     patrolLoops: boolean;
 
     constructor(patrolPath: Array<vec2>, map: GameMap) {
-        const posStart = patrolPath[0];
+        const pathIndexStart = randomInRange(patrolPath.length);
+        const posStart = patrolPath[pathIndexStart];
         this.pos = vec2.clone(posStart);
         this.dir = vec2.fromValues(1, 0);
         this.mode = GuardMode.Patrol;
@@ -59,7 +60,7 @@ class Guard {
         this.goal = vec2.clone(posStart);
         this.modeTimeout = 0;
         this.patrolPath = patrolPath;
-        this.patrolPathIndex = 0;
+        this.patrolPathIndex = pathIndexStart;
         this.patrolReverse = false;
         this.patrolLoops = patrolPathLoops(patrolPath);
 
@@ -267,8 +268,10 @@ class Guard {
     patrolStep(map: GameMap, player: Player) {
         let moveResult;
 
-        if (this.patrolPath[this.patrolPathIndex][0] === this.pos[0] &&
-            this.patrolPath[this.patrolPathIndex][1] === this.pos[1]) {
+        const onPatrolPath = this.patrolPath[this.patrolPathIndex][0] === this.pos[0] &&
+                             this.patrolPath[this.patrolPathIndex][1] === this.pos[1];
+
+        if (onPatrolPath) {
             if (this.patrolReverse) {
                 if (this.patrolPathIndex === 0) {
                     if (this.patrolLoops) {
@@ -296,14 +299,7 @@ class Guard {
             moveResult = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
         } else {
             moveResult = this.moveTowardPatrolPath(map, player);
-
-            for (let iPatrolPos = 0; iPatrolPos < this.patrolPath.length; ++iPatrolPos) {
-                const pos = this.patrolPath[iPatrolPos];
-                if (pos[0] === this.pos[0] && pos[1] === this.pos[1]) {
-                    this.patrolPathIndex = iPatrolPos;
-                    break;
-                }
-            }
+            this.findPatrolPathIndex();
         }
 
         if (moveResult === MoveResult.BumpedPlayer) {
@@ -311,6 +307,10 @@ class Guard {
             vec2.copy(this.goal, player.pos);
             updateDir(this.dir, this.pos, this.goal);
         }
+
+        // TODO: Plot the back-and-forth paths explicitly, as well as the delays
+        // at the ends. When standing still, look for a window, torch, or table
+        // to face.
     }
 
     updateDirInitial()
@@ -375,6 +375,26 @@ class Guard {
 
         vec2.copy(this.pos, posNext);
         return MoveResult.Moved;
+    }
+
+    findPatrolPathIndex(): boolean {
+        // Search forward from guard's current path index
+        for (let iPatrolPos = this.patrolPathIndex; iPatrolPos < this.patrolPath.length; ++iPatrolPos) {
+            const posPath = this.patrolPath[iPatrolPos];
+            if (posPath[0] === this.pos[0] && posPath[1] === this.pos[1]) {
+                this.patrolPathIndex = iPatrolPos;
+                return true;
+            }
+        }
+        // Search backward from guard's current path index
+        for (let iPatrolPos = this.patrolPathIndex - 1; iPatrolPos >= 0; --iPatrolPos) {
+            const posPath = this.patrolPath[iPatrolPos];
+            if (posPath[0] === this.pos[0] && posPath[1] === this.pos[1]) {
+                this.patrolPathIndex = iPatrolPos;
+                return true;
+            }
+        }
+        return false;
     }
 }
 
