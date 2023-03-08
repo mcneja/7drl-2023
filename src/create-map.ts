@@ -1170,7 +1170,7 @@ function placePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies:
     const roomIncluded = Array(rooms.length).fill(false);
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         const roomType = rooms[iRoom].roomType;
-        if (roomType !== RoomType.Exterior && !isCourtyardRoomType(roomType)) {
+        if (roomType !== RoomType.Exterior) {
             roomIncluded[iRoom] = true;
         }
     }
@@ -1363,36 +1363,38 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
 function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
     const positions = [];
     // Search for positions with adjacent windows
-    for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
-        if (room.posMin[1] > 0) {
-            const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
-            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
-                positions.push(vec2.fromValues(x, room.posMin[1]));
+    if (!isCourtyardRoomType(room.roomType)) {
+        for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+            if (room.posMin[1] > 0) {
+                const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
+                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                    positions.push(vec2.fromValues(x, room.posMin[1]));
+                }
+            }
+            if (room.posMax[1] < gameMap.cells.sizeY) {
+                const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
+                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                    positions.push(vec2.fromValues(x, room.posMax[1] - 1));
+                }
             }
         }
-        if (room.posMax[1] < gameMap.cells.sizeY) {
-            const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
-            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
-                positions.push(vec2.fromValues(x, room.posMax[1] - 1));
+        for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+            if (room.posMin[0] > 0) {
+                const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
+                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                    positions.push(vec2.fromValues(room.posMin[0], y));
+                }
+            }
+            if (room.posMax[0] < gameMap.cells.sizeX) {
+                const terrainType = gameMap.cells.at(room.posMax[0], y).type;
+                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                    positions.push(vec2.fromValues(room.posMax[0] - 1, y));
+                }
             }
         }
-    }
-    for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
-        if (room.posMin[0] > 0) {
-            const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
-            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
-                positions.push(vec2.fromValues(room.posMin[0], y));
-            }
+        if (positions.length > 0) {
+            return positions;
         }
-        if (room.posMax[0] < gameMap.cells.sizeX) {
-            const terrainType = gameMap.cells.at(room.posMax[0], y).type;
-            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
-                positions.push(vec2.fromValues(room.posMax[0] - 1, y));
-            }
-        }
-    }
-    if (positions.length > 0) {
-        return positions;
     }
 
     // Search for chairs to sit on
