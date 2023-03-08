@@ -9,8 +9,6 @@ const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
 
-const invalidRegion: number = -1;
-
 enum RoomType
 {
     Exterior,
@@ -42,11 +40,6 @@ type Adjacency = {
 
 function createGameMap(level: number): GameMap {
     let map = createGameMapInternal(level);
-
-    for (let iTry = 0; map.patrolRegions.length === 0 && iTry < 100; ++iTry) {
-        map = createGameMapInternal(level);
-    }
-
     map.computeLighting();
     map.recomputeVisibility(map.playerStartPos);
 
@@ -79,8 +72,7 @@ function createGameMapInternal(level: number): GameMap {
     fixupWalls(cells);
     cacheCellInfo(map);
 
-    generatePatrolRoutes(map, rooms, adjacencies);
-    const patrolRoutes = placePatrolRoutesNew(map, rooms, adjacencies);
+    const patrolRoutes = placePatrolRoutes(map, rooms, adjacencies);
 
     placeGuards(level, map, patrolRoutes);
 
@@ -1075,98 +1067,7 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
     }
 }
 
-function generatePatrolRoutes(map: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>) {
-    const includeRoom = Array(rooms.length).fill(true);
-
-    // Exclude exterior rooms.
-
-    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-        if (rooms[iRoom].roomType == RoomType.Exterior) {
-            includeRoom[iRoom] = false;
-        }
-    }
-
-    // Trim dead ends out repeatedly until no more can be trimmed.
-
-    while (true) {
-        let trimmed = false;
-
-        for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-            if (!includeRoom[iRoom]) {
-                continue;
-            }
-
-            const room = rooms[iRoom];
-
-            let numExits = 0;
-            for (const iAdj of room.edges) {
-                const adj = adjacencies[iAdj];
-
-                if (!adj.door) {
-                    continue;
-                }
-
-                let iRoomOther = (adj.room_left != iRoom) ? adj.room_left : adj.room_right;
-
-                if (includeRoom[iRoomOther]) {
-                    numExits += 1;
-                }
-            }
-
-            if (numExits < 2) {
-                includeRoom[iRoom] = false;
-                trimmed = true;
-            }
-        }
-
-        if (!trimmed) {
-            break;
-        }
-    }
-
-    // Generate patrol regions for included rooms.
-
-    const roomPatrolRegion = Array(rooms.length).fill(invalidRegion);
-
-    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-        if (includeRoom[iRoom]) {
-            roomPatrolRegion[iRoom] = addPatrolRegion(map, rooms[iRoom].posMin, rooms[iRoom].posMax);
-        }
-    }
-
-    // Add connections between included rooms.
-
-    for (const adj of adjacencies) {
-        if (!adj.door) {
-            continue;
-        }
-
-        let region0 = roomPatrolRegion[adj.room_left];
-        let region1 = roomPatrolRegion[adj.room_right];
-
-        if (region0 === invalidRegion || region1 === invalidRegion) {
-            continue;
-        }
-
-        addPatrolRoute(map, region0, region1);
-    }
-}
-
-function addPatrolRegion(map: GameMap, posMin: vec2, posMax: vec2): number {
-    let iPatrolRegion = map.patrolRegions.length;
-
-    map.patrolRegions.push({ posMin, posMax });
-
-    return iPatrolRegion;
-}
-
-function addPatrolRoute(map: GameMap, region0: number, region1: number) {
-    console.assert(region0 < map.patrolRegions.length);
-    console.assert(region1 < map.patrolRegions.length);
-    map.patrolRoutes.push([region0, region1]);
-}
-
-function placePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
+function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
     const roomIncluded = Array(rooms.length).fill(false);
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         const roomType = rooms[iRoom].roomType;
@@ -1936,9 +1837,11 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         return;
     }
 
-    // Generate guards
+    // Old math for desired number of guards
 
 //    let numGuards = (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
+
+    // Generate guards
 
     for (const patrolPath of patrolRoutes) {
         const guard = new Guard(patrolPath, map);
