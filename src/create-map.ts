@@ -1206,6 +1206,14 @@ function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacenci
         } else if (iRoomNext[iRoom1] == -1 && iRoomPrev[iRoom0] == -1) {
             iRoomNext[iRoom1] = iRoom0;
             iRoomPrev[iRoom0] = iRoom1;
+        } else if (iRoomNext[iRoom0] == -1 && iRoomNext[iRoom1] == -1) {
+            flipReverse(iRoomNext, iRoomPrev, iRoom1);
+            iRoomNext[iRoom0] = iRoom1;
+            iRoomPrev[iRoom1] = iRoom0;
+        } else if (iRoomPrev[iRoom0] == -1 && iRoomPrev[iRoom1] == -1) {
+            flipForward(iRoomNext, iRoomPrev, iRoom0);
+            iRoomNext[iRoom0] = iRoom1;
+            iRoomPrev[iRoom1] = iRoom0;
         }
     }
 
@@ -1267,6 +1275,28 @@ function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacenci
         for (const pos of path) {
             gameMap.patrolRoutesNew.push(pos);
         }
+    }
+}
+
+function flipReverse(iRoomNext: Array<number>, iRoomPrev: Array<number>, iRoom: number) {
+    let iRoomVisited = -1;
+    while (iRoom != -1) {
+        const iRoomToVisit = iRoomPrev[iRoom];
+        iRoomNext[iRoom] = iRoomToVisit;
+        iRoomPrev[iRoom] = iRoomVisited;
+        iRoomVisited = iRoom;
+        iRoom = iRoomToVisit;
+    }
+}
+
+function flipForward(iRoomNext: Array<number>, iRoomPrev: Array<number>, iRoom: number) {
+    let iRoomVisited = -1;
+    while (iRoom != -1) {
+        const iRoomToVisit = iRoomNext[iRoom];
+        iRoomPrev[iRoom] = iRoomToVisit;
+        iRoomNext[iRoom] = iRoomVisited;
+        iRoomVisited = iRoom;
+        iRoom = iRoomToVisit;
     }
 }
 
