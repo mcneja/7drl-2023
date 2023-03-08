@@ -181,7 +181,7 @@ class Guard {
     
         // If we moved, update state based on target visibility from new position
     
-        if (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1]) {
+        if (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1] || this.mode === GuardMode.PostRelightTorch) {
             if (this.seesThief(map, player)) {
                 if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.Look;
@@ -536,6 +536,7 @@ function relightTorchAt(map: GameMap, posTorch: vec2) {
             item.type = ItemType.TorchLit;
         }
     }
+    map.computeLighting();
 }
 
 function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
