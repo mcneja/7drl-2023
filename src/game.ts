@@ -7,7 +7,7 @@ import { TileInfo, TileSet, FontTileSet, getTileSet, getFontTileSet } from './ti
 
 import * as colorPreset from './color-preset';
 
-const tileSet = getTileSet('basic'); //'basic' or '34'
+const tileSet = getTileSet('sincity'); //'basic', 'sincity' or '34'
 const fontTileSet = getFontTileSet('font'); 
 
 window.onload = loadResourcesThenRun;
@@ -524,7 +524,7 @@ function renderPlayer(state: State, renderer: Renderer) {
         !lit ? p[4] :
         p[0];
 
-    renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
+    renderer.addGlyph(x, y, x+1, y+1, tileInfo);
 }
 
 function renderGuards(state: State, renderer: Renderer) {
