@@ -200,6 +200,11 @@ class Guard {
                 vec2.copy(this.goal, torch.pos);
                 this.mode = GuardMode.RelightTorch;
                 this.modeTimeout = 3;
+            } else if (posPrev[0] === this.pos[0] && posPrev[1] === this.pos[1]) {
+                const posLookAt = this.tryGetPosLookAt(map);
+                if (posLookAt !== undefined) {
+                    updateDir(this.dir, this.pos, posLookAt);
+                }
             }
         }
     
@@ -393,6 +398,22 @@ class Guard {
             }
         }
         return false;
+    }
+
+    tryGetPosLookAt(map: GameMap): vec2 | undefined {
+        const x = this.pos[0];
+        const y = this.pos[1];
+        if (x > 0 && map.cells.at(x - 1, y).type == TerrainType.OneWayWindowW) {
+            return vec2.fromValues(x - 1, y);
+        } else if (x < map.cells.sizeX - 1 && map.cells.at(x + 1, y).type == TerrainType.OneWayWindowE) {
+            return vec2.fromValues(x + 1, y);
+        } else if (y > 0 && map.cells.at(x, y - 1).type == TerrainType.OneWayWindowS) {
+            return vec2.fromValues(x, y - 1);
+        } else if (y < map.cells.sizeY - 1 && map.cells.at(x, y + 1).type == TerrainType.OneWayWindowN) {
+            return vec2.fromValues(x, y + 1);
+        }
+
+        return undefined;
     }
 }
 
