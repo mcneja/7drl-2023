@@ -194,7 +194,7 @@ class Guard {
                 vec2.copy(this.goal, player.pos);
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
-            } else if (this.hasTorch && this.mode === GuardMode.Patrol) {
+            } else if (this.mode === GuardMode.Patrol) {
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
