@@ -34,6 +34,7 @@ type State = {
     finishedLevel: boolean;
     seeAll: boolean;
     seeGuardSight: boolean;
+    seeGuardPatrols: boolean;
     camera: Camera;
     level: number;
     gameMap: GameMap;
@@ -69,6 +70,9 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code === 'KeyV') {
                 e.preventDefault();
                 state.seeGuardSight = !state.seeGuardSight;
+            } else if (e.code === 'KeyP') {
+                e.preventDefault();
+                state.seeGuardPatrols = !state.seeGuardPatrols;
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
@@ -625,7 +629,11 @@ function renderGuardSight(state: State, renderer: Renderer) {
     }
 }
 
-function renderPatrolPathsNew(state: State, renderer: Renderer) {
+function renderGuardPatrolPaths(state: State, renderer: Renderer) {
+    if (!state.seeGuardPatrols) {
+        return;
+    }
+
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
             renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:249, color:0x80ffffff}, true);
@@ -672,6 +680,7 @@ function initState(): State {
         finishedLevel: false,
         seeAll: false,
         seeGuardSight: false,
+        seeGuardPatrols: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
         gameMap: gameMap,
@@ -725,7 +734,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderGuards(state, renderer);
     renderGuardOverheadIcons(state, renderer);
     renderGuardSight(state, renderer);
-//    renderPatrolPathsNew(state, renderer);
+    renderGuardPatrolPaths(state, renderer);
     renderer.flush();
 
     renderBottomStatusBar(renderer, screenSize, state);
