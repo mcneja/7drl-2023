@@ -596,11 +596,13 @@ function renderGuardSight(state: State, glyphRenderer: GlyphRenderer) {
 }
 
 function renderPatrolPathsNew(state: State, glyphRenderer: GlyphRenderer) {
-    for (const pos of state.gameMap.patrolRoutesNew) {
-        glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 64, colorPreset.black);
-    }
-    for (const pos of state.gameMap.patrolRoutesNew) {
-        glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 249, colorPreset.white);
+    for (const guard of state.gameMap.guards) {
+        for (const pos of guard.patrolPath) {
+            glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 64, colorPreset.black);
+        }
+        for (const pos of guard.patrolPath) {
+            glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 249, colorPreset.white);
+        }
     }
 }
 
@@ -632,7 +634,7 @@ function createCamera(posPlayer: vec2): Camera {
 }
 
 function initState(): State {
-    const initialLevel = 4;
+    const initialLevel = 1;
     const gameMap = createGameMap(initialLevel);
 
     return {

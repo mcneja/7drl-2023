@@ -78,9 +78,9 @@ function createGameMapInternal(level: number): GameMap {
     cacheCellInfo(map);
 
     generatePatrolRoutes(map, rooms, adjacencies);
-    generatePatrolRoutesNew(map, rooms, adjacencies);
+    const patrolRoutes = generatePatrolRoutesNew(map, rooms, adjacencies);
 
-    placeGuards(level, rooms, map);
+    placeGuards(level, map, patrolRoutes);
 
     markExteriorAsSeen(map);
 
@@ -1172,7 +1172,7 @@ function addPatrolRoute(map: GameMap, region0: number, region1: number) {
     map.patrolRoutes.push([region0, region1]);
 }
 
-function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>) {
+function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
     const roomIncluded = Array(rooms.length).fill(false);
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         const roomType = rooms[iRoom].roomType;
@@ -1235,21 +1235,46 @@ function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacenci
     // outgoing door, and if there is no outgoing door,
     // the path ends next to the incoming door.
 
-    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-        if (!roomIncluded[iRoom]) {
+    const roomHandled = Array(rooms.length).fill(false);
+    const patrolRoutes = [];
+
+    for (let iRoomIter = 0; iRoomIter < rooms.length; ++iRoomIter) {
+        if (!roomIncluded[iRoomIter]) {
+            continue;
+        }
+        if (roomHandled[iRoomIter]) {
             continue;
         }
 
-        const iNext = iRoomNext[iRoom];
-        const iPrev = iRoomPrev[iRoom];
+        if (iRoomNext[iRoomIter] == -1 && iRoomPrev[iRoomIter] == -1) {
+            roomHandled[iRoomIter] = true;
+            continue;
+        }
 
-        const posStart = vec2.create();
-        const posEnd = vec2.create();
+        const iRoomStart = startingRoomIndex(iRoomPrev, iRoomIter);
 
-        if (iNext === -1) {
+        const patrolPositions = [];
+        for (let iRoom = iRoomStart; iRoom != -1; iRoom = iRoomNext[iRoom]) {
+            if (roomHandled[iRoom]) {
+                break;
+            }
+            roomHandled[iRoom] = true;
+
+            const iNext = iRoomNext[iRoom];
+            const iPrev = iRoomPrev[iRoom];
+
+            const posStart = vec2.create();
+            const posEnd = vec2.create();
+
             if (iPrev === -1) {
-                continue;
-            } else {
+                const positions = activityStationPositions(gameMap, rooms[iRoom]);
+                if (positions.length > 0) {
+                    vec2.copy(posStart, positions[randomInRange(positions.length)]);
+                } else {
+                    posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
+                }
+                posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
+            } else if (iNext === -1) {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
                 if (positions.length > 0) {
@@ -1257,25 +1282,32 @@ function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacenci
                 } else {
                     posBesideDoor(posEnd, rooms, adjacencies, iRoom, iPrev);
                 }
-            }
-        } else if (iPrev === -1) {
-            const positions = activityStationPositions(gameMap, rooms[iRoom]);
-            if (positions.length > 0) {
-                vec2.copy(posStart, positions[randomInRange(positions.length)]);
             } else {
-                posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
+                posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
+                posBesideDoor(posEnd, rooms, adjacencies, iRoom, iNext);
             }
-            posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
-        } else {
-            posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
-            posBesideDoor(posEnd, rooms, adjacencies, iRoom, iNext);
+    
+            const path = pathBetweenPoints(gameMap, posStart, posEnd);
+            for (const pos of path) {
+                patrolPositions.push(pos);
+            }
         }
 
-        const path = pathBetweenPoints(gameMap, posStart, posEnd);
-        for (const pos of path) {
-            gameMap.patrolRoutesNew.push(pos);
+        patrolRoutes.push(patrolPositions);
+    }
+
+    return patrolRoutes;
+}
+
+function startingRoomIndex(iRoomPrev: Array<number>, iRoom: number) {
+    let iRoomStart = iRoom;
+    while (iRoomPrev[iRoomStart] != -1) {
+        iRoomStart = iRoomPrev[iRoomStart];
+        if (iRoomStart == iRoom) {
+            break;
         }
     }
+    return iRoomStart;
 }
 
 function flipReverse(iRoomNext: Array<number>, iRoomPrev: Array<number>, iRoom: number) {
@@ -1902,39 +1934,21 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     }
 }
 
-function placeGuards(level: number, rooms: Array<Room>, map: GameMap) {
+function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>) {
     if (level <= 0) {
         return;
     }
 
-    if (map.patrolRegions.length === 0) {
-        return;
-    }
-
-    // Count number of internal rooms.
-
-    let numRooms = 0;
-    for (const room of rooms) {
-        if (room.roomType != RoomType.Exterior) {
-            numRooms += 1;
-        }
-    }
-
     // Generate guards
 
-    let numGuards = 0; // (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
+//    let numGuards = (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
 
-    while (numGuards > 0) {
-        const pos = generateInitialGuardPos(map);
-        if (pos === undefined) {
-            break;
-        }
-        const guard = new Guard(pos, map);
-        if (numGuards < 2) {
+    for (const patrolPath of patrolRoutes) {
+        const guard = new Guard(patrolPath, map);
+        if (map.guards.length < 1) {
             guard.hasTorch = true;
         }
         map.guards.push(guard);
-        numGuards -= 1;
     }
 }
 

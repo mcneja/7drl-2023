@@ -33,11 +33,14 @@ class Guard {
     modeTimeout: number;
 
     // Patrol
-    regionGoal: number;
-    regionPrev: number;
+    patrolPath: Array<vec2>;
+    patrolPathIndex: number;
+    patrolReverse: boolean;
+    patrolLoops: boolean;
 
-    constructor(pos: vec2, map: GameMap) {
-        this.pos = vec2.clone(pos);
+    constructor(patrolPath: Array<vec2>, map: GameMap) {
+        const posStart = patrolPath[0];
+        this.pos = vec2.clone(posStart);
         this.dir = vec2.fromValues(1, 0);
         this.mode = GuardMode.Patrol;
         this.hasTorch = false;
@@ -46,11 +49,13 @@ class Guard {
         this.heardThief = false;
         this.hearingGuard = false;
         this.heardGuard = false;
-        this.heardGuardPos = vec2.clone(pos);
-        this.goal = vec2.clone(pos);
+        this.heardGuardPos = vec2.clone(posStart);
+        this.goal = vec2.clone(posStart);
         this.modeTimeout = 0;
-        this.regionGoal = map.closestRegion(pos);
-        this.regionPrev = invalidRegion;
+        this.patrolPath = patrolPath;
+        this.patrolPathIndex = 0;
+        this.patrolReverse = false;
+        this.patrolLoops = patrolPathLoops(patrolPath);
 
         this.updateDirInitial(map);
     }
@@ -143,7 +148,6 @@ class Guard {
 
             if (this.modeTimeout == 0) {
                 this.mode = GuardMode.Patrol;
-                this.setupGoalRegion(map);
             }
             break;
 
@@ -156,7 +160,6 @@ class Guard {
                 this.modeTimeout -= 1;
                 if (this.modeTimeout === 0) {
                     this.mode = GuardMode.Patrol;
-                    this.setupGoalRegion(map);
                 }
             }
             break;
@@ -165,7 +168,6 @@ class Guard {
             --this.modeTimeout;
             if (this.modeTimeout <= 0) {
                 this.mode = GuardMode.Patrol;
-                this.setupGoalRegion(map);
             }
             break;
         }
@@ -257,14 +259,39 @@ class Guard {
     }
 
     patrolStep(map: GameMap, player: Player) {
-        const bumpedThief = this.moveTowardRegion(map, player);
-    
-        if (map.cells.at(this.pos[0], this.pos[1]).region === this.regionGoal) {
-            const regionPrev = this.regionPrev;
-            this.regionPrev = this.regionGoal;
-            this.regionGoal = map.randomNeighborRegion(this.regionGoal, regionPrev);
+        let bumpedThief = false;
+
+        if (this.patrolPath[this.patrolPathIndex][0] === this.pos[0] &&
+            this.patrolPath[this.patrolPathIndex][1] === this.pos[1]) {
+            if (this.patrolReverse) {
+                if (this.patrolPathIndex === 0) {
+                    if (this.patrolLoops) {
+                        this.patrolPathIndex = this.patrolPath.length - 1;
+                    } else {
+                        this.patrolReverse = false;
+                        this.patrolPathIndex = 1;
+                    }
+                } else {
+                    --this.patrolPathIndex;
+                }
+            } else {
+                if (this.patrolPathIndex >= this.patrolPath.length - 1) {
+                    if (this.patrolLoops) {
+                        this.patrolPathIndex = 0;
+                    } else {
+                        this.patrolReverse = true;
+                        this.patrolPathIndex = this.patrolPath.length - 2;
+                    }
+                } else {
+                    ++this.patrolPathIndex;
+                }
+            }
+
+            bumpedThief = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
+        } else {
+            // Off the path; try to find our way back
         }
-    
+
         if (bumpedThief) {
             this.mode = GuardMode.ChaseVisibleTarget;
             vec2.copy(this.goal, player.pos);
@@ -274,6 +301,7 @@ class Guard {
 
     updateDirInitial(map: GameMap)
     {
+        /*
         if (this.regionGoal == invalidRegion) {
             return;
         }
@@ -282,23 +310,24 @@ class Guard {
         const posNext = posNextBest(map, distanceField, this.pos);
     
         updateDir(this.dir, this.pos, posNext);
+        */
     }
 
-    moveTowardRegion(map: GameMap, player: Player): boolean {
-        if (this.regionGoal === invalidRegion) {
+    moveTowardPosition(posGoal: vec2, map: GameMap, player: Player): boolean {
+        const distanceField = map.computeDistancesToPosition(posGoal);
+        const posNext = posNextBest(map, distanceField, this.pos);
+
+        if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
             return false;
         }
 
-        const distanceField = map.computeDistancesToRegion(this.regionGoal);
-        const posNext = posNextBest(map, distanceField, this.pos);
+        updateDir(this.dir, this.pos, posNext);
 
         if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
             return true;
         }
 
-        updateDir(this.dir, this.pos, posNext);
         vec2.copy(this.pos, posNext);
-
         return false;
     }
 
@@ -319,22 +348,6 @@ class Guard {
         vec2.copy(this.pos, posNext);
         return true;
     }
-
-    setupGoalRegion(map: GameMap) {
-        const regionCur = map.cells.at(this.pos[0], this.pos[1]).region;
-    
-        if (this.regionGoal !== invalidRegion && regionCur === this.regionPrev) {
-            return;
-        }
-    
-        if (regionCur === invalidRegion) {
-            this.regionGoal = map.closestRegion(this.pos);
-        } else {
-            this.regionGoal = map.randomNeighborRegion(regionCur, this.regionPrev);
-            this.regionPrev = regionCur;
-        }
-    }
-
 }
 
 function isRelaxedGuardMode(guardMode: GuardMode): boolean {
@@ -514,4 +527,10 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     }
 
     return true;
+}
+
+function patrolPathLoops(patrolPath: Array<vec2>): boolean {
+    const dx = patrolPath[0][0] - patrolPath[patrolPath.length - 1][0];
+    const dy = patrolPath[0][1] - patrolPath[patrolPath.length - 1][1];
+    return (dx != 0 || dy != 0) && Math.abs(dx) < 2 && Math.abs(dy) < 2;
 }

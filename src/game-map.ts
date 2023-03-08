@@ -329,7 +329,6 @@ class GameMap {
     cells: CellGrid;
     patrolRegions: Array<Rect>;
     patrolRoutes: Array<[number, number]>;
-    patrolRoutesNew: Array<vec2>; // each route is a set of points, for now
     items: Array<Item>;
     guards: Array<Guard>;
     playerStartPos: vec2;
@@ -339,7 +338,6 @@ class GameMap {
         this.cells = cells;
         this.patrolRegions = [];
         this.patrolRoutes = [];
-        this.patrolRoutesNew = [];
         this.items = [];
         this.guards = [];
         this.playerStartPos = vec2.create();
