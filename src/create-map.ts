@@ -1,6 +1,6 @@
 export { createGameMap };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, TerrainType, invalidRegion, guardMoveCostForItemType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, TerrainType, guardMoveCostForItemType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { randomInRange, shuffleArray } from './random';
@@ -8,6 +8,8 @@ import { randomInRange, shuffleArray } from './random';
 const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
+
+const invalidRegion: number = -1;
 
 enum RoomType
 {
@@ -78,7 +80,7 @@ function createGameMapInternal(level: number): GameMap {
     cacheCellInfo(map);
 
     generatePatrolRoutes(map, rooms, adjacencies);
-    const patrolRoutes = generatePatrolRoutesNew(map, rooms, adjacencies);
+    const patrolRoutes = placePatrolRoutesNew(map, rooms, adjacencies);
 
     placeGuards(level, map, patrolRoutes);
 
@@ -1155,14 +1157,6 @@ function addPatrolRegion(map: GameMap, posMin: vec2, posMax: vec2): number {
 
     map.patrolRegions.push({ posMin, posMax });
 
-    // Plot the region into the map.
-
-    for (let x = posMin[0]; x < posMax[0]; ++x) {
-        for (let y = posMin[1]; y < posMax[1]; ++y) {
-            map.cells.at(x, y).region = iPatrolRegion;
-        }
-    }
-
     return iPatrolRegion;
 }
 
@@ -1172,7 +1166,7 @@ function addPatrolRoute(map: GameMap, region0: number, region1: number) {
     map.patrolRoutes.push([region0, region1]);
 }
 
-function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
+function placePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
     const roomIncluded = Array(rooms.length).fill(false);
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         const roomType = rooms[iRoom].roomType;
@@ -1284,12 +1278,16 @@ function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacenci
                 }
             } else {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
-                posBesideDoor(posEnd, rooms, adjacencies, iRoom, iNext);
+                posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
             }
     
             const path = pathBetweenPoints(gameMap, posStart, posEnd);
             for (const pos of path) {
                 patrolPositions.push(pos);
+            }
+
+            if (iNext === -1) {
+                patrolPositions.push(posEnd);
             }
         }
 
@@ -1433,14 +1431,13 @@ function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2
     const distanceField = gameMap.computeDistancesToPosition(pos1);
     const pos = vec2.clone(pos0);
     const path = [];
-    path.push(vec2.clone(pos));
     while (pos[0] !== pos1[0] || pos[1] !== pos1[1]) {
+        path.push(vec2.clone(pos));
         const posNext = posNextBest(gameMap, distanceField, pos);
         if (posNext[0] === pos[0] && posNext[1] === pos[1]) {
             break;
         }
         vec2.copy(pos, posNext);
-        path.push(vec2.clone(pos));
     }
     return path;
 }

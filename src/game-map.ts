@@ -11,15 +11,11 @@ export {
     TerrainType,
     GuardStates,
     guardMoveCostForItemType,
-    invalidRegion,
     maxPlayerHealth,
 };
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { randomInRange } from './random';
-
-const invalidRegion: number = -1;
 
 const cardinalDirections: Array<vec2> = [
     vec2.fromValues(-1, 0),
@@ -144,7 +140,6 @@ enum TerrainType {
 type Cell = {
     type: TerrainType;
     moveCost: number;
-    region: number;
     blocksPlayerMove: boolean;
     blocksPlayerSight: boolean;
     blocksSight: boolean;
@@ -168,7 +163,6 @@ class CellGrid {
             this.values[i] = {
                 type: TerrainType.GroundNormal,
                 moveCost: Infinity,
-                region: invalidRegion,
                 blocksPlayerMove: false,
                 blocksPlayerSight: false,
                 blocksSight: false,
@@ -657,24 +651,6 @@ class GameMap {
         return this.guards.find((guard) => guard.hasMoved && guard.pos[0] == x && guard.pos[1] == y) != undefined;
     }
 
-    randomNeighborRegion(region: number, regionExclude: number): number {
-        const neighbors = [];
-    
-        for (const [region0, region1] of this.patrolRoutes) {
-            if (region0 === region && region1 !== regionExclude) {
-                neighbors.push(region1);
-            } else if (region1 === region && region0 !== regionExclude) {
-                neighbors.push(region0);
-            }
-        }
-    
-        if (neighbors.length === 0) {
-            return region;
-        }
-
-        return neighbors[randomInRange(neighbors.length)];
-    }
-
     guardMoveCost(posOld: vec2, posNew: vec2): number {
         const cost = this.cells.at(posNew[0], posNew[1]).moveCost;
     
@@ -694,78 +670,17 @@ class GameMap {
         return cost;
     }
 
-    closestRegion(posStart: vec2): number {
-        if (this.patrolRegions.length === 0) {
-            return invalidRegion;
-        }
-
-        const sizeX = this.cells.sizeX;
-        const sizeY = this.cells.sizeY;
-
-        const distField = new Float64Grid(sizeX, sizeY, Infinity);
-        const toVisit: PriorityQueue<DistPos> = [];
-
-        priorityQueuePush(toVisit, { priority: 0, pos: posStart });
-
-        while (toVisit.length > 0) {
-            const distPos = priorityQueuePop(toVisit);
-            const dist = distPos.priority;
-            const pos = distPos.pos;
-
-            const region = this.cells.at(pos[0], pos[1]).region;
-            if (region !== invalidRegion) {
-                return region;
-            }
-    
-            if (dist >= distField.get(pos[0], pos[1])) {
-                continue;
-            }
-    
-            distField.set(pos[0], pos[1], dist);
-    
-            for (const adjacentMove of adjacentMoves) {
-                const posNew = vec2.fromValues(pos[0] + adjacentMove.dx, pos[1] + adjacentMove.dy);
-                if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
-                    continue;
-                }
-    
-                const moveCost = this.guardMoveCost(pos, posNew);
-                if (moveCost == Infinity) {
-                    continue;
-                }
-    
-                let distNew = dist + moveCost + adjacentMove.cost;
-    
-                if (distNew < distField.get(posNew[0], posNew[1])) {
-                    priorityQueuePush(toVisit, { priority: distNew, pos: posNew });
-                }
-            }
-        }
-    
-        return invalidRegion;
-    }
-
-    computeDistancesToRegion(iRegionGoal: number): Float64Grid {
-        console.assert(iRegionGoal >= 0);
-        console.assert(iRegionGoal < this.patrolRegions.length);
-    
-        let region = this.patrolRegions[iRegionGoal];
-    
-        // Fill the priority queue with all of the region's locations.
-    
+    computeDistancesToPatrolPath(patrolPositions: Array<vec2>): Float64Grid {
         const goal = [];
     
-        for (let x = region.posMin[0]; x < region.posMax[0]; ++x) {
-            for (let y = region.posMin[1]; y < region.posMax[1]; ++y) {
-                const p = vec2.fromValues(x, y);
-                const cost = this.cells.at(x, y).moveCost;
-                goal.push({ priority: cost, pos: p });
-            }
+        for (const pos of patrolPositions) {
+            const cost = this.cells.at(pos[0], pos[1]).moveCost;
+            goal.push({ priority: cost, pos: pos });
         }
     
         return this.computeDistanceField(goal);
     }
-    
+
     computeDistancesToPosition(pos_goal: vec2): Float64Grid {
         console.assert(pos_goal[0] >= 0);
         console.assert(pos_goal[1] >= 0);

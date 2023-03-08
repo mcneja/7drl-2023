@@ -1,8 +1,14 @@
 export { Guard, GuardMode, guardActAll, lineOfSight };
 
-import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates, invalidRegion } from './game-map';
+import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
+
+enum MoveResult {
+    StoodStill,
+    Moved,
+    BumpedPlayer,
+}
 
 enum GuardMode {
     Patrol,
@@ -57,7 +63,7 @@ class Guard {
         this.patrolReverse = false;
         this.patrolLoops = patrolPathLoops(patrolPath);
 
-        this.updateDirInitial(map);
+        this.updateDirInitial();
     }
 
     overheadIcon(): number {
@@ -135,14 +141,14 @@ class Guard {
                     player.applyDamage(1);
                 }
             } else {
-                this.moveTowardGoal(map, player);
+                this.moveTowardPosition(this.goal, map, player);
             }
             break;
 
         case GuardMode.MoveToLastSighting:
         case GuardMode.MoveToLastSound:
         case GuardMode.MoveToGuardShout:
-            if (!this.moveTowardGoal(map, player)) {
+            if (this.moveTowardPosition(this.goal, map, player) !== MoveResult.Moved) {
                 this.modeTimeout -= 1;
             }
 
@@ -156,7 +162,7 @@ class Guard {
                 relightTorchAt(map, this.goal);
                 this.mode = GuardMode.PostRelightTorch;
                 this.modeTimeout = 3;
-            } else if (!this.moveTowardGoal(map, player)) {
+            } else if (this.moveTowardPosition(this.goal, map, player) !== MoveResult.Moved) {
                 this.modeTimeout -= 1;
                 if (this.modeTimeout === 0) {
                     this.mode = GuardMode.Patrol;
@@ -259,7 +265,7 @@ class Guard {
     }
 
     patrolStep(map: GameMap, player: Player) {
-        let bumpedThief = false;
+        let moveResult;
 
         if (this.patrolPath[this.patrolPathIndex][0] === this.pos[0] &&
             this.patrolPath[this.patrolPathIndex][1] === this.pos[1]) {
@@ -287,66 +293,88 @@ class Guard {
                 }
             }
 
-            bumpedThief = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
+            moveResult = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
         } else {
-            // Off the path; try to find our way back
+            moveResult = this.moveTowardPatrolPath(map, player);
+
+            for (let iPatrolPos = 0; iPatrolPos < this.patrolPath.length; ++iPatrolPos) {
+                const pos = this.patrolPath[iPatrolPos];
+                if (pos[0] === this.pos[0] && pos[1] === this.pos[1]) {
+                    this.patrolPathIndex = iPatrolPos;
+                    break;
+                }
+            }
         }
 
-        if (bumpedThief) {
+        if (moveResult === MoveResult.BumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
             vec2.copy(this.goal, player.pos);
             updateDir(this.dir, this.pos, this.goal);
         }
     }
 
-    updateDirInitial(map: GameMap)
+    updateDirInitial()
     {
-        /*
-        if (this.regionGoal == invalidRegion) {
-            return;
+        let patrolPathIndexNext;
+        if (this.patrolReverse) {
+            if (this.patrolPathIndex === 0) {
+                if (this.patrolLoops) {
+                    patrolPathIndexNext = this.patrolPath.length - 1;
+                } else {
+                    patrolPathIndexNext = 1;
+                }
+            } else {
+                patrolPathIndexNext = this.patrolPathIndex - 1;
+            }
+        } else {
+            if (this.patrolPathIndex >= this.patrolPath.length - 1) {
+                if (this.patrolLoops) {
+                    patrolPathIndexNext = 0;
+                } else {
+                    patrolPathIndexNext = this.patrolPath.length - 2;
+                }
+            } else {
+                patrolPathIndexNext = this.patrolPathIndex + 1;
+            }
         }
-    
-        let distanceField = map.computeDistancesToRegion(this.regionGoal);
-        const posNext = posNextBest(map, distanceField, this.pos);
-    
-        updateDir(this.dir, this.pos, posNext);
-        */
+
+        updateDir(this.dir, this.pos, this.patrolPath[patrolPathIndexNext]);
     }
 
-    moveTowardPosition(posGoal: vec2, map: GameMap, player: Player): boolean {
+    moveTowardPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
         const distanceField = map.computeDistancesToPosition(posGoal);
         const posNext = posNextBest(map, distanceField, this.pos);
 
         if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
-            return false;
+            return MoveResult.StoodStill;
         }
 
         updateDir(this.dir, this.pos, posNext);
 
         if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
-            return true;
+            return MoveResult.BumpedPlayer;
         }
 
         vec2.copy(this.pos, posNext);
-        return false;
+        return MoveResult.Moved;
     }
 
-    moveTowardGoal(map: GameMap, player: Player): boolean {
-        const distanceField = map.computeDistancesToPosition(this.goal);
+    moveTowardPatrolPath(map: GameMap, player: Player): MoveResult {
+        const distanceField = map.computeDistancesToPatrolPath(this.patrolPath);
         const posNext = posNextBest(map, distanceField, this.pos);
 
         if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
-            return false;
+            return MoveResult.StoodStill;
         }
 
         updateDir(this.dir, this.pos, posNext);
 
         if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
-            return false;
+            return MoveResult.BumpedPlayer;
         }
 
         vec2.copy(this.pos, posNext);
-        return true;
+        return MoveResult.Moved;
     }
 }
 

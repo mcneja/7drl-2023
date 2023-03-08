@@ -623,10 +623,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
 function renderPatrolPathsNew(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:64, color:colorPreset.black}, true);
-        }
-        for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:249, color:colorPreset.white}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:249, color:0x80ffffff}, true);
         }
     }
 }
@@ -659,7 +656,7 @@ function createCamera(posPlayer: vec2): Camera {
 }
 
 function initState(): State {
-    const initialLevel = 1;
+    const initialLevel = 0;
     const gameMap = createGameMap(initialLevel);
 
     return {
@@ -668,7 +665,7 @@ function initState(): State {
         shiftUpLastTimeStamp: -Infinity,
         player: new Player(gameMap.playerStartPos),
         finishedLevel: false,
-        seeAll: true, // false,
+        seeAll: false,
         seeGuardSight: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
@@ -723,7 +720,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderGuards(state, renderer);
     renderGuardOverheadIcons(state, renderer);
     renderGuardSight(state, renderer);
-    renderPatrolPathsNew(state, renderer);
+//    renderPatrolPathsNew(state, renderer);
     renderer.flush();
 
     renderBottomStatusBar(renderer, screenSize, state);
