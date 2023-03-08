@@ -1169,6 +1169,8 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
                     posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
                 }
                 posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
+
+                patrolPositions.push(vec2.clone(posStart));
             } else if (iNext === -1) {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
@@ -1188,7 +1190,8 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
             }
 
             if (iNext === -1) {
-                patrolPositions.push(posEnd);
+                patrolPositions.push(vec2.clone(posEnd));
+                patrolPositions.push(vec2.clone(posEnd));
             }
         }
 
