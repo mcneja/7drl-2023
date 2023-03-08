@@ -7,7 +7,7 @@ import { TileInfo, TileSet, FontTileSet, getTileSet, getFontTileSet } from './ti
 
 import * as colorPreset from './color-preset';
 
-const tileSet = getTileSet('basic'); //'basic' or '34'
+const tileSet = getTileSet('sincity'); //'basic', 'sincity' or '34'
 const fontTileSet = getFontTileSet('font'); 
 
 window.onload = loadResourcesThenRun;
