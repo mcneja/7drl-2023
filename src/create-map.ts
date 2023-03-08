@@ -1268,13 +1268,13 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
             if (room.posMin[1] > 0) {
                 const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
-                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                if (isWindowTerrainType(terrainType) && gameMap.cells.at(x, room.posMin[1]).moveCost === 0) {
                     positions.push(vec2.fromValues(x, room.posMin[1]));
                 }
             }
             if (room.posMax[1] < gameMap.cells.sizeY) {
                 const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
-                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                if (isWindowTerrainType(terrainType) && gameMap.cells.at(x, room.posMax[1] - 1).moveCost === 0) {
                     positions.push(vec2.fromValues(x, room.posMax[1] - 1));
                 }
             }
@@ -1282,13 +1282,13 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
         for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
             if (room.posMin[0] > 0) {
                 const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
-                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                if (isWindowTerrainType(terrainType) && gameMap.cells.at(room.posMin[0], y).moveCost === 0) {
                     positions.push(vec2.fromValues(room.posMin[0], y));
                 }
             }
             if (room.posMax[0] < gameMap.cells.sizeX) {
                 const terrainType = gameMap.cells.at(room.posMax[0], y).type;
-                if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                if (isWindowTerrainType(terrainType) && gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0) {
                     positions.push(vec2.fromValues(room.posMax[0] - 1, y));
                 }
             }
@@ -1310,6 +1310,10 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
     }
 
     return positions;
+}
+
+function isWindowTerrainType(terrainType: TerrainType): boolean {
+    return terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS;
 }
 
 function posVacantInRoom(gameMap: GameMap, room: Room): vec2 {
@@ -1556,7 +1560,8 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                     }
                 }
             } else if (dx >= 2 && dy >= 2) {
-                const itemTypes = [ItemType.TorchLit, ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
+                const torchType = randomlyLitTorch();
+                const itemTypes = [torchType, ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
                 shuffleArray(itemTypes);
                 const itemPositions = [
                     [room.posMin[0], room.posMin[1]],
@@ -1589,7 +1594,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                 map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
             } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
                 const itemTypes = new Array(dy - 2).fill(ItemType.Table);
-                itemTypes.push((Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit);
+                itemTypes.push(randomlyLitTorch());
                 shuffleArray(itemTypes);
                 for (let y = 1; y < dy-1; ++y) {
                     placeItem(map, room.posMin[0] + 1, room.posMin[1] + y, ItemType.Chair);
@@ -1598,7 +1603,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                 }
             } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
                 const itemTypes = new Array(dx - 2).fill(ItemType.Table);
-                itemTypes.push((Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit);
+                itemTypes.push(randomlyLitTorch());
                 shuffleArray(itemTypes);
                 for (let x = 1; x < dx-1; ++x) {
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 1, ItemType.Chair);
@@ -1608,7 +1613,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
             } else if (dx > dy && (dy & 1) == 1 && Math.random() < 0.66667) {
                 let y = Math.floor(room.posMin[1] + dy / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+                const torchType = randomlyLitTorch();
                 const itemTypes = [torchType, furnitureType];
                 shuffleArray(itemTypes);
                 tryPlaceItem(map, room.posMin[0] + 1, y, itemTypes[0]);
@@ -1616,14 +1621,14 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
             } else if (dy > dx && (dx & 1) == 1 && Math.random() < 0.66667) {
                 let x = Math.floor(room.posMin[0] + dx / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+                const torchType = randomlyLitTorch();
                 const itemTypes = [torchType, furnitureType];
                 shuffleArray(itemTypes);
                 tryPlaceItem(map, x, room.posMin[1] + 1, itemTypes[0]);
                 tryPlaceItem(map, x, room.posMax[1] - 2, itemTypes[1]);
             } else if (dx > 3 && dy > 3) {
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
+                const torchType = randomlyLitTorch();
                 const itemTypes = [torchType, furnitureType, furnitureType, furnitureType];
                 shuffleArray(itemTypes);
                 tryPlaceItem(map, room.posMin[0], room.posMin[1], itemTypes[0]);
@@ -1633,6 +1638,10 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
             }
         }
     }
+}
+
+function randomlyLitTorch(): ItemType {
+    return (Math.random() < 0.25) ? ItemType.TorchUnlit : ItemType.TorchLit;
 }
 
 function tryPlaceItem(map: GameMap, x: number, y: number, itemType: ItemType) {
@@ -1908,7 +1917,7 @@ function cacheCellInfo(map: GameMap) {
             const cell = map.cells.at(x, y);
             const cellType = cell.type;
             const isWall = cellType >= TerrainType.Wall0000 && cellType <= TerrainType.Wall1111;
-            const isWindow = cellType >= TerrainType.OneWayWindowE && cellType <= TerrainType.OneWayWindowS;
+            const isWindow = isWindowTerrainType(cellType);
             const isWater = cellType == TerrainType.GroundWater;
             cell.moveCost = (isWall || isWindow) ? Infinity : isWater ? 4096 : 0;
             cell.blocksPlayerMove = isWall;
