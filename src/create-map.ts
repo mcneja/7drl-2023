@@ -1,6 +1,6 @@
 export { createGameMap };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, GameMap, TerrainType, invalidRegion, guardMoveCostForItemType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, TerrainType, invalidRegion, guardMoveCostForItemType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { randomInRange, shuffleArray } from './random';
@@ -35,6 +35,7 @@ type Adjacency = {
     room_right: number,
     next_matching: number,
     door: boolean,
+    doorOffset: number,
 }
 
 function createGameMap(level: number): GameMap {
@@ -75,6 +76,9 @@ function createGameMapInternal(level: number): GameMap {
 
     fixupWalls(cells);
     cacheCellInfo(map);
+
+    generatePatrolRoutes(map, rooms, adjacencies);
+    generatePatrolRoutesNew(map, rooms, adjacencies);
 
     placeGuards(level, rooms, map);
 
@@ -387,10 +391,6 @@ function createExits(
 
     assignRoomTypes(roomIndex, adjacencies, rooms);
 
-    // Generate pathing information.
-
-    generatePatrolRoutes(map, rooms, adjacencies);
-
     // Render doors and windows.
 
     renderWalls(rooms, adjacencies, map);
@@ -439,6 +439,7 @@ function computeAdjacencies(
                     room_right: 0,
                     next_matching: i,
                     door: false,
+                    doorOffset: 0,
                 });
             }
 
@@ -469,6 +470,7 @@ function computeAdjacencies(
                         room_right: roomIndex.get(rx - 1, ry - 1),
                         next_matching: i,
                         door: false,
+                        doorOffset: 0,
                     });
                 }
 
@@ -484,6 +486,7 @@ function computeAdjacencies(
                         room_right: roomIndex.get(rx, ry - 1),
                         next_matching: i,
                         door: false,
+                        doorOffset: 0,
                     });
                 }
 
@@ -499,6 +502,7 @@ function computeAdjacencies(
                         room_right: roomIndex.get(rx + 1, ry - 1),
                         next_matching: i,
                         door: false,
+                        doorOffset: 0,
                     });
                 }
             }
@@ -527,6 +531,7 @@ function computeAdjacencies(
                     room_right: roomIndex.get(rx, ry - 1),
                     next_matching: i,
                     door: false,
+                    doorOffset: 0,
                 });
             }
 
@@ -606,6 +611,7 @@ function computeAdjacencies(
                     room_right: roomIndex.get(rx, ry),
                     next_matching: i,
                     door: false,
+                    doorOffset: 0,
                 });
             }
 
@@ -636,6 +642,7 @@ function computeAdjacencies(
                         room_right: roomIndex.get(rx, ry),
                         next_matching: i,
                         door: false,
+                        doorOffset: 0,
                     });
                 }
 
@@ -651,6 +658,7 @@ function computeAdjacencies(
                         room_right: roomIndex.get(rx, ry),
                         next_matching: i,
                         door: false,
+                        doorOffset: 0,
                     });
                 }
 
@@ -666,6 +674,7 @@ function computeAdjacencies(
                         room_right: roomIndex.get(rx, ry),
                         next_matching: i,
                         door: false,
+                        doorOffset: 0,
                     });
                 }
             }
@@ -692,6 +701,7 @@ function computeAdjacencies(
                     room_right: 0,
                     next_matching: i,
                     door: false,
+                    doorOffset: 0,
                 });
                 adjacencyRow.push(i);
             }
@@ -1162,6 +1172,200 @@ function addPatrolRoute(map: GameMap, region0: number, region1: number) {
     map.patrolRoutes.push([region0, region1]);
 }
 
+function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>) {
+    const roomIncluded = Array(rooms.length).fill(false);
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        const roomType = rooms[iRoom].roomType;
+        if (roomType !== RoomType.Exterior && !isCourtyardRoomType(roomType)) {
+            roomIncluded[iRoom] = true;
+        }
+    }
+
+    const iRoomNext = Array(rooms.length);
+    const iRoomPrev = Array(rooms.length);
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        iRoomNext[iRoom] = -1;
+        iRoomPrev[iRoom] = -1;
+    }
+
+    const adjacenciesShuffled = [...adjacencies];
+    shuffleArray(adjacenciesShuffled);
+
+    for (const adj of adjacenciesShuffled) {
+        if (!adj.door) {
+            continue;
+        }
+        const iRoom0 = adj.room_left;
+        const iRoom1 = adj.room_right;
+        if (!roomIncluded[iRoom0] || !roomIncluded[iRoom1]) {
+            continue;
+        }
+        if (iRoomNext[iRoom0] == -1 && iRoomPrev[iRoom1] == -1) {
+            iRoomNext[iRoom0] = iRoom1;
+            iRoomPrev[iRoom1] = iRoom0;
+        } else if (iRoomNext[iRoom1] == -1 && iRoomPrev[iRoom0] == -1) {
+            iRoomNext[iRoom1] = iRoom0;
+            iRoomPrev[iRoom0] = iRoom1;
+        }
+    }
+
+    const posInRoom = [];
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        if (!roomIncluded[iRoom]) {
+            posInRoom.push(rooms[iRoom].posMin);
+            continue;
+        }
+        const pos = posVacantInRoom(gameMap, rooms[iRoom]);
+        posInRoom.push(pos);
+    }
+
+    // Generate sub-paths within each room along the paths
+    // Each room is responsible for the path from the
+    // incoming door to the outgoing door, including the
+    // incoming door but not the outgoing door. If there
+    // is no incoming door, the path starts next to the
+    // outgoing door, and if there is no outgoing door,
+    // the path ends next to the incoming door.
+
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        if (!roomIncluded[iRoom]) {
+            continue;
+        }
+
+        const iNext = iRoomNext[iRoom];
+        const iPrev = iRoomPrev[iRoom];
+
+        const posStart = vec2.create();
+        const posEnd = vec2.create();
+
+        if (iNext === -1) {
+            if (iPrev === -1) {
+                continue;
+            } else {
+                posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
+                posBesideDoor(posEnd, rooms, adjacencies, iRoom, iPrev);
+            }
+        } else if (iPrev === -1) {
+            posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
+            posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
+        } else {
+            posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
+            posBesideDoor(posEnd, rooms, adjacencies, iRoom, iNext);
+        }
+
+        const path = pathBetweenPoints(gameMap, posStart, posEnd);
+        for (const pos of path) {
+            gameMap.patrolRoutesNew.push(pos);
+        }
+    }
+}
+
+function posInDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom0: number, iRoom1: number) {
+    for (const iAdj of rooms[iRoom0].edges) {
+        const adj = adjacencies[iAdj];
+        if ((adj.room_left === iRoom0 && adj.room_right === iRoom1) ||
+            (adj.room_left === iRoom1 && adj.room_right === iRoom0)) {
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
+            return;
+        }
+    }
+    vec2.zero(pos);
+}
+
+function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom: number, iRoomNext: number) {
+    for (const iAdj of rooms[iRoom].edges) {
+        const adj = adjacencies[iAdj];
+        if ((adj.room_left === iRoom && adj.room_right === iRoomNext)) {
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
+            const dirCross = vec2.fromValues(-adj.dir[1], adj.dir[0]);
+            vec2.add(pos, pos, dirCross);
+            return;
+        } else if (adj.room_left === iRoomNext && adj.room_right === iRoom) {
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
+            const dirCross = vec2.fromValues(adj.dir[1], -adj.dir[0]);
+            vec2.add(pos, pos, dirCross);
+            return;
+        }
+    }
+    vec2.zero(pos);
+}
+
+function posVacantInRoom(gameMap: GameMap, room: Room): vec2 {
+    const positions = [];
+    for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+        for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+            if (gameMap.cells.at(x, y).moveCost === 0) {
+                positions.push(vec2.fromValues(x, y));
+            }
+        }
+    }
+    if (positions.length <= 0) {
+        return room.posMin;
+    }
+    const centerX = (room.posMin[0] + room.posMax[0] - 1) / 2;
+    const centerY = (room.posMin[1] + room.posMax[1] - 1) / 2;
+    positions.sort((a, b) => ((a[0] - centerX)**2 + (a[1] - centerY)**2) - ((b[0] - centerX)**2 + (b[1] - centerY)**2));
+    return positions[0];
+}
+
+function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2> {
+    const distanceField = gameMap.computeDistancesToPosition(pos1);
+    const pos = vec2.clone(pos0);
+    const path = [];
+    path.push(vec2.clone(pos));
+    while (pos[0] !== pos1[0] || pos[1] !== pos1[1]) {
+        const posNext = posNextBest(gameMap, distanceField, pos);
+        if (posNext[0] === pos[0] && posNext[1] === pos[1]) {
+            break;
+        }
+        vec2.copy(pos, posNext);
+        path.push(vec2.clone(pos));
+    }
+    return path;
+}
+
+function posNextBest(gameMap: GameMap, distanceField: Float64Grid, posFrom: vec2): vec2 {
+    let costBest = Infinity;
+    let posBest = vec2.clone(posFrom);
+
+    const posMin = vec2.fromValues(Math.max(0, posFrom[0] - 1), Math.max(0, posFrom[1] - 1));
+    const posMax = vec2.fromValues(Math.min(gameMap.cells.sizeX, posFrom[0] + 2), Math.min(gameMap.cells.sizeY, posFrom[1] + 2));
+
+    for (let x = posMin[0]; x < posMax[0]; ++x) {
+        for (let y = posMin[1]; y < posMax[1]; ++y) {
+            const cost = distanceField.get(x, y);
+            if (cost == Infinity) {
+                continue;
+            }
+
+            let pos = vec2.fromValues(x, y);
+            if (gameMap.guardMoveCost(posFrom, pos) == Infinity) {
+                continue;
+            }
+
+            if (gameMap.cells.at(pos[0], pos[1]).type == TerrainType.GroundWater) {
+                continue;
+            }
+
+            if (cost < costBest) {
+                costBest = cost;
+                posBest = pos;
+            }
+        }
+    }
+
+    if (posBest[0] === posFrom[0] && posBest[1] === posFrom[1]) {
+        console.log('failed to proceed');
+        for (let x = posMin[0]; x < posMax[0]; ++x) {
+            for (let y = posMin[1]; y < posMax[1]; ++y) {
+                const cost = distanceField.get(x, y);
+                console.log(x, y, cost);
+            }
+        }
+    }
+    return posBest;
+}
+
 const oneWayWindowTerrainType: Array<TerrainType> = [
     TerrainType.OneWayWindowS,
     TerrainType.OneWayWindowE,
@@ -1275,6 +1479,8 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             if (!a.door) {
                 continue;
             }
+
+            a.doorOffset = offset;
 
             const p = vec2.create();
             vec2.scaleAndAdd(p, a.origin, a.dir, offset);
@@ -1627,7 +1833,7 @@ function placeGuards(level: number, rooms: Array<Room>, map: GameMap) {
 
     // Generate guards
 
-    let numGuards = (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
+    let numGuards = 0; // (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
 
     while (numGuards > 0) {
         const pos = generateInitialGuardPos(map);

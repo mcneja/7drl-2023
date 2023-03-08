@@ -320,13 +320,6 @@ const adjacentMoves: Array<AdjacentMove> = [
     { dx:  1, dy:  1, cost: 3 },
 ];
 
-const soundNeighbors: Array<vec2> = [
-    vec2.fromValues(-1, 0),
-    vec2.fromValues(1, 0),
-    vec2.fromValues(0, -1),
-    vec2.fromValues(0, 1),
-];
-
 type DistPos = {
     priority: number; // = distance; needs to be named priority for PriorityQueueElement
     pos: vec2;
@@ -336,6 +329,7 @@ class GameMap {
     cells: CellGrid;
     patrolRegions: Array<Rect>;
     patrolRoutes: Array<[number, number]>;
+    patrolRoutesNew: Array<vec2>; // each route is a set of points, for now
     items: Array<Item>;
     guards: Array<Guard>;
     playerStartPos: vec2;
@@ -345,6 +339,7 @@ class GameMap {
         this.cells = cells;
         this.patrolRegions = [];
         this.patrolRoutes = [];
+        this.patrolRoutesNew = [];
         this.items = [];
         this.guards = [];
         this.playerStartPos = vec2.create();

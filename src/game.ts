@@ -595,6 +595,12 @@ function renderGuardSight(state: State, glyphRenderer: GlyphRenderer) {
     }
 }
 
+function renderPatrolPathsNew(state: State, glyphRenderer: GlyphRenderer) {
+    for (const pos of state.gameMap.patrolRoutesNew) {
+        glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 249, colorPreset.white);
+    }
+}
+
 function tileIndexOffsetForDir(dir: vec2): number {
     if (dir[1] > 0) {
         return 1;
@@ -623,7 +629,7 @@ function createCamera(posPlayer: vec2): Camera {
 }
 
 function initState(): State {
-    const initialLevel = 0;
+    const initialLevel = 4;
     const gameMap = createGameMap(initialLevel);
 
     return {
@@ -632,7 +638,7 @@ function initState(): State {
         shiftUpLastTimeStamp: -Infinity,
         player: new Player(gameMap.playerStartPos),
         finishedLevel: false,
-        seeAll: false,
+        seeAll: true, // false,
         seeGuardSight: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
@@ -687,6 +693,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderGuards(state, renderer.renderGlyphs);
     renderGuardOverheadIcons(state, renderer.renderGlyphs);
     renderGuardSight(state, renderer.renderGlyphs);
+    renderPatrolPathsNew(state, renderer.renderGlyphs);
     renderer.renderGlyphs.flush();
 
     renderBottomStatusBar(renderer, screenSize, state);
@@ -823,7 +830,7 @@ function worldTileZoom(viewportPixelSize: vec2): number {
 }
 
 function statusBarZoom(screenSizeX: number): number {
-    return Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX)));
+    return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
 function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
