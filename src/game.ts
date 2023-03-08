@@ -73,6 +73,14 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code === 'KeyP') {
                 e.preventDefault();
                 state.seeGuardPatrols = !state.seeGuardPatrols;
+            } else if (e.code === 'Period') {
+                e.preventDefault();
+                ++state.level;
+                resetState(state);
+            } else if (e.code === 'Comma') {
+                e.preventDefault();
+                state.level = Math.max(0, state.level - 1);
+                resetState(state);
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
