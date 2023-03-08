@@ -1243,10 +1243,20 @@ function generatePatrolRoutesNew(gameMap: GameMap, rooms: Array<Room>, adjacenci
                 continue;
             } else {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
-                posBesideDoor(posEnd, rooms, adjacencies, iRoom, iPrev);
+                const positions = activityStationPositions(gameMap, rooms[iRoom]);
+                if (positions.length > 0) {
+                    vec2.copy(posEnd, positions[randomInRange(positions.length)]);
+                } else {
+                    posBesideDoor(posEnd, rooms, adjacencies, iRoom, iPrev);
+                }
             }
         } else if (iPrev === -1) {
-            posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
+            const positions = activityStationPositions(gameMap, rooms[iRoom]);
+            if (positions.length > 0) {
+                vec2.copy(posStart, positions[randomInRange(positions.length)]);
+            } else {
+                posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
+            }
             posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
         } else {
             posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
@@ -1288,6 +1298,55 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
         }
     }
     vec2.zero(pos);
+}
+
+function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
+    const positions = [];
+    // Search for positions with adjacent windows
+    for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+        if (room.posMin[1] > 0) {
+            const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
+            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                positions.push(vec2.fromValues(x, room.posMin[1]));
+            }
+        }
+        if (room.posMax[1] < gameMap.cells.sizeY) {
+            const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
+            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                positions.push(vec2.fromValues(x, room.posMax[1] - 1));
+            }
+        }
+    }
+    for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+        if (room.posMin[0] > 0) {
+            const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
+            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                positions.push(vec2.fromValues(room.posMin[0], y));
+            }
+        }
+        if (room.posMax[0] < gameMap.cells.sizeX) {
+            const terrainType = gameMap.cells.at(room.posMax[0], y).type;
+            if (terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS) {
+                positions.push(vec2.fromValues(room.posMax[0] - 1, y));
+            }
+        }
+    }
+    if (positions.length > 0) {
+        return positions;
+    }
+
+    // Search for chairs to sit on
+    for (const item of gameMap.items) {
+        if (item.type == ItemType.Chair &&
+            item.pos[0] >= room.posMin[0] &&
+            item.pos[1] >= room.posMin[1] &&
+            item.pos[0] < room.posMax[0] &&
+            item.pos[1] < room.posMax[1]) {
+            positions.push(vec2.clone(item.pos));
+        }
+    }
+
+    return positions;
 }
 
 function posVacantInRoom(gameMap: GameMap, room: Room): vec2 {
