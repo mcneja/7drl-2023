@@ -507,7 +507,7 @@ function renderPlayer(state: State, renderer: Renderer) {
         !lit ? p[4] :
         p[0];
 
-    renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
+    renderer.addGlyph(x, y, x+1, y+1, tileInfo);
 }
 
 function renderGuards(state: State, renderer: Renderer) {
