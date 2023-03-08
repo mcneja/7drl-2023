@@ -1,12 +1,14 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMap } from './create-map';
-import { BooleanGrid, ItemType, GameMap, Player, TerrainType, maxPlayerHealth } from './game-map';
+import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
 import { GuardMode, guardActAll, lineOfSight } from './guard';
-import { Renderer, createRenderer, GlyphRenderer } from './render';
+import { Renderer } from './render';
+import { TileInfo, TileSet, FontTileSet, getTileSet, getFontTileSet } from './tilesets';
+
 import * as colorPreset from './color-preset';
 
-var fontImageRequire = require('./font.png');
-var tilesImageRequire = require('./tiles.png');
+const tileSet = getTileSet('basic'); //'basic' or '34'
+const fontTileSet = getFontTileSet('font'); 
 
 window.onload = loadResourcesThenRun;
 
@@ -39,8 +41,8 @@ type State = {
 
 function loadResourcesThenRun() {
     Promise.all([
-        loadImage(fontImageRequire),
-        loadImage(tilesImageRequire),
+        loadImage(fontTileSet.imageSrc, fontTileSet.image),
+        loadImage(tileSet.imageSrc, tileSet.image),
     ]).then(main);
 }
 
@@ -48,9 +50,7 @@ function main(images: Array<HTMLImageElement>) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
 
-    const renderEngine = 'webgl';
-
-    const renderer = createRenderer(renderEngine, canvas, images);
+    const renderer = new Renderer(canvas, tileSet, fontTileSet);
     const state = initState();
 
     document.body.addEventListener('keydown', onKeyDown);
@@ -314,9 +314,8 @@ function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
     return false;
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
-        const img = new Image();
         img.onload = () => resolve(img);
         img.onerror = reject;
         img.src = src;
@@ -451,52 +450,99 @@ const colorForItemType: Array<number> = [
 
 const unlitColor: number = colorPreset.lightBlue;
 
-function renderWorld(state: State, glyphRenderer: GlyphRenderer) {
+function renderWorld(state: State, renderer: Renderer) {
+    const mappedItems:{[id:number]:Array<Item>} = {};
+    for(let item of state.gameMap.items) {
+        const ind = state.gameMap.cells.index(...item.pos);
+        if(ind in mappedItems) mappedItems[ind].push(item);
+        else mappedItems[ind] = [item];
+    }
+
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
-        for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
+        for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) {
             const cell = state.gameMap.cells.at(x, y);
             if (!cell.seen && !state.seeAll) {
                 continue;
             }
             const terrainType = cell.type;
-            const tileIndex = tileIndexForTerrainType[terrainType];
             const alwaysLit = terrainType >= TerrainType.Wall0000;
             const lit = alwaysLit || cell.lit;
-            const color = lit ? colorForTerrainType[terrainType] : unlitColor;
-            glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, color);
-        }
-    }
+            // const tileIndex = tileIndexForTerrainType[terrainType];
+            // const color = lit ? colorForTerrainType[terrainType] : unlitColor;
+            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
 
-    for (const item of state.gameMap.items) {
-        const cell = state.gameMap.cells.at(item.pos[0], item.pos[1]);
-        if (!cell.seen && !state.seeAll) {
-            continue;
+            const ind = state.gameMap.cells.index(x, y);
+            if(!(ind in mappedItems)) continue;
+            for(let item of mappedItems[ind]) {
+                const alwaysLit = item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW;
+                const lit = alwaysLit || cell.lit;
+                // const tileIndex = tileIndexForItemType[item.type];
+                // const color = lit ? colorForItemType[item.type] : unlitColor;
+                renderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, renderer.tileSet.itemTiles[item.type], lit);    
+            }
         }
-        const tileIndex = tileIndexForItemType[item.type];
-        const alwaysLit = item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW;
-        const lit = alwaysLit || cell.lit;
-        const color = lit ? colorForItemType[item.type] : unlitColor;
-        glyphRenderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, tileIndex, color);
-    }
+    }        
 }
 
-function renderPlayer(state: State, glyphRenderer: GlyphRenderer) {
+function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const x = player.pos[0];
     const y = player.pos[1];
     const lit = state.gameMap.cells.at(x, y).lit;
     const hidden = player.hidden(state.gameMap);
-    const color =
-        player.damagedLastTurn ? 0xff0000ff :
-        player.noisy ? colorPreset.lightCyan :
-        hidden ? 0xd0101010 :
-        !lit ? colorPreset.lightBlue :
-        colorPreset.lightGray;
+    // const color =
+    //     player.damagedLastTurn ? 0xff0000ff :
+    //     player.noisy ? colorPreset.lightCyan :
+    //     hidden ? 0xd0101010 :
+    //     !lit ? colorPreset.lightBlue :
+    //     colorPreset.lightGray;
 
-    glyphRenderer.addGlyph(x, y, x+1, y+1, 32, color);
+    const p = renderer.tileSet.playerTiles;
+
+    let tileInfo:TileInfo = renderer.tileSet.unlitTile;
+    tileInfo =
+        player.damagedLastTurn ? p[1] :
+        player.noisy ? p[3] :
+        hidden ? p[2] :
+        !lit ? p[4] :
+        p[0];
+
+    renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
 }
 
-function renderGuards(state: State, glyphRenderer: GlyphRenderer) {
+function renderGuards(state: State, renderer: Renderer) {
+    for (const guard of state.gameMap.guards) {
+        let tileIndex = 0 + tileIndexOffsetForDir(guard.dir);
+
+        const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
+        const visible = state.seeAll || cell.seen || guard.speaking;
+        if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
+            continue;
+        }
+
+        if(!visible) tileIndex+=4;
+        else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, renderer.tileSet.unlitTile, true);
+        else tileIndex+=8;
+        const tileInfo = renderer.tileSet.npcTiles[tileIndex];
+        // if(guard.hasTorch) {
+        //     const g0 = guard.pos[0]+guard.dir[0]*0.25+guard.dir[1]*0.25;
+        //     const g1 = guard.pos[1];
+        //     if(guard.dir[1]>0) {
+        //         renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+        //         renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
+        //     } else {
+        //         renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
+        //         renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+        //     }
+        // }
+        // else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
+        renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
+}
+
+
+}
+
+function renderGuardOverheadIcons(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -504,40 +550,19 @@ function renderGuards(state: State, glyphRenderer: GlyphRenderer) {
             continue;
         }
 
-        const tileIndex = 33 + tileIndexOffsetForDir(guard.dir);
-        const color =
-            !visible ? colorPreset.darkGray :
-            (guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) ? unlitColor :
-            colorPreset.lightMagenta;
-
-        const x = guard.pos[0];
-        const y = guard.pos[1];
-
-        glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, color);
-    }
-}
-
-function renderGuardOverheadIcons(state: State, glyphRenderer: GlyphRenderer) {
-    for (const guard of state.gameMap.guards) {
-        const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
-        const visible = state.seeAll || cell.seen || guard.speaking;
-        if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
-            continue;
-        }
-
-        const tileIndex = guard.overheadIcon();
-        if (tileIndex === undefined) {
+        const guardState = guard.overheadIcon();
+        if (guardState === GuardStates.Relaxed) {
             continue;
         }
 
         const x = guard.pos[0];
         const y = guard.pos[1] + 0.625;
 
-        glyphRenderer.addGlyph(x, y, x+1, y+1, tileIndex, colorPreset.lightYellow);
+        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], true);
     }
 }
 
-function renderGuardSight(state: State, glyphRenderer: GlyphRenderer) {
+function renderGuardSight(state: State, renderer: Renderer) {
     if (!state.seeGuardSight) {
         return;
     }
@@ -589,19 +614,19 @@ function renderGuardSight(state: State, glyphRenderer: GlyphRenderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                glyphRenderer.addGlyph(x, y, x+1, y+1, 15, 0xa0004080);
+                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:15, color:0xa0004080}, true);
             }
         }
     }
 }
 
-function renderPatrolPathsNew(state: State, glyphRenderer: GlyphRenderer) {
+function renderPatrolPathsNew(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 64, colorPreset.black);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:64, color:colorPreset.black}, true);
         }
         for (const pos of guard.patrolPath) {
-            glyphRenderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 249, colorPreset.white);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:249, color:colorPreset.white}, true);
         }
     }
 }
@@ -687,19 +712,19 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 }
 
 function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
-    renderer.beginFrame(screenSize, [state.gameMap.cells.sizeX, state.gameMap.cells.sizeY]);
+    renderer.beginFrame(screenSize);
 
     const matScreenFromWorld = mat4.create();
     setupViewMatrix(state, screenSize, matScreenFromWorld);
 
-    renderer.renderGlyphs.start(matScreenFromWorld, 1);
-    renderWorld(state, renderer.renderGlyphs);
-    renderPlayer(state, renderer.renderGlyphs);
-    renderGuards(state, renderer.renderGlyphs);
-    renderGuardOverheadIcons(state, renderer.renderGlyphs);
-    renderGuardSight(state, renderer.renderGlyphs);
-    renderPatrolPathsNew(state, renderer.renderGlyphs);
-    renderer.renderGlyphs.flush();
+    renderer.start(matScreenFromWorld, 1);
+    renderWorld(state, renderer);
+    renderPlayer(state, renderer);
+    renderGuards(state, renderer);
+    renderGuardOverheadIcons(state, renderer);
+    renderGuardSight(state, renderer);
+    renderPatrolPathsNew(state, renderer);
+    renderer.flush();
 
     renderBottomStatusBar(renderer, screenSize, state);
 }
@@ -853,16 +878,16 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         1, -1
     );
 
-    renderer.renderGlyphs.start(matScreenFromWorld, 0);
+    renderer.start(matScreenFromWorld, 0);
 
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
     const barBackgroundColor = 0xff101010;
-    renderer.renderGlyphs.addGlyph(0, 0, statusBarTileSizeX, 1, 219, barBackgroundColor);
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
     function putString(x: number, s: string, color: number) {
         for (let i = 0; i < s.length; ++i) {
             const glyphIndex = s.charCodeAt(i);
-            renderer.renderGlyphs.addGlyph(x + i, 0, x + i + 1, 1, glyphIndex, color);
+            renderer.addGlyph(x + i, 0, x + i + 1, 1, {textureIndex:glyphIndex, color:color});
         }
     }
 
@@ -873,7 +898,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     for (let i = 0; i < maxPlayerHealth; ++i) {
         const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
         const glyphHeart = 3;
-        renderer.renderGlyphs.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, glyphHeart, color);
+        renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
     }
 
     // Underwater indicator
@@ -886,7 +911,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
         for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
             const glyphBubble = 9;
-            renderer.renderGlyphs.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, glyphBubble, colorPreset.lightCyan);
+            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
         }
     }
 
@@ -909,7 +934,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(lootX, lootMsg, colorPreset.lightYellow);
 
-    renderer.renderGlyphs.flush();
+    renderer.flush();
 }
 
 function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {
@@ -940,16 +965,15 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
         offsetY + numCharsY,
         1,
         -1);
-    renderer.renderGlyphs.start(matScreenFromTextArea, 0);
+    renderer.start(matScreenFromTextArea, 0);
 
     const colorText = 0xffeeeeee;
     const colorBackground = 0xe0555555;
 
     // Draw a stretched box to make a darkened background for the text.
-    renderer.renderGlyphs.addGlyph(
+    renderer.addGlyph(
         -1, -1, maxLineLength + 1, lines.length + 1,
-        219,
-        colorBackground
+        {textureIndex:219, color:colorBackground}
     );
 
     for (let i = 0; i < lines.length; ++i) {
@@ -961,13 +985,12 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
                 continue;
             }
             const glyphIndex = lines[i].charCodeAt(j);
-            renderer.renderGlyphs.addGlyph(
+            renderer.addGlyph(
                 col, row, col + 1, row + 1,
-                glyphIndex,
-                colorText
+                {textureIndex:glyphIndex, color:colorText}
             );
         }
     }
 
-    renderer.renderGlyphs.flush();
+    renderer.flush();
 }

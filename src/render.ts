@@ -1,85 +1,27 @@
-export { Renderer, GlyphRenderer, createRenderer };
-
+export { Renderer };
+import { TileSet, FontTileSet, TileInfo } from './tilesets';
 import { vec2, mat4 } from './my-matrix';
-
-function createRenderer(name:string='webgl', canvas:HTMLCanvasElement, images: Array<HTMLImageElement>):Renderer {
-    if(name==='webgl') {
-        const ctx = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
-        return new WebGLRenderer(ctx, images); 
-    } 
-    if(name==='canvas') {
-        const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-        return new CanvasRenderer(ctx, images); 
-    } 
-    if(name==='null') {
-        return new Renderer(); 
-    } 
-    throw new Error(`Invalid renderer ${name}`)    
-}
-
-class GlyphRenderer {
-    start(matScreenFromWorld: mat4, textureIndex: number):void {}
-    addGlyph(x0: number, y0: number, x1: number, y1: number, glyphIndex: number|[number,number], color: number):void {}
-    flush():void {}
-}
-
-class Renderer {
-    name: string = 'null';
-    renderGlyphs: GlyphRenderer;
-    constructor() {
-        this.renderGlyphs = new GlyphRenderer();
-    }
-    getScreenSize(screenSize: vec2) {}
-    beginFrame(screenSize: vec2, mapSize:vec2) {}
-    endFrame() {}
-} 
 
 // #####################
 // Web-GL Renderer
 // #####################
 
-class WebGLRenderer extends Renderer {
-    gl: WebGL2RenderingContext;
-    constructor(gl: WebGL2RenderingContext, images: Array<HTMLImageElement>) {
-        super();
-        this.gl = gl;
-        const textures = images.map((image) => createTextureFromImage(gl, image));
-    
-        this.name = 'webgl';
-        this.renderGlyphs = new WebGLGlyphRenderer(gl, textures),
-    
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.enable(gl.BLEND);
-        gl.clearColor(0, 0, 0, 1);
-    }
-    getScreenSize(screenSize: vec2) {
-        const canvas = this.gl.canvas as HTMLCanvasElement;
-        resizeCanvasToDisplaySize(canvas);
-        const screenX = canvas.clientWidth;
-        const screenY = canvas.clientHeight;
-        vec2.set(screenSize, screenX, screenY);
-    }
-    beginFrame(screenSize:vec2, mapSize:vec2) {
-        const gl = this.gl;
-        const canvas = gl.canvas as HTMLCanvasElement;
+class Renderer {
+    getScreenSize(screenSize: vec2) {}
+    beginFrame = (screenSize:vec2) => {}
+    start(matScreenFromWorld: mat4, textureIndex: number) {}
+    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) {}
+    flush() {}
+    fontTileSet: FontTileSet;
+    tileSet: TileSet;
 
-        resizeCanvasToDisplaySize(canvas); //TODO: Put this in a listener for window size changes
-
-        const screenX = canvas.clientWidth;
-        const screenY = canvas.clientHeight;
-    
-        gl.viewport(0, 0, screenX, screenY);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        vec2.set(screenSize, screenX, screenY);
-    }
-    endFrame() {}
-}
-
-class WebGLGlyphRenderer extends GlyphRenderer {
-    constructor(gl: WebGL2RenderingContext, textures: Array<WebGLTexture>) {
-        super();
-            const vsSource = `#version 300 es
+    constructor(canvas: HTMLCanvasElement, tileSet:TileSet, fontTileSet:FontTileSet) {
+        this.tileSet = tileSet;
+        this.fontTileSet = fontTileSet;
+        const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
+        const textures = [fontTileSet.image, tileSet.image].map((image) => createTextureFromImage(gl, image));
+        
+        const vsSource = `#version 300 es
             in vec2 vPosition;
             in vec3 vTexcoord;
             in vec4 vColor;
@@ -115,6 +57,8 @@ class WebGLGlyphRenderer extends GlyphRenderer {
             vColor: 2,
         };
 
+        const tileRatios = [tileSet.tileSize[0]/tileSet.cellSize[0], tileSet.tileSize[1]/tileSet.cellSize[1]]
+
         const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
         const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromWorld');
@@ -148,6 +92,14 @@ class WebGLGlyphRenderer extends GlyphRenderer {
         const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
         gl.bindVertexArray(null);
 
+        this.getScreenSize = (screenSize: vec2) => {
+            const canvas = gl.canvas as HTMLCanvasElement;
+            resizeCanvasToDisplaySize(canvas);
+            const screenX = canvas.clientWidth;
+            const screenY = canvas.clientHeight;
+            vec2.set(screenSize, screenX, screenY);
+        }
+    
         this.start = (matScreenFromWorld: mat4, textureIndex: number) => {
             mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
 
@@ -155,13 +107,19 @@ class WebGLGlyphRenderer extends GlyphRenderer {
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
         }
 
-        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, glyphIndex: number, color: number) => {
+        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) => {
             if (numQuads >= maxQuads) {
                 this.flush();
             }
 
+            x1 = x0+(x1-x0)*tileRatios[0];
+            y1 = y0+(y1-y0)*tileRatios[1];
+
+            const color = lit? tileInfo.color? tileInfo.color:0xffffffff
+                    : tileInfo.unlitColor? tileInfo.unlitColor:0xffffffff;
+
             const i = numQuads * wordsPerQuad;
-            const srcBase = glyphIndex << 16;
+            const srcBase = tileInfo.textureIndex << 16;
 
             vertexDataAsFloat32[i+0] = x0;
             vertexDataAsFloat32[i+1] = y0;
@@ -208,6 +166,21 @@ class WebGLGlyphRenderer extends GlyphRenderer {
 
             numQuads = 0;
         }
+        this.beginFrame = (screenSize:vec2) => {
+            const canvas = gl.canvas as HTMLCanvasElement;
+    
+            resizeCanvasToDisplaySize(canvas); //TODO: Put this in a listener for window size changes
+    
+            const screenX = canvas.clientWidth;
+            const screenY = canvas.clientHeight;
+        
+            gl.viewport(0, 0, screenX, screenY);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+        }
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND);
+        gl.clearColor(0, 0, 0, 1);
     }
 }
 
@@ -313,202 +286,4 @@ function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
         canvas.width = rect.width;
         canvas.height = rect.height;
     }
-}
-
-// #####################
-// Canvas-based Renderer
-// #####################
-
-class CanvasRenderer extends Renderer {
-    ctx: CanvasRenderingContext2D;
-    shake: vec2;
-    offset: vec2;
-    gridCellSize: vec2;
-    renderGlyphs: CanvasGlyphRenderer;
-    constructor(ctx: CanvasRenderingContext2D, images: Array<HTMLImageElement>) {
-        super();
-        const textures = images.map(im => new SpriteSheet(ctx, flattenImage(im), [16,16]));
-        this.name = 'canvas';
-        this.ctx = ctx;
-        this.renderGlyphs = new CanvasGlyphRenderer(textures);
-//        this.gridCellSize = [24,24];
-        this.gridCellSize = [16,16]; //size in pixel of each cell
-        this.offset = [0,0];
-        this.shake = [0,0];
-    }
-    getScreenSize(screenSize: vec2) {
-        resizeCanvasToDisplaySize(this.ctx.canvas);
-        const screenX = this.ctx.canvas.clientWidth;
-        const screenY = this.ctx.canvas.clientHeight;
-        vec2.set(screenSize, screenX, screenY);
-    }
-    beginFrame(screenSize:vec2, mapSize:vec2) {
-        resizeCanvasToDisplaySize(this.ctx.canvas);
-        this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-        this.ctx.save();
-        this.ctx.translate(this.offset[0] + this.shake[0], this.offset[1] + this.shake[1]);
-        this.ctx.scale(...this.gridCellSize);
-        // this.ctx.translate(this.offset[0] + this.shake[0], this.ctx.canvas.height - this.offset[1] - this.shake[1]);
-        // this.ctx.scale(this.gridCellSize[0], -this.gridCellSize[1]);
-        this.renderGlyphs.mapSize = mapSize;
-        vec2.set(screenSize, this.ctx.canvas.width, this.ctx.canvas.height);
-    }
-    endFrame() {
-        this.ctx.restore();
-    }
-}
-
-class CanvasGlyphRenderer extends GlyphRenderer {
-    textures: Array<SpriteSheet>;
-    activeTexture: SpriteSheet|null;
-    tileSize: vec2;
-    mapSize: vec2;
-    constructor(textures: Array<SpriteSheet>) { //ctx: CanvasRenderingContext2D, 
-        super();
-        this.textures = textures;
-        this.activeTexture = null;
-//        this.tileSize = [24,36];
-        this.tileSize = [16,16];
-        this.mapSize = [0,0];
-    }
-    start(matScreenFromWorld: mat4, textureIndex: number) {
-        this.activeTexture = this.textures[textureIndex];
-        this.activeTexture.ctx.imageSmoothingEnabled = false;
-    }
-    addGlyph(x0: number, y0: number, x1: number, y1: number, glyphIndex: number|[number, number], color: number) {
-        //todo: use color
-        if(this.activeTexture!==null) this.activeTexture.draw(glyphIndex, x0, this.mapSize[1]-y0);
-    }
-    flush() {
-    }
-}
-
-class SpriteSheet {
-    spriteSize:[number,number];
-    sheet:HTMLImageElement;
-    ctx:CanvasRenderingContext2D;
-    constructor(ctx: CanvasRenderingContext2D, src_file:string, spriteSize:[number,number]=[16,16]) {
-        this.spriteSize = spriteSize;
-        this.sheet = new Image();
-        this.sheet.src = src_file;
-        this.ctx = ctx;
-    }
-    draw(spriteLoc:number|[number,number], x:number, y:number, flipx:boolean=false):void {
-        if(typeof spriteLoc==='number') spriteLoc = [0,spriteLoc];
-        let flipped = 1 - 2*Number(flipx);
-        if(flipx) {
-            this.ctx.scale(-1,1);
-        }
-        this.ctx.drawImage(
-            this.sheet,
-            spriteLoc[0]*this.spriteSize[0],
-            spriteLoc[1]*this.spriteSize[1],
-            this.spriteSize[0],
-            this.spriteSize[1],
-            flipped*x,
-            y,
-            flipped,
-            1
-        );
-        if(flipx) {
-            this.ctx.scale(-1,1);
-        }
-    }
-    drawScaled(spriteLoc:[number,number], x:number, y:number, scale:number, flipx=false):void {
-        let flipped = 1 - 2*Number(flipx);
-        if(flipx) {
-            this.ctx.scale(-1,1);
-        }
-        this.ctx.drawImage(
-            this.sheet,
-            spriteLoc[0]*this.spriteSize[0],
-            spriteLoc[1]*this.spriteSize[1],
-            this.spriteSize[0],
-            this.spriteSize[1],
-            flipped*(x),
-            y,
-            flipped*scale,
-            scale
-        );
-        if(flipx) {
-            this.ctx.scale(-1,1);
-        }
-    }
-    drawRotated(spriteLoc:[number,number], x:number, y:number, angle:number, flipx:boolean=false, 
-            anchor:[number,number]|'center'='center'):void {
-        this.ctx.save();
-        if(anchor=='center') anchor = [0.5, 0.5];
-        this.ctx.translate(x, y);
-        this.ctx.rotate(angle * Math.PI / 180);
-        if(flipx) this.ctx.scale(-1,1);
-        this.ctx.translate(-anchor[0], -anchor[1]);
-        this.ctx.drawImage(
-            this.sheet,
-            spriteLoc[0]*this.spriteSize[0],
-            spriteLoc[1]*this.spriteSize[1],
-            this.spriteSize[0],
-            this.spriteSize[1],
-            0,
-            0,
-            1,
-            1
-        );
-        this.ctx.restore();
-    }
-    drawRotatedMultitile(spriteLoc:[number,number,number,number], x:number, y:number, angle:number, 
-            flipx:boolean=false, anchor:[number,number]|'center'='center'):void { 
-        //same as drawRotated but spriteloc is 4-item array referencing the sprite location: [x,y,w,h]
-        this.ctx.save();
-        let tw = spriteLoc[2];
-        let th = spriteLoc[3];
-        if(anchor == 'center') anchor = [tw/2,th/2];
-        this.ctx.translate(x + anchor[0], y + anchor[1]);
-        this.ctx.rotate(angle * Math.PI / 180);
-        if(flipx) {
-            this.ctx.scale(-1,1);
-        }
-        this.ctx.translate(-anchor[0], -anchor[1]);
-        this.ctx.drawImage(
-            this.sheet,
-            spriteLoc[0]*this.spriteSize[0],
-            spriteLoc[1]*this.spriteSize[1],
-            this.spriteSize[0]*tw,
-            this.spriteSize[1]*th,
-            0,
-            0,
-            tw,
-            th
-        );
-        this.ctx.restore();
-    }
-}
-
-
-function flattenImage(image: HTMLImageElement): string {
-    const numGlyphsX = 16;
-    const numGlyphsY = 16;
-    const numGlyphs = numGlyphsX * numGlyphsY;
-    const srcGlyphSizeX = image.naturalWidth / numGlyphsX;
-    const srcGlyphSizeY = image.naturalHeight / numGlyphsY;
-    const scaleFactor = 1;
-    const dstGlyphSizeX = srcGlyphSizeX * scaleFactor;
-    const dstGlyphSizeY = srcGlyphSizeY * scaleFactor;
-
-    // Rearrange the glyph data from a grid to a vertical array
-
-    const canvas = document.createElement('canvas');
-    canvas.width = dstGlyphSizeX;
-    canvas.height = dstGlyphSizeY * numGlyphs;
-    const ctx = canvas.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
-    for (let y = 0; y < numGlyphsY; ++y) {
-        for (let x = 0; x < numGlyphsX; ++x) {
-            const sx = x * srcGlyphSizeX;
-            const sy = y * srcGlyphSizeY;
-            const dx = 0;
-            const dy = (numGlyphsX * y + x) * dstGlyphSizeY;
-            ctx.drawImage(image, sx, sy, srcGlyphSizeX, srcGlyphSizeY, dx, dy, dstGlyphSizeX, dstGlyphSizeY);
-        }
-    }
-    return canvas.toDataURL();
 }

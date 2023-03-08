@@ -9,6 +9,7 @@ export {
     GameMap,
     Player,
     TerrainType,
+    GuardStates,
     guardMoveCostForItemType,
     invalidRegion,
     maxPlayerHealth,
@@ -185,6 +186,16 @@ class CellGrid {
         console.assert(i < this.values.length);
         return this.values[i];
     }
+
+    index(x: number, y:number): number {
+        return this.sizeX * y + x;
+    }
+}
+
+enum GuardStates {
+    Relaxed,
+    Alerted,
+    Chasing,
 }
 
 enum ItemType {
