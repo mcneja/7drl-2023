@@ -1,7 +1,7 @@
 export { Popup, PopupMessage, Popups, PopupType };
 
 import { vec2 } from './my-matrix';
-import { Howls } from './audio';
+import { SubtitledHowls } from './audio';
 
 enum PopupType {
     Damage,
@@ -42,27 +42,23 @@ class Popups {
         this.popups.length = 0;
     }
 
-    endOfUpdate(sounds: Howls) {
+    endOfUpdate(subtitledSounds: SubtitledHowls): string {
         if (this.popups.length === 0) {
-            return;
+            return '';
         }
 
         this.popups.sort((a, b) => a.popupType - b.popupType);
 
-        const soundName = soundNameForPopupType(this.popups[0].popupType);
-        if (soundName !== '') {
-            sounds[soundName].play(0.6);
-        }
-    }
-
-    currentMessage(): PopupMessage | null {
-        if (this.popups.length === 0) {
-            return null;
-        }
-
         const popup = this.popups[0];
 
-        return { msg: messageForPopupType(popup.popupType), posWorld: popup.posWorld };
+        const soundName = soundNameForPopupType(popup.popupType);
+        if (soundName == '') {
+            return '';
+        }
+
+        const subtitledSound = subtitledSounds[soundName].next();
+        subtitledSound.sound.play(0.6);
+        return subtitledSound.subtitle;
     }
 }
 

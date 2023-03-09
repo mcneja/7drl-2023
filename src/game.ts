@@ -4,7 +4,7 @@ import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHea
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
-import { setupSounds, Howls, HowlGroup } from './audio';
+import { setupSounds, Howls, SubtitledHowls } from './audio';
 import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
@@ -44,6 +44,7 @@ type State = {
     level: number;
     gameMap: GameMap;
     sounds: Howls;
+    subtitledSounds: SubtitledHowls;
     popups: Popups;
 }
 
@@ -60,13 +61,14 @@ function main(images: Array<HTMLImageElement>) {
 
     const renderer = new Renderer(canvas, tileSet, fontTileSet);
     const sounds:Howls = {};
-    const state = initState(sounds);
+    const subtitledSounds:SubtitledHowls = {};
+    const state = initState(sounds, subtitledSounds);
 
     document.body.addEventListener('keydown', onKeyDown);
     document.body.addEventListener('keyup', onKeyUp);
 
     function onKeyDown(e: KeyboardEvent) {
-        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds);
+        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
         if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             state.shiftModifierActive = true;
             return;
@@ -218,7 +220,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     advanceTime(state);
 
     const volScale:number = 0.5+Math.random()/2;
-    console.log(volScale);
+    //console.log(volScale);
     const newTerrain = state.gameMap.cells.at(...player.pos).type
     const changedTile = oldTerrain !== newTerrain;
     switch(newTerrain) {
@@ -336,14 +338,12 @@ function advanceTime(state: State) {
 
     // Update top status-bar message
 
-    state.popups.endOfUpdate(state.sounds);
-
-    let popupMsg = state.popups.currentMessage();
+    const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
     if (state.player.health <= 0) {
         state.topStatusMessage = 'You have died! Press R to restart a new game.';
-    } else if (popupMsg !== null) {
-        state.topStatusMessage = popupMsg.msg;
+    } else if (subtitle !== '') {
+        state.topStatusMessage = subtitle;
     } else if (state.finishedLevel) {
         state.topStatusMessage = 'Mission complete! Exit any side of the map.'
     }
@@ -741,7 +741,7 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
-function initState(sounds:Howls): State {
+function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
     const initialLevel = 0;
     const gameMap = createGameMap(initialLevel);
 
@@ -759,6 +759,7 @@ function initState(sounds:Howls): State {
         level: initialLevel,
         gameMap: gameMap,
         sounds: sounds,
+        subtitledSounds: subtitledSounds,
         popups: new Popups,
     };
 }
