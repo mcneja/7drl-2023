@@ -57,7 +57,8 @@ class Popups {
         }
 
         const subtitledSound = subtitledSounds[soundName].next();
-        subtitledSound.sound.play(0.6);
+        subtitledSound.sound.volume(0.6);
+        subtitledSound.sound.play();
         return subtitledSound.subtitle;
     }
 }
