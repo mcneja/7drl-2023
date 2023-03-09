@@ -519,16 +519,18 @@ function renderWorld(state: State, renderer: Renderer) {
             const terrainType = cell.type;
             const alwaysLit = terrainType >= TerrainType.Wall0000;
             const lit = alwaysLit || cell.lit;
-            if(terrainType==TerrainType.Wall0000) {
-                for(let adj of [[0,1],[1,0],[0,-1],[-1,0]]) {
+            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+            if(terrainType===TerrainType.GroundWater) {
+                const ledge = renderer.tileSet.ledgeTiles;
+                let ctr = 0;
+                for(let adj of [[0,1],[0,-1],[-1,0],[1,0]]) {
                     const cell = state.gameMap.cells.at(x+adj[0],y+adj[1]);
-                    if(cell.type<TerrainType.Wall0000) {
-                        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[cell.type], cell.lit);
-                        break;
+                    if(cell.type!==TerrainType.GroundWater) {
+                        renderer.addGlyph(x, y, x+1, y+1, ledge[ctr], lit);
                     }
+                    ctr++;
                 }
             }
-            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
 
             const ind = state.gameMap.cells.index(x, y);
             if(!(ind in mappedItems)) continue;
