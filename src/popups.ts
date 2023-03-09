@@ -1,4 +1,4 @@
-export { Popup, Popups, PopupType };
+export { Popup, PopupMessage, Popups, PopupType };
 
 import { vec2 } from './my-matrix';
 
@@ -55,16 +55,155 @@ class Popups {
 
 function messageForPopupType(popupType: PopupType): string {
     switch (popupType) {
-    case PopupType.Damage: return 'Thwack!';
-    case PopupType.GuardChase: return 'I\'ll get you!';
-    case PopupType.GuardSeeThief: return 'What do I see?';
-    case PopupType.GuardHearThief: return 'I heard something!';
-    case PopupType.GuardHearGuard: return 'I\'m coming!';
+    case PopupType.Damage: return linesDamage.nextLine();
+    case PopupType.GuardChase: return linesChase.nextLine();
+    case PopupType.GuardSeeThief: return linesSee.nextLine();
+    case PopupType.GuardHearThief: return linesHear.nextLine();
+    case PopupType.GuardHearGuard: return linesHearGuard.nextLine();
     case PopupType.Noise: return 'Creak!';
-    case PopupType.GuardInvestigate: return 'Better check that out.';
-    case PopupType.GuardEndChase: return 'Got away!';
-    case PopupType.GuardFinishInvestigating: return 'Guess it was nothing';
-    case PopupType.GuardFinishLooking: return 'Must have been rats.';
-    case PopupType.GuardFinishListening: return 'I don\t hear it any more.';
+    case PopupType.GuardInvestigate: return linesInvestigate.nextLine();
+    case PopupType.GuardEndChase: return linesEndChase.nextLine();
+    case PopupType.GuardFinishInvestigating: return linesEndInvestigation.nextLine();
+    case PopupType.GuardFinishLooking: return linesDoneLooking.nextLine();
+    case PopupType.GuardFinishListening: return linesDoneListening.nextLine();
     }
 }
+
+class LineSet {
+    lines: Array<string>;
+    currentLineIndex: number;
+
+    constructor(lines: Array<string>) {
+        this.lines = lines;
+        this.currentLineIndex = 0;
+    }
+
+    nextLine(): string {
+        const line = this.lines[this.currentLineIndex];
+        this.currentLineIndex = (this.currentLineIndex + 1) % this.lines.length;
+        return line;
+    }
+}
+
+const linesSee = new LineSet([
+    "Who goes there?",
+    "Huh?",
+    "What?",
+    "Wait...",
+    "Who's that?",
+    "Hey...",
+    "Hmm...",
+    "What moved?",
+    "Did that shadow move?",
+    "I see something...",
+    "Hello?",
+]);
+
+const linesHear = new LineSet([
+    "Huh?",
+    "What?",
+    "Hark!",
+    "A noise...",
+    "I heard something.",
+    "Hmm...",
+    "Who goes there?",
+    "What's that noise?",
+    "I hear something...",
+    "Hello?",
+]);
+
+const linesHearGuard = new LineSet([
+    "Where?",
+    "I'm coming!",
+    "Here I come!",
+    "To arms!",
+    "Where is he?",
+]);
+
+const linesChase = new LineSet([
+    "Halt!",
+    "Hey!",
+    "Aha!",
+    "I see you!",
+    "I'm coming!",
+    "I'll get you!",
+    "Just you wait...",
+    "You won't get away!",
+    "Oh no you don't...",
+    "Get him!",
+    "After him!",
+    "Thief!",
+]);
+
+const linesInvestigate = new LineSet([
+    "That noise again...",
+    "I heard it again!",
+    "Someone's there!",
+    "Who could that be?",
+    "There it is again!",
+    "What was that?",
+    "Better check it out...",
+    "What keeps making those noises?",
+    "That better be rats!",
+    "Again?",
+]);
+
+const linesEndChase = new LineSet([
+    "(huff, huff)",
+    "Where did he go?",
+    "Lost him!",
+    "Gone!",
+    "Come back!",
+    "Argh!",
+    "He's not coming back.",
+    "Blast!",
+    "Next time!",
+]);
+
+const linesEndInvestigation = new LineSet([
+    "Guess it was nothing.",
+    "Wonder what it was?",
+    "Better get back.",
+    "It's quiet now.",
+    "This is where I heard it...",
+    "Nothing, now.",
+]);
+
+const linesDoneLooking = new LineSet([
+    "Must have been rats.",
+    "Too much coffee!",
+    "I've got the jitters.",
+    "Probably nothing.",
+    "I thought I saw something.",
+    "Oh well.",
+    "Nothing.",
+    "Can't see it now.",
+    "I've been up too long.",
+    "Seeing things, I guess.",
+    "Hope it wasn't anything.",
+    "Did I imagine that?",
+]);
+
+const linesDoneListening = new LineSet([
+    "Must have been rats.",
+    "Too much coffee!",
+    "I've got the jitters.",
+    "Probably nothing.",
+    "I thought I heard something.",
+    "Oh well.",
+    "Nothing.",
+    "Can't hear it now.",
+    "I've been up too long.",
+    "Hearing things, I guess.",
+    "Hope it wasn't anything.",
+    "Did I imagine that?",
+]);
+
+const linesDamage = new LineSet([
+    "Oof!",
+    "Krak!",
+    "Pow!",
+    "Urk!",
+    "Smack!",
+    "Bif!",
+]);

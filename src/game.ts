@@ -21,6 +21,8 @@ const pixelsPerTileY: number = 16; // height of unzoomed tile
 const viewTileSizeDesiredX: number = 31; // desired minimum viewport tile width
 const viewTileSizeDesiredY: number = 31; // desired minimum viewport tile height
 
+const startingTopStatusMessage = 'Scout the entire mansion and steal all the loot.';
+
 type Camera = {
     position: vec2;
     velocity: vec2;
@@ -32,7 +34,7 @@ type State = {
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
     player: Player;
-    showStartMessage: boolean;
+    topStatusMessage: string;
     finishedLevel: boolean;
     seeAll: boolean;
     seeGuardSight: boolean;
@@ -136,7 +138,7 @@ function main(images: Array<HTMLImageElement>) {
 function advanceToNextLevel(state: State) {
     state.level += 1;
     state.gameMap = createGameMap(state.level);
-    state.showStartMessage = true;
+    state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
 
     state.player.pos = state.gameMap.playerStartPos;
@@ -293,6 +295,18 @@ function advanceTime(state: State) {
 
     if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
         state.finishedLevel = true;
+    }
+
+    // Update top status-bar message
+
+    let popupMsg = state.popups.currentMessage();
+
+    if (state.player.health <= 0) {
+        state.topStatusMessage = 'You have died! Press R to restart a new game.';
+    } else if (popupMsg !== null) {
+        state.topStatusMessage = popupMsg.msg;
+    } else if (state.finishedLevel) {
+        state.topStatusMessage = 'Mission complete! Exit any side of the map.'
     }
 }
 
@@ -695,7 +709,7 @@ function initState(): State {
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
         player: new Player(gameMap.playerStartPos),
-        showStartMessage: true,
+        topStatusMessage: startingTopStatusMessage,
         finishedLevel: false,
         seeAll: false,
         seeGuardSight: false,
@@ -712,7 +726,7 @@ function restartGame(state: State) {
 
     const gameMap = createGameMap(state.level);
 
-    state.showStartMessage = true;
+    state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
@@ -723,7 +737,7 @@ function restartGame(state: State) {
 function resetState(state: State) {
     const gameMap = createGameMap(state.level);
 
-    state.showStartMessage = true;
+    state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
@@ -939,22 +953,7 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
-    let popupMsg = state.popups.currentMessage();
-
-    let msg;
-    if (state.player.health <= 0) {
-        msg = 'You have died! Press R to restart a new game.';
-    } else if (popupMsg !== null) {
-        msg = popupMsg.msg;
-        state.showStartMessage = false;
-    } else if (state.finishedLevel) {
-        msg = 'Mission complete! Exit any side of the map.'
-    } else if (state.showStartMessage) {
-        msg = 'Scout the entire mansion and steal all the loot.'
-    } else {
-        msg = '';
-    }
-    putString(renderer, 1, msg, colorPreset.lightGray);
+    putString(renderer, 1, state.topStatusMessage, colorPreset.lightGray);
 
     renderer.flush();
 }
