@@ -74,7 +74,7 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardHearThief: return 'guardAlert';
         case PopupType.GuardHearGuard: return '';
         case PopupType.GuardInvestigate: return 'guardAlert';
-        case PopupType.Noise: return '';
+        case PopupType.Noise: return ''; // plays at the point where the player steps on creaky floor, to ensure guards can talk over it
         case PopupType.GuardEndChase: return 'guardStopChasing';
         case PopupType.GuardFinishInvestigating: return 'guardStopAlert';
         case PopupType.GuardFinishLooking: return 'guardStopAlert';

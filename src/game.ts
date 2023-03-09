@@ -212,7 +212,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     let cellType = state.gameMap.cells.at(player.pos[0], player.pos[1]).type;
     if (cellType == TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, 17, state.popups);
+        makeNoise(state.gameMap, player, 17, state.popups, state.sounds);
     }
 
     advanceTime(state);
@@ -296,9 +296,11 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     return distAllowed;
 }
 
-function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups) {
+function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
     player.noisy = true;
     popups.add(PopupType.Noise, player.pos);
+
+    sounds.footstepCreaky.play(0.6);
 
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
         guard.heardThief = true;
