@@ -3,7 +3,7 @@ import { createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
-import { TileInfo, TileSet, FontTileSet, getTileSet, getFontTileSet } from './tilesets';
+import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 
 import * as colorPreset from './color-preset';
 
@@ -17,8 +17,8 @@ const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
-const viewTileSizeDesiredX: number = 32; // desired minimum viewport tile width
-const viewTileSizeDesiredY: number = 32; // desired minimum viewport tile height
+const viewTileSizeDesiredX: number = 31; // desired minimum viewport tile width
+const viewTileSizeDesiredY: number = 31; // desired minimum viewport tile height
 
 type Camera = {
     position: vec2;
@@ -73,9 +73,6 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code === 'KeyP') {
                 e.preventDefault();
                 state.seeGuardPatrols = !state.seeGuardPatrols;
-            } else if (e.code === 'KeyN') {
-                e.preventDefault();
-                resetState(state);
             } else if (e.code === 'Period') {
                 e.preventDefault();
                 ++state.level;
@@ -88,6 +85,9 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
+        } else if (e.code == 'KeyN') {
+            e.preventDefault();
+            resetState(state);
         } else {
             const distDesired = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
@@ -822,9 +822,11 @@ function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, scre
 }
 
 function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, posLegalMin: vec2, posLegalMax: vec2) {
+    const mapSizeX = worldSize[0];
+    const mapSizeY = worldSize[1];
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY);
 
     let viewCenterMinX = viewWorldSizeX / 2;
     let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
@@ -848,14 +850,16 @@ function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, posLe
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
+    const mapSizeX = state.gameMap.cells.sizeX;
+    const mapSizeY = state.gameMap.cells.sizeY;
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY);
 
     const viewWorldCenterX = state.camera.position[0];
     const viewWorldCenterY = state.camera.position[1];
 
-    const tileZoom = worldTileZoom(viewportPixelSize);
+    const tileZoom = worldTileZoom(viewportPixelSize, mapSizeX, mapSizeY);
     const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * tileZoom);
 
     const viewWorldMinX = Math.floor(pixelsPerTileX * (viewWorldCenterX - viewWorldSizeX / 2)) / pixelsPerTileX;
@@ -872,8 +876,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     );
 }
 
-function viewWorldSize(viewportPixelSize: vec2): [number, number] {
-    const tileZoom = worldTileZoom(viewportPixelSize);
+function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: number): [number, number] {
+    const tileZoom = worldTileZoom(viewportPixelSize, mapSizeX, mapSizeY);
 
     const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
     const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;
@@ -884,15 +888,15 @@ function viewWorldSize(viewportPixelSize: vec2): [number, number] {
     return [viewWorldSizeX, viewWorldSizeY];
 }
 
-function worldTileZoom(viewportPixelSize: vec2): number {
-    const viewPixelSizeDesiredX = viewTileSizeDesiredX * pixelsPerTileX;
-    const viewPixelSizeDesiredY = viewTileSizeDesiredY * pixelsPerTileY;
+function worldTileZoom(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: number): number {
+    const viewPixelSizeDesiredX = Math.min(mapSizeX, viewTileSizeDesiredX) * pixelsPerTileX;
+    const viewPixelSizeDesiredY = Math.min(mapSizeY, viewTileSizeDesiredY) * pixelsPerTileY;
 
     let tileZoom;
     if (viewportPixelSize[0] * viewPixelSizeDesiredY < viewportPixelSize[1] * viewPixelSizeDesiredX) {
-        tileZoom = Math.max(1, Math.floor(viewportPixelSize[0] / viewPixelSizeDesiredX + 0.5));
+        tileZoom = Math.max(1, Math.floor(viewportPixelSize[0] / viewPixelSizeDesiredX));
     } else {
-        tileZoom = Math.max(1, Math.floor(viewportPixelSize[1] / viewPixelSizeDesiredY + 0.5));
+        tileZoom = Math.max(1, Math.floor(viewportPixelSize[1] / viewPixelSizeDesiredY));
     }
 
     return tileZoom;
