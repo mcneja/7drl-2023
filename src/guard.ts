@@ -3,6 +3,7 @@ export { Guard, GuardMode, guardActAll, lineOfSight };
 import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
+import { Popups, PopupType } from './popups';
 
 enum MoveResult {
     StoodStill,
@@ -75,7 +76,7 @@ class Guard {
         return (this.mode == GuardMode.ChaseVisibleTarget) ? GuardStates.Chasing : GuardStates.Alerted;
     }
 
-    act(/* popups: Popups, lines: Lines, */ player: Player, map: GameMap, shouts: Array<Shout>) {
+    act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
     
@@ -135,9 +136,7 @@ class Guard {
                 updateDir(this.dir, this.pos, this.goal);
                 if (modePrev == GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
-                        /* TODO
-                        popups.damage(this.pos, lines.damage.next());
-                        */
+                        popups.add(PopupType.Damage, this.pos);
                     }
                     player.applyDamage(1);
                 }
@@ -214,11 +213,10 @@ class Guard {
     
         // Say something to indicate state changes
 
-        /* TODO
-        if (let Some(line_iter) = lines_for_state_change(lines, modePrev, this.mode)) {
-            this.say(popups, player, see_all, line_iter.next());
+        const popupType = popupTypeForStateChange(modePrev, this.mode);
+        if (popupType !== undefined) {
+            popups.add(popupType, this.pos);
         }
-        */
     
         if (this.mode == GuardMode.ChaseVisibleTarget && modePrev != GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos});
@@ -428,7 +426,7 @@ type Shout = {
     pos_target: vec2; // where are they reporting the player is?
 }
 
-function guardActAll(/* popups: Popups, lines: Lines, */ map: GameMap, player: Player) {
+function guardActAll(map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
@@ -443,7 +441,7 @@ function guardActAll(/* popups: Popups, lines: Lines, */ map: GameMap, player: P
 
     const shouts: Array<Shout> = [];
     for (const guard of map.guards) {
-        guard.act(/* popups, lines, */ player, map, shouts);
+        guard.act(map, popups, player, shouts);
         guard.hasMoved = true;
     }
 
@@ -452,6 +450,37 @@ function guardActAll(/* popups: Popups, lines: Lines, */ map: GameMap, player: P
     for (const shout of shouts) {
         alertNearbyGuards(map, shout);
     }
+}
+
+function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): PopupType | undefined {
+    if (modeNext == modePrev) {
+        return undefined;
+    }
+
+    switch (modeNext) {
+        case GuardMode.Patrol:
+            switch (modePrev) {
+                case GuardMode.Look: return PopupType.GuardFinishLooking;
+                case GuardMode.Listen: return PopupType.GuardFinishListening;
+                case GuardMode.MoveToLastSound: return PopupType.GuardFinishInvestigating;
+                case GuardMode.MoveToGuardShout: return PopupType.GuardFinishInvestigating;
+                case GuardMode.MoveToLastSighting: return PopupType.GuardEndChase;
+                default: return undefined;
+            }
+        case GuardMode.Look: return PopupType.GuardSeeThief;
+        case GuardMode.Listen: return PopupType.GuardHearThief;
+        case GuardMode.ChaseVisibleTarget:
+            if (modePrev != GuardMode.MoveToLastSighting) {
+                return PopupType.GuardChase;
+            } else {
+                return undefined;
+            }
+        case GuardMode.MoveToLastSighting: return undefined;
+        case GuardMode.MoveToLastSound: return PopupType.GuardInvestigate;
+        case GuardMode.MoveToGuardShout: return PopupType.GuardHearGuard;
+    }
+
+    return undefined;
 }
 
 function alertNearbyGuards(map: GameMap, shout: Shout) {

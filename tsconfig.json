@@ -14,7 +14,9 @@
         "./src/game-map.ts",
         "./src/guard.ts",
         "./src/my-matrix.ts",
+        "./src/popups.ts",
         "./src/random.ts",
         "./src/render.ts",
+        "./src/tilesets.ts",
     ]
 }

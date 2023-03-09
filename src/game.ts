@@ -4,6 +4,7 @@ import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHea
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
+import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
 
@@ -31,6 +32,7 @@ type State = {
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
     player: Player;
+    showStartMessage: boolean;
     finishedLevel: boolean;
     seeAll: boolean;
     seeGuardSight: boolean;
@@ -38,6 +40,7 @@ type State = {
     camera: Camera;
     level: number;
     gameMap: GameMap;
+    popups: Popups;
 }
 
 function loadResourcesThenRun() {
@@ -133,6 +136,7 @@ function main(images: Array<HTMLImageElement>) {
 function advanceToNextLevel(state: State) {
     state.level += 1;
     state.gameMap = createGameMap(state.level);
+    state.showStartMessage = true;
     state.finishedLevel = false;
 
     state.player.pos = state.gameMap.playerStartPos;
@@ -200,7 +204,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     let cellType = state.gameMap.cells.at(player.pos[0], player.pos[1]).type;
     if (cellType == TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, 17 /*, state.gameMap.popups, "\u{ab}creak\u{bb}" */);
+        makeNoise(state.gameMap, player, 17, state.popups);
     }
 
     advanceTime(state);
@@ -255,11 +259,9 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     return distAllowed;
 }
 
-function makeNoise(map: GameMap, player: Player, radius: number /*, popups: &mut Popups, noise: &'static str */) {
+function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups) {
     player.noisy = true;
-    /* TODO
-    popups.noise(player.pos, noise);
-    */
+    popups.add(PopupType.Noise, player.pos);
 
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
         guard.heardThief = true;
@@ -269,8 +271,8 @@ function makeNoise(map: GameMap, player: Player, radius: number /*, popups: &mut
 function preTurn(state: State) {
     /* TODO
     state.show_msgs = true;
-    state.popups.clear();
     */
+    state.popups.clear();
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
 }
@@ -284,7 +286,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-    guardActAll(/* state.popups, state.lines, */ state.gameMap, state.player);
+    guardActAll(state.gameMap, state.popups, state.player);
 
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
@@ -693,6 +695,7 @@ function initState(): State {
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
         player: new Player(gameMap.playerStartPos),
+        showStartMessage: true,
         finishedLevel: false,
         seeAll: false,
         seeGuardSight: false,
@@ -700,6 +703,7 @@ function initState(): State {
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
         gameMap: gameMap,
+        popups: new Popups,
     };
 }
 
@@ -708,19 +712,23 @@ function restartGame(state: State) {
 
     const gameMap = createGameMap(state.level);
 
+    state.showStartMessage = true;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
+    state.popups.clear();
 }
 
 function resetState(state: State) {
     const gameMap = createGameMap(state.level);
 
+    state.showStartMessage = true;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
+    state.popups.clear();
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
@@ -931,13 +939,20 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
+    let popupMsg = state.popups.currentMessage();
+
     let msg;
     if (state.player.health <= 0) {
         msg = 'You have died! Press R to restart a new game.';
-    } else if (state.gameMap.allLootCollected() && state.gameMap.allSeen()) {
+    } else if (popupMsg !== null) {
+        msg = popupMsg.msg;
+        state.showStartMessage = false;
+    } else if (state.finishedLevel) {
         msg = 'Mission complete! Exit any side of the map.'
-    } else {
+    } else if (state.showStartMessage) {
         msg = 'Scout the entire mansion and steal all the loot.'
+    } else {
+        msg = '';
     }
     putString(renderer, 1, msg, colorPreset.lightGray);
 
