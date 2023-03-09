@@ -16,5 +16,7 @@
         "./src/my-matrix.ts",
         "./src/random.ts",
         "./src/render.ts",
+        "./src/tilesets.ts",
+        "./src/audio.ts",
     ]
 }
