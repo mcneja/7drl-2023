@@ -1563,7 +1563,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                     }
                 }
             } else if (dx >= 2 && dy >= 2) {
-                const torchType = randomlyLitTorch();
+                const torchType = randomlyLitTorch(level);
                 const itemTypes = [torchType, ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
                 shuffleArray(itemTypes);
                 const itemPositions = [
@@ -1597,7 +1597,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                 map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
             } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
                 const itemTypes = new Array(dy - 2).fill(ItemType.Table);
-                itemTypes.push(randomlyLitTorch());
+                itemTypes.push(randomlyLitTorch(level));
                 shuffleArray(itemTypes);
                 for (let y = 1; y < dy-1; ++y) {
                     placeItem(map, room.posMin[0] + 1, room.posMin[1] + y, ItemType.Chair);
@@ -1606,7 +1606,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                 }
             } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
                 const itemTypes = new Array(dx - 2).fill(ItemType.Table);
-                itemTypes.push(randomlyLitTorch());
+                itemTypes.push(randomlyLitTorch(level));
                 shuffleArray(itemTypes);
                 for (let x = 1; x < dx-1; ++x) {
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 1, ItemType.Chair);
@@ -1616,7 +1616,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
             } else if (dx > dy && (dy & 1) == 1 && Math.random() < 0.66667) {
                 let y = Math.floor(room.posMin[1] + dy / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = randomlyLitTorch();
+                const torchType = randomlyLitTorch(level);
                 const itemTypes = [torchType, furnitureType];
                 shuffleArray(itemTypes);
                 tryPlaceItem(map, room.posMin[0] + 1, y, itemTypes[0]);
@@ -1624,14 +1624,14 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
             } else if (dy > dx && (dx & 1) == 1 && Math.random() < 0.66667) {
                 let x = Math.floor(room.posMin[0] + dx / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = randomlyLitTorch();
+                const torchType = randomlyLitTorch(level);
                 const itemTypes = [torchType, furnitureType];
                 shuffleArray(itemTypes);
                 tryPlaceItem(map, x, room.posMin[1] + 1, itemTypes[0]);
                 tryPlaceItem(map, x, room.posMax[1] - 2, itemTypes[1]);
             } else if (dx > 3 && dy > 3) {
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = randomlyLitTorch();
+                const torchType = randomlyLitTorch(level);
                 const itemTypes = [torchType, furnitureType, furnitureType, furnitureType];
                 shuffleArray(itemTypes);
                 tryPlaceItem(map, room.posMin[0], room.posMin[1], itemTypes[0]);
@@ -1643,7 +1643,11 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
     }
 }
 
-function randomlyLitTorch(): ItemType {
+function randomlyLitTorch(level: number): ItemType {
+    if (level === 0) {
+        return ItemType.TorchUnlit;
+    }
+
     return (Math.random() < 0.5) ? ItemType.TorchUnlit : ItemType.TorchLit;
 }
 
