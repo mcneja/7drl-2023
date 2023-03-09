@@ -1,6 +1,7 @@
 export { Popup, PopupMessage, Popups, PopupType };
 
 import { vec2 } from './my-matrix';
+import { Howls } from './audio';
 
 enum PopupType {
     Damage,
@@ -41,8 +42,20 @@ class Popups {
         this.popups.length = 0;
     }
 
-    currentMessage(): PopupMessage | null {
+    endOfUpdate(sounds: Howls) {
+        if (this.popups.length === 0) {
+            return;
+        }
+
         this.popups.sort((a, b) => a.popupType - b.popupType);
+
+        const soundName = soundNameForPopupType(this.popups[0].popupType);
+        if (soundName !== '') {
+            sounds[soundName].play(0.6);
+        }
+    }
+
+    currentMessage(): PopupMessage | null {
         if (this.popups.length === 0) {
             return null;
         }
@@ -53,19 +66,37 @@ class Popups {
     }
 }
 
+function soundNameForPopupType(popupType: PopupType): string {
+    switch (popupType) {
+        case PopupType.Damage: return '';
+        case PopupType.GuardChase: return 'guardChase';
+        case PopupType.GuardSeeThief: return 'guardAlert';
+        case PopupType.GuardHearThief: return 'guardAlert';
+        case PopupType.GuardHearGuard: return 'guardAlert';
+        case PopupType.GuardInvestigate: return 'guardAlert';
+        case PopupType.Noise: return '';
+        case PopupType.GuardEndChase: return '';
+        case PopupType.GuardFinishInvestigating: return 'guardStopAlert';
+        case PopupType.GuardFinishLooking: return 'guardStopAlert';
+        case PopupType.GuardFinishListening: return 'guardStopAlert';
+    }
+    
+    return '';
+}
+
 function messageForPopupType(popupType: PopupType): string {
     switch (popupType) {
-    case PopupType.Damage: return linesDamage.nextLine();
-    case PopupType.GuardChase: return linesChase.nextLine();
-    case PopupType.GuardSeeThief: return linesSee.nextLine();
-    case PopupType.GuardHearThief: return linesHear.nextLine();
-    case PopupType.GuardHearGuard: return linesHearGuard.nextLine();
-    case PopupType.GuardInvestigate: return linesInvestigate.nextLine();
-    case PopupType.Noise: return 'Creak!';
-    case PopupType.GuardEndChase: return linesEndChase.nextLine();
-    case PopupType.GuardFinishInvestigating: return linesEndInvestigation.nextLine();
-    case PopupType.GuardFinishLooking: return linesDoneLooking.nextLine();
-    case PopupType.GuardFinishListening: return linesDoneListening.nextLine();
+        case PopupType.Damage: return linesDamage.nextLine();
+        case PopupType.GuardChase: return linesChase.nextLine();
+        case PopupType.GuardSeeThief: return linesSee.nextLine();
+        case PopupType.GuardHearThief: return linesHear.nextLine();
+        case PopupType.GuardHearGuard: return linesHearGuard.nextLine();
+        case PopupType.GuardInvestigate: return linesInvestigate.nextLine();
+        case PopupType.Noise: return 'Creak!';
+        case PopupType.GuardEndChase: return linesEndChase.nextLine();
+        case PopupType.GuardFinishInvestigating: return linesEndInvestigation.nextLine();
+        case PopupType.GuardFinishLooking: return linesDoneLooking.nextLine();
+        case PopupType.GuardFinishListening: return linesDoneListening.nextLine();
     }
 }
 

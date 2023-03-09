@@ -323,7 +323,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-    guardActAll(state.gameMap, state.popups, state.sounds, state.player);
+    guardActAll(state.gameMap, state.popups, state.player);
 
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
@@ -333,6 +333,8 @@ function advanceTime(state: State) {
     }
 
     // Update top status-bar message
+
+    state.popups.endOfUpdate(state.sounds);
 
     let popupMsg = state.popups.currentMessage();
 

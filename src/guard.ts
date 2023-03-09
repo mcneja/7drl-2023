@@ -3,7 +3,6 @@ export { Guard, GuardMode, guardActAll, lineOfSight };
 import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
-import { Howls } from './audio';
 import { Popups, PopupType } from './popups';
 
 enum MoveResult {
@@ -77,7 +76,7 @@ class Guard {
         return (this.mode == GuardMode.ChaseVisibleTarget) ? GuardStates.Chasing : GuardStates.Alerted;
     }
 
-    act(map: GameMap, popups: Popups, sounds: Howls, player: Player, shouts: Array<Shout>) {
+    act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
     
@@ -105,12 +104,10 @@ class Guard {
                 if (this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.ChaseVisibleTarget;
                     vec2.copy(this.goal, player.pos);
-                    sounds["guardChasing"].play(0.6);
                 } else if (isRelaxedGuardMode(this.mode)) {
                     this.mode = GuardMode.Listen;
                     this.modeTimeout = 2 + randomInRange(4);
                     updateDir(this.dir, this.pos, player.pos);
-                    sounds["guardAlert"].play(0.6);
                 } else {
                     this.mode = GuardMode.MoveToLastSound;
                     this.modeTimeout = 2 + randomInRange(4);
@@ -131,7 +128,6 @@ class Guard {
             this.modeTimeout -= 1;
             if (this.modeTimeout == 0) {
                 this.mode = GuardMode.Patrol;
-                sounds["guardStopAlert"].play(0.6);
             }
             break;
 
@@ -190,12 +186,10 @@ class Guard {
             if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
                 this.mode = GuardMode.Look;
                 this.modeTimeout = 2 + randomInRange(4);
-                sounds["guardAlert"].play(0.6);
             } else {
                 vec2.copy(this.goal, player.pos);
                 updateDir(this.dir, this.pos, this.goal);
                 this.mode = GuardMode.ChaseVisibleTarget;
-                sounds["guardChasing"].play(0.6);
             }
         } else if (this.mode == GuardMode.ChaseVisibleTarget) {
             vec2.copy(this.goal, player.pos);
@@ -458,7 +452,7 @@ type Shout = {
     pos_target: vec2; // where are they reporting the player is?
 }
 
-function guardActAll(map: GameMap, popups: Popups, sounds:Howls, player: Player) {
+function guardActAll(map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
@@ -473,7 +467,7 @@ function guardActAll(map: GameMap, popups: Popups, sounds:Howls, player: Player)
 
     const shouts: Array<Shout> = [];
     for (const guard of map.guards) {
-        guard.act(map, popups, sounds, player, shouts);
+        guard.act(map, popups, player, shouts);
         guard.hasMoved = true;
     }
 
@@ -592,7 +586,7 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
 }
 
 function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined {
-    let bestItem = undefined;
+    let bestItem: Item | undefined = undefined;
     let bestDistSquared = Infinity;
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit) {
