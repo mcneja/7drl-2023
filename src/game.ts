@@ -73,6 +73,9 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code === 'KeyP') {
                 e.preventDefault();
                 state.seeGuardPatrols = !state.seeGuardPatrols;
+            } else if (e.code === 'KeyN') {
+                e.preventDefault();
+                resetState(state);
             } else if (e.code === 'Period') {
                 e.preventDefault();
                 ++state.level;
@@ -84,7 +87,7 @@ function main(images: Array<HTMLImageElement>) {
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
-            resetState(state);
+            restartGame(state);
         } else {
             const distDesired = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
@@ -498,12 +501,12 @@ function renderWorld(state: State, renderer: Renderer) {
             const ind = state.gameMap.cells.index(x, y);
             if(!(ind in mappedItems)) continue;
             for(let item of mappedItems[ind]) {
-                const alwaysLit = item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW;
+                const alwaysLit = (item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) || item.type == ItemType.Coin;
                 const lit = alwaysLit || cell.lit;
                 renderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, renderer.tileSet.itemTiles[item.type], lit);    
             }
         }
-    }        
+    }
 }
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
@@ -700,6 +703,17 @@ function initState(): State {
     };
 }
 
+function restartGame(state: State) {
+    state.level = 0;
+
+    const gameMap = createGameMap(state.level);
+
+    state.finishedLevel = false;
+    state.player = new Player(gameMap.playerStartPos);
+    state.camera = createCamera(gameMap.playerStartPos);
+    state.gameMap = gameMap;
+}
+
 function resetState(state: State) {
     const gameMap = createGameMap(state.level);
 
@@ -750,6 +764,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderGuardPatrolPaths(state, renderer);
     renderer.flush();
 
+    renderTopStatusBar(renderer, screenSize, state);
     renderBottomStatusBar(renderer, screenSize, state);
 }
 
@@ -808,7 +823,7 @@ function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, scre
 
 function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, posLegalMin: vec2, posLegalMax: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
-    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - statusBarPixelSizeY);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize);
 
     let viewCenterMinX = viewWorldSizeX / 2;
@@ -834,7 +849,7 @@ function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, posLe
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
-    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - statusBarPixelSizeY);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize);
 
     const viewWorldCenterX = state.camera.position[0];
@@ -851,7 +866,7 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
         viewWorldMinX,
         viewWorldMinX + viewWorldSizeX,
         viewWorldMinY - statusBarWorldSizeY,
-        viewWorldMinY + viewWorldSizeY,
+        viewWorldMinY + viewWorldSizeY + statusBarWorldSizeY,
         1,
         -1
     );
@@ -887,6 +902,51 @@ function statusBarZoom(screenSizeX: number): number {
     return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
+function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
+    const tileZoom = statusBarZoom(screenSize[0]);
+
+    const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
+
+    const screenSizeInTilesX = screenSize[0] / (tileZoom * statusBarCharPixelSizeX);
+    const screenSizeInTilesY = screenSize[1] / statusBarPixelSizeY;
+
+    const offsetTilesY = 1 - screenSizeInTilesY;
+
+    const matScreenFromWorld = mat4.create();
+
+    mat4.ortho(
+        matScreenFromWorld,
+        0, screenSizeInTilesX,
+        offsetTilesY, screenSizeInTilesY + offsetTilesY,
+        1, -1
+    );
+
+    renderer.start(matScreenFromWorld, 0);
+
+    const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
+    const barBackgroundColor = 0xff101010;
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
+
+    let msg;
+    if (state.player.health <= 0) {
+        msg = 'You have died! Press R to restart a new game.';
+    } else if (state.gameMap.allLootCollected() && state.gameMap.allSeen()) {
+        msg = 'Mission complete! Exit any side of the map.'
+    } else {
+        msg = 'Scout the entire mansion and steal all the loot.'
+    }
+    putString(renderer, 1, msg, colorPreset.lightGray);
+
+    renderer.flush();
+}
+
+function putString(renderer: Renderer, x: number, s: string, color: number) {
+    for (let i = 0; i < s.length; ++i) {
+        const glyphIndex = s.charCodeAt(i);
+        renderer.addGlyph(x + i, 0, x + i + 1, 1, {textureIndex:glyphIndex, color:color});
+    }
+}
+
 function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
     const tileZoom = statusBarZoom(screenSize[0]);
 
@@ -908,16 +968,9 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
-    function putString(x: number, s: string, color: number) {
-        for (let i = 0; i < s.length; ++i) {
-            const glyphIndex = s.charCodeAt(i);
-            renderer.addGlyph(x + i, 0, x + i + 1, 1, {textureIndex:glyphIndex, color:color});
-        }
-    }
-
     const healthX = 1;
 
-    putString(healthX, "Health", colorPreset.darkRed);
+    putString(renderer, healthX, "Health", colorPreset.darkRed);
 
     for (let i = 0; i < maxPlayerHealth; ++i) {
         const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
@@ -931,7 +984,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     if (playerUnderwater) {
         const breathX = healthX + maxPlayerHealth + 88;
 
-        putString(breathX, "Air", colorPreset.lightCyan);
+        putString(renderer, breathX, "Air", colorPreset.lightCyan);
 
         for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
             const glyphBubble = 9;
@@ -946,7 +999,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const seenMsg = 'Level ' + (state.level + 1) + ': ' + percentSeen + '% Seen';
 
     const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
-    putString(seenX, seenMsg, colorPreset.lightGray);
+    putString(renderer, seenX, seenMsg, colorPreset.lightGray);
 
     let lootMsg = 'Loot ' + state.player.gold + '/';
     if (percentSeen < 100) {
@@ -956,7 +1009,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     }
 
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
-    putString(lootX, lootMsg, colorPreset.lightYellow);
+    putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
 
     renderer.flush();
 }
