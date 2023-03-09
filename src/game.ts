@@ -482,7 +482,7 @@ function renderWorld(state: State, renderer: Renderer) {
                 continue;
             }
             const terrainType = cell.type;
-            const alwaysLit = terrainType >= TerrainType.Wall0000;
+            const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
             if(terrainType==TerrainType.Wall0000) {
                 for(let adj of [[0,1],[1,0],[0,-1],[-1,0]]) {
