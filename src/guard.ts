@@ -158,11 +158,11 @@ class Guard {
             break;
 
         case GuardMode.RelightTorch:
-            if (this.adjacentTo(this.goal)) {
-                relightTorchAt(map, this.goal);
+            if (this.cardinallyAdjacentTo(this.goal)) {
+                updateDir(this.dir, this.pos, this.goal);
                 this.mode = GuardMode.PostRelightTorch;
                 this.modeTimeout = 3;
-            } else if (this.moveTowardPosition(this.goal, map, player) !== MoveResult.Moved) {
+            } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
                 this.modeTimeout -= 1;
                 if (this.modeTimeout === 0) {
                     this.mode = GuardMode.Patrol;
@@ -172,7 +172,9 @@ class Guard {
 
         case GuardMode.PostRelightTorch:
             --this.modeTimeout;
+            updateDir(this.dir, this.pos, this.goal);
             if (this.modeTimeout <= 0) {
+                relightTorchAt(map, this.goal);
                 this.mode = GuardMode.Patrol;
             }
             break;
@@ -221,6 +223,12 @@ class Guard {
         if (this.mode == GuardMode.ChaseVisibleTarget && modePrev != GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos});
         }
+    }
+
+    cardinallyAdjacentTo(pos: vec2): boolean {
+        const dx = Math.abs(pos[0] - this.pos[0]);
+        const dy = Math.abs(pos[1] - this.pos[1]);
+        return (dx == 1 && dy == 0) || (dx == 0 && dy == 1);
     }
 
     adjacentTo(pos: vec2): boolean {
@@ -344,6 +352,24 @@ class Guard {
 
     moveTowardPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
         const distanceField = map.computeDistancesToPosition(posGoal);
+        const posNext = posNextBest(map, distanceField, this.pos);
+
+        if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
+            return MoveResult.StoodStill;
+        }
+
+        updateDir(this.dir, this.pos, posNext);
+
+        if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
+            return MoveResult.BumpedPlayer;
+        }
+
+        vec2.copy(this.pos, posNext);
+        return MoveResult.Moved;
+    }
+
+    moveTowardAdjacentToPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
+        const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
         const posNext = posNextBest(map, distanceField, this.pos);
 
         if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {

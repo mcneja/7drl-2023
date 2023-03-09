@@ -692,6 +692,22 @@ class GameMap {
         return this.computeDistanceField([{ priority: 0, pos: pos_goal }]);
     }
 
+    computeDistancesToAdjacentToPosition(pos_goal: vec2): Float64Grid {
+        const goal = [];
+        for (const dir of cardinalDirections) {
+            const pos = vec2.create();
+            vec2.add(pos, pos_goal, dir);
+            if (pos[0] < 0 || pos[1] < 0 || pos[0] >= this.cells.sizeX || pos[1] >= this.cells.sizeY) {
+                continue;
+            }
+            const cell = this.cells.at(pos[0], pos[1]);
+            if (cell.moveCost !== Infinity) {
+                goal.push({ priority: cell.moveCost, pos: pos });
+            }
+        }
+        return this.computeDistanceField(goal);
+    }
+
     computeDistanceField(initialDistances: Array<DistPos>): Float64Grid {
         let sizeX = this.cells.sizeX;
         let sizeY = this.cells.sizeY;
