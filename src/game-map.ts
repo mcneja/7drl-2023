@@ -300,16 +300,6 @@ function aRightOfB(ax: number, ay: number, bx: number, by: number): boolean {
     return ax * by > ay * bx;
 }
 
-function allowedDirection(terrainType: TerrainType, dx: number, dy: number): boolean {
-    switch (terrainType) {
-    case TerrainType.OneWayWindowE: return dx > 0;
-    case TerrainType.OneWayWindowW: return dx < 0;
-    case TerrainType.OneWayWindowN: return dy > 0;
-    case TerrainType.OneWayWindowS: return dy < 0;
-    default: return true;
-    }
-}
-
 type AdjacentMove = {
     dx: number;
     dy: number;
@@ -444,10 +434,6 @@ class GameMap {
             return true;
         }
     
-        if (!allowedDirection(this.cells.at(posTarget[0], posTarget[1]).type, dir[0], dir[1])) {
-            return false;
-        }
-
         return !this.cells.at(posTarget[0], posTarget[1]).blocksPlayerSight;
     }
 
@@ -475,11 +461,6 @@ class GameMap {
         const dy = 2 * (targetY - viewerY);
     
         if (dx*dx + dy*dy > 1600) {
-            return;
-        }
-    
-        // End recursion if the incoming direction is not allowed by the current cell type.
-        if (!allowedDirection(this.cells.at(targetX, targetY).type, dx, dy)) {
             return;
         }
     

@@ -1925,7 +1925,7 @@ function cacheCellInfo(map: GameMap) {
             cell.moveCost = (isWall || isWindow) ? Infinity : isWater ? 4096 : 0;
             cell.blocksPlayerMove = isWall;
             cell.blocksPlayerSight = isWall;
-            cell.blocksSight = isWall || isWindow;
+            cell.blocksSight = isWall;
             cell.blocksSound = isWall;
             cell.hidesPlayer = false;
         }
