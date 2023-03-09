@@ -218,7 +218,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     advanceTime(state);
 
     const volScale:number = 0.5+Math.random()/2;
-    console.log(volScale);
+    //console.log(volScale);
     const newTerrain = state.gameMap.cells.at(...player.pos).type
     const changedTile = oldTerrain !== newTerrain;
     switch(newTerrain) {
