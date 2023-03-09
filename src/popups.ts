@@ -8,8 +8,8 @@ enum PopupType {
     GuardSeeThief,
     GuardHearThief,
     GuardHearGuard,
-    Noise,
     GuardInvestigate,
+    Noise,
     GuardEndChase,
     GuardFinishInvestigating,
     GuardFinishLooking,
@@ -60,8 +60,8 @@ function messageForPopupType(popupType: PopupType): string {
     case PopupType.GuardSeeThief: return linesSee.nextLine();
     case PopupType.GuardHearThief: return linesHear.nextLine();
     case PopupType.GuardHearGuard: return linesHearGuard.nextLine();
-    case PopupType.Noise: return 'Creak!';
     case PopupType.GuardInvestigate: return linesInvestigate.nextLine();
+    case PopupType.Noise: return 'Creak!';
     case PopupType.GuardEndChase: return linesEndChase.nextLine();
     case PopupType.GuardFinishInvestigating: return linesEndInvestigation.nextLine();
     case PopupType.GuardFinishLooking: return linesDoneLooking.nextLine();
