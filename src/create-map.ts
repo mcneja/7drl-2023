@@ -413,7 +413,7 @@ function computeAdjacencies(
         const adjacencyRows: Array<Array<number>> = [];
 
         {
-            const adjacencyRow = [];
+            const adjacencyRow: Array<number> = [];
 
             let ry = 0;
 
@@ -441,7 +441,7 @@ function computeAdjacencies(
         }
 
         for (let ry = 1; ry < roomsY; ++ry) {
-            const adjacencyRow = [];
+            const adjacencyRow: Array<number> = [];
 
             for (let rx = 0; rx < roomsX; ++rx) {
                 let x0_upper = offsetX.get(rx, ry);
@@ -505,7 +505,7 @@ function computeAdjacencies(
         }
 
         {
-            const adjacencyRow = [];
+            const adjacencyRow: Array<number> = [];
 
             let ry = roomsY;
 
@@ -582,10 +582,10 @@ function computeAdjacencies(
     }
 
     {
-        let adjacencyRows = [];
+        let adjacencyRows: Array<Array<number>> = [];
 
         {
-            const adjacencyRow = [];
+            const adjacencyRow: Array<number> = [];
 
             let rx = 0;
 
@@ -613,7 +613,7 @@ function computeAdjacencies(
         }
 
         for (let rx = 1; rx < roomsX; ++rx) {
-            const adjacencyRow = [];
+            const adjacencyRow: Array<number> = [];
 
             for (let ry = 0; ry < roomsY; ++ry) {
                 let y0_left  = offsetY.get(rx-1, ry);
@@ -677,7 +677,7 @@ function computeAdjacencies(
         }
 
         {
-            const adjacencyRow = [];
+            const adjacencyRow: Array<number> = [];
 
             let rx = roomsX;
 
@@ -898,7 +898,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>): vec2 {
 }
 
 function getEdgeSets(adjacencies: Array<Adjacency>): Array<Array<number>> {
-    const edgeSets = [];
+    const edgeSets: Array<Array<number>> = [];
 
     for (let i = 0; i < adjacencies.length; ++i) {
         const adj = adjacencies[i];
@@ -1112,7 +1112,7 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
         }
     }
 
-    const posInRoom = [];
+    const posInRoom: Array<vec2> = [];
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         if (!roomIncluded[iRoom]) {
             posInRoom.push(rooms[iRoom].posMin);
@@ -1131,7 +1131,7 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
     // the path ends next to the incoming door.
 
     const roomHandled = Array(rooms.length).fill(false);
-    const patrolRoutes = [];
+    const patrolRoutes: Array<Array<vec2>> = [];
 
     for (let iRoomIter = 0; iRoomIter < rooms.length; ++iRoomIter) {
         if (!roomIncluded[iRoomIter]) {
@@ -1148,7 +1148,7 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
 
         const iRoomStart = startingRoomIndex(iRoomPrev, iRoomIter);
 
-        const patrolPositions = [];
+        const patrolPositions: Array<vec2> = [];
         for (let iRoom = iRoomStart; iRoom != -1; iRoom = iRoomNext[iRoom]) {
             if (roomHandled[iRoom]) {
                 break;
@@ -1265,7 +1265,7 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
 }
 
 function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
-    const positions = [];
+    const positions: Array<vec2> = [];
     // Search for positions with adjacent windows
     if (!isCourtyardRoomType(room.roomType)) {
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
@@ -1320,7 +1320,7 @@ function isWindowTerrainType(terrainType: TerrainType): boolean {
 }
 
 function posVacantInRoom(gameMap: GameMap, room: Room): vec2 {
-    const positions = [];
+    const positions: Array<vec2> = [];
     for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
         for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
             if (gameMap.cells.at(x, y).moveCost === 0) {
@@ -1340,7 +1340,7 @@ function posVacantInRoom(gameMap: GameMap, room: Room): vec2 {
 function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2> {
     const distanceField = gameMap.computeDistancesToPosition(pos1);
     const pos = vec2.clone(pos0);
-    const path = [];
+    const path: Array<vec2> = [];
     while (pos[0] !== pos1[0] || pos[1] !== pos1[1]) {
         path.push(vec2.clone(pos));
         const posNext = posNextBest(gameMap, distanceField, pos);
@@ -1447,7 +1447,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             offset = randomInRange(adj0.length);
         }
 
-        let walls = [];
+        let walls: Array<Adjacency> = [];
         walls.push(adj0);
 
         if (j != i) {

@@ -673,7 +673,7 @@ class GameMap {
     }
 
     computeDistancesToPatrolPath(patrolPositions: Array<vec2>): Float64Grid {
-        const goal = [];
+        const goal: Array<DistPos> = [];
     
         for (const pos of patrolPositions) {
             const cost = this.cells.at(pos[0], pos[1]).moveCost;
@@ -693,7 +693,7 @@ class GameMap {
     }
 
     computeDistancesToAdjacentToPosition(pos_goal: vec2): Float64Grid {
-        const goal = [];
+        const goal: Array<DistPos> = [];
         for (const dir of cardinalDirections) {
             const pos = vec2.create();
             vec2.add(pos, pos_goal, dir);
