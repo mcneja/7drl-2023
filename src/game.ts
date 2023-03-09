@@ -19,8 +19,6 @@ const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
-const viewTileSizeDesiredX: number = 31; // desired minimum viewport tile width
-const viewTileSizeDesiredY: number = 31; // desired minimum viewport tile height
 
 const startingTopStatusMessage = 'Scout the entire mansion and steal all the loot.';
 
@@ -37,6 +35,7 @@ type State = {
     player: Player;
     topStatusMessage: string;
     finishedLevel: boolean;
+    zoomLevel: number;
     seeAll: boolean;
     seeGuardSight: boolean;
     seeGuardPatrols: boolean;
@@ -97,6 +96,14 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyN') {
             e.preventDefault();
             resetState(state);
+        } else if (e.code == 'BracketLeft') {
+            e.preventDefault();
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (e.code == 'BracketRight') {
+            e.preventDefault();
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
         } else {
             const distDesired = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
@@ -752,6 +759,7 @@ function initState(sounds:Howls): State {
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
         finishedLevel: false,
+        zoomLevel: 3,
         seeAll: false,
         seeGuardSight: false,
         seeGuardPatrols: false,
@@ -840,6 +848,7 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
     cameraTargetCenterPosition(
         posCameraTarget,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
+        state.zoomLevel,
         screenSize,
         state.player.pos
     );
@@ -870,27 +879,28 @@ function snapCamera(state: State, screenSize: vec2) {
     cameraTargetCenterPosition(
         state.camera.position,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
+        state.zoomLevel,
         screenSize,
         state.player.pos
     );
     vec2.zero(state.camera.velocity);
 }
 
-function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, screenSize: vec2, posPlayer: vec2) {
+function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomLevel: number, screenSize: vec2, posPlayer: vec2) {
     const posCenterMin = vec2.create();
     const posCenterMax = vec2.create();
-    cameraCenterPositionLegalRange(worldSize, screenSize, posCenterMin, posCenterMax);
+    cameraCenterPositionLegalRange(worldSize, screenSize, zoomLevel, posCenterMin, posCenterMax);
 
     posCameraCenter[0] = Math.max(posCenterMin[0], Math.min(posCenterMax[0], posPlayer[0] + 0.5));
     posCameraCenter[1] = Math.max(posCenterMin[1], Math.min(posCenterMax[1], posPlayer[1] + 0.5));
 }
 
-function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, posLegalMin: vec2, posLegalMax: vec2) {
+function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomLevel: number, posLegalMin: vec2, posLegalMax: vec2) {
     const mapSizeX = worldSize[0];
     const mapSizeY = worldSize[1];
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY, zoomLevel);
 
     let viewCenterMinX = viewWorldSizeX / 2;
     let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
@@ -918,12 +928,12 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const mapSizeY = state.gameMap.cells.sizeY;
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY, state.zoomLevel);
 
     const viewWorldCenterX = state.camera.position[0];
     const viewWorldCenterY = state.camera.position[1];
 
-    const tileZoom = worldTileZoom(viewportPixelSize, mapSizeX, mapSizeY);
+    const tileZoom = state.zoomLevel;
     const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * tileZoom);
 
     const viewWorldMinX = Math.floor(pixelsPerTileX * (viewWorldCenterX - viewWorldSizeX / 2)) / pixelsPerTileX;
@@ -940,8 +950,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     );
 }
 
-function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: number): [number, number] {
-    const tileZoom = worldTileZoom(viewportPixelSize, mapSizeX, mapSizeY);
+function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: number, zoomLevel: number): [number, number] {
+    const tileZoom = zoomLevel;
 
     const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
     const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;
@@ -950,20 +960,6 @@ function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: numb
     const viewWorldSizeY = viewportPixelSize[1] / zoomedPixelsPerTileY;
 
     return [viewWorldSizeX, viewWorldSizeY];
-}
-
-function worldTileZoom(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: number): number {
-    const viewPixelSizeDesiredX = Math.min(mapSizeX, viewTileSizeDesiredX) * pixelsPerTileX;
-    const viewPixelSizeDesiredY = Math.min(mapSizeY, viewTileSizeDesiredY) * pixelsPerTileY;
-
-    let tileZoom;
-    if (viewportPixelSize[0] * viewPixelSizeDesiredY < viewportPixelSize[1] * viewPixelSizeDesiredX) {
-        tileZoom = Math.max(1, Math.floor(viewportPixelSize[0] / viewPixelSizeDesiredX));
-    } else {
-        tileZoom = Math.max(1, Math.floor(viewportPixelSize[1] / viewPixelSizeDesiredY));
-    }
-
-    return tileZoom;
 }
 
 function statusBarZoom(screenSizeX: number): number {
