@@ -4,6 +4,7 @@ import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHea
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
+import { setupSounds, Howls, HowlGroup } from './audio';
 import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
@@ -42,6 +43,7 @@ type State = {
     camera: Camera;
     level: number;
     gameMap: GameMap;
+    sounds: Howls;
     popups: Popups;
 }
 
@@ -57,12 +59,14 @@ function main(images: Array<HTMLImageElement>) {
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
 
     const renderer = new Renderer(canvas, tileSet, fontTileSet);
-    const state = initState();
+    const sounds:Howls = {};
+    const state = initState(sounds);
 
     document.body.addEventListener('keydown', onKeyDown);
     document.body.addEventListener('keyup', onKeyUp);
 
     function onKeyDown(e: KeyboardEvent) {
+        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds);
         if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             state.shiftModifierActive = true;
             return;
@@ -157,6 +161,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const player = state.player;
 
+
+    const oldTerrain = state.gameMap.cells.at(...player.pos).type
     // Can't move if you're dead.
 
     if (player.health <= 0) {
@@ -210,6 +216,35 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     }
 
     advanceTime(state);
+
+    const volScale:number = 0.5+Math.random()/2;
+    console.log(volScale);
+    const newTerrain = state.gameMap.cells.at(...player.pos).type
+    const changedTile = oldTerrain !== newTerrain;
+    switch(newTerrain) {
+        case TerrainType.GroundWoodCreaky:
+            state.sounds["footstepCreaky"].play(0.15*volScale);
+            break;
+        case TerrainType.GroundWood:
+            if(changedTile || Math.random()>0.9) state.sounds["footstepWood"].play(0.15*volScale);
+            break;
+        case TerrainType.GroundNormal:
+            if(changedTile || Math.random()>0.5) state.sounds["footstepGravel"].play(0.03*volScale);
+            break;
+        case TerrainType.GroundGrass:
+            if(changedTile || Math.random()>0.75) state.sounds["footstepGrass"].play(0.05*volScale);
+            break;
+        case TerrainType.GroundWater:
+            if(changedTile || Math.random()>0.6) state.sounds["footstepWater"].play(0.02*volScale);
+            break;
+        case TerrainType.GroundMarble:
+            if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.05*volScale);
+            break;
+        default:
+            if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
+            break;
+        }
+
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
@@ -288,7 +323,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-    guardActAll(state.gameMap, state.popups, state.player);
+    guardActAll(state.gameMap, state.popups, state.sounds, state.player);
 
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
@@ -503,16 +538,18 @@ function renderWorld(state: State, renderer: Renderer) {
             const terrainType = cell.type;
             const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
-            if(terrainType==TerrainType.Wall0000) {
-                for(let adj of [[0,1],[1,0],[0,-1],[-1,0]]) {
+            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+            if(terrainType===TerrainType.GroundWater) {
+                const ledge = renderer.tileSet.ledgeTiles;
+                let ctr = 0;
+                for(let adj of [[0,1],[0,-1],[-1,0],[1,0]]) {
                     const cell = state.gameMap.cells.at(x+adj[0],y+adj[1]);
-                    if(cell.type<TerrainType.Wall0000) {
-                        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[cell.type], cell.lit);
-                        break;
+                    if(cell.type!==TerrainType.GroundWater) {
+                        renderer.addGlyph(x, y, x+1, y+1, ledge[ctr], lit);
                     }
+                    ctr++;
                 }
             }
-            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
 
             const ind = state.gameMap.cells.index(x, y);
             if(!(ind in mappedItems)) continue;
@@ -700,7 +737,7 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
-function initState(): State {
+function initState(sounds:Howls): State {
     const initialLevel = 0;
     const gameMap = createGameMap(initialLevel);
 
@@ -717,6 +754,7 @@ function initState(): State {
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
         gameMap: gameMap,
+        sounds: sounds,
         popups: new Popups,
     };
 }

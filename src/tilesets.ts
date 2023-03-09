@@ -27,6 +27,7 @@ export type TileSet = {
     guardStateTiles: Array<TileInfo>;
     npcTiles: Array<TileInfo>;
     playerTiles: Array<TileInfo>;
+    ledgeTiles: Array<TileInfo>;
     unlitTile: TileInfo;
     flattenTexture: boolean;
 }
@@ -88,48 +89,48 @@ const sinCityTileSet:TileSet = {
     flattenTexture: true,
     unlitTile: {textureIndex: r([0, 0])}, //color:colorPreset.lightBlue
     terrainTiles: [ 
-        {textureIndex: r([5,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GroundNormal,
-        {textureIndex: r([2,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GroundGrass,
-        {textureIndex: r([4,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GroundWater,
-        {textureIndex: r([0,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GroundMarble,
-        {textureIndex: r([1,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GroundWood,
-        {textureIndex: r([1,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GroundWoodCreaky,
-        {textureIndex: r([0,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0000,
-        {textureIndex: r([2,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0001,
-        {textureIndex: r([4,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0010,
-        {textureIndex: r([6,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0011,
-        {textureIndex: r([1,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0100,
-        {textureIndex: r([9,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0101,
-        {textureIndex: r([8,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0110,
-        {textureIndex: r([12, 1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall0111,
-        {textureIndex: r([3,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1000,
-        {textureIndex: r([10, 1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1001,
-        {textureIndex: r([7,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1010,
-        {textureIndex: r([14, 1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1011,
-        {textureIndex: r([5,  1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1100,
-        {textureIndex: r([13, 1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1101,
-        {textureIndex: r([11, 1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1110,
-        {textureIndex: r([15, 1]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.Wall1111,
-        {textureIndex: r([0,  2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.OneWayWindowE,
-        {textureIndex: r([2,  2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.OneWayWindowW,
-        {textureIndex: r([3,  2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.OneWayWindowN,
-        {textureIndex: r([1,  2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.OneWayWindowS,
-        {textureIndex: r([10, 2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.PortcullisNS,
-        {textureIndex: r([10, 2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.PortcullisEW,
-        {textureIndex: r([6,  2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.DoorNS,
-        {textureIndex: r([4,  2]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.DoorEW,
-        {textureIndex: r([2,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GardenDoorNS,
-        {textureIndex: r([2,  4]),  color:colorPreset.darkGray, unlitColor:0xff404040}, // TerrainType.GardenDoorEW,
+        {textureIndex: r([5,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GroundNormal,
+        {textureIndex: r([2,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GroundGrass,
+        {textureIndex: r([4,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GroundWater,
+        {textureIndex: r([0,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GroundMarble,
+        {textureIndex: r([1,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GroundWood,
+        {textureIndex: r([1,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GroundWoodCreaky,
+        {textureIndex: r([0,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0000,
+        {textureIndex: r([2,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0001,
+        {textureIndex: r([4,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0010,
+        {textureIndex: r([6,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0011,
+        {textureIndex: r([1,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0100,
+        {textureIndex: r([9,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0101,
+        {textureIndex: r([8,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0110,
+        {textureIndex: r([12, 1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall0111,
+        {textureIndex: r([3,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1000,
+        {textureIndex: r([10, 1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1001,
+        {textureIndex: r([7,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1010,
+        {textureIndex: r([14, 1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1011,
+        {textureIndex: r([5,  1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1100,
+        {textureIndex: r([13, 1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1101,
+        {textureIndex: r([11, 1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1110,
+        {textureIndex: r([15, 1]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.Wall1111,
+        {textureIndex: r([0,  2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.OneWayWindowE,
+        {textureIndex: r([2,  2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.OneWayWindowW,
+        {textureIndex: r([3,  2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.OneWayWindowN,
+        {textureIndex: r([1,  2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.OneWayWindowS,
+        {textureIndex: r([10, 2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.PortcullisNS,
+        {textureIndex: r([10, 2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.PortcullisEW,
+        {textureIndex: r([6,  2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.DoorNS,
+        {textureIndex: r([4,  2]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.DoorEW,
+        {textureIndex: r([2,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GardenDoorNS,
+        {textureIndex: r([2,  4]),  color:colorPreset.darkGray, unlitColor:0xff904040}, // TerrainType.GardenDoorEW,
     ], 
     itemTiles: [
         {textureIndex: r([3,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.Chair,
         {textureIndex: r([4,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.Table,
-        {textureIndex: r([2,  3]),  color:colorPreset.darkGray,    unlitColor:0xff404040}, // ItemType.Bush,
+        {textureIndex: r([2,  3]),  color:colorPreset.darkGray,    unlitColor:0xff904040}, // ItemType.Bush,
         {textureIndex: r([5,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.Coin,
-        {textureIndex: r([6,  2]),  color:colorPreset.darkGray,    unlitColor:0xff404040}, // ItemType.DoorNS,
-        {textureIndex: r([4,  2]),  color:colorPreset.darkGray,    unlitColor:0xff404040}, // ItemType.DoorEW,
-        {textureIndex: r([10,  3]), color:colorPreset.darkGray,    unlitColor:0xff404040}, // ItemType.PortcullisNS,
-        {textureIndex: r([10,  3]), color:colorPreset.darkGray,    unlitColor:0xff404040}, // ItemType.PortcullisEW,
+        {textureIndex: r([6,  2]),  color:colorPreset.darkGray,    unlitColor:0xff904040}, // ItemType.DoorNS,
+        {textureIndex: r([4,  2]),  color:colorPreset.darkGray,    unlitColor:0xff904040}, // ItemType.DoorEW,
+        {textureIndex: r([10,  3]), color:colorPreset.darkGray,    unlitColor:0xff904040}, // ItemType.PortcullisNS,
+        {textureIndex: r([10,  3]), color:colorPreset.darkGray,    unlitColor:0xff904040}, // ItemType.PortcullisEW,
         {textureIndex: r([0,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.TorchUnlit,
         {textureIndex: r([1,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.TorchLit,    
         {textureIndex: r([6,  3]),                                 unlitColor:colorPreset.lightGray}, // ItemType.TorchCarry,    
@@ -159,6 +160,12 @@ const sinCityTileSet:TileSet = {
         {textureIndex: r([4,0]), }, //Relaxed
         {textureIndex: r([5,5]), }, //Alerted
         {textureIndex: r([6,5]), }, //Chasing
+    ],
+    ledgeTiles: [
+        {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([13,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([14,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([15,4]), color: 0xFF736847, unlitColor: 0xFF483428},
     ]
 }
 
@@ -172,51 +179,51 @@ const tileSet31Color:TileSet = {
     flattenTexture: true,
     unlitTile: {textureIndex: r([0, 0])}, //color:colorPreset.lightBlue
     terrainTiles: [ 
-        {textureIndex: r([5,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GroundNormal,
-        {textureIndex: r([2,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GroundGrass,
-        {textureIndex: r([4,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWater,
-        {textureIndex: r([0,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GroundMarble,
-        {textureIndex: r([1,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWood,
-        {textureIndex: r([1,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWoodCreaky,
-        {textureIndex: r([0,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0000,
-        {textureIndex: r([2,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0001,
-        {textureIndex: r([4,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0010,
-        {textureIndex: r([6,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0011,
-        {textureIndex: r([1,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0100,
-        {textureIndex: r([9,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0101,
-        {textureIndex: r([8,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0110,
-        {textureIndex: r([12, 1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0111,
-        {textureIndex: r([3,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1000,
-        {textureIndex: r([10, 1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1001,
-        {textureIndex: r([7,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1010,
-        {textureIndex: r([14, 1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1011,
-        {textureIndex: r([5,  1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1100,
-        {textureIndex: r([13, 1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1101,
-        {textureIndex: r([11, 1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1110,
-        {textureIndex: r([15, 1]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.Wall1111,
-        {textureIndex: r([0,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowE,
-        {textureIndex: r([2,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowW,
-        {textureIndex: r([3,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowN,
-        {textureIndex: r([1,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowS,
-        {textureIndex: r([10, 2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisNS,
-        {textureIndex: r([10, 2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisEW,
-        {textureIndex: r([7,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.DoorNS,
-        {textureIndex: r([5,  2]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.DoorEW,
-        {textureIndex: r([2,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorNS,
-        {textureIndex: r([2,  4]),  color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorEW,
+        {textureIndex: r([11,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundNormal,
+        {textureIndex: r([8,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundGrass,
+        {textureIndex: r([10,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWater,
+        {textureIndex: r([0,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundMarble,
+        {textureIndex: r([7,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWood,
+        {textureIndex: r([7,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWoodCreaky,
+        {textureIndex: r([0,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0000,
+        {textureIndex: r([2,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0001,
+        {textureIndex: r([4,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0010,
+        {textureIndex: r([6,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0011,
+        {textureIndex: r([1,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0100,
+        {textureIndex: r([9,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0101,
+        {textureIndex: r([8,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0110,
+        {textureIndex: r([12, 9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0111,
+        {textureIndex: r([3,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1000,
+        {textureIndex: r([10, 9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1001,
+        {textureIndex: r([7,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1010,
+        {textureIndex: r([14, 9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1011,
+        {textureIndex: r([5,  9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1100,
+        {textureIndex: r([13, 9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1101,
+        {textureIndex: r([11, 9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1110,
+        {textureIndex: r([15, 9]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall1111,
+        {textureIndex: r([0,  10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.OneWayWindowE,
+        {textureIndex: r([2,  10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.OneWayWindowW,
+        {textureIndex: r([3,  10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.OneWayWindowN,
+        {textureIndex: r([1,  10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.OneWayWindowS,
+        {textureIndex: r([10, 10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.PortcullisNS,
+        {textureIndex: r([10, 10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.PortcullisEW,
+        {textureIndex: r([7,  10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.DoorNS,
+        {textureIndex: r([5,  10]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.DoorEW,
+        {textureIndex: r([2+6, 4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GardenDoorNS,
+        {textureIndex: r([2+6, 4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GardenDoorEW,
     ], 
     itemTiles: [
-        {textureIndex: r([3,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.Chair,
-        {textureIndex: r([4,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.Table,
-        {textureIndex: r([2,  3]),  color:colorPreset.lightGray,   unlitColor:colorPreset.darkGray}, // ItemType.Bush,
-        {textureIndex: r([5,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.Coin,
-        {textureIndex: r([6,  2]),  color:colorPreset.lightGray,   unlitColor:colorPreset.darkGray}, // ItemType.DoorNS,
-        {textureIndex: r([4,  2]),  color:colorPreset.lightGray,   unlitColor:colorPreset.darkGray}, // ItemType.DoorEW,
-        {textureIndex: r([10,  3]), color:colorPreset.lightGray,   unlitColor:colorPreset.darkGray}, // ItemType.PortcullisNS,
-        {textureIndex: r([10,  3]), color:colorPreset.lightGray,   unlitColor:colorPreset.darkGray}, // ItemType.PortcullisEW,
-        {textureIndex: r([0,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.TorchUnlit,
-        {textureIndex: r([1,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.TorchLit,    
-        {textureIndex: r([6,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.TorchCarry,    
+        {textureIndex: r([3,  3]),                                 unlitColor:0xffd0b0b0}, // ItemType.Chair,
+        {textureIndex: r([4,  3]),                                 unlitColor:0xffd0b0b0}, // ItemType.Table,
+        {textureIndex: r([2,  3]),   color:colorPreset.white,      unlitColor:0xffd09090}, // ItemType.Bush,
+        {textureIndex: r([5,  3]),                                 unlitColor:0xffffffff}, // ItemType.Coin,
+        {textureIndex: r([6,  10]),  color:colorPreset.white,      unlitColor:0xffa07070}, // ItemType.DoorNS,
+        {textureIndex: r([4,  10]),  color:colorPreset.white,      unlitColor:0xffa07070}, // ItemType.DoorEW,
+        {textureIndex: r([10,  10]), color:colorPreset.white,      unlitColor:0xffa07070}, // ItemType.PortcullisNS,
+        {textureIndex: r([10,  10]), color:colorPreset.white,      unlitColor:0xffa07070}, // ItemType.PortcullisEW,
+        {textureIndex: r([0,  3]),                                 unlitColor:0xffffffff}, // ItemType.TorchUnlit,
+        {textureIndex: r([1,  3]),                                 unlitColor:0xffffffff}, // ItemType.TorchLit,    
+        {textureIndex: r([6,  3]),                                 unlitColor:0xffa07070}, // ItemType.TorchCarry,    
     ],
     npcTiles: [
         {textureIndex: r([3, 5])},//guardE:
@@ -233,16 +240,22 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1, 5]) },//guardS:
     ],
     playerTiles: [
-        {textureIndex: r([0,5]), }, //playerNormal
-        {textureIndex: r([0,5]), color:colorPreset.darkRed}, //playerWounded
-        {textureIndex: r([0,6]), color:colorPreset.darkGray}, //playerHidden: 
-        {textureIndex: r([0,5]), color:colorPreset.lightRed}, //playerNoisy: 
-        {textureIndex: r([0,5]), color:colorPreset.lightGray}, //playerUnlit: 
+        {textureIndex: r([2,5+2]), }, //playerNormal
+        {textureIndex: r([2,5+2]), color:colorPreset.darkRed}, //playerWounded
+        {textureIndex: r([2,6+2]), color:colorPreset.darkGray}, //playerHidden: 
+        {textureIndex: r([2,5+2]), color:colorPreset.lightRed}, //playerNoisy: 
+        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerUnlit: 
     ],
     guardStateTiles: [
-        {textureIndex: r([4,0]), }, //Relaxed
+        {textureIndex: r([4,0]) }, //Relaxed
         {textureIndex: r([5,5]), }, //Alerted
         {textureIndex: r([6,5]), }, //Chasing
+    ],
+    ledgeTiles: [
+        {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([13,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([14,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([15,4]), color: 0xFF736847, unlitColor: 0xFF483428},
     ]
 }
 
@@ -340,6 +353,12 @@ const canvasTilesetThreeQuarter:TileSet = {
         {textureIndex: r([0,4]), color:colorPreset.darkGray}, //Relaxed
         {textureIndex: r([0,4]), color:colorPreset.darkRed}, //Alerted
         {textureIndex: r([0,4]), color:0xd0101010}, //Chasing
+    ],
+    ledgeTiles: [
+        {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([13,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([14,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([15,4]), color: 0xFF736847, unlitColor: 0xFF483428},
     ]
 }
 
@@ -425,6 +444,12 @@ var BasicTileset:TileSet = {
         {textureIndex:34, color:colorPreset.lightMagenta},//guardN
         {textureIndex:35, color:colorPreset.lightMagenta},//guardW
         {textureIndex:36, color:colorPreset.lightMagenta},//guardS
+    ],
+    ledgeTiles: [
+        {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([13,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([14,4]), color: 0xFF736847, unlitColor: 0xFF483428},
+        {textureIndex: r([15,4]), color: 0xFF736847, unlitColor: 0xFF483428},
     ],
 }
 

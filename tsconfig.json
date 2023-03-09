@@ -18,5 +18,6 @@
         "./src/random.ts",
         "./src/render.ts",
         "./src/tilesets.ts",
+        "./src/audio.ts",
     ]
 }
