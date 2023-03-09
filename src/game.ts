@@ -843,8 +843,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const tileZoom = worldTileZoom(viewportPixelSize);
     const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * tileZoom);
 
-    const viewWorldMinX = viewWorldCenterX - viewWorldSizeX / 2;
-    const viewWorldMinY = viewWorldCenterY - viewWorldSizeY / 2;
+    const viewWorldMinX = Math.floor(pixelsPerTileX * (viewWorldCenterX - viewWorldSizeX / 2)) / pixelsPerTileX;
+    const viewWorldMinY = Math.floor(pixelsPerTileY * (viewWorldCenterY - viewWorldSizeY / 2)) / pixelsPerTileY;
 
     mat4.ortho(
         matScreenFromWorld,
