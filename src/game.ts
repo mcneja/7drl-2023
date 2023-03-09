@@ -7,7 +7,7 @@ import { TileInfo, TileSet, FontTileSet, getTileSet, getFontTileSet } from './ti
 
 import * as colorPreset from './color-preset';
 
-const tileSet = getTileSet('sincity'); //'basic', 'sincity' or '34'
+const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
 
 window.onload = loadResourcesThenRun;
@@ -468,7 +468,7 @@ const colorForItemType: Array<number> = [
 const unlitColor: number = colorPreset.lightBlue;
 
 function renderWorld(state: State, renderer: Renderer) {
-    const mappedItems:{[id:number]:Array<Item>} = {};
+    const mappedItems:{[id:number]:Array<Item>} = {}; //Sweep over the items and allocate them to a map
     for(let item of state.gameMap.items) {
         const ind = state.gameMap.cells.index(...item.pos);
         if(ind in mappedItems) mappedItems[ind].push(item);
@@ -476,16 +476,23 @@ function renderWorld(state: State, renderer: Renderer) {
     }
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
-        for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) {
+        for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
             const cell = state.gameMap.cells.at(x, y);
             if (!cell.seen && !state.seeAll) {
                 continue;
             }
             const terrainType = cell.type;
-            const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
+            const alwaysLit = terrainType >= TerrainType.Wall0000;
             const lit = alwaysLit || cell.lit;
-            // const tileIndex = tileIndexForTerrainType[terrainType];
-            // const color = lit ? colorForTerrainType[terrainType] : unlitColor;
+            if(terrainType==TerrainType.Wall0000) {
+                for(let adj of [[0,1],[1,0],[0,-1],[-1,0]]) {
+                    const cell = state.gameMap.cells.at(x+adj[0],y+adj[1]);
+                    if(cell.type<TerrainType.Wall0000) {
+                        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[cell.type], cell.lit);
+                        break;
+                    }
+                }
+            }
             renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
 
             const ind = state.gameMap.cells.index(x, y);
@@ -493,14 +500,11 @@ function renderWorld(state: State, renderer: Renderer) {
             for(let item of mappedItems[ind]) {
                 const alwaysLit = item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW;
                 const lit = alwaysLit || cell.lit;
-                // const tileIndex = tileIndexForItemType[item.type];
-                // const color = lit ? colorForItemType[item.type] : unlitColor;
                 renderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, renderer.tileSet.itemTiles[item.type], lit);    
             }
         }
     }        
 }
-
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const x = player.pos[0];
@@ -537,8 +541,9 @@ function renderGuards(state: State, renderer: Renderer) {
             continue;
         }
 
+        let lit = true;
         if(!visible) tileIndex+=4;
-        else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, renderer.tileSet.unlitTile, true);
+        else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) lit=false;
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         // if(guard.hasTorch) {
@@ -553,7 +558,7 @@ function renderGuards(state: State, renderer: Renderer) {
         //     }
         // }
         // else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
-        renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
+        renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
 
