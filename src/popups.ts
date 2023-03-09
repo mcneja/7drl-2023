@@ -69,19 +69,17 @@ class Popups {
 function soundNameForPopupType(popupType: PopupType): string {
     switch (popupType) {
         case PopupType.Damage: return '';
-        case PopupType.GuardChase: return 'guardChase';
+        case PopupType.GuardChase: return 'guardChasing';
         case PopupType.GuardSeeThief: return 'guardAlert';
         case PopupType.GuardHearThief: return 'guardAlert';
-        case PopupType.GuardHearGuard: return 'guardAlert';
+        case PopupType.GuardHearGuard: return '';
         case PopupType.GuardInvestigate: return 'guardAlert';
         case PopupType.Noise: return '';
-        case PopupType.GuardEndChase: return '';
+        case PopupType.GuardEndChase: return 'guardStopAlert';
         case PopupType.GuardFinishInvestigating: return 'guardStopAlert';
-        case PopupType.GuardFinishLooking: return 'guardStopAlert';
-        case PopupType.GuardFinishListening: return 'guardStopAlert';
+        case PopupType.GuardFinishLooking: return '';
+        case PopupType.GuardFinishListening: return '';
     }
-    
-    return '';
 }
 
 function messageForPopupType(popupType: PopupType): string {
