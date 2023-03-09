@@ -179,7 +179,14 @@ class Guard {
             }
             break;
         }
-    
+
+        // If the guard's moved and has a torch, recompute the level's lighting so the guard can spot
+        // the player using the new lighting
+
+        if (this.hasTorch && (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1])) {
+            map.computeLighting();
+        }
+
         // Update state based on target visibility from new position
 
         if (this.seesThief(map, player)) {
