@@ -22,27 +22,26 @@ class Renderer {
         const textures = [fontTileSet.image, tileSet.image].map((image) => createTextureFromImage(gl, image));
         
         const vsSource = `#version 300 es
-            in vec2 vPosition;
-            in vec3 vTexcoord;
+            in vec4 vPositionTexcoord;
             in vec4 vColor;
 
             uniform mat4 uMatScreenFromWorld;
 
-            out highp vec3 fTexcoord;
+            out highp vec2 fTexcoord;
             out highp vec4 fColor;
 
             void main() {
-                fTexcoord = vTexcoord;
+                fTexcoord = vPositionTexcoord.zw;
                 fColor = vColor;
-                gl_Position = uMatScreenFromWorld * vec4(vPosition, 0, 1);
+                gl_Position = uMatScreenFromWorld * vec4(vPositionTexcoord.xy, 0, 1);
             }
         `;
 
         const fsSource = `#version 300 es
-            in highp vec3 fTexcoord;
+            in highp vec2 fTexcoord;
             in highp vec4 fColor;
 
-            uniform highp sampler2DArray uOpacity;
+            uniform highp sampler2D uOpacity;
 
             out lowp vec4 fragColor;
 
@@ -52,9 +51,8 @@ class Renderer {
         `;
 
         const attribs = {
-            vPosition: 0,
-            vTexcoord: 1,
-            vColor: 2,
+            vPositionTexcoord: 0,
+            vColor: 1,
         };
 
         const tileRatios = [tileSet.tileSize[0]/tileSet.cellSize[0], tileSet.tileSize[1]/tileSet.cellSize[1]]
@@ -66,7 +64,7 @@ class Renderer {
 
         const maxQuads = 64;
         const numVertices = 4 * maxQuads;
-        const bytesPerVertex = 2 * Float32Array.BYTES_PER_ELEMENT + 2 * Uint32Array.BYTES_PER_ELEMENT;
+        const bytesPerVertex = 4 * Float32Array.BYTES_PER_ELEMENT + Uint32Array.BYTES_PER_ELEMENT;
         const wordsPerQuad = bytesPerVertex; // divide by four bytes per word, but also multiply by four vertices per quad
 
         const vertexData = new ArrayBuffer(numVertices * bytesPerVertex);
@@ -81,13 +79,11 @@ class Renderer {
 
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
-        gl.enableVertexAttribArray(attribs.vPosition);
-        gl.enableVertexAttribArray(attribs.vTexcoord);
+        gl.enableVertexAttribArray(attribs.vPositionTexcoord);
         gl.enableVertexAttribArray(attribs.vColor);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(attribs.vPosition, 2, gl.FLOAT, false, bytesPerVertex, 0);
-        gl.vertexAttribPointer(attribs.vTexcoord, 3, gl.UNSIGNED_BYTE, false, bytesPerVertex, 8);
-        gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 12);
+        gl.vertexAttribPointer(attribs.vPositionTexcoord, 4, gl.FLOAT, false, bytesPerVertex, 0);
+        gl.vertexAttribPointer(attribs.vColor, 4, gl.UNSIGNED_BYTE, true, bytesPerVertex, 16);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
         const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
         gl.bindVertexArray(null);
@@ -104,7 +100,7 @@ class Renderer {
             mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
 
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
+            gl.bindTexture(gl.TEXTURE_2D, textures[textureIndex]);
         }
 
         this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) => {
@@ -119,27 +115,36 @@ class Renderer {
                     : tileInfo.unlitColor? tileInfo.unlitColor:0xffffffff;
 
             const i = numQuads * wordsPerQuad;
-            const srcBase = tileInfo.textureIndex << 16;
+
+            const r = 1/16;
+            const texCoordMinX = r * (tileInfo.textureIndex % 16);
+            const texCoordMinY = r * Math.floor(tileInfo.textureIndex / 16);
+            const texCoordMaxX = texCoordMinX + r;
+            const texCoordMaxY = texCoordMinY + r;
 
             vertexDataAsFloat32[i+0] = x0;
             vertexDataAsFloat32[i+1] = y0;
-            vertexDataAsUint32[i+2] = srcBase + 256;
-            vertexDataAsUint32[i+3] = color;
+            vertexDataAsFloat32[i+2] = texCoordMinX;
+            vertexDataAsFloat32[i+3] = texCoordMaxY;
+            vertexDataAsUint32[i+4] = color;
 
-            vertexDataAsFloat32[i+4] = x1;
-            vertexDataAsFloat32[i+5] = y0;
-            vertexDataAsUint32[i+6] = srcBase + 257;
-            vertexDataAsUint32[i+7] = color;
+            vertexDataAsFloat32[i+5] = x1;
+            vertexDataAsFloat32[i+6] = y0;
+            vertexDataAsFloat32[i+7] = texCoordMaxX;
+            vertexDataAsFloat32[i+8] = texCoordMaxY;
+            vertexDataAsUint32[i+9] = color;
 
-            vertexDataAsFloat32[i+8] = x0;
-            vertexDataAsFloat32[i+9] = y1;
-            vertexDataAsUint32[i+10] = srcBase;
-            vertexDataAsUint32[i+11] = color;
+            vertexDataAsFloat32[i+10] = x0;
+            vertexDataAsFloat32[i+11] = y1;
+            vertexDataAsFloat32[i+12] = texCoordMinX;
+            vertexDataAsFloat32[i+13] = texCoordMinY;
+            vertexDataAsUint32[i+14] = color;
 
-            vertexDataAsFloat32[i+12] = x1;
-            vertexDataAsFloat32[i+13] = y1;
-            vertexDataAsUint32[i+14] = srcBase + 1;
-            vertexDataAsUint32[i+15] = color;
+            vertexDataAsFloat32[i+15] = x1;
+            vertexDataAsFloat32[i+16] = y1;
+            vertexDataAsFloat32[i+17] = texCoordMaxX;
+            vertexDataAsFloat32[i+18] = texCoordMinY;
+            vertexDataAsUint32[i+19] = color;
 
             ++numQuads;
         }
@@ -206,41 +211,18 @@ function createGlyphIndexBuffer(gl: WebGL2RenderingContext, maxQuads: number): W
 }
 
 function createTextureFromImage(gl: WebGL2RenderingContext, image: HTMLImageElement): WebGLTexture {
-    const numGlyphsX = 16;
-    const numGlyphsY = 16;
-    const numGlyphs = numGlyphsX * numGlyphsY;
-    const srcGlyphSizeX = image.naturalWidth / numGlyphsX;
-    const srcGlyphSizeY = image.naturalHeight / numGlyphsY;
-    const scaleFactor = 1;
-    const dstGlyphSizeX = srcGlyphSizeX * scaleFactor;
-    const dstGlyphSizeY = srcGlyphSizeY * scaleFactor;
-
-    // Rearrange the glyph data from a grid to a vertical array
-
-    const canvas = document.createElement('canvas');
-    canvas.width = dstGlyphSizeX;
-    canvas.height = dstGlyphSizeY * numGlyphs;
-    const ctx = canvas.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
-    for (let y = 0; y < numGlyphsY; ++y) {
-        for (let x = 0; x < numGlyphsX; ++x) {
-            const sx = x * srcGlyphSizeX;
-            const sy = y * srcGlyphSizeY;
-            const dx = 0;
-            const dy = (numGlyphsX * y + x) * dstGlyphSizeY;
-            ctx.drawImage(image, sx, sy, srcGlyphSizeX, srcGlyphSizeY, dx, dy, dstGlyphSizeX, dstGlyphSizeY);
-        }
-    }
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const pixels = new Uint8Array(imageData.data.buffer);
-
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
     const texture = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, dstGlyphSizeX, dstGlyphSizeY, numGlyphs, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     return texture;
 }
 
