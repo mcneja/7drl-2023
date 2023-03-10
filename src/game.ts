@@ -960,15 +960,13 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuardOverheadIcons(state, renderer);
                 renderer.flush();
 
-                const healLine = 'H: Heal one heart for $' + state.healCost;
-
                 renderTopStatusBar(renderer, screenSize, state);
                 renderBottomStatusBar(renderer, screenSize, state);
 
                 renderTextLines(renderer, screenSize, [
-                    '      Healer',
+                    '   Mansion ' + (state.level + 1) + ' Complete!',
                     '',
-                    healLine,
+                    'H: Heal one heart for $' + state.healCost,
                     'N: Next mansion',
                 ]);
             }
