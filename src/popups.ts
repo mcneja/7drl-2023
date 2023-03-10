@@ -59,23 +59,24 @@ class Popups {
         const subtitledSound = subtitledSounds[soundName].next();
         subtitledSound.sound.volume(0.6);
         subtitledSound.sound.play();
+
         return subtitledSound.subtitle;
     }
 }
 
 function soundNameForPopupType(popupType: PopupType): string {
     switch (popupType) {
-        case PopupType.Damage: return '';
-        case PopupType.GuardChase: return 'guardChasing';
-        case PopupType.GuardSeeThief: return 'guardAlert';
-        case PopupType.GuardHearThief: return 'guardAlert';
-        case PopupType.GuardHearGuard: return '';
-        case PopupType.GuardInvestigate: return 'guardAlert';
+        case PopupType.Damage: return 'guardDamage';
+        case PopupType.GuardChase: return 'guardChase';
+        case PopupType.GuardSeeThief: return 'guardSeeThief';
+        case PopupType.GuardHearThief: return 'guardHearThief';
+        case PopupType.GuardHearGuard: return 'guardHearGuard';
+        case PopupType.GuardInvestigate: return 'guardInvestigate';
         case PopupType.Noise: return ''; // plays at the point where the player steps on creaky floor, to ensure guards can talk over it
-        case PopupType.GuardEndChase: return 'guardStopChasing';
-        case PopupType.GuardFinishInvestigating: return 'guardStopAlert';
-        case PopupType.GuardFinishLooking: return 'guardStopAlert';
-        case PopupType.GuardFinishListening: return 'guardStopAlert';
+        case PopupType.GuardEndChase: return 'guardEndChase';
+        case PopupType.GuardFinishInvestigating: return 'guardFinishInvestigating';
+        case PopupType.GuardFinishLooking: return 'guardFinishLooking';
+        case PopupType.GuardFinishListening: return 'guardFinishListening';
     }
 }
 
