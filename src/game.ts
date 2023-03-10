@@ -417,7 +417,7 @@ function advanceTime(state: State) {
     postTurn(state);
 
     if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
-    if(oldHealth>0 && state.player.health<0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+    if(oldHealth>0 && state.player.health<=0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
 
 
 }
