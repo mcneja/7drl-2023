@@ -273,12 +273,15 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if (state.level == numGameMaps - 1) {
                 advanceToWin(state);
             } else {
+                state.sounds['levelCompleteJingle'].play(0.5);
                 advanceToDoctor(state);
+                return;
             }
-            return;
         }
 
+        const oldLoot = 1.0*player.loot;
         player.loot += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        if(player.loot>oldLoot) state.sounds.coin.play(1.0);
     }
 
     // Generate movement noises.
@@ -389,6 +392,7 @@ function preTurn(state: State) {
 }
 
 function advanceTime(state: State) {
+    let oldHealth = state.player.health;
     if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
@@ -403,10 +407,18 @@ function advanceTime(state: State) {
     state.gameMap.recomputeVisibility(state.player.pos);
 
     postTurn(state);
+
+    if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
+    if(oldHealth>0 && state.player.health<=0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+
+
 }
 
 function postTurn(state: State) {
     if (state.gameMap.allSeen()) {
+        if(!state.finishedLevel) {
+            state.sounds['levelRequirementJingle'].play(0.5);
+        }
         state.finishedLevel = true;
     }
 
