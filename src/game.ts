@@ -390,6 +390,10 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             }
             break;
         } else if (blocked(state.gameMap, posPrev, pos)) {
+            if (isOneWayWindowTerrainType(state.gameMap.cells.at(...pos).type)) {
+                state.topStatusMessage = 'Window cannot be opened from outside';
+                state.topStatusMessageSticky = false;
+            }
             break;
         } else {
             distAllowed = d;
@@ -418,7 +422,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                     isLeapableMoveObstacle(item.type)) !== undefined ||
                 isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
                 --distAllowed;
-                state.topStatusMessage = 'Shift + move to leap';
+                state.topStatusMessage = 'Shift+move to leap';
                 state.topStatusMessageSticky = false;
             }
         }
@@ -427,7 +431,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     return distAllowed;
 }
 
-function isLeapableMoveObstacle(itemType: ItemType) {
+function isLeapableMoveObstacle(itemType: ItemType): boolean {
     switch (itemType) {
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
@@ -437,7 +441,7 @@ function isLeapableMoveObstacle(itemType: ItemType) {
     }
 }
 
-function isLeapableTerrainType(terrainType: TerrainType) {
+function isLeapableTerrainType(terrainType: TerrainType): boolean {
     switch (terrainType) {
         case TerrainType.OneWayWindowE:
         case TerrainType.OneWayWindowW:
@@ -445,6 +449,18 @@ function isLeapableTerrainType(terrainType: TerrainType) {
         case TerrainType.OneWayWindowS:
         case TerrainType.PortcullisNS:
         case TerrainType.PortcullisEW:
+            return true;
+        default:
+            return false;
+    }
+}
+
+function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
+    switch (terrainType) {
+        case TerrainType.OneWayWindowE:
+        case TerrainType.OneWayWindowW:
+        case TerrainType.OneWayWindowN:
+        case TerrainType.OneWayWindowS:
             return true;
         default:
             return false;
