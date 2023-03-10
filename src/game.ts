@@ -40,7 +40,7 @@ enum GameMode {
 
 type State = {
     tLast: number | undefined;
-    shiftModifierActive: boolean;
+    dashToggleActive: boolean;
     gameMode: GameMode;
     helpActive: boolean;
     helpPageIndex: number;
@@ -82,11 +82,6 @@ function main(images: Array<HTMLImageElement>) {
     function onKeyDown(e: KeyboardEvent) {
         if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
 
-        if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
-            state.shiftModifierActive = true;
-            return;
-        }
-
         if (state.helpActive) {
             onKeyDownHelp(e);
         } else {
@@ -97,8 +92,6 @@ function main(images: Array<HTMLImageElement>) {
                 case GameMode.Win: onKeyDownGameOver(e); break;
             }
         }
-
-        state.shiftModifierActive = false;
     }
 
     function onKeyDownHelp(e: KeyboardEvent) {
@@ -115,8 +108,6 @@ function main(images: Array<HTMLImageElement>) {
     }
 
     function onKeyDownMansion(e: KeyboardEvent) {
-        const dashDesired = (state.shiftModifierActive || e.shiftKey) ? 2 : 1;
-
         if (e.ctrlKey) {
             if (e.code === 'KeyA') {
                 e.preventDefault();
@@ -164,22 +155,29 @@ function main(images: Array<HTMLImageElement>) {
             state.camera.snapped = false;
         } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
             e.preventDefault();
-            tryMovePlayer(state, -1, 0, dashDesired);
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, -1, 0, moveSpeed);
         } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
             e.preventDefault();
-            tryMovePlayer(state, 1, 0, dashDesired);
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, 1, 0, moveSpeed);
         } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
             e.preventDefault();
-            tryMovePlayer(state, 0, -1, dashDesired);
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, 0, -1, moveSpeed);
         } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
             e.preventDefault();
-            tryMovePlayer(state, 0, 1, dashDesired);
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, 0, 1, moveSpeed);
         } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
             e.preventDefault();
             tryMovePlayer(state, 0, 0, 1);
         } else if (e.code == 'Escape' || e.code == 'Slash') {
             e.preventDefault();
             state.helpActive = true;
+        } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
+            e.preventDefault();
+            state.dashToggleActive = !state.dashToggleActive;
         }
     }
 
@@ -900,7 +898,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
 
     return {
         tLast: undefined,
-        shiftModifierActive: false,
+        dashToggleActive: false,
         gameMode: GameMode.Mansion,
         helpActive: false,
         helpPageIndex: 0,
@@ -1222,7 +1220,9 @@ const helpPages: Array<Array<string>> = [
         'any loot you find.',
         '',
         'Use arrow keys, WASD, or HJKL to move.',
-        'Shift+move to dash/leap two spaces.',
+        'Shift+move to dash/leap two spaces,',
+        'or toggle dash using F or numpad +.',
+        'Ensure num lock is off if using numpad!',
         '',
         'Page 1 of 2',
     ],
@@ -1340,6 +1340,14 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
+
+    // Dash toggle indicator
+
+    if (state.dashToggleActive) {
+        const msg = 'Dash';
+        const msgX = lootX - (msg.length + 2);
+        putString(renderer, msgX, msg, colorPreset.lightGreen);
+    }
 
     renderer.flush();
 }
