@@ -739,7 +739,10 @@ function renderWorld(state: State, renderer: Renderer) {
             if (!cell.seen && !state.seeAll) {
                 continue;
             }
-            const terrainType = cell.type;
+            let terrainType = cell.type;
+            if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit) {
+                terrainType = TerrainType.GroundWood;
+            }
             const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
             renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
