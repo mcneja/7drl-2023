@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
-import { createGameMap } from './create-map';
-import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
+import { createGameMapRoughPlans, createGameMap } from './create-map';
+import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -14,13 +14,16 @@ const fontTileSet = getFontTileSet('font');
 
 window.onload = loadResourcesThenRun;
 
+const numGameMaps: number = 10;
+const totalGameLoot: number = 100;
+
 const targetStatusBarWidthInChars: number = 65;
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Scout the entire mansion and steal all the loot.';
+const startingTopStatusMessage = 'Scout the entire mansion, then leave. Keep any loot you find.';
 
 type Camera = {
     position: vec2;
@@ -28,19 +31,28 @@ type Camera = {
     snapped: boolean;
 }
 
+enum GameMode {
+    Mansion,
+    Doctor,
+    Win,
+}
+
 type State = {
     tLast: number | undefined;
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
+    gameMode: GameMode;
     player: Player;
     topStatusMessage: string;
     finishedLevel: boolean;
+    healCost: number;
     zoomLevel: number;
     seeAll: boolean;
     seeGuardSight: boolean;
     seeGuardPatrols: boolean;
     camera: Camera;
     level: number;
+    gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
@@ -68,15 +80,30 @@ function main(images: Array<HTMLImageElement>) {
 
     function onKeyDown(e: KeyboardEvent) {
         if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
+
         if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             state.shiftModifierActive = true;
             return;
         }
 
+        switch (state.gameMode) {
+            case GameMode.Mansion: onKeyDownMansion(e); break;
+            case GameMode.Doctor: onKeyDownDoctor(e); break;
+            case GameMode.Win: onKeyDownWin(e); break;
+        }
+
+        state.shiftModifierActive = false;
+    }
+
+    function onKeyDownMansion(e: KeyboardEvent) {
         if (e.ctrlKey) {
             if (e.code === 'KeyA') {
                 e.preventDefault();
                 state.seeAll = !state.seeAll;
+            } else if (e.code === 'KeyC') {
+                e.preventDefault();
+                state.player.loot += state.gameMap.collectAllLoot();
+                postTurn(state);
             } else if (e.code === 'KeyV') {
                 e.preventDefault();
                 state.seeGuardSight = !state.seeGuardSight;
@@ -85,12 +112,20 @@ function main(images: Array<HTMLImageElement>) {
                 state.seeGuardPatrols = !state.seeGuardPatrols;
             } else if (e.code === 'Period') {
                 e.preventDefault();
-                ++state.level;
-                resetState(state);
+                if (state.level < state.gameMapRoughPlans.length - 1) {
+                    ++state.level;
+                    resetState(state);
+                }
             } else if (e.code === 'Comma') {
                 e.preventDefault();
-                state.level = Math.max(0, state.level - 1);
-                resetState(state);
+                if (state.level > 0) {
+                    --state.level;
+                    resetState(state);
+                }
+            } else if (e.code === 'KeyS') {
+                e.preventDefault();
+                state.gameMap.markAllSeen();
+                postTurn(state);
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
@@ -125,8 +160,26 @@ function main(images: Array<HTMLImageElement>) {
                 tryMovePlayer(state, 0, 0, 1);
             }
         }
+    }
 
-        state.shiftModifierActive = false;
+    function onKeyDownDoctor(e: KeyboardEvent) {
+        if (e.code == 'KeyR') {
+            e.preventDefault();
+            restartGame(state);
+        } else if (e.code == 'KeyH') {
+            e.preventDefault();
+            tryHealPlayer(state);
+        } else if (e.code == 'KeyN') {
+            e.preventDefault();
+            advanceToNextLevel(state);
+        }
+    }
+
+    function onKeyDownWin(e: KeyboardEvent) {
+        if (e.code == 'KeyR') {
+            e.preventDefault();
+            restartGame(state);
+        }
     }
 
     function onKeyUp(e: KeyboardEvent) {
@@ -150,28 +203,41 @@ function main(images: Array<HTMLImageElement>) {
 
 function advanceToNextLevel(state: State) {
     state.level += 1;
-    state.gameMap = createGameMap(state.level);
+    if (state.level >= numGameMaps) {
+        restartGame(state);
+        return;
+    }
+
+    state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
 
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
-    state.player.gold = 0;
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = 0;
+    state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
 
-    state.gameMap.recomputeVisibility(state.player.pos);
+    state.gameMode = GameMode.Mansion;
+}
+
+function advanceToDoctor(state: State) {
+    state.gameMode = GameMode.Doctor;
+    state.topStatusMessage = '';
+}
+
+function advanceToWin(state: State) {
+    state.gameMode = GameMode.Win;
+    state.topStatusMessage = '';
 }
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
     const player = state.player;
 
-
-    const oldTerrain = state.gameMap.cells.at(...player.pos).type
     // Can't move if you're dead.
 
     if (player.health <= 0) {
@@ -202,6 +268,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     preTurn(state);
 
+    const oldTerrain = state.gameMap.cells.at(...player.pos).type;
+
     for (; dist > 0; --dist) {
         player.pos[0] += dx;
         player.pos[1] += dy;
@@ -210,14 +278,18 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             player.pos[1] < 0 ||
             player.pos[0] >= state.gameMap.cells.sizeX ||
             player.pos[1] >= state.gameMap.cells.sizeY) {
-            state.sounds['levelCompleteJingle'].play(0.5);
-            advanceToNextLevel(state);
-            return;
+            if (state.level == numGameMaps - 1) {
+                advanceToWin(state);
+            } else {
+                state.sounds['levelCompleteJingle'].play(0.5);
+                advanceToDoctor(state);
+                return;
+            }
         }
 
-        const oldGold = 1.0*player.gold;
-        player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
-        if(player.gold>oldGold) state.sounds.coin.play(1.0);
+        const oldLoot = 1.0*player.loot;
+        player.loot += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        if(player.loot>oldLoot) state.sounds.coin.play(1.0);
     }
 
     // Generate movement noises.
@@ -231,7 +303,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
-    const newTerrain = state.gameMap.cells.at(...player.pos).type
+    const newTerrain = state.gameMap.cells.at(...player.pos).type;
     const changedTile = oldTerrain !== newTerrain;
     switch(newTerrain) {
         case TerrainType.GroundWoodCreaky:
@@ -256,7 +328,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
             break;
         }
-
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
@@ -273,7 +344,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             pos[1] < 0 ||
             pos[0] >= state.gameMap.cells.sizeX ||
             pos[1] >= state.gameMap.cells.sizeY) {
-            if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+            if (state.finishedLevel) {
                 distAllowed = d;
             }
             break;
@@ -343,7 +414,19 @@ function advanceTime(state: State) {
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
 
-    if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+    postTurn(state);
+
+    if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
+    if(oldHealth>0 && state.player.health<0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+
+
+}
+
+function postTurn(state: State) {
+    if (state.gameMap.allSeen()) {
+        if(!state.finishedLevel) {
+            state.sounds['levelRequirementJingle'].play(0.5);
+        }
         state.finishedLevel = true;
     }
 
@@ -351,16 +434,27 @@ function advanceTime(state: State) {
 
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
-    if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
-
     if (state.player.health <= 0) {
-        state.topStatusMessage = 'You have died! Press R to restart a new game.';
-        if(oldHealth>0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+        state.topStatusMessage = 'You are dead! Press R to restart a new game.';
     } else if (subtitle !== '') {
         state.topStatusMessage = subtitle;
     } else if (state.finishedLevel) {
-        state.topStatusMessage = 'Mission complete! Exit any side of the map.'
+        state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
     }
+}
+
+function tryHealPlayer(state: State) {
+    if (state.player.health >= maxPlayerHealth) {
+        return;
+    }
+
+    if (state.player.loot < state.healCost) {
+        return;
+    }
+
+    state.player.loot -= state.healCost;
+    state.player.health += 1;
+    state.healCost *= 2;
 }
 
 function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
@@ -579,6 +673,7 @@ function renderWorld(state: State, renderer: Renderer) {
         }
     }
 }
+
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const x = player.pos[0];
@@ -757,21 +852,25 @@ function createCamera(posPlayer: vec2): Camera {
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
     const initialLevel = 0;
-    const gameMap = createGameMap(initialLevel);
+    const gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
+    const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
 
     return {
         tLast: undefined,
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
+        gameMode: GameMode.Mansion,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
         finishedLevel: false,
+        healCost: 1,
         zoomLevel: 3,
         seeAll: false,
         seeGuardSight: false,
         seeGuardPatrols: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
+        gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
         subtitledSounds: subtitledSounds,
@@ -780,12 +879,15 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
 }
 
 function restartGame(state: State) {
+    state.gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
     state.level = 0;
 
-    const gameMap = createGameMap(state.level);
+    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
+    state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
+    state.healCost = 1;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -793,7 +895,7 @@ function restartGame(state: State) {
 }
 
 function resetState(state: State) {
-    const gameMap = createGameMap(state.level);
+    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
@@ -832,20 +934,58 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderer.beginFrame(screenSize);
 
-    const matScreenFromWorld = mat4.create();
-    setupViewMatrix(state, screenSize, matScreenFromWorld);
+    switch (state.gameMode) {
+        case GameMode.Mansion:
+            {
+                const matScreenFromWorld = mat4.create();
+                setupViewMatrix(state, screenSize, matScreenFromWorld);
+            
+                renderer.start(matScreenFromWorld, 1);
+                renderWorld(state, renderer);
+                renderPlayer(state, renderer);
+                renderGuards(state, renderer);
+                renderGuardOverheadIcons(state, renderer);
+                renderGuardSight(state, renderer);
+                renderGuardPatrolPaths(state, renderer);
+                renderer.flush();
 
-    renderer.start(matScreenFromWorld, 1);
-    renderWorld(state, renderer);
-    renderPlayer(state, renderer);
-    renderGuards(state, renderer);
-    renderGuardOverheadIcons(state, renderer);
-    renderGuardSight(state, renderer);
-    renderGuardPatrolPaths(state, renderer);
-    renderer.flush();
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+            }
+            break;
 
-    renderTopStatusBar(renderer, screenSize, state);
-    renderBottomStatusBar(renderer, screenSize, state);
+        case GameMode.Doctor:
+            {
+                const healLine = 'H: Heal one heart for $' + state.healCost;
+
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+
+                renderTextLines(renderer, screenSize, [
+                    '      Healer',
+                    '',
+                    healLine,
+                    'N: Next mansion',
+                ]);
+            }
+            break;
+
+        case GameMode.Win:
+            {
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+
+                renderTextLines(renderer, screenSize, [
+                    'Mission Complete',
+                    '',
+                    'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
+                    'from the ' + numGameMaps + ' mansions.',
+                    '',
+                    'Press R to restart a new game.',
+                ]);
+            }
+            break;
+    }
 }
 
 function updateCamera(state: State, screenSize: vec2, dt: number) {
@@ -999,7 +1139,8 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
-    putString(renderer, 1, state.topStatusMessage, colorPreset.lightGray);
+    const messageX = Math.floor((statusBarTileSizeX - state.topStatusMessage.length) / 2 + 0.5);
+    putString(renderer, messageX, state.topStatusMessage, colorPreset.lightGray);
 
     renderer.flush();
 }
@@ -1042,36 +1183,34 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
     }
 
-    // Underwater indicator
+    if (state.gameMode == GameMode.Mansion) {
+        // Underwater indicator
 
-    const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
-    if (playerUnderwater) {
-        const breathX = healthX + maxPlayerHealth + 88;
+        const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
+        if (playerUnderwater) {
+            const breathX = healthX + maxPlayerHealth + 88;
 
-        putString(renderer, breathX, "Air", colorPreset.lightCyan);
+            putString(renderer, breathX, "Air", colorPreset.lightCyan);
 
-        for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
-            const glyphBubble = 9;
-            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
+            for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
+                const glyphBubble = 9;
+                renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
+            }
         }
+
+        // Mapping percentage
+
+        const percentSeen = state.gameMap.percentSeen();
+
+        const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
+
+        const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
+        putString(renderer, seenX, seenMsg, colorPreset.lightGray);
     }
 
-    // Draw the tallies of what's been seen and collected.
+    // Total loot
 
-    const percentSeen = state.gameMap.percentSeen();
-
-    const seenMsg = 'Level ' + (state.level + 1) + ': ' + percentSeen + '% Seen';
-
-    const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
-    putString(renderer, seenX, seenMsg, colorPreset.lightGray);
-
-    let lootMsg = 'Loot ' + state.player.gold + '/';
-    if (percentSeen < 100) {
-        lootMsg += '?';
-    } else {
-        lootMsg += state.gameMap.totalLoot;
-    }
-
+    let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
 
@@ -1084,7 +1223,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
         maxLineLength = Math.max(maxLineLength, line.length);
     }
 
-    const minCharsX = 40;
+    const minCharsX = 65;
     const minCharsY = 22;
     const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
     const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
@@ -1092,10 +1231,11 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
     const pixelsPerCharX = 8 * scaleFactor;
     const pixelsPerCharY = 16 * scaleFactor;
     const linesPixelSizeX = maxLineLength * pixelsPerCharX;
+    const linesPixelSizeY = lines.length * pixelsPerCharY;
     const numCharsX = screenSize[0] / pixelsPerCharX;
     const numCharsY = screenSize[1] / pixelsPerCharY;
     const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
-    const offsetY = (lines.length + 2) - numCharsY;
+    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
 
     const matScreenFromTextArea = mat4.create();
     mat4.ortho(

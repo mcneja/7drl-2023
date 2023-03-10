@@ -1,6 +1,6 @@
-export { createGameMap };
+export { createGameMap, createGameMapRoughPlans };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, TerrainType, guardMoveCostForItemType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { randomInRange, shuffleArray } from './random';
@@ -38,19 +38,55 @@ type Adjacency = {
     doorOffset: number,
 }
 
-function createGameMap(level: number): GameMap {
-    let map = createGameMapInternal(level);
-    map.computeLighting();
-    map.recomputeVisibility(map.playerStartPos);
+function createGameMapRoughPlans(numMaps: number, totalLoot: number): Array<GameMapRoughPlan> {
+    const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
-    return map;
+    // First establish the sizes of the levels
+
+    for (let level = 0; level < numMaps; ++level) {
+        const sizeX = randomHouseWidth(level);
+        const sizeY = randomHouseDepth(level);
+        gameMapRoughPlans.push({
+            numRoomsX: sizeX,
+            numRoomsY: sizeY,
+            totalLoot: 0
+        });
+    }
+
+    // Distribute the total loot in proportion to each level's size
+
+    let totalArea = 0;
+    for (const gameMapRoughPlan of gameMapRoughPlans) {
+        const area = gameMapRoughPlan.numRoomsX * gameMapRoughPlan.numRoomsY;
+        totalArea += area;
+    }
+
+    let totalLootPlaced = 0;
+    for (const gameMapRoughPlan of gameMapRoughPlans) {
+        const area = gameMapRoughPlan.numRoomsX * gameMapRoughPlan.numRoomsY;
+        const loot = Math.floor(totalLoot * area / totalArea);
+        totalLootPlaced += loot;
+        gameMapRoughPlan.totalLoot = loot;
+    }
+
+    // Put any leftover loot needed in the last level
+
+    gameMapRoughPlans[gameMapRoughPlans.length - 1].totalLoot += totalLoot - totalLootPlaced;
+
+    // Debug print the plans
+
+    /*
+    for (let i = 0; i < gameMapRoughPlans.length; ++i) {
+        const plan = gameMapRoughPlans[i];
+        console.log('Level', i, 'size', plan.numRoomsX, 'by', plan.numRoomsY, 'gold', plan.totalLoot);
+    }
+    */
+
+    return gameMapRoughPlans;
 }
 
-function createGameMapInternal(level: number): GameMap {
-    const sizeX = randomHouseWidth(level);
-    const sizeY = randomHouseDepth(level);
-
-    const inside = makeSiheyuanRoomGrid(sizeX, sizeY);
+function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
+    const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY);
 
     const mirrorX: boolean = true;
     const mirrorY: boolean = false;
@@ -67,7 +103,7 @@ function createGameMapInternal(level: number): GameMap {
 
     placeExteriorBushes(map);
     placeFrontPillars(map);
-    placeLoot(rooms, adjacencies, map);
+    placeLoot(plan.totalLoot, rooms, adjacencies, map);
 
     fixupWalls(cells);
     cacheCellInfo(map);
@@ -78,7 +114,8 @@ function createGameMapInternal(level: number): GameMap {
 
     markExteriorAsSeen(map);
 
-    map.totalLoot = map.items.reduce((totalLoot, item) => totalLoot + ((item.type == ItemType.Coin) ? 1 : 0), 0);
+    map.computeLighting();
+    map.recomputeVisibility(map.playerStartPos);
 
     return map;
 }
@@ -1711,34 +1748,17 @@ function placeItem(map: GameMap, x: number, y: number, type: ItemType) {
     });
 }
 
-function placeLoot(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap) {
+function placeLoot(totalLootToPlace: number, rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap) {
 
-    // Count number of internal rooms.
-
-    let numRooms = 0;
-    for (const room of rooms) {
-        if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
-            numRooms += 1;
-        }
-    }
-
-    // Master-suite rooms get loot.
-
-    for (const room of rooms)  {
-        if (room.roomType != RoomType.PrivateRoom) {
-            continue;
-        }
-
-        if (Math.random() < 0.2) {
-            continue;
-        }
-
-        tryPlaceLoot(room.posMin, room.posMax, map);
-    }
+    let totalLootPlaced = 0;
 
     // Dead-end rooms automatically get loot.
 
     for (const room of rooms) {
+        if (totalLootPlaced >= totalLootToPlace) {
+            break;
+        }
+
         if (room.roomType != RoomType.PublicRoom && room.roomType != RoomType.PrivateRoom) {
             continue;
         }
@@ -1751,20 +1771,46 @@ function placeLoot(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameM
         }
 
         if (numExits < 2) {
-            tryPlaceLoot(room.posMin, room.posMax, map);
+            if (tryPlaceLoot(room.posMin, room.posMax, map)) {
+                ++totalLootPlaced;
+            }
         }
     }
 
-    // Place a bit of extra loot.
+    // Master-suite rooms get loot.
+
+    for (const room of rooms)  {
+        if (totalLootPlaced >= totalLootToPlace) {
+            break;
+        }
+
+        if (room.roomType != RoomType.PrivateRoom) {
+            continue;
+        }
+
+        if (Math.random() < 0.2) {
+            continue;
+        }
+
+        if (tryPlaceLoot(room.posMin, room.posMax, map)) {
+            ++totalLootPlaced;
+        }
+    }
+
+    // Place extra loot to reach desired total.
 
     let posMin = vec2.fromValues(0, 0);
     let posMax = vec2.fromValues(map.cells.sizeX, map.cells.sizeY);
-    for (let i = Math.floor(numRooms / 4 + randomInRange(4)); i > 0; --i) {
-        tryPlaceLoot(posMin, posMax, map);
+    for (let i = 1000; i > 0 && totalLootPlaced < totalLootToPlace; --i) {
+        if (tryPlaceLoot(posMin, posMax, map)) {
+            ++totalLootPlaced;
+        }
     }
+
+    console.assert(totalLootPlaced === totalLootToPlace);
 }
 
-function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap)
+function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap): boolean
 {
     let dx = posMax[0] - posMin[0];
     let dy = posMax[1] - posMin[1];
@@ -1783,8 +1829,10 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap)
         }
 
         placeItem(map, pos[0], pos[1], ItemType.Coin);
-        break;
+        return true;
     }
+
+    return false;
 }
 
 function placeExteriorBushes(map: GameMap) {
