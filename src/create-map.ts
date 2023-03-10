@@ -1725,6 +1725,11 @@ function tryPlaceItem(map: GameMap, x: number, y: number, itemType: ItemType) {
         return;
     }
 
+    if ((itemType == ItemType.TorchUnlit || itemType == ItemType.TorchLit) &&
+        windowAdjacent(map.cells, x, y)) {
+        return;
+    }
+
     placeItem(map, x, y, itemType);
 }
 
@@ -1742,6 +1747,26 @@ function doorAdjacent(map: CellGrid, x: number, y: number): boolean {
     }
 
     if (map.at(x, y + 1).type >= TerrainType.PortcullisNS) {
+        return true;
+    }
+
+    return false;
+}
+
+function windowAdjacent(map: CellGrid, x: number, y: number): boolean {
+    if (isWindowTerrainType(map.at(x - 1, y).type)) {
+        return true;
+    }
+
+    if (isWindowTerrainType(map.at(x + 1, y).type)) {
+        return true;
+    }
+
+    if (isWindowTerrainType(map.at(x, y - 1).type)) {
+        return true;
+    }
+
+    if (isWindowTerrainType(map.at(x, y + 1).type)) {
         return true;
     }
 
