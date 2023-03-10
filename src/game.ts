@@ -379,10 +379,8 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     for (let d = 1; d <= maxDist; ++d) {
         const pos = vec2.fromValues(player.pos[0] + dx * d, player.pos[1] + dy * d);
 
-        if (pos[0] < 0 ||
-            pos[1] < 0 ||
-            pos[0] >= state.gameMap.cells.sizeX ||
-            pos[1] >= state.gameMap.cells.sizeY) {
+        if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
+            pos[1] < 0 || pos[1] >= state.gameMap.cells.sizeY) {
             if (state.finishedLevel) {
                 distAllowed = d;
             }
@@ -405,17 +403,48 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         }
     }
 
-    // If the move would end on a torch, shorten it
+    // If the move would end on a torch, portcullis, or window, shorten it
 
     if (distAllowed > 0) {
-        const pos = vec2.fromValues(player.pos[0] + dx * distAllowed, player.pos[1] + dy * distAllowed);
-        if (state.gameMap.items.find((item) => item.pos[0] === pos[0] && item.pos[1] === pos[1] &&
-                (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) !== undefined) {
-            --distAllowed;
+        const x = player.pos[0] + dx * distAllowed;
+        const y = player.pos[1] + dy * distAllowed;
+        if (x >= 0 && x < state.gameMap.cells.sizeX &&
+            y >= 0 && y < state.gameMap.cells.sizeY) {
+            if (state.gameMap.items.find((item) => item.pos[0] === x && item.pos[1] === y &&
+                isLeapableMoveObstacle(item.type)) !== undefined) {
+                --distAllowed;
+            }
+            if (isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
+                --distAllowed;
+            }
         }
     }
 
     return distAllowed;
+}
+
+function isLeapableMoveObstacle(itemType: ItemType) {
+    switch (itemType) {
+        case ItemType.TorchUnlit:
+        case ItemType.TorchLit:
+            return true;
+        default:
+            return false;
+    }
+}
+
+function isLeapableTerrainType(terrainType: TerrainType) {
+    switch (terrainType) {
+        case TerrainType.OneWayWindowE:
+        case TerrainType.OneWayWindowW:
+        case TerrainType.OneWayWindowN:
+        case TerrainType.OneWayWindowS:
+        case TerrainType.PortcullisNS:
+        case TerrainType.PortcullisEW:
+            return true;
+        default:
+            return false;
+    }
 }
 
 function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
