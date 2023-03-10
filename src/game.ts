@@ -828,7 +828,7 @@ function renderGuards(state: State, renderer: Renderer) {
 
 }
 
-function renderGuardOverheadIcons(state: State, renderer: Renderer) {
+function renderIconOverlays(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -845,6 +845,14 @@ function renderGuardOverheadIcons(state: State, renderer: Renderer) {
         const y = guard.pos[1] + 0.625;
 
         renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], true);
+    }
+
+    // Render an icon over the player if the player is being noisy
+
+    if (state.player.noisy) {
+        const x = state.player.pos[0];
+        const y = state.player.pos[1] - 0.5;
+        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: colorPreset.white}, true);
     }
 }
 
@@ -1045,7 +1053,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuardPatrolPaths(state, renderer);
                 renderPlayer(state, renderer);
                 renderGuards(state, renderer);
-                renderGuardOverheadIcons(state, renderer);
+                renderIconOverlays(state, renderer);
                 renderer.flush();
 
                 if (state.helpActive) {

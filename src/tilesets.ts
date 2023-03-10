@@ -243,7 +243,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([2,5+2]), }, //playerNormal
         {textureIndex: r([2,5+2]), color:colorPreset.darkRed}, //playerWounded
         {textureIndex: r([2,6+2]), color:colorPreset.darkGray}, //playerHidden: 
-        {textureIndex: r([2,5+2]), color:colorPreset.lightRed}, //playerNoisy: 
+        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerNoisy: 
         {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerUnlit: 
     ],
     guardStateTiles: [
