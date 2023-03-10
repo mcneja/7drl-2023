@@ -1457,7 +1457,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
     renderer.start(matScreenFromTextArea, 0);
 
     const colorText = 0xffeef0ff;
-    const colorBackground = 0xe0101010;
+    const colorBackground = 0xf0101010;
 
     // Draw a stretched box to make a darkened background for the text.
     renderer.addGlyph(
