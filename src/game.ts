@@ -33,14 +33,17 @@ type Camera = {
 
 enum GameMode {
     Mansion,
-    Doctor,
+    BetweenMansions,
+    Dead,
     Win,
 }
 
 type State = {
     tLast: number | undefined;
-    shiftModifierActive: boolean;
+    dashToggleActive: boolean;
     gameMode: GameMode;
+    helpActive: boolean;
+    helpPageIndex: number;
     player: Player;
     topStatusMessage: string;
     finishedLevel: boolean;
@@ -79,18 +82,29 @@ function main(images: Array<HTMLImageElement>) {
     function onKeyDown(e: KeyboardEvent) {
         if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
 
-        if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
-            state.shiftModifierActive = true;
-            return;
+        if (state.helpActive) {
+            onKeyDownHelp(e);
+        } else {
+            switch (state.gameMode) {
+                case GameMode.Mansion: onKeyDownMansion(e); break;
+                case GameMode.BetweenMansions: onKeyDownBetweenMansions(e); break;
+                case GameMode.Dead: onKeyDownGameOver(e); break;
+                case GameMode.Win: onKeyDownGameOver(e); break;
+            }
         }
+    }
 
-        switch (state.gameMode) {
-            case GameMode.Mansion: onKeyDownMansion(e); break;
-            case GameMode.Doctor: onKeyDownDoctor(e); break;
-            case GameMode.Win: onKeyDownWin(e); break;
+    function onKeyDownHelp(e: KeyboardEvent) {
+        if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = false;
+        } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
+            e.preventDefault();
+            state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
+        } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
+            e.preventDefault();
+            state.helpPageIndex = Math.min(helpPages.length - 1, state.helpPageIndex + 1);
         }
-
-        state.shiftModifierActive = false;
     }
 
     function onKeyDownMansion(e: KeyboardEvent) {
@@ -139,28 +153,35 @@ function main(images: Array<HTMLImageElement>) {
             e.preventDefault();
             state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
-        } else {
-            const distDesired = (state.shiftModifierActive || e.shiftKey) ? 2 : 1;
-            if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
-                e.preventDefault();
-                tryMovePlayer(state, -1, 0, distDesired);
-            } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
-                e.preventDefault();
-                tryMovePlayer(state, 1, 0, distDesired);
-            } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
-                e.preventDefault();
-                tryMovePlayer(state, 0, -1, distDesired);
-            } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
-                e.preventDefault();
-                tryMovePlayer(state, 0, 1, distDesired);
-            } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
-                e.preventDefault();
-                tryMovePlayer(state, 0, 0, 1);
-            }
+        } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
+            e.preventDefault();
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, -1, 0, moveSpeed);
+        } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
+            e.preventDefault();
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, 1, 0, moveSpeed);
+        } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
+            e.preventDefault();
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, 0, -1, moveSpeed);
+        } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
+            e.preventDefault();
+            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            tryMovePlayer(state, 0, 1, moveSpeed);
+        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
+            e.preventDefault();
+            tryMovePlayer(state, 0, 0, 1);
+        } else if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = true;
+        } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
+            e.preventDefault();
+            state.dashToggleActive = !state.dashToggleActive;
         }
     }
 
-    function onKeyDownDoctor(e: KeyboardEvent) {
+    function onKeyDownBetweenMansions(e: KeyboardEvent) {
         if (e.code == 'BracketLeft') {
             e.preventDefault();
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
@@ -178,10 +199,13 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyN') {
             e.preventDefault();
             advanceToNextLevel(state);
+        } else if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = true;
         }
     }
 
-    function onKeyDownWin(e: KeyboardEvent) {
+    function onKeyDownGameOver(e: KeyboardEvent) {
         if (e.code == 'BracketLeft') {
             e.preventDefault();
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
@@ -193,6 +217,9 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
+        } else if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = true;
         }
     }
 
@@ -232,9 +259,9 @@ function advanceToNextLevel(state: State) {
     state.gameMode = GameMode.Mansion;
 }
 
-function advanceToDoctor(state: State) {
+function advanceToBetweenMansions(state: State) {
     state.sounds['levelCompleteJingle'].play(0.5);
-    state.gameMode = GameMode.Doctor;
+    state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
 }
 
@@ -289,7 +316,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if (state.level >= numGameMaps - 1) {
                 advanceToWin(state);
             } else {
-                advanceToDoctor(state);
+                advanceToBetweenMansions(state);
             }
             return;
         }
@@ -428,10 +455,14 @@ function advanceTime(state: State) {
 
     postTurn(state);
 
-    if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
-    if(oldHealth>0 && state.player.health<=0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+    if (oldHealth > state.player.health) {
+        state.sounds['hitPlayer'].play(0.5);
 
-
+        if (state.player.health <= 0) {
+            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+            state.gameMode = GameMode.Dead;
+        }
+    }
 }
 
 function postTurn(state: State) {
@@ -446,9 +477,7 @@ function postTurn(state: State) {
 
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
-    if (state.player.health <= 0) {
-        state.topStatusMessage = 'You are dead! Press R to restart a new game.';
-    } else if (subtitle !== '') {
+    if (subtitle !== '') {
         state.topStatusMessage = subtitle;
     } else if (state.finishedLevel) {
         state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
@@ -869,8 +898,10 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
 
     return {
         tLast: undefined,
-        shiftModifierActive: false,
+        dashToggleActive: false,
         gameMode: GameMode.Mansion,
+        helpActive: false,
+        helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
         finishedLevel: false,
@@ -960,12 +991,17 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuardPatrolPaths(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                }
             }
             break;
 
-        case GameMode.Doctor:
+        case GameMode.BetweenMansions:
             {
                 const matScreenFromWorld = mat4.create();
                 setupViewMatrix(state, screenSize, matScreenFromWorld);
@@ -975,15 +1011,47 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuards(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
+    
+                    renderTextLines(renderer, screenSize, [
+                        '   Mansion ' + (state.level + 1) + ' Complete!',
+                        '',
+                        'H: Heal one heart for $' + state.healCost,
+                        'N: Next mansion',
+                    ]);
+                }
+            }
+            break;
 
-                renderTextLines(renderer, screenSize, [
-                    '   Mansion ' + (state.level + 1) + ' Complete!',
-                    '',
-                    'H: Heal one heart for $' + state.healCost,
-                    'N: Next mansion',
-                ]);
+        case GameMode.Dead:
+            {
+                const matScreenFromWorld = mat4.create();
+                setupViewMatrix(state, screenSize, matScreenFromWorld);
+
+                renderer.start(matScreenFromWorld, 1);
+                renderWorld(state, renderer);
+                renderPlayer(state, renderer);
+                renderGuards(state, renderer);
+                renderer.flush();
+
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
+
+                    renderTextLines(renderer, screenSize, [
+                        '   You are dead!',
+                        '',
+                        'R: Restart new game',
+                    ]);
+                }
             }
             break;
 
@@ -997,17 +1065,21 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuards(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);                    
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
 
-                renderTextLines(renderer, screenSize, [
-                    '      Mission Complete!',
-                    '',
-                    'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot from',
-                    'the ' + numGameMaps + ' mansions.',
-                    '',
-                    'Press R to restart a new game.',
-                ]);
+                    renderTextLines(renderer, screenSize, [
+                        '   Mission Complete!',
+                        '',
+                        'Score: ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
+                        '',
+                        'R: Restart new game',
+                    ]);
+                }
             }
             break;
     }
@@ -1139,7 +1211,39 @@ function statusBarZoom(screenSizeX: number): number {
     return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
-function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
+const helpPages: Array<Array<string>> = [
+    [
+        '          Mansion Mapper 2D',
+        '',
+        'Your mission from the thieves\' guild',
+        'is to map ' + numGameMaps + ' mansions. You can keep',
+        'any loot you find.',
+        '',
+        '  Move: Arrows / WASD / HJKL',
+        '  Wait: Z / Period / Numpad5',
+        '  Dash: Shift + move',
+        '  Dash (Toggle): F / Numpad+',
+        '',
+        'Disable NumLock if using numpad',
+        '',
+        'Page 1 of 2',
+    ],
+    [
+        'A 2023 Seven-Day Roguelike Challenge entry',
+        'by James McNeill and Damien Moore.',
+        '',
+        'Page 2 of 2',
+    ],
+];
+
+function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
+    renderTextLines(renderer, screenSize, helpPages[state.helpPageIndex]);
+
+    const status = 'Esc or / to return to game; left/right for more (' + (state.helpPageIndex + 1) + ' of ' + helpPages.length + ')';
+    renderTopStatusBar(renderer, screenSize, status);
+}
+
+function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: string) {
     const tileZoom = statusBarZoom(screenSize[0]);
 
     const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
@@ -1164,8 +1268,8 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
-    const messageX = Math.floor((statusBarTileSizeX - state.topStatusMessage.length) / 2 + 0.5);
-    putString(renderer, messageX, state.topStatusMessage, colorPreset.lightGray);
+    const messageX = Math.floor((statusBarTileSizeX - message.length) / 2 + 0.5);
+    putString(renderer, messageX, message, colorPreset.lightGray);
 
     renderer.flush();
 }
@@ -1238,6 +1342,14 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
+
+    // Dash toggle indicator
+
+    if (state.dashToggleActive) {
+        const msg = 'Dash';
+        const msgX = lootX - (msg.length + 2);
+        putString(renderer, msgX, msg, colorPreset.lightGreen);
+    }
 
     renderer.flush();
 }
