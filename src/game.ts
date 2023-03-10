@@ -1227,7 +1227,7 @@ const helpPages: Array<Array<string>> = [
         'Page 1 of 2',
     ],
     [
-        'A 2023 Seven-Day Rogulike Challenge entry',
+        'A 2023 Seven-Day Roguelike Challenge entry',
         'by James McNeill and Damien Moore.',
         '',
         'Page 2 of 2',
