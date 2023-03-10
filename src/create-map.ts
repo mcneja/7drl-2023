@@ -1203,7 +1203,7 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
                 if (positions.length > 0) {
                     vec2.copy(posStart, positions[randomInRange(positions.length)]);
                 } else {
-                    posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext);
+                    posBesideDoor(posStart, rooms, adjacencies, iRoom, iNext, gameMap);
                 }
                 posInDoor(posEnd, rooms, adjacencies, iRoom, iNext);
 
@@ -1214,7 +1214,7 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
                 if (positions.length > 0) {
                     vec2.copy(posEnd, positions[randomInRange(positions.length)]);
                 } else {
-                    posBesideDoor(posEnd, rooms, adjacencies, iRoom, iPrev);
+                    posBesideDoor(posEnd, rooms, adjacencies, iRoom, iPrev, gameMap);
                 }
             } else {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iPrev);
@@ -1283,18 +1283,25 @@ function posInDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>,
     vec2.zero(pos);
 }
 
-function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom: number, iRoomNext: number) {
+function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom: number, iRoomNext: number, gameMap: GameMap) {
+    // Try two squares into the room, if possible. If not, fall back to one square in, which will be clear.
     for (const iAdj of rooms[iRoom].edges) {
         const adj = adjacencies[iAdj];
         if ((adj.room_left === iRoom && adj.room_right === iRoomNext)) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             const dirCross = vec2.fromValues(-adj.dir[1], adj.dir[0]);
-            vec2.add(pos, pos, dirCross);
+            vec2.scaleAndAdd(pos, pos, dirCross, 2);
+            if (gameMap.cells.at(pos[0], pos[1]).moveCost != 0) {
+                vec2.scaleAndAdd(pos, pos, dirCross, -1);
+            }
             return;
         } else if (adj.room_left === iRoomNext && adj.room_right === iRoom) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             const dirCross = vec2.fromValues(adj.dir[1], -adj.dir[0]);
-            vec2.add(pos, pos, dirCross);
+            vec2.scaleAndAdd(pos, pos, dirCross, 2);
+            if (gameMap.cells.at(pos[0], pos[1]).moveCost != 0) {
+                vec2.scaleAndAdd(pos, pos, dirCross, -1);
+            }
             return;
         }
     }
