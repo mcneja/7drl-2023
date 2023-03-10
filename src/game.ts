@@ -474,7 +474,6 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
 
 function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
     player.noisy = true;
-    popups.add(PopupType.Noise, player.pos);
 
     sounds.footstepCreaky.play(0.6);
 
@@ -926,7 +925,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0x80ffffff}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, true);
         }
     }
 }
