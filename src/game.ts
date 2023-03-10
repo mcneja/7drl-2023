@@ -161,7 +161,15 @@ function main(images: Array<HTMLImageElement>) {
     }
 
     function onKeyDownDoctor(e: KeyboardEvent) {
-        if (e.code == 'KeyR') {
+        if (e.code == 'BracketLeft') {
+            e.preventDefault();
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (e.code == 'BracketRight') {
+            e.preventDefault();
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
         } else if (e.code == 'KeyH') {
@@ -174,7 +182,15 @@ function main(images: Array<HTMLImageElement>) {
     }
 
     function onKeyDownWin(e: KeyboardEvent) {
-        if (e.code == 'KeyR') {
+        if (e.code == 'BracketLeft') {
+            e.preventDefault();
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (e.code == 'BracketRight') {
+            e.preventDefault();
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
         }
@@ -957,7 +973,6 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderer.start(matScreenFromWorld, 1);
                 renderWorld(state, renderer);
                 renderGuards(state, renderer);
-                renderGuardOverheadIcons(state, renderer);
                 renderer.flush();
 
                 renderTopStatusBar(renderer, screenSize, state);
@@ -980,7 +995,6 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderer.start(matScreenFromWorld, 1);
                 renderWorld(state, renderer);
                 renderGuards(state, renderer);
-                renderGuardOverheadIcons(state, renderer);
                 renderer.flush();
 
                 renderTopStatusBar(renderer, screenSize, state);
