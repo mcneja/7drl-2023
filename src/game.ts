@@ -1232,6 +1232,11 @@ const helpPages: Array<Array<string>> = [
         'A 2023 Seven-Day Roguelike Challenge entry',
         'by James McNeill and Damien Moore.',
         '',
+        'Hints:',
+        'Hide in trees or under tables; guards can be',
+        'next to you without seeing you unless they are',
+        'searching.',
+        '',
         'Page 2 of 2',
     ],
 ];
