@@ -1027,10 +1027,9 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderBottomStatusBar(renderer, screenSize, state);
 
                 renderTextLines(renderer, screenSize, [
-                    '      Mission Complete!',
+                    '   Mission Complete!',
                     '',
-                    'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot from',
-                    'the ' + numGameMaps + ' mansions.',
+                    'Score: ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
                     '',
                     'R: Restart new game',
                 ]);
