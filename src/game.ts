@@ -40,12 +40,13 @@ enum GameMode {
 
 type State = {
     tLast: number | undefined;
-    dashToggleActive: boolean;
+    leapToggleActive: boolean;
     gameMode: GameMode;
     helpActive: boolean;
     helpPageIndex: number;
     player: Player;
     topStatusMessage: string;
+    topStatusMessageSticky: boolean;
     finishedLevel: boolean;
     healCost: number;
     zoomLevel: number;
@@ -124,12 +125,18 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code === 'KeyP') {
                 e.preventDefault();
                 state.seeGuardPatrols = !state.seeGuardPatrols;
+            } else if (e.code === 'KeyR') {
+                e.preventDefault();
+                restartGame(state);
             } else if (e.code === 'Period') {
                 e.preventDefault();
                 if (state.level < state.gameMapRoughPlans.length - 1) {
                     ++state.level;
                     resetState(state);
                 }
+            } else if (e.code === 'KeyG') {
+                e.preventDefault();
+                resetState(state);
             } else if (e.code === 'Comma') {
                 e.preventDefault();
                 if (state.level > 0) {
@@ -141,12 +148,6 @@ function main(images: Array<HTMLImageElement>) {
                 state.gameMap.markAllSeen();
                 postTurn(state);
             }
-        } else if (e.code == 'KeyR') {
-            e.preventDefault();
-            restartGame(state);
-        } else if (e.code == 'KeyN') {
-            e.preventDefault();
-            resetState(state);
         } else if (e.code == 'BracketLeft') {
             e.preventDefault();
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
@@ -157,21 +158,21 @@ function main(images: Array<HTMLImageElement>) {
             state.camera.snapped = false;
         } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, -1, 0, moveSpeed);
         } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 1, 0, moveSpeed);
         } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 0, -1, moveSpeed);
         } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 0, 1, moveSpeed);
-        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
+        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ' || e.code == 'Space') {
             e.preventDefault();
             tryMovePlayer(state, 0, 0, 1);
         } else if (e.code == 'Escape' || e.code == 'Slash') {
@@ -179,7 +180,7 @@ function main(images: Array<HTMLImageElement>) {
             state.helpActive = true;
         } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             e.preventDefault();
-            state.dashToggleActive = !state.dashToggleActive;
+            state.leapToggleActive = !state.leapToggleActive;
         }
     }
 
@@ -248,6 +249,7 @@ function advanceToNextLevel(state: State) {
     state.activeSoundPool.empty();
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessageSticky = true;
     state.finishedLevel = false;
 
     state.player.pos = state.gameMap.playerStartPos;
@@ -267,6 +269,7 @@ function advanceToBetweenMansions(state: State) {
     state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
+    state.topStatusMessageSticky = false;
 }
 
 function advanceToWin(state: State) {
@@ -274,6 +277,7 @@ function advanceToWin(state: State) {
     state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
+    state.topStatusMessageSticky = false;
 }
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
@@ -384,15 +388,17 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     for (let d = 1; d <= maxDist; ++d) {
         const pos = vec2.fromValues(player.pos[0] + dx * d, player.pos[1] + dy * d);
 
-        if (pos[0] < 0 ||
-            pos[1] < 0 ||
-            pos[0] >= state.gameMap.cells.sizeX ||
-            pos[1] >= state.gameMap.cells.sizeY) {
+        if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
+            pos[1] < 0 || pos[1] >= state.gameMap.cells.sizeY) {
             if (state.finishedLevel) {
                 distAllowed = d;
             }
             break;
         } else if (blocked(state.gameMap, posPrev, pos)) {
+            if (isOneWayWindowTerrainType(state.gameMap.cells.at(...pos).type)) {
+                state.topStatusMessage = 'Window cannot be opened from outside';
+                state.topStatusMessageSticky = false;
+            }
             break;
         } else {
             distAllowed = d;
@@ -410,17 +416,60 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         }
     }
 
-    // If the move would end on a torch, shorten it
+    // If the move would end on a torch, portcullis, or window, shorten it
 
     if (distAllowed > 0) {
-        const pos = vec2.fromValues(player.pos[0] + dx * distAllowed, player.pos[1] + dy * distAllowed);
-        if (state.gameMap.items.find((item) => item.pos[0] === pos[0] && item.pos[1] === pos[1] &&
-                (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) !== undefined) {
-            --distAllowed;
+        const x = player.pos[0] + dx * distAllowed;
+        const y = player.pos[1] + dy * distAllowed;
+        if (x >= 0 && x < state.gameMap.cells.sizeX &&
+            y >= 0 && y < state.gameMap.cells.sizeY) {
+            if (state.gameMap.items.find((item) => item.pos[0] === x && item.pos[1] === y &&
+                    isLeapableMoveObstacle(item.type)) !== undefined ||
+                isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
+                --distAllowed;
+                state.topStatusMessage = 'Shift+move to leap';
+                state.topStatusMessageSticky = false;
+            }
         }
     }
 
     return distAllowed;
+}
+
+function isLeapableMoveObstacle(itemType: ItemType): boolean {
+    switch (itemType) {
+        case ItemType.TorchUnlit:
+        case ItemType.TorchLit:
+            return true;
+        default:
+            return false;
+    }
+}
+
+function isLeapableTerrainType(terrainType: TerrainType): boolean {
+    switch (terrainType) {
+        case TerrainType.OneWayWindowE:
+        case TerrainType.OneWayWindowW:
+        case TerrainType.OneWayWindowN:
+        case TerrainType.OneWayWindowS:
+        case TerrainType.PortcullisNS:
+        case TerrainType.PortcullisEW:
+            return true;
+        default:
+            return false;
+    }
+}
+
+function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
+    switch (terrainType) {
+        case TerrainType.OneWayWindowE:
+        case TerrainType.OneWayWindowW:
+        case TerrainType.OneWayWindowN:
+        case TerrainType.OneWayWindowS:
+            return true;
+        default:
+            return false;
+    }
 }
 
 function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
@@ -435,9 +484,9 @@ function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups,
 }
 
 function preTurn(state: State) {
-    /* TODO
-    state.show_msgs = true;
-    */
+    if (!state.topStatusMessageSticky) {
+        state.topStatusMessage = '';
+    }
     state.popups.clear();
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
@@ -484,8 +533,10 @@ function postTurn(state: State) {
 
     if (subtitle !== '') {
         state.topStatusMessage = subtitle;
+        state.topStatusMessageSticky = true;
     } else if (state.finishedLevel) {
         state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
+        state.topStatusMessageSticky = true;
     }
 }
 
@@ -693,7 +744,10 @@ function renderWorld(state: State, renderer: Renderer) {
             if (!cell.seen && !state.seeAll) {
                 continue;
             }
-            const terrainType = cell.type;
+            let terrainType = cell.type;
+            if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit) {
+                terrainType = TerrainType.GroundWood;
+            }
             const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
             renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
@@ -779,7 +833,7 @@ function renderGuards(state: State, renderer: Renderer) {
 
 }
 
-function renderGuardOverheadIcons(state: State, renderer: Renderer) {
+function renderIconOverlays(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -796,6 +850,14 @@ function renderGuardOverheadIcons(state: State, renderer: Renderer) {
         const y = guard.pos[1] + 0.625;
 
         renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], true);
+    }
+
+    // Render an icon over the player if the player is being noisy
+
+    if (state.player.noisy) {
+        const x = state.player.pos[0];
+        const y = state.player.pos[1] - 0.5;
+        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, true);
     }
 }
 
@@ -851,7 +913,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:15, color:0xa0004080}, true);
+                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:3, color:0xffffffff}, true);
             }
         }
     }
@@ -864,7 +926,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:249, color:0x80ffffff}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0x80ffffff}, true);
         }
     }
 }
@@ -903,12 +965,13 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
     return {
         tLast: undefined,
-        dashToggleActive: false,
+        leapToggleActive: false,
         gameMode: GameMode.Mansion,
-        helpActive: false,
+        helpActive: true,
         helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
+        topStatusMessageSticky: true,
         finishedLevel: false,
         healCost: 1,
         zoomLevel: 3,
@@ -934,6 +997,7 @@ function restartGame(state: State) {
 
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessageSticky = true;
     state.finishedLevel = false;
     state.healCost = 1;
     state.player = new Player(gameMap.playerStartPos);
@@ -947,6 +1011,7 @@ function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessageSticky = true;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
@@ -992,11 +1057,11 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             
                 renderer.start(matScreenFromWorld, 1);
                 renderWorld(state, renderer);
-                renderPlayer(state, renderer);
-                renderGuards(state, renderer);
-                renderGuardOverheadIcons(state, renderer);
                 renderGuardSight(state, renderer);
                 renderGuardPatrolPaths(state, renderer);
+                renderPlayer(state, renderer);
+                renderGuards(state, renderer);
+                renderIconOverlays(state, renderer);
                 renderer.flush();
 
                 if (state.helpActive) {
@@ -1228,9 +1293,10 @@ const helpPages: Array<Array<string>> = [
         'any loot you find.',
         '',
         '  Move: Arrows / WASD / HJKL',
-        '  Wait: Z / Period / Numpad5',
-        '  Dash: Shift + move',
-        '  Dash (Toggle): F / Numpad+',
+        '  Wait: Space / Z / Period / Numpad5',
+        '  Leap: Shift + move',
+        '  Leap (Toggle): F / Numpad+',
+        '  Zoom View: [ / ]',
         '',
         'Disable NumLock if using numpad',
         '',
@@ -1239,6 +1305,11 @@ const helpPages: Array<Array<string>> = [
     [
         'A 2023 Seven-Day Roguelike Challenge entry',
         'by James McNeill and Damien Moore.',
+        '',
+        'Hints:',
+        'Hide in trees or under tables; guards can be',
+        'next to you without seeing you unless they are',
+        'searching.',
         '',
         'Page 2 of 2',
     ],
@@ -1351,10 +1422,10 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
 
-    // Dash toggle indicator
+    // Leap toggle indicator
 
-    if (state.dashToggleActive) {
-        const msg = 'Dash';
+    if (state.leapToggleActive) {
+        const msg = 'Leap';
         const msgX = lootX - (msg.length + 2);
         putString(renderer, msgX, msg, colorPreset.lightGreen);
     }

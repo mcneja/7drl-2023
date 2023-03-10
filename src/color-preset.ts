@@ -16,4 +16,4 @@ export const lightCyan: number = 0xfffefe54;
 export const lightRed: number = 0xff5454fe;
 export const lightMagenta: number = 0xfffe54fe;
 export const lightYellow: number = 0xff54fefe;
-export const white: number = 0xfffefefe;
+export const white: number = 0xffffffff;

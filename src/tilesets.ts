@@ -180,11 +180,11 @@ const tileSet31Color:TileSet = {
     unlitTile: {textureIndex: r([0, 0])}, //color:colorPreset.lightBlue
     terrainTiles: [ 
         {textureIndex: r([11,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundNormal,
-        {textureIndex: r([8,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundGrass,
+        {textureIndex: r([8,   4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundGrass,
         {textureIndex: r([10,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWater,
-        {textureIndex: r([0,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundMarble,
-        {textureIndex: r([7,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWood,
-        {textureIndex: r([7,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWoodCreaky,
+        {textureIndex: r([0,   4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundMarble,
+        {textureIndex: r([7,   4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWood,
+        {textureIndex: r([11,  5]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundWoodCreaky,
         {textureIndex: r([0,  11]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0000,
         {textureIndex: r([2,  11]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0001,
         {textureIndex: r([4,  11]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.Wall0010,
@@ -243,7 +243,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([2,5+2]), }, //playerNormal
         {textureIndex: r([2,5+2]), color:colorPreset.darkRed}, //playerWounded
         {textureIndex: r([2,6+2]), color:colorPreset.darkGray}, //playerHidden: 
-        {textureIndex: r([2,5+2]), color:colorPreset.lightRed}, //playerNoisy: 
+        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerNoisy: 
         {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerUnlit: 
     ],
     guardStateTiles: [
