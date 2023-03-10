@@ -217,11 +217,13 @@ function advanceToNextLevel(state: State) {
 }
 
 function advanceToDoctor(state: State) {
+    state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.Doctor;
     state.topStatusMessage = '';
 }
 
 function advanceToWin(state: State) {
+    state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
 }
@@ -263,25 +265,27 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     const oldTerrain = state.gameMap.cells.at(...player.pos).type;
 
     for (; dist > 0; --dist) {
-        player.pos[0] += dx;
-        player.pos[1] += dy;
+        const x = player.pos[0] + dx;
+        const y = player.pos[1] + dy;
 
-        if (player.pos[0] < 0 ||
-            player.pos[1] < 0 ||
-            player.pos[0] >= state.gameMap.cells.sizeX ||
-            player.pos[1] >= state.gameMap.cells.sizeY) {
-            if (state.level == numGameMaps - 1) {
+        if (x < 0 || x >= state.gameMap.cells.sizeX ||
+            y < 0 || y >= state.gameMap.cells.sizeY) {
+            if (state.level >= numGameMaps - 1) {
                 advanceToWin(state);
             } else {
-                state.sounds['levelCompleteJingle'].play(0.5);
                 advanceToDoctor(state);
-                return;
             }
+            return;
         }
 
-        const oldLoot = 1.0*player.loot;
-        player.loot += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
-        if(player.loot>oldLoot) state.sounds.coin.play(1.0);
+        player.pos[0] = x;
+        player.pos[1] = y;
+
+        const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        if (loot > 0) {
+            player.loot += loot;
+            state.sounds.coin.play(1.0);
+        }
     }
 
     // Generate movement noises.
@@ -947,6 +951,15 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
 
         case GameMode.Doctor:
             {
+                const matScreenFromWorld = mat4.create();
+                setupViewMatrix(state, screenSize, matScreenFromWorld);
+
+                renderer.start(matScreenFromWorld, 1);
+                renderWorld(state, renderer);
+                renderGuards(state, renderer);
+                renderGuardOverheadIcons(state, renderer);
+                renderer.flush();
+
                 const healLine = 'H: Heal one heart for $' + state.healCost;
 
                 renderTopStatusBar(renderer, screenSize, state);
@@ -963,14 +976,23 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
 
         case GameMode.Win:
             {
+                const matScreenFromWorld = mat4.create();
+                setupViewMatrix(state, screenSize, matScreenFromWorld);
+
+                renderer.start(matScreenFromWorld, 1);
+                renderWorld(state, renderer);
+                renderGuards(state, renderer);
+                renderGuardOverheadIcons(state, renderer);
+                renderer.flush();
+
                 renderTopStatusBar(renderer, screenSize, state);
                 renderBottomStatusBar(renderer, screenSize, state);
 
                 renderTextLines(renderer, screenSize, [
-                    'Mission Complete',
+                    '      Mission Complete!',
                     '',
-                    'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
-                    'from the ' + numGameMaps + ' mansions.',
+                    'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot from',
+                    'the ' + numGameMaps + ' mansions.',
                     '',
                     'Press R to restart a new game.',
                 ]);
@@ -1239,12 +1261,12 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
         -1);
     renderer.start(matScreenFromTextArea, 0);
 
-    const colorText = 0xffeeeeee;
-    const colorBackground = 0xe0555555;
+    const colorText = 0xffeef0ff;
+    const colorBackground = 0xe0101010;
 
     // Draw a stretched box to make a darkened background for the text.
     renderer.addGlyph(
-        -1, -1, maxLineLength + 1, lines.length + 1,
+        -2, -1, maxLineLength + 2, lines.length + 1,
         {textureIndex:219, color:colorBackground}
     );
 
