@@ -210,11 +210,14 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             player.pos[1] < 0 ||
             player.pos[0] >= state.gameMap.cells.sizeX ||
             player.pos[1] >= state.gameMap.cells.sizeY) {
+            state.sounds['levelCompleteJingle'].play(0.5);
             advanceToNextLevel(state);
             return;
         }
 
+        const oldGold = 1.0*player.gold;
         player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        if(player.gold>oldGold) state.sounds.coin.play(1.0);
     }
 
     // Generate movement noises.
@@ -326,6 +329,7 @@ function preTurn(state: State) {
 }
 
 function advanceTime(state: State) {
+    let oldHealth = state.player.health;
     if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
@@ -347,8 +351,11 @@ function advanceTime(state: State) {
 
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
+    if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
+
     if (state.player.health <= 0) {
         state.topStatusMessage = 'You have died! Press R to restart a new game.';
+        if(oldHealth>0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
     } else if (subtitle !== '') {
         state.topStatusMessage = subtitle;
     } else if (state.finishedLevel) {
