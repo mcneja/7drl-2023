@@ -362,10 +362,10 @@ class GameMap {
     collectAllLoot(): number {
         let gold = 0;
         this.items = this.items.filter((item) => {
-            if (item.type == ItemType.Coin) {
-                ++gold;
+            if (item.type != ItemType.Coin) {
                 return true;
             } else {
+                ++gold;
                 return false;
             }
         });

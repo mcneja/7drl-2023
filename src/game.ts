@@ -23,7 +23,7 @@ const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Scout the entire mansion and steal all the loot.';
+const startingTopStatusMessage = 'Scout the entire mansion, then leave. Keep any loot you find.';
 
 type Camera = {
     position: vec2;
@@ -31,13 +31,20 @@ type Camera = {
     snapped: boolean;
 }
 
+enum GameMode {
+    Mansion,
+    Doctor,
+}
+
 type State = {
     tLast: number | undefined;
     shiftModifierActive: boolean;
     shiftUpLastTimeStamp: number;
+    gameMode: GameMode;
     player: Player;
     topStatusMessage: string;
     finishedLevel: boolean;
+    healCost: number;
     zoomLevel: number;
     seeAll: boolean;
     seeGuardSight: boolean;
@@ -72,15 +79,29 @@ function main(images: Array<HTMLImageElement>) {
 
     function onKeyDown(e: KeyboardEvent) {
         if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
+
         if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             state.shiftModifierActive = true;
             return;
         }
 
+        switch (state.gameMode) {
+            case GameMode.Mansion: onKeyDownMansion(e); break;
+            case GameMode.Doctor: onKeyDownDoctor(e); break;
+        }
+
+        state.shiftModifierActive = false;
+    }
+
+    function onKeyDownMansion(e: KeyboardEvent) {
         if (e.ctrlKey) {
             if (e.code === 'KeyA') {
                 e.preventDefault();
                 state.seeAll = !state.seeAll;
+            } else if (e.code === 'KeyC') {
+                e.preventDefault();
+                state.player.loot += state.gameMap.collectAllLoot();
+                postTurn(state);
             } else if (e.code === 'KeyV') {
                 e.preventDefault();
                 state.seeGuardSight = !state.seeGuardSight;
@@ -99,6 +120,10 @@ function main(images: Array<HTMLImageElement>) {
                     --state.level;
                     resetState(state);
                 }
+            } else if (e.code === 'KeyS') {
+                e.preventDefault();
+                state.gameMap.markAllSeen();
+                postTurn(state);
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
@@ -133,8 +158,40 @@ function main(images: Array<HTMLImageElement>) {
                 tryMovePlayer(state, 0, 0, 1);
             }
         }
+    }
 
-        state.shiftModifierActive = false;
+    function onKeyDownDoctor(e: KeyboardEvent) {
+        if (e.ctrlKey) {
+            if (e.code === 'KeyA') {
+                e.preventDefault();
+                state.seeAll = !state.seeAll;
+            } else if (e.code === 'KeyV') {
+                e.preventDefault();
+                state.seeGuardSight = !state.seeGuardSight;
+            } else if (e.code === 'KeyP') {
+                e.preventDefault();
+                state.seeGuardPatrols = !state.seeGuardPatrols;
+            }
+        } else if (e.code == 'KeyR') {
+            e.preventDefault();
+            restartGame(state);
+        } else if (e.code == 'BracketLeft') {
+            e.preventDefault();
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (e.code == 'BracketRight') {
+            e.preventDefault();
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else {
+            if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
+                e.preventDefault();
+                advanceToNextLevel(state);
+            } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
+                e.preventDefault();
+                tryHealPlayer(state);
+            }
+        }
     }
 
     function onKeyUp(e: KeyboardEvent) {
@@ -176,6 +233,13 @@ function advanceToNextLevel(state: State) {
     state.camera = createCamera(state.gameMap.playerStartPos);
 
     state.gameMap.recomputeVisibility(state.player.pos);
+
+    state.gameMode = GameMode.Mansion;
+}
+
+function advanceToDoctor(state: State) {
+    state.gameMode = GameMode.Doctor;
+    state.topStatusMessage = '';
 }
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
@@ -222,7 +286,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             player.pos[1] < 0 ||
             player.pos[0] >= state.gameMap.cells.sizeX ||
             player.pos[1] >= state.gameMap.cells.sizeY) {
-            advanceToNextLevel(state);
+            advanceToDoctor(state);
             return;
         }
 
@@ -265,7 +329,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
             break;
         }
-
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
@@ -351,6 +414,10 @@ function advanceTime(state: State) {
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
 
+    postTurn(state);
+}
+
+function postTurn(state: State) {
     if (state.gameMap.allSeen()) {
         state.finishedLevel = true;
     }
@@ -360,12 +427,26 @@ function advanceTime(state: State) {
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
     if (state.player.health <= 0) {
-        state.topStatusMessage = 'You have died! Press R to restart a new game.';
+        state.topStatusMessage = 'You are dead! Press R to restart a new game.';
     } else if (subtitle !== '') {
         state.topStatusMessage = subtitle;
     } else if (state.finishedLevel) {
-        state.topStatusMessage = 'Mission complete! Exit any side of the map.'
+        state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
     }
+}
+
+function tryHealPlayer(state: State) {
+    if (state.player.health >= maxPlayerHealth) {
+        return;
+    }
+
+    if (state.player.loot < state.healCost) {
+        return;
+    }
+
+    state.player.loot -= state.healCost;
+    state.player.health += 1;
+    state.healCost *= 2;
 }
 
 function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
@@ -584,6 +665,7 @@ function renderWorld(state: State, renderer: Renderer) {
         }
     }
 }
+
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const x = player.pos[0];
@@ -769,9 +851,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         tLast: undefined,
         shiftModifierActive: false,
         shiftUpLastTimeStamp: -Infinity,
+        gameMode: GameMode.Mansion,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
         finishedLevel: false,
+        healCost: 1,
         zoomLevel: 3,
         seeAll: false,
         seeGuardSight: false,
@@ -794,6 +878,7 @@ function restartGame(state: State) {
 
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
+    state.healCost = 1;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -840,20 +925,42 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderer.beginFrame(screenSize);
 
-    const matScreenFromWorld = mat4.create();
-    setupViewMatrix(state, screenSize, matScreenFromWorld);
+    switch (state.gameMode) {
+        case GameMode.Mansion:
+            {
+                const matScreenFromWorld = mat4.create();
+                setupViewMatrix(state, screenSize, matScreenFromWorld);
+            
+                renderer.start(matScreenFromWorld, 1);
+                renderWorld(state, renderer);
+                renderPlayer(state, renderer);
+                renderGuards(state, renderer);
+                renderGuardOverheadIcons(state, renderer);
+                renderGuardSight(state, renderer);
+                renderGuardPatrolPaths(state, renderer);
+                renderer.flush();
 
-    renderer.start(matScreenFromWorld, 1);
-    renderWorld(state, renderer);
-    renderPlayer(state, renderer);
-    renderGuards(state, renderer);
-    renderGuardOverheadIcons(state, renderer);
-    renderGuardSight(state, renderer);
-    renderGuardPatrolPaths(state, renderer);
-    renderer.flush();
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+            }
+            break;
 
-    renderTopStatusBar(renderer, screenSize, state);
-    renderBottomStatusBar(renderer, screenSize, state);
+        case GameMode.Doctor:
+            {
+                const healLine = '  Up: Heal one heart for $' + state.healCost;
+
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+
+                renderTextLines(renderer, screenSize, [
+                    '      Healer',
+                    '',
+                    healLine,
+                    'Down: Travel to next mansion',
+                ]);
+            }
+            break;
+    }
 }
 
 function updateCamera(state: State, screenSize: vec2, dt: number) {
@@ -1007,7 +1114,8 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
-    putString(renderer, 1, state.topStatusMessage, colorPreset.lightGray);
+    const messageX = Math.floor((statusBarTileSizeX - state.topStatusMessage.length) / 2 + 0.5);
+    putString(renderer, messageX, state.topStatusMessage, colorPreset.lightGray);
 
     renderer.flush();
 }
@@ -1050,28 +1158,32 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
     }
 
-    // Underwater indicator
+    if (state.gameMode == GameMode.Mansion) {
+        // Underwater indicator
 
-    const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
-    if (playerUnderwater) {
-        const breathX = healthX + maxPlayerHealth + 88;
+        const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
+        if (playerUnderwater) {
+            const breathX = healthX + maxPlayerHealth + 88;
 
-        putString(renderer, breathX, "Air", colorPreset.lightCyan);
+            putString(renderer, breathX, "Air", colorPreset.lightCyan);
 
-        for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
-            const glyphBubble = 9;
-            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
+            for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
+                const glyphBubble = 9;
+                renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
+            }
         }
+
+        // Mapping percentage
+
+        const percentSeen = state.gameMap.percentSeen();
+
+        const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
+
+        const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
+        putString(renderer, seenX, seenMsg, colorPreset.lightGray);
     }
 
-    // Draw the tallies of what's been seen and collected.
-
-    const percentSeen = state.gameMap.percentSeen();
-
-    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
-
-    const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
-    putString(renderer, seenX, seenMsg, colorPreset.lightGray);
+    // Total loot
 
     let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
@@ -1086,7 +1198,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
         maxLineLength = Math.max(maxLineLength, line.length);
     }
 
-    const minCharsX = 40;
+    const minCharsX = 65;
     const minCharsY = 22;
     const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
     const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
@@ -1094,10 +1206,11 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
     const pixelsPerCharX = 8 * scaleFactor;
     const pixelsPerCharY = 16 * scaleFactor;
     const linesPixelSizeX = maxLineLength * pixelsPerCharX;
+    const linesPixelSizeY = lines.length * pixelsPerCharY;
     const numCharsX = screenSize[0] / pixelsPerCharX;
     const numCharsY = screenSize[1] / pixelsPerCharY;
     const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
-    const offsetY = (lines.length + 2) - numCharsY;
+    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
 
     const matScreenFromTextArea = mat4.create();
     mat4.ortho(
