@@ -897,7 +897,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:15, color:0xa0004080}, true);
+                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:3, color:0xffffffff}, true);
             }
         }
     }
@@ -910,7 +910,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:249, color:0x80ffffff}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0x80ffffff}, true);
         }
     }
 }
@@ -1038,11 +1038,11 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             
                 renderer.start(matScreenFromWorld, 1);
                 renderWorld(state, renderer);
+                renderGuardSight(state, renderer);
+                renderGuardPatrolPaths(state, renderer);
                 renderPlayer(state, renderer);
                 renderGuards(state, renderer);
                 renderGuardOverheadIcons(state, renderer);
-                renderGuardSight(state, renderer);
-                renderGuardPatrolPaths(state, renderer);
                 renderer.flush();
 
                 if (state.helpActive) {
