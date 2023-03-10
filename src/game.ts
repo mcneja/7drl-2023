@@ -40,7 +40,6 @@ enum GameMode {
 type State = {
     tLast: number | undefined;
     shiftModifierActive: boolean;
-    shiftUpLastTimeStamp: number;
     gameMode: GameMode;
     player: Player;
     topStatusMessage: string;
@@ -76,7 +75,6 @@ function main(images: Array<HTMLImageElement>) {
     const state = initState(sounds, subtitledSounds);
 
     document.body.addEventListener('keydown', onKeyDown);
-    document.body.addEventListener('keyup', onKeyUp);
 
     function onKeyDown(e: KeyboardEvent) {
         if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
@@ -142,7 +140,7 @@ function main(images: Array<HTMLImageElement>) {
             state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
         } else {
-            const distDesired = (state.shiftModifierActive || e.shiftKey || (e.timeStamp - state.shiftUpLastTimeStamp) < 1.0) ? 2 : 1;
+            const distDesired = (state.shiftModifierActive || e.shiftKey) ? 2 : 1;
             if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
                 e.preventDefault();
                 tryMovePlayer(state, -1, 0, distDesired);
@@ -179,12 +177,6 @@ function main(images: Array<HTMLImageElement>) {
         if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
-        }
-    }
-
-    function onKeyUp(e: KeyboardEvent) {
-        if (e.code == 'ShiftLeft' || e.code == 'ShiftRight') {
-            state.shiftUpLastTimeStamp = e.timeStamp;
         }
     }
 
@@ -846,7 +838,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
     return {
         tLast: undefined,
         shiftModifierActive: false,
-        shiftUpLastTimeStamp: -Infinity,
         gameMode: GameMode.Mansion,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
