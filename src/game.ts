@@ -815,19 +815,19 @@ function renderGuards(state: State, renderer: Renderer) {
         else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) lit=false;
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
-        // if(guard.hasTorch) {
-        //     const g0 = guard.pos[0]+guard.dir[0]*0.25+guard.dir[1]*0.25;
-        //     const g1 = guard.pos[1];
-        //     if(guard.dir[1]>0) {
-        //         renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-        //         renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
-        //     } else {
-        //         renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
-        //         renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-        //     }
-        // }
-        // else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
-        renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+        if(guard.hasTorch) {
+            const g0 = guard.pos[0]+guard.dir[0]*0.5+guard.dir[1]*0.25;
+            const g1 = guard.pos[1];
+            if(guard.dir[1]>0) {
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+                renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
+            } else {
+                renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+            }
+        }
+        else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+        // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
 

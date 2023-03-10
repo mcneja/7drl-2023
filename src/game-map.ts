@@ -212,6 +212,7 @@ enum ItemType {
     PortcullisEW,
     TorchUnlit,
     TorchLit,
+    TorchCarry,
 }
 
 type Item = {
