@@ -123,12 +123,18 @@ function main(images: Array<HTMLImageElement>) {
             } else if (e.code === 'KeyP') {
                 e.preventDefault();
                 state.seeGuardPatrols = !state.seeGuardPatrols;
+            } else if (e.code === 'KeyR') {
+                e.preventDefault();
+                restartGame(state);
             } else if (e.code === 'Period') {
                 e.preventDefault();
                 if (state.level < state.gameMapRoughPlans.length - 1) {
                     ++state.level;
                     resetState(state);
                 }
+            } else if (e.code === 'KeyG') {
+                e.preventDefault();
+                resetState(state);
             } else if (e.code === 'Comma') {
                 e.preventDefault();
                 if (state.level > 0) {
@@ -140,12 +146,6 @@ function main(images: Array<HTMLImageElement>) {
                 state.gameMap.markAllSeen();
                 postTurn(state);
             }
-        } else if (e.code == 'KeyR') {
-            e.preventDefault();
-            restartGame(state);
-        } else if (e.code == 'KeyN') {
-            e.preventDefault();
-            resetState(state);
         } else if (e.code == 'BracketLeft') {
             e.preventDefault();
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
@@ -962,7 +962,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         tLast: undefined,
         leapToggleActive: false,
         gameMode: GameMode.Mansion,
-        helpActive: false,
+        helpActive: true,
         helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
@@ -1288,6 +1288,7 @@ const helpPages: Array<Array<string>> = [
         '  Wait: Space / Z / Period / Numpad5',
         '  Leap: Shift + move',
         '  Leap (Toggle): F / Numpad+',
+        '  Zoom View: [ / ]',
         '',
         'Disable NumLock if using numpad',
         '',
