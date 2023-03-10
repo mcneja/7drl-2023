@@ -40,7 +40,7 @@ enum GameMode {
 
 type State = {
     tLast: number | undefined;
-    dashToggleActive: boolean;
+    leapToggleActive: boolean;
     gameMode: GameMode;
     helpActive: boolean;
     helpPageIndex: number;
@@ -156,19 +156,19 @@ function main(images: Array<HTMLImageElement>) {
             state.camera.snapped = false;
         } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, -1, 0, moveSpeed);
         } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 1, 0, moveSpeed);
         } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 0, -1, moveSpeed);
         } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
             e.preventDefault();
-            const moveSpeed = (state.dashToggleActive || e.shiftKey) ? 2 : 1;
+            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 0, 1, moveSpeed);
         } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
             e.preventDefault();
@@ -178,7 +178,7 @@ function main(images: Array<HTMLImageElement>) {
             state.helpActive = true;
         } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             e.preventDefault();
-            state.dashToggleActive = !state.dashToggleActive;
+            state.leapToggleActive = !state.leapToggleActive;
         }
     }
 
@@ -949,7 +949,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
 
     return {
         tLast: undefined,
-        dashToggleActive: false,
+        leapToggleActive: false,
         gameMode: GameMode.Mansion,
         helpActive: false,
         helpPageIndex: 0,
@@ -1275,8 +1275,8 @@ const helpPages: Array<Array<string>> = [
         '',
         '  Move: Arrows / WASD / HJKL',
         '  Wait: Z / Period / Numpad5',
-        '  Dash: Shift + move',
-        '  Dash (Toggle): F / Numpad+',
+        '  Leap: Shift + move',
+        '  Leap (Toggle): F / Numpad+',
         '',
         'Disable NumLock if using numpad',
         '',
@@ -1402,10 +1402,10 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
 
-    // Dash toggle indicator
+    // Leap toggle indicator
 
-    if (state.dashToggleActive) {
-        const msg = 'Dash';
+    if (state.leapToggleActive) {
+        const msg = 'Leap';
         const msgX = lootX - (msg.length + 2);
         putString(renderer, msgX, msg, colorPreset.lightGreen);
     }
