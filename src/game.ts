@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
-import { createGameMap } from './create-map';
-import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
+import { createGameMapRoughPlans, createGameMap } from './create-map';
+import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -13,6 +13,9 @@ const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
 
 window.onload = loadResourcesThenRun;
+
+const numGameMaps: number = 10;
+const totalGameLoot: number = 100;
 
 const targetStatusBarWidthInChars: number = 65;
 const statusBarCharPixelSizeX: number = 8;
@@ -41,6 +44,7 @@ type State = {
     seeGuardPatrols: boolean;
     camera: Camera;
     level: number;
+    gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
@@ -85,12 +89,16 @@ function main(images: Array<HTMLImageElement>) {
                 state.seeGuardPatrols = !state.seeGuardPatrols;
             } else if (e.code === 'Period') {
                 e.preventDefault();
-                ++state.level;
-                resetState(state);
+                if (state.level < state.gameMapRoughPlans.length - 1) {
+                    ++state.level;
+                    resetState(state);
+                }
             } else if (e.code === 'Comma') {
                 e.preventDefault();
-                state.level = Math.max(0, state.level - 1);
-                resetState(state);
+                if (state.level > 0) {
+                    --state.level;
+                    resetState(state);
+                }
             }
         } else if (e.code == 'KeyR') {
             e.preventDefault();
@@ -150,13 +158,17 @@ function main(images: Array<HTMLImageElement>) {
 
 function advanceToNextLevel(state: State) {
     state.level += 1;
-    state.gameMap = createGameMap(state.level);
+    if (state.level >= numGameMaps) {
+        resetState(state);
+        return;
+    }
+
+    state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
 
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
-    state.player.gold = 0;
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = 0;
@@ -170,8 +182,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const player = state.player;
 
-
-    const oldTerrain = state.gameMap.cells.at(...player.pos).type
     // Can't move if you're dead.
 
     if (player.health <= 0) {
@@ -202,6 +212,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     preTurn(state);
 
+    const oldTerrain = state.gameMap.cells.at(...player.pos).type;
+
     for (; dist > 0; --dist) {
         player.pos[0] += dx;
         player.pos[1] += dy;
@@ -214,7 +226,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             return;
         }
 
-        player.gold += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        player.loot += state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
     }
 
     // Generate movement noises.
@@ -228,7 +240,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
-    const newTerrain = state.gameMap.cells.at(...player.pos).type
+    const newTerrain = state.gameMap.cells.at(...player.pos).type;
     const changedTile = oldTerrain !== newTerrain;
     switch(newTerrain) {
         case TerrainType.GroundWoodCreaky:
@@ -270,7 +282,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             pos[1] < 0 ||
             pos[0] >= state.gameMap.cells.sizeX ||
             pos[1] >= state.gameMap.cells.sizeY) {
-            if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+            if (state.finishedLevel) {
                 distAllowed = d;
             }
             break;
@@ -339,7 +351,7 @@ function advanceTime(state: State) {
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
 
-    if (state.gameMap.allSeen() && state.gameMap.allLootCollected()) {
+    if (state.gameMap.allSeen()) {
         state.finishedLevel = true;
     }
 
@@ -750,7 +762,8 @@ function createCamera(posPlayer: vec2): Camera {
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
     const initialLevel = 0;
-    const gameMap = createGameMap(initialLevel);
+    const gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
+    const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
 
     return {
         tLast: undefined,
@@ -765,6 +778,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         seeGuardPatrols: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
+        gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
         subtitledSounds: subtitledSounds,
@@ -773,9 +787,10 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
 }
 
 function restartGame(state: State) {
+    state.gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
     state.level = 0;
 
-    const gameMap = createGameMap(state.level);
+    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
@@ -786,7 +801,7 @@ function restartGame(state: State) {
 }
 
 function resetState(state: State) {
-    const gameMap = createGameMap(state.level);
+    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
@@ -1053,18 +1068,12 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const percentSeen = state.gameMap.percentSeen();
 
-    const seenMsg = 'Level ' + (state.level + 1) + ': ' + percentSeen + '% Seen';
+    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
 
     const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
     putString(renderer, seenX, seenMsg, colorPreset.lightGray);
 
-    let lootMsg = 'Loot ' + state.player.gold + '/';
-    if (percentSeen < 100) {
-        lootMsg += '?';
-    } else {
-        lootMsg += state.gameMap.totalLoot;
-    }
-
+    let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
 

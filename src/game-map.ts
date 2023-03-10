@@ -7,6 +7,7 @@ export {
     Item,
     ItemType,
     GameMap,
+    GameMapRoughPlan,
     Player,
     TerrainType,
     GuardStates,
@@ -99,6 +100,12 @@ class Float64Grid {
     set(x: number, y: number, value: number) {
         this.values[this.sizeX * y + x] = value;
     }
+}
+
+type GameMapRoughPlan = {
+    numRoomsX: number;
+    numRoomsY: number;
+    totalLoot: number;
 }
 
 enum TerrainType {
@@ -233,7 +240,7 @@ class Player {
     pos: vec2;
     dir: vec2;
     health: number;
-    gold: number;
+    loot: number;
     noisy: boolean; // did the player make noise last turn?
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
@@ -242,7 +249,7 @@ class Player {
         this.pos = vec2.clone(pos);
         this.dir = vec2.fromValues(0, -1);
         this.health = maxPlayerHealth;
-        this.gold = 0;
+        this.loot = 0;
         this.noisy = false;
         this.damagedLastTurn = false;
         this.turnsRemainingUnderwater = 0;
@@ -329,7 +336,6 @@ class GameMap {
     items: Array<Item>;
     guards: Array<Guard>;
     playerStartPos: vec2;
-    totalLoot: number;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -338,7 +344,6 @@ class GameMap {
         this.items = [];
         this.guards = [];
         this.playerStartPos = vec2.create();
-        this.totalLoot = 0;
     }
 
     collectLootAt(x: number, y: number): number {
