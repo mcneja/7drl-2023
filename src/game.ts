@@ -170,7 +170,7 @@ function main(images: Array<HTMLImageElement>) {
             e.preventDefault();
             const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
             tryMovePlayer(state, 0, 1, moveSpeed);
-        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
+        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ' || e.code == 'Space') {
             e.preventDefault();
             tryMovePlayer(state, 0, 0, 1);
         } else if (e.code == 'Escape' || e.code == 'Slash') {
@@ -1285,7 +1285,7 @@ const helpPages: Array<Array<string>> = [
         'any loot you find.',
         '',
         '  Move: Arrows / WASD / HJKL',
-        '  Wait: Z / Period / Numpad5',
+        '  Wait: Space / Z / Period / Numpad5',
         '  Leap: Shift + move',
         '  Leap (Toggle): F / Numpad+',
         '',
