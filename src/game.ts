@@ -852,7 +852,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     if (state.player.noisy) {
         const x = state.player.pos[0];
         const y = state.player.pos[1] - 0.5;
-        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: colorPreset.white}, true);
+        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, true);
     }
 }
 
