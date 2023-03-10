@@ -1,5 +1,6 @@
 import {Howl} from 'howler';
 import {shuffleArray} from './random';
+import {Guard} from './guard';
 
 const titleSong = require('url:./audio/Minstrel_Dance.mp3');
 const levelRequirementJingle = require('url:./audio/level-requirement-1.ogg');
@@ -72,9 +73,6 @@ const guardSeeThiefSet:Array<SubtitledSoundDesc> = [
 
 const guardFinishLookingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.ogg'), 'Hmm...'],
-    [require('url:./audio/guards/hey.ogg'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.ogg'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.ogg'), 'Hey!'],
     [require('url:./audio/guards/What.ogg'), 'What?'],
     [require('url:./audio/guards/what was that.ogg'), 'What was that?'],
     [require('url:./audio/guards/quiet out.ogg'), 'Quiet out...'],
@@ -101,6 +99,7 @@ const guardFinishLookingSet: Array<SubtitledSoundDesc> = [
 const guardHearThiefSet:Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.ogg'), 'Hmm...'],
     [require('url:./audio/guards/What.ogg'), 'What?'] ,   
+    [require('url:./audio/guards/what-2.ogg'), 'What?'] ,   
     [require('url:./audio/guards/hey.ogg'), 'Hey!'],
     [require('url:./audio/guards/hey-2.ogg'), 'Hey!'],
     [require('url:./audio/guards/hey-3.ogg'), 'Hey!'],
@@ -123,10 +122,6 @@ const guardHearThiefSet:Array<SubtitledSoundDesc> = [
 
 const guardFinishListeningSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.ogg'), 'Hmm...'],
-    [require('url:./audio/guards/hey.ogg'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.ogg'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.ogg'), 'Hey!'],
-    [require('url:./audio/guards/What.ogg'), 'What?'],
     [require('url:./audio/guards/what was that.ogg'), 'What was that?'],
     [require('url:./audio/guards/quiet out.ogg'), 'Quiet out...'],
     [require('url:./audio/guards/jumpy.ogg'), 'Jumpy tonight...'],
@@ -257,20 +252,68 @@ const guardDamageSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ha ya-3.ogg'), 'Aiyah!'],
 ];
 
+
+export class ActiveHowlPool {
+    activeHowls: Array<[Howl, number]>;
+    activeLimit: number;
+    fadeTime: number;
+    constructor() {
+        this.activeHowls = [];
+        this.activeLimit = 2;
+        this.fadeTime = 1000;
+    }
+    setFadetime(time=1000) {
+        this.fadeTime = time;
+        return this;
+    }
+    fade(howl:Howl, id:number) {
+        if(this.fadeTime>0) {
+            howl.fade(1,0,this.fadeTime, id);
+            setTimeout(()=>howl.stop(id), this.fadeTime);
+        } else {
+            howl.stop(id);
+        }
+        return this;
+    }
+    empty() {
+        for(let hDat of this.activeHowls) {
+            this.fade(...hDat);
+        }
+        this.activeHowls = [];
+        return this;
+    }
+    queue(howl:Howl, id:number) {
+        this.activeHowls.unshift([howl, id]);
+        if(this.activeHowls.length>this.activeLimit) {
+            const hDat = this.activeHowls.pop() as [Howl, number];
+            this.fade(...hDat)
+
+        }
+        this.activeHowls.unshift([howl, id]);
+        this.activeHowls = this.activeHowls.slice(0, this.activeLimit);
+        return this;
+    }
+}
+
 export class HowlGroup {
     howls:Array<Howl>;
     howlNum:number;
-    constructor(files:Array<string>) {
+    soundPool: ActiveHowlPool|null;
+    
+    constructor(files:Array<string>, soundPool:ActiveHowlPool|null=null) {
         this.howls = files.map((file)=>new Howl({src: [file]}))
         this.howlNum = 0;
+        this.soundPool = soundPool;
         shuffleArray(this.howls);
     }
     play(volume:number):number {
-        const howl = this.nextHowl();
+        const howl = this.next();
         howl.volume(volume);
-        return howl.play();
+        const id = howl.play()
+        if(this.soundPool!==null) this.soundPool.queue(howl, id);
+        return id;
     }
-    nextHowl(): Howl {
+    next(): Howl {
         this.howlNum++;
         if(this.howlNum==this.howls.length) {
             this.howlNum=0;
@@ -280,8 +323,6 @@ export class HowlGroup {
     }
 }
 
-export type Howls = { [id:string]: HowlGroup };
-export type SubtitledHowls = { [id:string]: SubtitledHowlGroup };
 
 export type SubtitledSound = {
     sound: Howl;
@@ -291,13 +332,21 @@ export type SubtitledSound = {
 export class SubtitledHowlGroup {
     sounds: Array<SubtitledSound>;
     soundNum: number;
+    soundPool: ActiveHowlPool|null;
 
-    constructor(filesAndSubtitles: Array<[string, string]>) {
+    constructor(filesAndSubtitles: Array<[string, string]>, soundPool:ActiveHowlPool|null=null) {
         this.sounds = filesAndSubtitles.map(makeSubtitledSound);
         this.soundNum = 0;
+        this.soundPool = null;
         shuffleArray(this.sounds);
     }
-
+    play(volume:number):SubtitledSound {
+        const subSound = this.next();
+        subSound.sound.volume(volume);
+        const id = subSound.sound.play()
+        if(this.soundPool!==null) this.soundPool.queue(subSound.sound, id);
+        return subSound;
+    }
     next(): SubtitledSound {
         const subtitledSound = this.sounds[this.soundNum];
         ++this.soundNum;
@@ -309,11 +358,14 @@ export class SubtitledHowlGroup {
     }
 }
 
+export type Howls = { [id:string]: HowlGroup};
+export type SubtitledHowls = { [id:string]: SubtitledHowlGroup };
+
 function makeSubtitledSound(fileAndSub: [string, string]): SubtitledSound {
     return { sound: new Howl({src: [fileAndSub[0]]}), subtitle: fileAndSub[1] };
 }
 
-export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls) {
+export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPool: ActiveHowlPool) {
     sounds.footstepWood = new HowlGroup([footstepWood]);
     sounds.footstepTile = new HowlGroup([footstepTile]);
     sounds.footstepWater = new HowlGroup([footstepWater]);
@@ -322,22 +374,22 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls) {
     sounds.footstepCreaky = new HowlGroup(footstepCreakSet);
 
     sounds.titleSong = new HowlGroup([titleSong]);
-    sounds.levelRequirementJingle = new HowlGroup([levelRequirementJingle]);
-    sounds.levelCompleteJingle = new HowlGroup([levelCompleteJingle]);
-    sounds.gameOverJingle = new HowlGroup([gameOverJingle]);
-    sounds.easterEgg = new HowlGroup([easterEgg]);
+    sounds.levelRequirementJingle = new HowlGroup([levelRequirementJingle], howlPool);
+    sounds.levelCompleteJingle = new HowlGroup([levelCompleteJingle], howlPool);
+    sounds.gameOverJingle = new HowlGroup([gameOverJingle], howlPool);
+    sounds.easterEgg = new HowlGroup([easterEgg], howlPool);
     sounds.hitPlayer = new HowlGroup(hitPlayerSet);
     sounds.coin = new HowlGroup(coinSet);
     
-    subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet);
-    subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet);
-    subtitledSounds.guardSeeThief = new SubtitledHowlGroup(guardSeeThiefSet);
-    subtitledSounds.guardFinishLookingSet = new SubtitledHowlGroup(guardFinishLookingSet);
-    subtitledSounds.guardChase = new SubtitledHowlGroup(guardChaseSet);
-    subtitledSounds.guardEndChase = new SubtitledHowlGroup(guardEndChaseSet);
-    subtitledSounds.guardHearGuard = new SubtitledHowlGroup(guardHearGuardSet)
-    subtitledSounds.guardHearThief = new SubtitledHowlGroup(guardHearThiefSet)
-    subtitledSounds.guardFinishListening = new SubtitledHowlGroup(guardFinishListeningSet)
-    subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet)
+    subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet, howlPool);
+    subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);
+    subtitledSounds.guardSeeThief = new SubtitledHowlGroup(guardSeeThiefSet), howlPool;
+    subtitledSounds.guardFinishLookingSet = new SubtitledHowlGroup(guardFinishLookingSet, howlPool);
+    subtitledSounds.guardChase = new SubtitledHowlGroup(guardChaseSet, howlPool);
+    subtitledSounds.guardEndChase = new SubtitledHowlGroup(guardEndChaseSet, howlPool);
+    subtitledSounds.guardHearGuard = new SubtitledHowlGroup(guardHearGuardSet, howlPool);
+    subtitledSounds.guardHearThief = new SubtitledHowlGroup(guardHearThiefSet, howlPool);
+    subtitledSounds.guardFinishListening = new SubtitledHowlGroup(guardFinishListeningSet, howlPool);
+    subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet, howlPool);
 
 }

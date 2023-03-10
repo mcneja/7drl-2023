@@ -4,7 +4,7 @@ import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, Terrain
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
-import { setupSounds, Howls, SubtitledHowls } from './audio';
+import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool } from './audio';
 import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
@@ -58,6 +58,7 @@ type State = {
     gameMap: GameMap;
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
+    activeSoundPool: ActiveHowlPool;
     popups: Popups;
 }
 
@@ -75,12 +76,13 @@ function main(images: Array<HTMLImageElement>) {
     const renderer = new Renderer(canvas, tileSet, fontTileSet);
     const sounds:Howls = {};
     const subtitledSounds:SubtitledHowls = {};
-    const state = initState(sounds, subtitledSounds);
+    const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
+    const state = initState(sounds, subtitledSounds, activeSoundPool);
 
     document.body.addEventListener('keydown', onKeyDown);
 
     function onKeyDown(e: KeyboardEvent) {
-        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
+        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
 
         if (state.helpActive) {
             onKeyDownHelp(e);
@@ -243,6 +245,7 @@ function advanceToNextLevel(state: State) {
         return;
     }
 
+    state.activeSoundPool.empty();
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
@@ -260,12 +263,14 @@ function advanceToNextLevel(state: State) {
 }
 
 function advanceToBetweenMansions(state: State) {
+    state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
 }
 
 function advanceToWin(state: State) {
+    state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
@@ -891,7 +896,7 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
-function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
+function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool): State {
     const initialLevel = 0;
     const gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
@@ -916,6 +921,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         gameMap: gameMap,
         sounds: sounds,
         subtitledSounds: subtitledSounds,
+        activeSoundPool: activeSoundPool,
         popups: new Popups,
     };
 }
@@ -933,6 +939,7 @@ function restartGame(state: State) {
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
+    state.activeSoundPool.empty();
     state.popups.clear();
 }
 
@@ -945,6 +952,7 @@ function resetState(state: State) {
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
     state.popups.clear();
+    state.activeSoundPool.empty();
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
