@@ -168,7 +168,7 @@ function main(images: Array<HTMLImageElement>) {
             restartGame(state);
         } else if (e.code == 'KeyH') {
             e.preventDefault();
-            tryHealPlayer(statE);
+            tryHealPlayer(state);
         } else if (e.code == 'KeyN') {
             e.preventDefault();
             advanceToNextLevel(state);
