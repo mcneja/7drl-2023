@@ -243,7 +243,8 @@ class Player {
     loot: number;
     noisy: boolean; // did the player make noise last turn?
     damagedLastTurn: boolean;
-    turnsRemainingUnderwater: number;
+    maxStamina: number;
+    stamina: number;
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);
@@ -252,7 +253,8 @@ class Player {
         this.loot = 0;
         this.noisy = false;
         this.damagedLastTurn = false;
-        this.turnsRemainingUnderwater = 0;
+        this.maxStamina = 4;
+        this.stamina = this.maxStamina;
     }
 
     applyDamage(d: number) {
@@ -271,7 +273,7 @@ class Player {
 
         let cellType = map.cells.at(this.pos[0], this.pos[1]).type;
 
-        if (cellType == TerrainType.GroundWater && this.turnsRemainingUnderwater > 0) {
+        if (cellType == TerrainType.GroundWater && this.stamina > 0) {
             return true;
         }
 

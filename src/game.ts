@@ -17,7 +17,7 @@ window.onload = loadResourcesThenRun;
 const numGameMaps: number = 10;
 const totalGameLoot: number = 100;
 
-const targetStatusBarWidthInChars: number = 65;
+const targetStatusBarWidthInChars: number = 80;
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
@@ -253,7 +253,7 @@ function advanceToNextLevel(state: State) {
     state.player.dir = vec2.fromValues(0, -1);
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
-    state.player.turnsRemainingUnderwater = 0;
+    state.player.stamina = state.player.maxStamina;
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
@@ -289,18 +289,24 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     if ((dx === 0 && dy === 0) || distDesired <= 0) {
         preTurn(state);
-        advanceTime(state);
+        advanceTime(state, 1);
         return;
     }
 
-    let dist = playerMoveDistAllowed(state, dx, dy, distDesired);
+    // Limit distDesired by stamina
+
+    distDesired = Math.min(distDesired, state.player.stamina + 1);
+
+    // Determine how far we're allowed to move by level constraints
+
+    const dist = playerMoveDistAllowed(state, dx, dy, distDesired);
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
         if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
             preTurn(state);
             item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
-            advanceTime(state);
+            advanceTime(state, 1);
         }
         return;
     }
@@ -311,7 +317,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const oldTerrain = state.gameMap.cells.at(...player.pos).type;
 
-    for (; dist > 0; --dist) {
+    for (let i = 0; i < dist; ++i) {
         const x = player.pos[0] + dx;
         const y = player.pos[1] + dy;
 
@@ -342,7 +348,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         makeNoise(state.gameMap, player, 17, state.popups, state.sounds);
     }
 
-    advanceTime(state);
+    advanceTime(state, (dist > 1) ? -1 : 1);
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
@@ -487,15 +493,14 @@ function preTurn(state: State) {
     state.player.damagedLastTurn = false;
 }
 
-function advanceTime(state: State) {
+function advanceTime(state: State, staminaAdjust: number) {
     let oldHealth = state.player.health;
+
     if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
-        if (state.player.turnsRemainingUnderwater > 0) {
-            --state.player.turnsRemainingUnderwater;
-        }
-    } else {
-        state.player.turnsRemainingUnderwater = 7;
+        staminaAdjust -= 2;
     }
+
+    state.player.stamina = Math.max(0, Math.min(state.player.maxStamina, state.player.stamina + staminaAdjust));
 
     guardActAll(state.gameMap, state.popups, state.player);
 
@@ -1375,36 +1380,34 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const healthX = 1;
 
-    putString(renderer, healthX, "Health", colorPreset.darkRed);
+    putString(renderer, healthX, "Health", colorPreset.lightRed);
 
     for (let i = 0; i < maxPlayerHealth; ++i) {
-        const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
+        const color = (i < state.player.health) ? colorPreset.lightRed : colorPreset.darkGray;
         const glyphHeart = 3;
         renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
     }
 
+    // Stamina indicator
+
+    const staminaX = healthX + maxPlayerHealth + 9;
+
+    putString(renderer, staminaX, "Stamina", colorPreset.lightGreen);
+
+    for (let i = 0; i < state.player.maxStamina; ++i) {
+        const glyphBubble = 9;
+        const color = (i < state.player.stamina) ? colorPreset.lightGreen : colorPreset.darkGray;
+        renderer.addGlyph(staminaX + 8 + i, 0, staminaX + 9 + i, 1, {textureIndex:glyphBubble, color:color});
+    }
+
     if (state.gameMode == GameMode.Mansion) {
-        // Underwater indicator
-
-        const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
-        if (playerUnderwater) {
-            const breathX = healthX + maxPlayerHealth + 88;
-
-            putString(renderer, breathX, "Air", colorPreset.lightCyan);
-
-            for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
-                const glyphBubble = 9;
-                renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
-            }
-        }
-
         // Mapping percentage
 
         const percentSeen = state.gameMap.percentSeen();
 
         const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
 
-        const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
+        const seenX = Math.floor(statusBarTileSizeX * 0.6 - seenMsg.length / 2 + 0.5);
         putString(renderer, seenX, seenMsg, colorPreset.lightGray);
     }
 
