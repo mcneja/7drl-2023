@@ -33,7 +33,8 @@ type Camera = {
 
 enum GameMode {
     Mansion,
-    Doctor,
+    BetweenMansions,
+    Dead,
     Win,
 }
 
@@ -86,8 +87,9 @@ function main(images: Array<HTMLImageElement>) {
 
         switch (state.gameMode) {
             case GameMode.Mansion: onKeyDownMansion(e); break;
-            case GameMode.Doctor: onKeyDownDoctor(e); break;
-            case GameMode.Win: onKeyDownWin(e); break;
+            case GameMode.BetweenMansions: onKeyDownBetweenMansions(e); break;
+            case GameMode.Dead: onKeyDownGameOver(e); break;
+            case GameMode.Win: onKeyDownGameOver(e); break;
         }
 
         state.shiftModifierActive = false;
@@ -160,7 +162,7 @@ function main(images: Array<HTMLImageElement>) {
         }
     }
 
-    function onKeyDownDoctor(e: KeyboardEvent) {
+    function onKeyDownBetweenMansions(e: KeyboardEvent) {
         if (e.code == 'BracketLeft') {
             e.preventDefault();
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
@@ -181,7 +183,7 @@ function main(images: Array<HTMLImageElement>) {
         }
     }
 
-    function onKeyDownWin(e: KeyboardEvent) {
+    function onKeyDownGameOver(e: KeyboardEvent) {
         if (e.code == 'BracketLeft') {
             e.preventDefault();
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
@@ -232,9 +234,9 @@ function advanceToNextLevel(state: State) {
     state.gameMode = GameMode.Mansion;
 }
 
-function advanceToDoctor(state: State) {
+function advanceToBetweenMansions(state: State) {
     state.sounds['levelCompleteJingle'].play(0.5);
-    state.gameMode = GameMode.Doctor;
+    state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
 }
 
@@ -289,7 +291,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if (state.level >= numGameMaps - 1) {
                 advanceToWin(state);
             } else {
-                advanceToDoctor(state);
+                advanceToBetweenMansions(state);
             }
             return;
         }
@@ -428,10 +430,14 @@ function advanceTime(state: State) {
 
     postTurn(state);
 
-    if(oldHealth>state.player.health) state.sounds['hitPlayer'].play(0.5);
-    if(oldHealth>0 && state.player.health<=0) setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+    if (oldHealth > state.player.health) {
+        state.sounds['hitPlayer'].play(0.5);
 
-
+        if (state.player.health <= 0) {
+            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+            state.gameMode = GameMode.Dead;
+        }
+    }
 }
 
 function postTurn(state: State) {
@@ -446,9 +452,7 @@ function postTurn(state: State) {
 
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
-    if (state.player.health <= 0) {
-        state.topStatusMessage = 'You are dead! Press R to restart a new game.';
-    } else if (subtitle !== '') {
+    if (subtitle !== '') {
         state.topStatusMessage = subtitle;
     } else if (state.finishedLevel) {
         state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
@@ -965,7 +969,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             }
             break;
 
-        case GameMode.Doctor:
+        case GameMode.BetweenMansions:
             {
                 const matScreenFromWorld = mat4.create();
                 setupViewMatrix(state, screenSize, matScreenFromWorld);
@@ -983,6 +987,28 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                     '',
                     'H: Heal one heart for $' + state.healCost,
                     'N: Next mansion',
+                ]);
+            }
+            break;
+
+        case GameMode.Dead:
+            {
+                const matScreenFromWorld = mat4.create();
+                setupViewMatrix(state, screenSize, matScreenFromWorld);
+
+                renderer.start(matScreenFromWorld, 1);
+                renderWorld(state, renderer);
+                renderPlayer(state, renderer);
+                renderGuards(state, renderer);
+                renderer.flush();
+
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+
+                renderTextLines(renderer, screenSize, [
+                    '   You are dead!',
+                    '',
+                    'R: Restart new game',
                 ]);
             }
             break;
@@ -1006,7 +1032,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                     'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot from',
                     'the ' + numGameMaps + ' mansions.',
                     '',
-                    'Press R to restart a new game.',
+                    'R: Restart new game',
                 ]);
             }
             break;
