@@ -34,6 +34,7 @@ type Camera = {
 enum GameMode {
     Mansion,
     Doctor,
+    Win,
 }
 
 type State = {
@@ -88,6 +89,7 @@ function main(images: Array<HTMLImageElement>) {
         switch (state.gameMode) {
             case GameMode.Mansion: onKeyDownMansion(e); break;
             case GameMode.Doctor: onKeyDownDoctor(e); break;
+            case GameMode.Win: onKeyDownWin(e); break;
         }
 
         state.shiftModifierActive = false;
@@ -161,36 +163,22 @@ function main(images: Array<HTMLImageElement>) {
     }
 
     function onKeyDownDoctor(e: KeyboardEvent) {
-        if (e.ctrlKey) {
-            if (e.code === 'KeyA') {
-                e.preventDefault();
-                state.seeAll = !state.seeAll;
-            } else if (e.code === 'KeyV') {
-                e.preventDefault();
-                state.seeGuardSight = !state.seeGuardSight;
-            } else if (e.code === 'KeyP') {
-                e.preventDefault();
-                state.seeGuardPatrols = !state.seeGuardPatrols;
-            }
-        } else if (e.code == 'KeyR') {
+        if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
-        } else if (e.code == 'BracketLeft') {
+        } else if (e.code == 'KeyH') {
             e.preventDefault();
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'BracketRight') {
+            tryHealPlayer(statE);
+        } else if (e.code == 'KeyN') {
             e.preventDefault();
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
-        } else {
-            if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
-                e.preventDefault();
-                advanceToNextLevel(state);
-            } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
-                e.preventDefault();
-                tryHealPlayer(state);
-            }
+            advanceToNextLevel(state);
+        }
+    }
+
+    function onKeyDownWin(e: KeyboardEvent) {
+        if (e.code == 'KeyR') {
+            e.preventDefault();
+            restartGame(state);
         }
     }
 
@@ -216,7 +204,7 @@ function main(images: Array<HTMLImageElement>) {
 function advanceToNextLevel(state: State) {
     state.level += 1;
     if (state.level >= numGameMaps) {
-        resetState(state);
+        restartGame(state);
         return;
     }
 
@@ -229,16 +217,20 @@ function advanceToNextLevel(state: State) {
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = 0;
+    state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
-
-    state.gameMap.recomputeVisibility(state.player.pos);
 
     state.gameMode = GameMode.Mansion;
 }
 
 function advanceToDoctor(state: State) {
     state.gameMode = GameMode.Doctor;
+    state.topStatusMessage = '';
+}
+
+function advanceToWin(state: State) {
+    state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
 }
 
@@ -286,7 +278,11 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             player.pos[1] < 0 ||
             player.pos[0] >= state.gameMap.cells.sizeX ||
             player.pos[1] >= state.gameMap.cells.sizeY) {
-            advanceToDoctor(state);
+            if (state.level == numGameMaps - 1) {
+                advanceToWin(state);
+            } else {
+                advanceToDoctor(state);
+            }
             return;
         }
 
@@ -876,6 +872,7 @@ function restartGame(state: State) {
 
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
+    state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.finishedLevel = false;
     state.healCost = 1;
@@ -947,7 +944,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
 
         case GameMode.Doctor:
             {
-                const healLine = '  Up: Heal one heart for $' + state.healCost;
+                const healLine = 'H: Heal one heart for $' + state.healCost;
 
                 renderTopStatusBar(renderer, screenSize, state);
                 renderBottomStatusBar(renderer, screenSize, state);
@@ -956,7 +953,23 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                     '      Healer',
                     '',
                     healLine,
-                    'Down: Travel to next mansion',
+                    'N: Next mansion',
+                ]);
+            }
+            break;
+
+        case GameMode.Win:
+            {
+                renderTopStatusBar(renderer, screenSize, state);
+                renderBottomStatusBar(renderer, screenSize, state);
+
+                renderTextLines(renderer, screenSize, [
+                    'Mission Complete',
+                    '',
+                    'Collected ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
+                    'from the ' + numGameMaps + ' mansions.',
+                    '',
+                    'Press R to restart a new game.',
                 ]);
             }
             break;
