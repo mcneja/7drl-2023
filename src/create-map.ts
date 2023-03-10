@@ -1299,6 +1299,31 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
         return positions;
     }
 
+    // Search for any loot to stand next to
+    for (const item of gameMap.items) {
+        if (item.type == ItemType.Coin &&
+            item.pos[0] >= room.posMin[0] &&
+            item.pos[1] >= room.posMin[1] &&
+            item.pos[0] < room.posMax[0] &&
+            item.pos[1] < room.posMax[1]) {
+
+            for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const x = item.pos[0] + dir[0];
+                const y = item.pos[1] + dir[1];
+                if (x < room.posMin[0] || y < room.posMin[1] || x >= room.posMax[0] || y >= room.posMax[1]) {
+                    continue;
+                }
+                if (gameMap.cells.at(x, y).moveCost != 0) {
+                    continue;
+                }
+                positions.push(vec2.fromValues(x, y));
+            }
+        }
+    }
+    if (positions.length > 0) {
+        return positions;
+    }
+
     // Search for chairs to sit on
     for (const item of gameMap.items) {
         if (item.type == ItemType.Chair &&
