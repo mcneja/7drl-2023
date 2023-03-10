@@ -46,6 +46,7 @@ type State = {
     helpPageIndex: number;
     player: Player;
     topStatusMessage: string;
+    topStatusMessageSticky: boolean;
     finishedLevel: boolean;
     healCost: number;
     zoomLevel: number;
@@ -245,6 +246,7 @@ function advanceToNextLevel(state: State) {
 
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessageSticky = true;
     state.finishedLevel = false;
 
     state.player.pos = state.gameMap.playerStartPos;
@@ -263,12 +265,14 @@ function advanceToBetweenMansions(state: State) {
     state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
+    state.topStatusMessageSticky = false;
 }
 
 function advanceToWin(state: State) {
     state.sounds['levelCompleteJingle'].play(0.5);
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
+    state.topStatusMessageSticky = false;
 }
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
@@ -411,11 +415,11 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         if (x >= 0 && x < state.gameMap.cells.sizeX &&
             y >= 0 && y < state.gameMap.cells.sizeY) {
             if (state.gameMap.items.find((item) => item.pos[0] === x && item.pos[1] === y &&
-                isLeapableMoveObstacle(item.type)) !== undefined) {
+                    isLeapableMoveObstacle(item.type)) !== undefined ||
+                isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
                 --distAllowed;
-            }
-            if (isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
-                --distAllowed;
+                state.topStatusMessage = 'Shift + move to leap';
+                state.topStatusMessageSticky = false;
             }
         }
     }
@@ -459,9 +463,9 @@ function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups,
 }
 
 function preTurn(state: State) {
-    /* TODO
-    state.show_msgs = true;
-    */
+    if (!state.topStatusMessageSticky) {
+        state.topStatusMessage = '';
+    }
     state.popups.clear();
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
@@ -508,8 +512,10 @@ function postTurn(state: State) {
 
     if (subtitle !== '') {
         state.topStatusMessage = subtitle;
+        state.topStatusMessageSticky = true;
     } else if (state.finishedLevel) {
         state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
+        state.topStatusMessageSticky = true;
     }
 }
 
@@ -933,6 +939,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
+        topStatusMessageSticky: true,
         finishedLevel: false,
         healCost: 1,
         zoomLevel: 3,
@@ -957,6 +964,7 @@ function restartGame(state: State) {
 
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessageSticky = true;
     state.finishedLevel = false;
     state.healCost = 1;
     state.player = new Player(gameMap.playerStartPos);
@@ -969,6 +977,7 @@ function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessageSticky = true;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
