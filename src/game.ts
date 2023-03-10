@@ -42,6 +42,8 @@ type State = {
     tLast: number | undefined;
     shiftModifierActive: boolean;
     gameMode: GameMode;
+    helpActive: boolean;
+    helpPageIndex: number;
     player: Player;
     topStatusMessage: string;
     finishedLevel: boolean;
@@ -85,17 +87,36 @@ function main(images: Array<HTMLImageElement>) {
             return;
         }
 
-        switch (state.gameMode) {
-            case GameMode.Mansion: onKeyDownMansion(e); break;
-            case GameMode.BetweenMansions: onKeyDownBetweenMansions(e); break;
-            case GameMode.Dead: onKeyDownGameOver(e); break;
-            case GameMode.Win: onKeyDownGameOver(e); break;
+        if (state.helpActive) {
+            onKeyDownHelp(e);
+        } else {
+            switch (state.gameMode) {
+                case GameMode.Mansion: onKeyDownMansion(e); break;
+                case GameMode.BetweenMansions: onKeyDownBetweenMansions(e); break;
+                case GameMode.Dead: onKeyDownGameOver(e); break;
+                case GameMode.Win: onKeyDownGameOver(e); break;
+            }
         }
 
         state.shiftModifierActive = false;
     }
 
+    function onKeyDownHelp(e: KeyboardEvent) {
+        if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = false;
+        } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
+            e.preventDefault();
+            state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
+        } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
+            e.preventDefault();
+            state.helpPageIndex = Math.min(helpPages.length - 1, state.helpPageIndex + 1);
+        }
+    }
+
     function onKeyDownMansion(e: KeyboardEvent) {
+        const dashDesired = (state.shiftModifierActive || e.shiftKey) ? 2 : 1;
+
         if (e.ctrlKey) {
             if (e.code === 'KeyA') {
                 e.preventDefault();
@@ -141,24 +162,24 @@ function main(images: Array<HTMLImageElement>) {
             e.preventDefault();
             state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
-        } else {
-            const distDesired = (state.shiftModifierActive || e.shiftKey) ? 2 : 1;
-            if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
-                e.preventDefault();
-                tryMovePlayer(state, -1, 0, distDesired);
-            } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
-                e.preventDefault();
-                tryMovePlayer(state, 1, 0, distDesired);
-            } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
-                e.preventDefault();
-                tryMovePlayer(state, 0, -1, distDesired);
-            } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
-                e.preventDefault();
-                tryMovePlayer(state, 0, 1, distDesired);
-            } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
-                e.preventDefault();
-                tryMovePlayer(state, 0, 0, 1);
-            }
+        } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
+            e.preventDefault();
+            tryMovePlayer(state, -1, 0, dashDesired);
+        } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
+            e.preventDefault();
+            tryMovePlayer(state, 1, 0, dashDesired);
+        } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
+            e.preventDefault();
+            tryMovePlayer(state, 0, -1, dashDesired);
+        } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
+            e.preventDefault();
+            tryMovePlayer(state, 0, 1, dashDesired);
+        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ') {
+            e.preventDefault();
+            tryMovePlayer(state, 0, 0, 1);
+        } else if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = true;
         }
     }
 
@@ -180,6 +201,9 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyN') {
             e.preventDefault();
             advanceToNextLevel(state);
+        } else if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = true;
         }
     }
 
@@ -195,6 +219,9 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyR') {
             e.preventDefault();
             restartGame(state);
+        } else if (e.code == 'Escape' || e.code == 'Slash') {
+            e.preventDefault();
+            state.helpActive = true;
         }
     }
 
@@ -875,6 +902,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         tLast: undefined,
         shiftModifierActive: false,
         gameMode: GameMode.Mansion,
+        helpActive: false,
+        helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
         finishedLevel: false,
@@ -964,8 +993,13 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuardPatrolPaths(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                }
             }
             break;
 
@@ -979,15 +1013,20 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuards(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
-
-                renderTextLines(renderer, screenSize, [
-                    '   Mansion ' + (state.level + 1) + ' Complete!',
-                    '',
-                    'H: Heal one heart for $' + state.healCost,
-                    'N: Next mansion',
-                ]);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
+    
+                    renderTextLines(renderer, screenSize, [
+                        '   Mansion ' + (state.level + 1) + ' Complete!',
+                        '',
+                        'H: Heal one heart for $' + state.healCost,
+                        'N: Next mansion',
+                    ]);
+                }
             }
             break;
 
@@ -1002,14 +1041,19 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuards(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
 
-                renderTextLines(renderer, screenSize, [
-                    '   You are dead!',
-                    '',
-                    'R: Restart new game',
-                ]);
+                    renderTextLines(renderer, screenSize, [
+                        '   You are dead!',
+                        '',
+                        'R: Restart new game',
+                    ]);
+                }
             }
             break;
 
@@ -1023,16 +1067,21 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderGuards(state, renderer);
                 renderer.flush();
 
-                renderTopStatusBar(renderer, screenSize, state);
-                renderBottomStatusBar(renderer, screenSize, state);
+                if (state.helpActive) {
+                    renderHelp(renderer, screenSize, state);                    
+                    renderBottomStatusBar(renderer, screenSize, state);
+                } else {
+                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+                    renderBottomStatusBar(renderer, screenSize, state);
 
-                renderTextLines(renderer, screenSize, [
-                    '   Mission Complete!',
-                    '',
-                    'Score: ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
-                    '',
-                    'R: Restart new game',
-                ]);
+                    renderTextLines(renderer, screenSize, [
+                        '   Mission Complete!',
+                        '',
+                        'Score: ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
+                        '',
+                        'R: Restart new game',
+                    ]);
+                }
             }
             break;
     }
@@ -1164,7 +1213,35 @@ function statusBarZoom(screenSizeX: number): number {
     return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
-function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
+const helpPages: Array<Array<string>> = [
+    [
+        '          Mansion Mapper 2D',
+        '',
+        'Your mission from the thieves\' guild',
+        'is to map ' + numGameMaps + ' mansions. You can keep',
+        'any loot you find.',
+        '',
+        'Use arrow keys, WASD, or HJKL to move.',
+        'Shift+move to dash/leap two spaces.',
+        '',
+        'Page 1 of 2',
+    ],
+    [
+        'A 2023 Seven-Day Rogulike Challenge entry',
+        'by James McNeill and Damien Moore.',
+        '',
+        'Page 2 of 2',
+    ],
+];
+
+function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
+    renderTextLines(renderer, screenSize, helpPages[state.helpPageIndex]);
+
+    const status = 'Esc or / to return to game; left/right for more (' + (state.helpPageIndex + 1) + ' of ' + helpPages.length + ')';
+    renderTopStatusBar(renderer, screenSize, status);
+}
+
+function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: string) {
     const tileZoom = statusBarZoom(screenSize[0]);
 
     const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
@@ -1189,8 +1266,8 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
 
-    const messageX = Math.floor((statusBarTileSizeX - state.topStatusMessage.length) / 2 + 0.5);
-    putString(renderer, messageX, state.topStatusMessage, colorPreset.lightGray);
+    const messageX = Math.floor((statusBarTileSizeX - message.length) / 2 + 0.5);
+    putString(renderer, messageX, message, colorPreset.lightGray);
 
     renderer.flush();
 }
