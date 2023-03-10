@@ -45,8 +45,7 @@ class Guard {
     patrolReverse: boolean;
     patrolLoops: boolean;
 
-    constructor(patrolPath: Array<vec2>, map: GameMap) {
-        const pathIndexStart = randomInRange(patrolPath.length);
+    constructor(patrolPath: Array<vec2>, pathIndexStart: number, map: GameMap) {
         const posStart = patrolPath[pathIndexStart];
         this.pos = vec2.clone(posStart);
         this.dir = vec2.fromValues(1, 0);

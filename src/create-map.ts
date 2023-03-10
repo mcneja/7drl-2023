@@ -108,7 +108,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     fixupWalls(cells);
     cacheCellInfo(map);
 
-    const patrolRoutes = placePatrolRoutes(map, rooms, adjacencies);
+    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies);
 
     placeGuards(level, map, patrolRoutes);
 
@@ -1104,7 +1104,7 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
     }
 }
 
-function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
+function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
     const roomIncluded = Array(rooms.length).fill(false);
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         const roomType = rooms[iRoom].roomType;
@@ -1235,7 +1235,44 @@ function placePatrolRoutes(gameMap: GameMap, rooms: Array<Room>, adjacencies: Ar
         patrolRoutes.push(patrolPositions);
     }
 
+    // Past level 5, start including patrols around the outside of the mansion.
+
+    if (level > 5) {
+        const patrolPositions: Array<vec2> = [];
+        const xMin = 2;
+        const yMin = 2;
+        const xMax = gameMap.cells.sizeX - 3;
+        const yMax = gameMap.cells.sizeY - 3;
+
+        for (let x = xMin; x < xMax; ++x) {
+            patrolPositions.push(vec2.fromValues(x, yMin));
+        }
+        for (let y = yMin; y < yMax; ++y) {
+            patrolPositions.push(vec2.fromValues(xMax, y));
+        }
+        for (let x = xMax; x > xMin; --x) {
+            patrolPositions.push(vec2.fromValues(x, yMax));
+        }
+        for (let y = yMax; y > yMin; --y) {
+            patrolPositions.push(vec2.fromValues(xMin, y));
+        }
+
+        patrolRoutes.push(patrolPositions);
+        patrolRoutes.push(shiftedPathCopy(patrolPositions, Math.floor(patrolPositions.length / 2)));
+    }
+   
     return patrolRoutes;
+}
+
+function shiftedPathCopy(patrolPath: Array<vec2>, offset: number): Array<vec2> {
+    const patrolPathNew = [];
+    for (let i = offset; i < patrolPath.length; ++i) {
+        patrolPathNew.push(patrolPath[i]);
+    }
+    for (let i = 0; i < offset; ++i) {
+        patrolPathNew.push(patrolPath[i]);
+    }
+    return patrolPathNew;
 }
 
 function startingRoomIndex(iRoomPrev: Array<number>, iRoom: number) {
@@ -1965,38 +2002,13 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
     // Generate guards
 
     for (const patrolPath of patrolRoutes) {
-        const guard = new Guard(patrolPath, map);
-        if (map.guards.length < 1) {
+        let pathIndexStart = 0;
+        const guard = new Guard(patrolPath, pathIndexStart, map);
+        if (level > 1 && randomInRange(5 + level) < level) {
             guard.hasTorch = true;
         }
         map.guards.push(guard);
     }
-}
-
-function generateInitialGuardPos(map: GameMap): vec2 | undefined {
-    let sizeX = map.cells.sizeX;
-    let sizeY = map.cells.sizeY;
-    for (let i = 0; i < 1000; ++i) {
-        let pos = vec2.fromValues(randomInRange(sizeX), randomInRange(sizeY));
-
-        if (vec2.squaredDistance(map.playerStartPos, pos) < 64) {
-            continue;
-        }
-
-        let cellType = map.cells.at(pos[0], pos[1]).type;
-
-        if (cellType != TerrainType.GroundWood && cellType != TerrainType.GroundMarble) {
-            continue;
-        }
-
-        if (isItemAtPos(map, pos[0], pos[1])) {
-            continue;
-        }
-
-        return pos;
-    }
-
-    return undefined;
 }
 
 function markExteriorAsSeen(map: GameMap) {
