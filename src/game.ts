@@ -1401,6 +1401,7 @@ const helpPages: Array<Array<string>> = [
         '',
         'by James McNeill and Damien Moore',
         '',
+        'Additional voices by Evan Moore',
         'Additional assistance by Mike Gaffney',
         'Testing by Tom Elmer',
         'Special thanks to Mendi Carroll',
