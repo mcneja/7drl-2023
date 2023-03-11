@@ -1289,7 +1289,7 @@ const helpPages: Array<Array<string>> = [
         '',
         'Your mission from the thieves\' guild',
         'is to map ' + numGameMaps + ' mansions. You can keep',
-        'any loot you find.',
+        'any loot you find (' + totalGameLoot + ' total).',
         '',
         '  Move: Arrows / WASD / HJKL',
         '  Wait: Space / Z / Period / Numpad5',
@@ -1302,10 +1302,14 @@ const helpPages: Array<Array<string>> = [
         'Page 1 of 3',
     ],
     [
-        'You cannot injure the guards, but they will attack you.',
-        'Trees and tables can hide you if guards are not hunting.',
-        'One-way windows allow for quick escapes.',
-        'Guards only see ahead of themselves.',
+        '   Thief: You!',
+        '   Guard: Avoid them!',
+        '   Loot: Collect for score, or to spend on healing',
+        '   Tree: Hiding place',
+        '   Table: Hiding place',
+        '   Stool: Not a hiding place',
+        '   Torch: Guards want them lit',
+        '   Window: One-way escape route',
         '',
         'Page 2 of 3',
     ],
@@ -1315,7 +1319,7 @@ const helpPages: Array<Array<string>> = [
         'by James McNeill and Damien Moore',
         '',
         'Additional assistance by Mike Gaffney',
-        'Testing by Thomas Elmer',
+        'Testing by Tom Elmer',
         'Special thanks to Mendi Carroll',
         '',
         'Page 3 of 3',
@@ -1323,7 +1327,98 @@ const helpPages: Array<Array<string>> = [
 ];
 
 function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
-    renderTextLines(renderer, screenSize, helpPages[state.helpPageIndex]);
+
+    const lines = helpPages[state.helpPageIndex];
+
+    let maxLineLength = 0;
+    for (const line of lines) {
+        maxLineLength = Math.max(maxLineLength, line.length);
+    }
+
+    const minCharsX = 65;
+    const minCharsY = 22;
+    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
+    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
+    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+    const pixelsPerCharX = 8 * scaleFactor;
+    const pixelsPerCharY = 16 * scaleFactor;
+    const linesPixelSizeX = maxLineLength * pixelsPerCharX;
+    const linesPixelSizeY = lines.length * pixelsPerCharY;
+    const numCharsX = screenSize[0] / pixelsPerCharX;
+    const numCharsY = screenSize[1] / pixelsPerCharY;
+    const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
+    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
+
+    const matScreenFromTextArea = mat4.create();
+    mat4.ortho(
+        matScreenFromTextArea,
+        offsetX,
+        offsetX + numCharsX,
+        offsetY,
+        offsetY + numCharsY,
+        1,
+        -1);
+    renderer.start(matScreenFromTextArea, 0);
+
+    const colorText = 0xffeef0ff;
+    const colorBackground = 0xf0101010;
+
+    // Draw a stretched box to make a darkened background for the text.
+    renderer.addGlyph(
+        -2, -1, maxLineLength + 2, lines.length + 1,
+        {textureIndex:219, color:colorBackground}
+    );
+
+    for (let i = 0; i < lines.length; ++i) {
+        const row = lines.length - (1 + i);
+        for (let j = 0; j < lines[i].length; ++j) {
+            const col = j;
+            const ch = lines[i];
+            if (ch === ' ') {
+                continue;
+            }
+            const glyphIndex = lines[i].charCodeAt(j);
+            renderer.addGlyph(
+                col, row, col + 1, row + 1,
+                {textureIndex:glyphIndex, color:colorText}
+            );
+        }
+    }
+
+    renderer.flush();
+
+    if (state.helpPageIndex == 1) {
+        const pixelsPerGlyphX = 16 * scaleFactor;
+        const pixelsPerGlyphY = 16 * scaleFactor;
+        const numCharsX = screenSize[0] / pixelsPerGlyphX;
+        const numCharsY = screenSize[1] / pixelsPerGlyphY;
+        const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerGlyphX;
+        const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerGlyphY;
+    
+        mat4.ortho(
+            matScreenFromTextArea,
+            offsetX,
+            offsetX + numCharsX,
+            offsetY,
+            offsetY + numCharsY,
+            1,
+            -1);
+
+        function putGlyph(x: number, y: number, glyph: number) {
+            renderer.addGlyph(x, y + 0.125, x+1, y+1.125, {textureIndex: glyph, color: colorPreset.white});
+        }
+
+        renderer.start(matScreenFromTextArea, 1);
+        putGlyph(0, 9, 114);
+        putGlyph(0, 8, 81);
+        putGlyph(0, 7, 53);
+        putGlyph(0, 6, 50);
+        putGlyph(0, 5, 52);
+        putGlyph(0, 4, 51);
+        putGlyph(0, 3, 49);
+        putGlyph(0, 2, 160);
+        renderer.flush();
+    }
 
     const status = 'Esc or / to return to game; left/right for more (' + (state.helpPageIndex + 1) + ' of ' + helpPages.length + ')';
     renderTopStatusBar(renderer, screenSize, status);
