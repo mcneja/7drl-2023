@@ -1,8 +1,7 @@
 import {Howl} from 'howler';
 import {shuffleArray} from './random';
-import {Guard} from './guard';
 
-const titleSong = require('url:./audio/Minstrel_Dance.mp3');
+const victorySong = require('url:./audio/Minstrel_Dance.mp3');
 const levelRequirementJingle = require('url:./audio/level-requirement-1.ogg');
 const levelCompleteJingle = require('url:./audio/level-requirement-2.ogg');
 const gameOverJingle = require('url:./audio/lose-game-over.ogg');
@@ -34,7 +33,7 @@ const hitPlayerSet:Array<string> = [
     require('url:./audio/hitting/hit20.mp3.flac'),
     require('url:./audio/hitting/hit26.mp3.flac'),
     require('url:./audio/hitting/hit27.mp3.flac'),
-]
+];
 
 const coinSet = [
     require('url:./audio/coin.ogg'),
@@ -42,9 +41,64 @@ const coinSet = [
     require('url:./audio/coin-3.ogg'),
     require('url:./audio/coin-4.ogg'),    
     require('url:./audio/coin-5.ogg'),    
-]
+];
+
+const gruntSet = [
+    require('url:./audio/grunt.ogg'),
+    require('url:./audio/grunt-2.ogg'),
+    require('url:./audio/grunt-3.ogg'),
+    require('url:./audio/grunt-4.ogg'),    
+    require('url:./audio/grunt-5.ogg'),    
+    require('url:./audio/grunt-6.ogg'),    
+    require('url:./audio/grunt-7.ogg'),    
+    require('url:./audio/grunt-8.ogg'),    
+];
+
+const douseSet = [
+    require('url:./audio/douse.ogg'),
+    require('url:./audio/douse-2.ogg'),
+    require('url:./audio/douse-3.ogg'),
+    require('url:./audio/douse-4.ogg'),    
+];
+
+const igniteSet = [
+    require('url:./audio/ignite.ogg'),
+    require('url:./audio/ignite-2.ogg'),
+];
+
+const hideSet = [
+    require('url:./audio/hide.ogg'),
+    require('url:./audio/hide-2.ogg'),
+    require('url:./audio/hide-3.ogg'),
+    require('url:./audio/hide-4.ogg'),    
+    require('url:./audio/hide-5.ogg'),    
+    require('url:./audio/hide-6.ogg'),    
+];
+
+const gateSet = [
+    require('url:./audio/gate.ogg'),
+    require('url:./audio/gate-2.ogg'),
+    require('url:./audio/gate-3.ogg'),
+    require('url:./audio/gate-4.ogg'),    
+    require('url:./audio/gate-5.ogg'),    
+];
+
+
+const jumpSet = [
+    require('url:./audio/jump.ogg'),
+    require('url:./audio/jump-2.ogg'),
+    require('url:./audio/gotta jump.ogg'),
+    require('url:./audio/gotta jump-2.ogg'),    
+];
+
+
+const tooHighSet = [
+    require('url:./audio/too high.ogg'),
+    require('url:./audio/too high-2.ogg'),
+];
 
 type SubtitledSoundDesc = [string, string];
+
 
 const guardSeeThiefSet:Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.ogg'), 'Hmm...'],
@@ -259,7 +313,7 @@ export class ActiveHowlPool {
     fadeTime: number;
     constructor() {
         this.activeHowls = [];
-        this.activeLimit = 2;
+        this.activeLimit = 1;
         this.fadeTime = 1000;
     }
     setFadetime(time=1000) {
@@ -373,14 +427,22 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.footstepGrass = new HowlGroup([footstepGrass]);
     sounds.footstepCreaky = new HowlGroup(footstepCreakSet);
 
-    sounds.titleSong = new HowlGroup([titleSong]);
+    sounds.victorySong = new HowlGroup([victorySong]);
     sounds.levelRequirementJingle = new HowlGroup([levelRequirementJingle], howlPool);
     sounds.levelCompleteJingle = new HowlGroup([levelCompleteJingle], howlPool);
     sounds.gameOverJingle = new HowlGroup([gameOverJingle], howlPool);
     sounds.easterEgg = new HowlGroup([easterEgg], howlPool);
     sounds.hitPlayer = new HowlGroup(hitPlayerSet);
     sounds.coin = new HowlGroup(coinSet);
-    
+
+    sounds.grunt = new HowlGroup(gruntSet),
+    sounds.douse = new HowlGroup(douseSet),
+    sounds.ignite = new HowlGroup(igniteSet),
+    sounds.hide = new HowlGroup(hideSet),
+    sounds.gate = new HowlGroup(gateSet),
+    sounds.jump = new HowlGroup(jumpSet),
+    sounds.tooHigh = new HowlGroup(tooHighSet),
+
     subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet, howlPool);
     subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);
     subtitledSounds.guardSeeThief = new SubtitledHowlGroup(guardSeeThiefSet), howlPool;

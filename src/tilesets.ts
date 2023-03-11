@@ -223,7 +223,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([13, 13]), color:colorPreset.white,      unlitColor:0xffa07070}, // ItemType.PortcullisEW,
         {textureIndex: r([0,  3]),                                 unlitColor:0xffffffff}, // ItemType.TorchUnlit,
         {textureIndex: r([1,  3]),                                 unlitColor:0xffffffff}, // ItemType.TorchLit,    
-        {textureIndex: r([6,  3]),                                 unlitColor:0xffa07070}, // ItemType.TorchCarry,    
+        {textureIndex: r([12,  3]),                                 unlitColor:0xffa07070}, // ItemType.TorchCarry,    
     ],
     npcTiles: [
         {textureIndex: r([3, 5])},//guardE:
