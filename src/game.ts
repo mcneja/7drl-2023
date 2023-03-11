@@ -8,6 +8,8 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool } from './audio';
 import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
+import { type } from 'os';
+import { stat } from 'fs';
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
@@ -266,7 +268,7 @@ function advanceToNextLevel(state: State) {
 
 function advanceToBetweenMansions(state: State) {
     state.activeSoundPool.empty();
-    state.sounds['levelCompleteJingle'].play(0.5);
+    state.sounds['levelCompleteJingle'].play(0.35);
     state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -274,7 +276,8 @@ function advanceToBetweenMansions(state: State) {
 
 function advanceToWin(state: State) {
     state.activeSoundPool.empty();
-    state.sounds['levelCompleteJingle'].play(0.5);
+    if (state.player.loot>95 && Math.random()>0.9) state.sounds['easterEgg'].play(0.5);
+    else state.sounds['victorySong'].play(0.5);
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -302,11 +305,32 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
+        //Bump into torch
         if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
             preTurn(state);
+            if(item.type== ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
+            else state.sounds["douse"].play(0.05);
             item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
             advanceTime(state);
         }
+        //Bump into gate
+        const typeBump = state.gameMap.cells.at(...posBump).type;
+        const typePlayer = state.gameMap.cells.at(...player.pos).type;
+        if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
+                if(state.level===0) state.sounds['jump'].play(0.3);
+                else state.sounds['gate'].play(0.2);    
+        }
+        //Bump into windows
+        if(typeBump>=TerrainType.OneWayWindowE && typeBump<=TerrainType.OneWayWindowS) {
+            if(![TerrainType.GroundGrass,TerrainType.GroundNormal].includes(typePlayer)) {
+                if(state.level===0) state.sounds['jump'].play(0.3);
+                else state.sounds['footstepTile'].play(0.1);    
+            }
+            else {
+                if(state.level===0) state.sounds['tooHigh'].play(0.3);
+                else state.sounds['footstepTile'].play(0.1);    
+            }
+        }    
         return;
     }
 
@@ -351,9 +375,16 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
-    const newTerrain = state.gameMap.cells.at(...player.pos).type;
-    const changedTile = oldTerrain !== newTerrain;
-    switch(newTerrain) {
+    const pCell = state.gameMap.cells.at(...player.pos)
+    const changedTile = oldTerrain !== pCell.type;
+
+    // Hide sound effect
+    if(pCell.hidesPlayer) {
+        state.sounds['hide'].play(0.2);
+        return
+    }
+    //Terrain sound effects
+    switch(pCell.type) {
         case TerrainType.GroundWoodCreaky:
             state.sounds["footstepCreaky"].play(0.15*volScale);
             break;
