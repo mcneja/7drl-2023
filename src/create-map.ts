@@ -1108,6 +1108,7 @@ type PatrolNode = {
     roomIndex: number;
     nodeIndexNext: number;
     nodeIndexPrev: number;
+    visited: boolean;
 }
 
 function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
@@ -1129,6 +1130,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             roomIndex: iRoom,
             nodeIndexNext: -1,
             nodeIndexPrev: -1,
+            visited: false,
         });
     }
 
@@ -1167,6 +1169,29 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
         }
     }
 
+    // Split long routes into separate pieces
+
+    for (let iNode = 0; iNode < nodes.length; ++iNode) {
+        if (nodes[iNode].visited) {
+            continue;
+        }
+
+        visitRoute(nodes, iNode);
+
+        if (isLoopingPatrolRoute(nodes, iNode)) {
+            continue;
+        }
+
+        const numNodes = patrolRouteLength(nodes, iNode);
+        if (numNodes <= 4) {
+            continue;
+        }
+
+        const pieceLength = 3;
+
+        splitPatrolRoute(nodes, iNode, pieceLength);
+    }
+
     // Join orphan rooms by generating new nodes in the existing paths
 
     for (const adj of adjacenciesShuffled) {
@@ -1192,6 +1217,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
                 roomIndex: node1.roomIndex,
                 nodeIndexNext: node1.nodeIndexNext,
                 nodeIndexPrev: iNode0,
+                visited: false,
             });
             node1.nodeIndexNext = iNode0;
             node0.nodeIndexPrev = iNode1;
@@ -1205,7 +1231,8 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             nodes.push({
                 roomIndex: node0.roomIndex,
                 nodeIndexNext: node0.nodeIndexNext,
-                nodeIndexPrev: iNode1
+                nodeIndexPrev: iNode1,
+                visited: false,
             });
             node0.nodeIndexNext = iNode1;
             node1.nodeIndexNext = iNode2;
@@ -1213,8 +1240,6 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             nodes[iNode3].nodeIndexPrev = iNode2;
         }
     }
-
-    // Split long routes into separate pieces
 
     // Generate sub-paths within each room along the paths
     // Each room is responsible for the path from the
@@ -1268,6 +1293,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
                 posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
 
                 patrolPositions.push(vec2.clone(posStart));
+                patrolPositions.push(vec2.clone(posStart));
             } else if (iRoomNext === -1) {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
@@ -1292,6 +1318,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
 
                 patrolPositions.push(vec2.clone(posEnd));
                 patrolPositions.push(vec2.clone(posEnd));
+                patrolPositions.push(vec2.clone(posEnd));
 
                 vec2.copy(posStart, posEnd);
                 posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
@@ -1306,6 +1333,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             }
 
             if (iRoomNext === -1) {
+                patrolPositions.push(vec2.clone(posEnd));
                 patrolPositions.push(vec2.clone(posEnd));
                 patrolPositions.push(vec2.clone(posEnd));
             }
@@ -1354,17 +1382,6 @@ function shiftedPathCopy(patrolPath: Array<vec2>, offset: number): Array<vec2> {
     return patrolPathNew;
 }
 
-function startingNodeIndex(nodes: Array<PatrolNode>, iNode: number) {
-    let iNodeStart = iNode;
-    while (nodes[iNodeStart].nodeIndexPrev != -1) {
-        iNodeStart = nodes[iNodeStart].nodeIndexPrev;
-        if (iNodeStart == iNode) {
-            break;
-        }
-    }
-    return iNodeStart;
-}
-
 function flipReverse(nodes: Array<PatrolNode>, iNode: number) {
     let iNodeVisited = -1;
     while (iNode != -1) {
@@ -1384,6 +1401,77 @@ function flipForward(nodes: Array<PatrolNode>, iNode: number) {
         nodes[iNode].nodeIndexNext = iNodeVisited;
         iNodeVisited = iNode;
         iNode = iRoomToVisit;
+    }
+}
+
+function startingNodeIndex(nodes: Array<PatrolNode>, iNode: number) {
+    let iNodeStart = iNode;
+    while (nodes[iNodeStart].nodeIndexPrev != -1) {
+        iNodeStart = nodes[iNodeStart].nodeIndexPrev;
+        if (iNodeStart == iNode) {
+            break;
+        }
+    }
+    return iNodeStart;
+}
+
+function isLoopingPatrolRoute(nodes: Array<PatrolNode>, iNodeStart: number) {
+    for (let iNode = nodes[iNodeStart].nodeIndexNext; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
+        if (iNode == iNodeStart) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function patrolRouteLength(nodes: Array<PatrolNode>, iNodeAny: number) {
+    let c = 0;
+    let iNodeStart = startingNodeIndex(nodes, iNodeAny);
+    for (let iNode = iNodeStart; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
+        ++c;
+        if (nodes[iNode].nodeIndexNext == iNodeStart) {
+            break;
+        }
+    }
+    return c;
+}
+
+function visitRoute(nodes: Array<PatrolNode>, iNodeAny: number) {
+    let iNodeStart = startingNodeIndex(nodes, iNodeAny);
+    for (let iNode = iNodeStart; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
+        nodes[iNode].visited = true;
+        if (nodes[iNode].nodeIndexNext == iNodeStart) {
+            break;
+        }
+    }
+}
+
+function splitPatrolRoute(nodes: Array<PatrolNode>, iNodeAny: number, pieceLength: number) {
+    const iNodeStart = startingNodeIndex(nodes, iNodeAny);
+    let iNode = iNodeStart;
+    let cNode = 0;
+    while (true) {
+        const iNodeNext = nodes[iNode].nodeIndexNext;
+        if (iNodeNext == -1) {
+            break;
+        }
+
+        if (patrolRouteLength(nodes, iNode) < 2 * pieceLength) {
+            break;
+        }
+
+        ++cNode;
+        if (cNode >= pieceLength) {
+            cNode = 0;
+            nodes[iNode].nodeIndexNext = -1;
+            nodes[iNodeNext].nodeIndexPrev = -1;
+        }
+
+        iNode = iNodeNext;
+
+        if (iNode == iNodeStart) {
+            break;
+        }
     }
 }
 
@@ -1426,6 +1514,7 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
 
 function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
     const positions: Array<vec2> = [];
+
     // Search for positions with adjacent windows to look out of
     for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
         if (room.posMin[1] > 0) {
