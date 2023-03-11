@@ -287,6 +287,11 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const player = state.player;
 
+    const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
+    const guardOnGate = gate!==undefined ? state.gameMap.guards
+            .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
+
+
     // Can't move if you're dead.
 
     if (player.health <= 0) {
@@ -317,20 +322,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         const typeBump = state.gameMap.cells.at(...posBump).type;
         const typePlayer = state.gameMap.cells.at(...player.pos).type;
         if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
-                if(state.level===0) state.sounds['jump'].play(0.3);
-                else state.sounds['gate'].play(0.2);    
+            state.sounds['gate'].play(0.3);    
         }
-        //Bump into windows
-        if(typeBump>=TerrainType.OneWayWindowE && typeBump<=TerrainType.OneWayWindowS) {
-            if(![TerrainType.GroundGrass,TerrainType.GroundNormal].includes(typePlayer)) {
-                if(state.level===0) state.sounds['jump'].play(0.3);
-                else state.sounds['footstepTile'].play(0.1);    
-            }
-            else {
-                if(state.level===0) state.sounds['tooHigh'].play(0.3);
-                else state.sounds['footstepTile'].play(0.1);    
-            }
-        }    
         return;
     }
 
@@ -407,6 +400,12 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
             break;
         }
+        //Guard on gate sound effect
+        if (gate!==undefined && guardOnGate===undefined) {
+            const guard = state.gameMap.guards.find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]);
+            if(guard!==undefined && vec2.squaredDistance(state.player.pos, guard.pos) <= 100) state.sounds['gate'].play(0.2);
+        }
+    
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
@@ -427,9 +426,11 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             break;
         } else if (blocked(state.gameMap, posPrev, pos)) {
             if (isOneWayWindowTerrainType(state.gameMap.cells.at(...pos).type)) {
-                state.topStatusMessage = 'Window cannot be opened from outside';
+                state.topStatusMessage = 'Window cannot be accessed from outside';
                 state.topStatusMessageSticky = false;
-            }
+                if(state.level===0) state.sounds['tooHigh'].play(0.3);
+                else state.sounds['footstepTile'].play(0.1);    
+    }
             break;
         } else {
             distAllowed = d;
@@ -460,6 +461,14 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 --distAllowed;
                 state.topStatusMessage = 'Shift+move to leap';
                 state.topStatusMessageSticky = false;
+                if(state.level===0) {
+                    if([TerrainType.PortcullisEW, TerrainType.PortcullisNS].includes(state.gameMap.cells.at(x, y).type)) {
+                        setTimeout(()=>state.sounds['jump'].play(0.3),1000);
+                    } else {
+                        state.sounds['jump'].play(0.3);
+                    }
+                } 
+                else state.sounds['footstepTile'].play(0.1);    
             }
         }
     }
@@ -532,6 +541,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
+
     guardActAll(state.gameMap, state.popups, state.player);
 
     state.gameMap.computeLighting();
@@ -543,7 +553,7 @@ function advanceTime(state: State) {
         state.sounds['hitPlayer'].play(0.5);
 
         if (state.player.health <= 0) {
-            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
             state.gameMode = GameMode.Dead;
         }
     }
@@ -780,7 +790,15 @@ function renderWorld(state: State, renderer: Renderer) {
             }
             const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
-            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+
+            //Draw tile
+            if([TerrainType.PortcullisEW].includes(terrainType)
+                && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lit);
+            } else {
+                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+            }
+            //Draw border for water
             if(terrainType===TerrainType.GroundWater) {
                 const ledge = renderer.tileSet.ledgeTiles;
                 let ctr = 0;
@@ -798,7 +816,13 @@ function renderWorld(state: State, renderer: Renderer) {
             for(let item of mappedItems[ind]) {
                 const alwaysLit = (item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) || item.type == ItemType.Coin;
                 const lit = alwaysLit || cell.lit;
-                renderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, renderer.tileSet.itemTiles[item.type], lit);    
+
+                if([TerrainType.PortcullisEW].includes(terrainType)
+                    && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                        renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lit);    
+                } else {
+                    renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[item.type], lit);    
+                }
             }
         }
     }
@@ -845,14 +869,18 @@ function renderGuards(state: State, renderer: Renderer) {
         else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) lit=false;
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
+        const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
+        const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
+        const x = guard.pos[0] + offX;
+        const y = guard.pos[1];
         if(guard.hasTorch) {
-            const g0 = guard.pos[0]+guard.dir[0]*0.5+guard.dir[1]*0.25;
-            const g1 = guard.pos[1];
+            let g0 = guard.pos[0]+guard.dir[0]*0.375+guard.dir[1]*0.375;
+            let g1 = guard.pos[1];
             if(guard.dir[1]>0) {
                 renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-                renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);
             } else {
-                renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);    
                 renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
             }
         }

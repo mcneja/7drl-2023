@@ -87,8 +87,8 @@ const gateSet = [
 const jumpSet = [
     require('url:./audio/jump.ogg'),
     require('url:./audio/jump-2.ogg'),
-    require('url:./audio/gotta jump.ogg'),
-    require('url:./audio/gotta jump-2.ogg'),    
+    // require('url:./audio/gotta jump.ogg'),
+    // require('url:./audio/gotta jump-2.ogg'),    
 ];
 
 
@@ -313,7 +313,7 @@ export class ActiveHowlPool {
     fadeTime: number;
     constructor() {
         this.activeHowls = [];
-        this.activeLimit = 1;
+        this.activeLimit = 2;
         this.fadeTime = 1000;
     }
     setFadetime(time=1000) {
@@ -343,7 +343,6 @@ export class ActiveHowlPool {
             this.fade(...hDat)
 
         }
-        this.activeHowls.unshift([howl, id]);
         this.activeHowls = this.activeHowls.slice(0, this.activeLimit);
         return this;
     }
@@ -391,7 +390,7 @@ export class SubtitledHowlGroup {
     constructor(filesAndSubtitles: Array<[string, string]>, soundPool:ActiveHowlPool|null=null) {
         this.sounds = filesAndSubtitles.map(makeSubtitledSound);
         this.soundNum = 0;
-        this.soundPool = null;
+        this.soundPool = soundPool;
         shuffleArray(this.sounds);
     }
     play(volume:number):SubtitledSound {
