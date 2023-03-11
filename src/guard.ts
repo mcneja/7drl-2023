@@ -371,6 +371,7 @@ class Guard {
         }
 
         vec2.copy(this.pos, posNext);
+        this.onMove(map, player);
         return MoveResult.Moved;
     }
 
@@ -389,6 +390,7 @@ class Guard {
         }
 
         vec2.copy(this.pos, posNext);
+        this.onMove(map, player);
         return MoveResult.Moved;
     }
 
@@ -407,7 +409,17 @@ class Guard {
         }
 
         vec2.copy(this.pos, posNext);
+        this.onMove(map, player);
         return MoveResult.Moved;
+    }
+
+    onMove(map: GameMap, player: Player) {
+        if (vec2.squaredDistance(player.pos, this.pos) < 64) {
+            const terrainType = map.cells.at(this.pos[0], this.pos[1]).type;
+            if (terrainType == TerrainType.PortcullisNS || terrainType == TerrainType.PortcullisEW) {
+                // console.log('went through portcullis');
+            }
+        }
     }
 
     findPatrolPathIndex(): boolean {
