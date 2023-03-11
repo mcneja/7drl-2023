@@ -23,7 +23,7 @@ const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Scout the entire mansion, then leave. Keep any loot you find.';
+const startingTopStatusMessage = 'Esc or / for help';
 
 type Camera = {
     position: vec2;
@@ -966,7 +966,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         tLast: undefined,
         leapToggleActive: false,
         gameMode: GameMode.Mansion,
-        helpActive: true,
+        helpActive: false,
         helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
@@ -1285,7 +1285,7 @@ function statusBarZoom(screenSizeX: number): number {
 
 const helpPages: Array<Array<string>> = [
     [
-        '          Mansion Mapper 2D',
+        '         Lurk, Leap, Loot',
         '',
         'Your mission from the thieves\' guild',
         'is to map ' + numGameMaps + ' mansions. You can keep',
@@ -1299,18 +1299,26 @@ const helpPages: Array<Array<string>> = [
         '',
         'Disable NumLock if using numpad',
         '',
-        'Page 1 of 2',
+        'Page 1 of 3',
     ],
     [
-        'A 2023 Seven-Day Roguelike Challenge entry',
-        'by James McNeill and Damien Moore.',
+        'You cannot injure the guards, but they will attack you.',
+        'Trees and tables can hide you if guards are not hunting.',
+        'One-way windows allow for quick escapes.',
+        'Guards only see ahead of themselves.',
         '',
-        'Hints:',
-        'Hide in trees or under tables; guards can be',
-        'next to you without seeing you unless they are',
-        'searching.',
+        'Page 2 of 3',
+    ],
+    [
+        'Made for 2023 Seven-Day Roguelike Challenge',
         '',
-        'Page 2 of 2',
+        'by James McNeill and Damien Moore',
+        '',
+        'Additional assistance by Mike Gaffney',
+        'Testing by Thomas Elmer',
+        'Special thanks to Mendi Carroll',
+        '',
+        'Page 3 of 3',
     ],
 ];
 
