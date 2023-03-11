@@ -1,5 +1,7 @@
-import {Howl} from 'howler';
-import {shuffleArray} from './random';
+import { Howl, Howler } from 'howler';
+import { shuffleArray } from './random';
+
+export { Howler };
 
 const victorySong = require('url:./audio/Minstrel_Dance.mp3');
 const levelRequirementJingle = require('url:./audio/level-requirement-1.ogg');
@@ -386,14 +388,17 @@ export class SubtitledHowlGroup {
     sounds: Array<SubtitledSound>;
     soundNum: number;
     soundPool: ActiveHowlPool|null;
+    mute: boolean;
 
     constructor(filesAndSubtitles: Array<[string, string]>, soundPool:ActiveHowlPool|null=null) {
         this.sounds = filesAndSubtitles.map(makeSubtitledSound);
         this.soundNum = 0;
         this.soundPool = soundPool;
+        this.mute = false;
         shuffleArray(this.sounds);
     }
-    play(volume:number):SubtitledSound {
+    play(volume:number):SubtitledSound|null {
+        if(this.mute) return null;
         const subSound = this.next();
         subSound.sound.volume(volume);
         const id = subSound.sound.play()

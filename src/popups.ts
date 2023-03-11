@@ -51,8 +51,7 @@ class Popups {
         const popup = this.popups[0];
         const soundName = soundNameForPopupType(popup.popupType);
         const subtitledSound = subtitledSounds[soundName].play(0.6);
-
-        return subtitledSound.subtitle;
+        return subtitledSound!==null? subtitledSound.subtitle: '';
     }
 }
 

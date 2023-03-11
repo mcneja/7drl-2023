@@ -4,7 +4,7 @@ import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, Terrain
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
-import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool } from './audio';
+import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
@@ -62,6 +62,8 @@ type State = {
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
     activeSoundPool: ActiveHowlPool;
+    guardMute: boolean;
+    volumeMute: boolean;
     popups: Popups;
 }
 
@@ -183,6 +185,24 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             e.preventDefault();
             state.leapToggleActive = !state.leapToggleActive;
+        } else if (e.code == 'Digit9') {
+            e.preventDefault();
+            state.guardMute = !state.guardMute;
+            for(const s in subtitledSounds) {
+                subtitledSounds[s].mute = state.guardMute;
+            }
+        } else if (e.code == 'Digit0') {
+            e.preventDefault();
+            state.volumeMute = !state.volumeMute;
+            Howler.mute(state.volumeMute);
+        } else if (e.code == 'Minus') {
+            e.preventDefault();
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol-0.1,0.1));
+        } else if (e.code == 'Equal') {
+            e.preventDefault();
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol+0.1,1.0));
         }
     }
 
@@ -1043,6 +1063,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         sounds: sounds,
         subtitledSounds: subtitledSounds,
         activeSoundPool: activeSoundPool,
+        guardMute: false,
+        volumeMute: false,
         popups: new Popups,
     };
 }
@@ -1355,6 +1377,8 @@ const helpPages: Array<Array<string>> = [
         '  Leap: Shift + move',
         '  Leap (Toggle): F / Numpad+',
         '  Zoom View: [ / ]',
+        '  Volume: (Mute/Down/Up) 0 / - / =',
+        '  Guard Mute (Toggle): 9',
         '',
         'Disable NumLock if using numpad',
         '',
