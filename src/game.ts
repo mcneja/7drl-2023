@@ -25,7 +25,7 @@ const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Scout the entire mansion, then leave. Keep any loot you find.';
+const startingTopStatusMessage = 'Esc or / for help';
 
 type Camera = {
     position: vec2;
@@ -505,7 +505,6 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
 
 function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
     player.noisy = true;
-    popups.add(PopupType.Noise, player.pos);
 
     sounds.footstepCreaky.play(0.6);
 
@@ -957,7 +956,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0x80ffffff}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, true);
         }
     }
 }
@@ -998,7 +997,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         tLast: undefined,
         leapToggleActive: false,
         gameMode: GameMode.Mansion,
-        helpActive: true,
+        helpActive: false,
         helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
@@ -1317,7 +1316,7 @@ function statusBarZoom(screenSizeX: number): number {
 
 const helpPages: Array<Array<string>> = [
     [
-        '          Mansion Mapper 2D',
+        '         Lurk, Leap, Loot',
         '',
         'Your mission from the thieves\' guild',
         'is to map ' + numGameMaps + ' mansions. You can keep',
@@ -1331,18 +1330,26 @@ const helpPages: Array<Array<string>> = [
         '',
         'Disable NumLock if using numpad',
         '',
-        'Page 1 of 2',
+        'Page 1 of 3',
     ],
     [
-        'A 2023 Seven-Day Roguelike Challenge entry',
-        'by James McNeill and Damien Moore.',
+        'You cannot injure the guards, but they will attack you.',
+        'Trees and tables can hide you if guards are not hunting.',
+        'One-way windows allow for quick escapes.',
+        'Guards only see ahead of themselves.',
         '',
-        'Hints:',
-        'Hide in trees or under tables; guards can be',
-        'next to you without seeing you unless they are',
-        'searching.',
+        'Page 2 of 3',
+    ],
+    [
+        'Made for 2023 Seven-Day Roguelike Challenge',
         '',
-        'Page 2 of 2',
+        'by James McNeill and Damien Moore',
+        '',
+        'Additional assistance by Mike Gaffney',
+        'Testing by Thomas Elmer',
+        'Special thanks to Mendi Carroll',
+        '',
+        'Page 3 of 3',
     ],
 ];
 
@@ -1496,7 +1503,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
     renderer.start(matScreenFromTextArea, 0);
 
     const colorText = 0xffeef0ff;
-    const colorBackground = 0xe0101010;
+    const colorBackground = 0xf0101010;
 
     // Draw a stretched box to make a darkened background for the text.
     renderer.addGlyph(
