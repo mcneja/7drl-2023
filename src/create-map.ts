@@ -1182,12 +1182,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             continue;
         }
 
-        const numNodes = patrolRouteLength(nodes, iNode);
-        if (numNodes <= 4) {
-            continue;
-        }
-
-        const pieceLength = 3;
+        const pieceLength = Math.max(3, 10 - level);
 
         splitPatrolRoute(nodes, iNode, pieceLength);
     }
