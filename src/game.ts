@@ -1552,30 +1552,28 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
     }
 
-    if (state.gameMode == GameMode.Mansion) {
-        // Underwater indicator
+    // Underwater indicator
 
-        const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
-        if (playerUnderwater) {
-            const breathX = healthX + maxPlayerHealth + 88;
+    const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
+    if (playerUnderwater) {
+        const breathX = healthX + maxPlayerHealth + 88;
 
-            putString(renderer, breathX, "Air", colorPreset.lightCyan);
+        putString(renderer, breathX, "Air", colorPreset.lightCyan);
 
-            for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
-                const glyphBubble = 9;
-                renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
-            }
+        for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
+            const glyphBubble = 9;
+            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
         }
-
-        // Mapping percentage
-
-        const percentSeen = state.gameMap.percentSeen();
-
-        const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
-
-        const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
-        putString(renderer, seenX, seenMsg, colorPreset.lightGray);
     }
+
+    // Mapping percentage
+
+    const percentSeen = state.gameMap.percentSeen();
+
+    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
+
+    const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
+    putString(renderer, seenX, seenMsg, colorPreset.lightGray);
 
     // Total loot
 
