@@ -1329,7 +1329,8 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const bh = buttonAlloc[1]-y;
     const offZoom = state.helpActive || state.gameMode!=GameMode.Mansion?100:0;
     const offHealNext = state.helpActive || state.gameMode!=GameMode.BetweenMansions?100:0;
-    const offRestartFullscreen = state.helpActive || [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
+    const offRestart = [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
+    const offForceRestartFullscreen = state.helpActive ? 0:100;
     const buttonData:{[id:string]:{game:Rect,view:Rect,textureIndex:number}} = {
         'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), textureIndex:4},
         'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), textureIndex:5},
@@ -1341,8 +1342,9 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), textureIndex:11},
         'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), textureIndex:12},
         'nextLevel':{game:new Rect(x+w-bw+offHealNext,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:13},
-        'fullscreen':  {game:new Rect(x+w-bw+offRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), textureIndex:15+32},
-        'forceRestart':  {game:new Rect(x+w-bw+offRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:14},
+        'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), textureIndex:15+32},
+        'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), textureIndex:14},
+        'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:14},
         'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), textureIndex:15},
     }
     for(const bkey in buttonData) {
