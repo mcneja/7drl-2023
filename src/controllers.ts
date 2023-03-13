@@ -294,7 +294,7 @@ class TouchController extends Controller {
             'zoomOut': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'heal': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'nextLevel': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'force': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
+            'restart': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'forceRestart': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'menu': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'fullscreen': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},

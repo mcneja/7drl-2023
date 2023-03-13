@@ -1254,6 +1254,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderer.start(matScreenFromWorld, 1);
                 renderWorld(state, renderer);
                 renderGuards(state, renderer);
+                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
                 renderer.flush();
 
                 if (state.helpActive) {
