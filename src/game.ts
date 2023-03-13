@@ -9,9 +9,6 @@ import { Popups, PopupType } from './popups';
 import { TouchController, GamepadManager, KeyboardController, ControlStates, controlStates, lastController, Rect } from './controllers';
 
 import * as colorPreset from './color-preset';
-import { type } from 'os';
-import { stat } from 'fs';
-import { Key } from 'readline';
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
@@ -83,6 +80,9 @@ function loadResourcesThenRun() {
 function main(images: Array<HTMLImageElement>) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
+    document.body.addEventListener('keydown', onKeyDown);
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('touchstart', onTouchDown);
 
     const renderer = new Renderer(canvas, tileSet, fontTileSet);
     const sounds:Howls = {};
@@ -91,9 +91,6 @@ function main(images: Array<HTMLImageElement>) {
     const touchController = new TouchController(canvas);
     const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
 
-    document.body.addEventListener('keydown', onKeyDown);
-    canvas.addEventListener('mousedown', onMouseDown);
-    canvas.addEventListener('touchstart', onTouchDown);
     function onTouchDown(e: TouchEvent) {
         if (Object.keys(state.sounds).length==0) {
             setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
@@ -143,23 +140,33 @@ function updateControllerState(state:State) {
 
     function pressed(action:string):boolean {
         if(!(action in controlStates)) return false;
-        if(lastController === state.keyboardController) {
-            const result = controlStates[action] && (!state.oldControlStates[action] || Date.now()-lastController.controlTimes[action]>250);
-            if(result) lastController.controlTimes[action] = Date.now();
-            return result;
-        }
-        if(lastController!=null) {
-            const result = !controlStates[action] && state.oldControlStates[action] 
-                || controlStates[action] && Date.now()-lastController.controlTimes[action]>250;
-            if(result) lastController.controlTimes[action] = Date.now();
-            return result
-        }
-        return false;
+        if(lastController==null) return false
+        const result = controlStates[action] && (!state.oldControlStates[action] || Date.now()-lastController.controlTimes[action]>250);
+        if(result) lastController.controlTimes[action] = Date.now();
+        return result;
+
+        // if(lastController === state.keyboardController) {
+        //     const result = controlStates[action] && (!state.oldControlStates[action] || Date.now()-lastController.controlTimes[action]>250);
+        //     if(result) lastController.controlTimes[action] = Date.now();
+        //     return result;
+        // }
+        // if(lastController!=null) {
+        //     const result = !controlStates[action] && state.oldControlStates[action] 
+        //         || controlStates[action] && Date.now()-lastController.controlTimes[action]>250;
+        //     if(result) lastController.controlTimes[action] = Date.now();
+        //     return result
+        // }
+        // return false;
     }
     
     function onControlsInHelp() {
         if (pressed('menu')) {
             state.helpActive = false;
+        } else if (pressed('fullscreen')) {
+            const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
+            canvas.requestFullscreen({navigationUI:"hide"});
+        } else if (pressed('forceRestart')) {
+            restartGame(state);
         } else if (pressed('left')) {
             state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
         } else if (pressed('right')) {
@@ -1322,19 +1329,20 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const bh = buttonAlloc[1]-y;
     const offZoom = state.helpActive || state.gameMode!=GameMode.Mansion?100:0;
     const offHealNext = state.helpActive || state.gameMode!=GameMode.BetweenMansions?100:0;
-    const offRestart = state.helpActive || [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
+    const offRestartFullscreen = state.helpActive || [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
     const buttonData:{[id:string]:{game:Rect,view:Rect,textureIndex:number}} = {
         'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), textureIndex:4},
         'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), textureIndex:5},
         'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), textureIndex:6},
         'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), textureIndex:7},
         'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), textureIndex:8},
-        'jump':     {game:new Rect(x+w-bw,y,bw,bh), view: new Rect(), textureIndex:9},
-        'zoomIn':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), textureIndex:10},
-        'zoomOut':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:11},
+        'jump':     {game:new Rect(x+w-bw,y+bw,bw,bh), view: new Rect(), textureIndex:9},
+        'zoomIn':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:10},
+        'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), textureIndex:11},
         'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), textureIndex:12},
         'nextLevel':{game:new Rect(x+w-bw+offHealNext,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:13},
-        'forceRestart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), textureIndex:14},
+        'fullscreen':  {game:new Rect(x+w-bw+offRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), textureIndex:15+32},
+        'forceRestart':  {game:new Rect(x+w-bw+offRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:14},
         'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), textureIndex:15},
     }
     for(const bkey in buttonData) {
