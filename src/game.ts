@@ -6,10 +6,12 @@ import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups, PopupType } from './popups';
+import { TouchController, GamepadManager, KeyboardController, ControlStates, controlStates, lastController, Rect } from './controllers';
 
 import * as colorPreset from './color-preset';
 import { type } from 'os';
 import { stat } from 'fs';
+import { Key } from 'readline';
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
@@ -64,6 +66,10 @@ type State = {
     activeSoundPool: ActiveHowlPool;
     guardMute: boolean;
     volumeMute: boolean;
+    touchController: TouchController;
+    keyboardController: KeyboardController;
+    gamepadManager: GamepadManager;
+    oldControlStates: ControlStates;
     popups: Popups;
 }
 
@@ -82,172 +88,31 @@ function main(images: Array<HTMLImageElement>) {
     const sounds:Howls = {};
     const subtitledSounds:SubtitledHowls = {};
     const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
-    const state = initState(sounds, subtitledSounds, activeSoundPool);
+    const touchController = new TouchController(canvas);
+    const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
 
     document.body.addEventListener('keydown', onKeyDown);
-
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('touchstart', onTouchDown);
+    function onTouchDown(e: TouchEvent) {
+        if (Object.keys(state.sounds).length==0) {
+            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
+            e.preventDefault();
+        }
+    }
+    function onMouseDown(e: MouseEvent) {
+        if (Object.keys(state.sounds).length==0) {
+            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
+            e.preventDefault();
+        }
+    }
     function onKeyDown(e: KeyboardEvent) {
-        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
-
-        if (state.helpActive) {
-            onKeyDownHelp(e);
-        } else {
-            switch (state.gameMode) {
-                case GameMode.Mansion: onKeyDownMansion(e); break;
-                case GameMode.BetweenMansions: onKeyDownBetweenMansions(e); break;
-                case GameMode.Dead: onKeyDownGameOver(e); break;
-                case GameMode.Win: onKeyDownGameOver(e); break;
-            }
+        if (Object.keys(state.sounds).length==0) {
+            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
+            e.preventDefault();
         }
     }
-
-    function onKeyDownHelp(e: KeyboardEvent) {
-        if (e.code == 'Escape' || e.code == 'Slash') {
-            e.preventDefault();
-            state.helpActive = false;
-        } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
-            e.preventDefault();
-            state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
-        } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
-            e.preventDefault();
-            state.helpPageIndex = Math.min(helpPages.length - 1, state.helpPageIndex + 1);
-        }
-    }
-
-    function onKeyDownMansion(e: KeyboardEvent) {
-        if (e.ctrlKey) {
-            if (e.code === 'KeyA') {
-                e.preventDefault();
-                state.seeAll = !state.seeAll;
-            } else if (e.code === 'KeyC') {
-                e.preventDefault();
-                state.player.loot += state.gameMap.collectAllLoot();
-                postTurn(state);
-            } else if (e.code === 'KeyV') {
-                e.preventDefault();
-                state.seeGuardSight = !state.seeGuardSight;
-            } else if (e.code === 'KeyP') {
-                e.preventDefault();
-                state.seeGuardPatrols = !state.seeGuardPatrols;
-            } else if (e.code === 'KeyR') {
-                e.preventDefault();
-                restartGame(state);
-            } else if (e.code === 'Period') {
-                e.preventDefault();
-                if (state.level < state.gameMapRoughPlans.length - 1) {
-                    ++state.level;
-                    resetState(state);
-                }
-            } else if (e.code === 'KeyG') {
-                e.preventDefault();
-                resetState(state);
-            } else if (e.code === 'Comma') {
-                e.preventDefault();
-                if (state.level > 0) {
-                    --state.level;
-                    resetState(state);
-                }
-            } else if (e.code === 'KeyS') {
-                e.preventDefault();
-                state.gameMap.markAllSeen();
-                postTurn(state);
-            }
-        } else if (e.code == 'BracketLeft') {
-            e.preventDefault();
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'BracketRight') {
-            e.preventDefault();
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'ArrowLeft' || e.code == 'Numpad4' || e.code == 'KeyA' || e.code == 'KeyH') {
-            e.preventDefault();
-            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
-            tryMovePlayer(state, -1, 0, moveSpeed);
-        } else if (e.code == 'ArrowRight' || e.code == 'Numpad6' || e.code == 'KeyD' || e.code == 'KeyL') {
-            e.preventDefault();
-            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
-            tryMovePlayer(state, 1, 0, moveSpeed);
-        } else if (e.code == 'ArrowDown' || e.code == 'Numpad2' || e.code == 'KeyS' || e.code == 'KeyJ') {
-            e.preventDefault();
-            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
-            tryMovePlayer(state, 0, -1, moveSpeed);
-        } else if (e.code == 'ArrowUp' || e.code == 'Numpad8' || e.code == 'KeyW' || e.code == 'KeyK') {
-            e.preventDefault();
-            const moveSpeed = (state.leapToggleActive || e.shiftKey) ? 2 : 1;
-            tryMovePlayer(state, 0, 1, moveSpeed);
-        } else if (e.code == 'Period' || e.code == 'Numpad5' || e.code == 'KeyZ' || e.code == 'Space') {
-            e.preventDefault();
-            tryMovePlayer(state, 0, 0, 1);
-        } else if (e.code == 'Escape' || e.code == 'Slash') {
-            e.preventDefault();
-            state.helpActive = true;
-        } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
-            e.preventDefault();
-            state.leapToggleActive = !state.leapToggleActive;
-        } else if (e.code == 'Digit9') {
-            e.preventDefault();
-            state.guardMute = !state.guardMute;
-            for(const s in subtitledSounds) {
-                subtitledSounds[s].mute = state.guardMute;
-            }
-        } else if (e.code == 'Digit0') {
-            e.preventDefault();
-            state.volumeMute = !state.volumeMute;
-            Howler.mute(state.volumeMute);
-        } else if (e.code == 'Minus') {
-            e.preventDefault();
-            const vol = Howler.volume();
-            Howler.volume(Math.max(vol-0.1,0.1));
-        } else if (e.code == 'Equal') {
-            e.preventDefault();
-            const vol = Howler.volume();
-            Howler.volume(Math.max(vol+0.1,1.0));
-        }
-    }
-
-    function onKeyDownBetweenMansions(e: KeyboardEvent) {
-        if (e.code == 'BracketLeft') {
-            e.preventDefault();
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'BracketRight') {
-            e.preventDefault();
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'KeyR') {
-            e.preventDefault();
-            restartGame(state);
-        } else if (e.code == 'KeyH') {
-            e.preventDefault();
-            tryHealPlayer(state);
-        } else if (e.code == 'KeyN') {
-            e.preventDefault();
-            advanceToNextLevel(state);
-        } else if (e.code == 'Escape' || e.code == 'Slash') {
-            e.preventDefault();
-            state.helpActive = true;
-        }
-    }
-
-    function onKeyDownGameOver(e: KeyboardEvent) {
-        if (e.code == 'BracketLeft') {
-            e.preventDefault();
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'BracketRight') {
-            e.preventDefault();
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
-        } else if (e.code == 'KeyR') {
-            e.preventDefault();
-            restartGame(state);
-        } else if (e.code == 'Escape' || e.code == 'Slash') {
-            e.preventDefault();
-            state.helpActive = true;
-        }
-    }
-
+    
     function requestUpdateAndRender() {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
@@ -259,6 +124,147 @@ function main(images: Array<HTMLImageElement>) {
     window.addEventListener('resize', onWindowResized);
 
     requestUpdateAndRender();
+}
+
+
+function updateControllerState(state:State) {
+    state.gamepadManager.updateGamepadStates();
+    if (state.helpActive) {
+        onControlsInHelp();
+    } else {
+        switch (state.gameMode) {
+            case GameMode.Mansion: onControlsInMansion(); break;
+            case GameMode.BetweenMansions: onControlsInBetweenMansions(); break;
+            case GameMode.Dead: onControlsInGameOver(); break;
+            case GameMode.Win: onControlsInGameOver(); break;
+        }
+    }
+    state.oldControlStates = {...controlStates};
+
+    function pressed(action:string):boolean {
+        if(!(action in controlStates)) return false;
+        if(lastController === state.keyboardController) {
+            const result = controlStates[action] && (!state.oldControlStates[action] || Date.now()-lastController.controlTimes[action]>250);
+            if(result) lastController.controlTimes[action] = Date.now();
+            return result;
+        }
+        if(lastController!=null) {
+            const result = !controlStates[action] && state.oldControlStates[action] 
+                || controlStates[action] && Date.now()-lastController.controlTimes[action]>250;
+            if(result) lastController.controlTimes[action] = Date.now();
+            return result
+        }
+        return false;
+    }
+    
+    function onControlsInHelp() {
+        if (pressed('menu')) {
+            state.helpActive = false;
+        } else if (pressed('left')) {
+            state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
+        } else if (pressed('right')) {
+            state.helpPageIndex = Math.min(helpPages.length - 1, state.helpPageIndex + 1);
+        }
+    }
+        
+    function onControlsInMansion() {
+        if (pressed('seeAll')) {
+            state.seeAll = !state.seeAll;
+        } else if (pressed('collectLoot')) {
+            state.player.loot += state.gameMap.collectAllLoot();
+            postTurn(state);
+        } else if (pressed('guardSight')) {
+            state.seeGuardSight = !state.seeGuardSight;
+        } else if (pressed('guardPatrols')) {
+            state.seeGuardPatrols = !state.seeGuardPatrols;
+        } else if (pressed('forceRestart')) {
+            restartGame(state);
+        } else if (pressed('nextLevel')) {
+            if (state.level < state.gameMapRoughPlans.length - 1) {
+                ++state.level;
+                resetState(state);
+            }
+        } else if (pressed('resetLevel')) {
+            resetState(state);
+        } else if (pressed('prevLevel')) {
+            if (state.level > 0) {
+                --state.level;
+                resetState(state);
+            }
+        } else if (pressed('markSeen')) {
+            state.gameMap.markAllSeen();
+            postTurn(state);
+        } else if (pressed('zoomIn')) {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (pressed('zoomOut')) {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (pressed('left')) {
+            const moveSpeed = (state.leapToggleActive || controlStates['jump']) ? 2 : 1;
+            tryMovePlayer(state, -1, 0, moveSpeed);
+        } else if (pressed('right')) {
+            const moveSpeed = (state.leapToggleActive || controlStates['jump']) ? 2 : 1;
+            tryMovePlayer(state, 1, 0, moveSpeed);
+        } else if (pressed('down')) {
+            const moveSpeed = (state.leapToggleActive || controlStates['jump']) ? 2 : 1;
+            tryMovePlayer(state, 0, -1, moveSpeed);
+        } else if (pressed('up')) {
+            const moveSpeed = (state.leapToggleActive || controlStates['jump']) ? 2 : 1;
+            tryMovePlayer(state, 0, 1, moveSpeed);
+        } else if (pressed('wait')) {
+            tryMovePlayer(state, 0, 0, 1);
+        } else if (pressed('menu')) {
+            state.helpActive = true;
+        } else if (pressed('jumpToggle')) {
+            state.leapToggleActive = !state.leapToggleActive;
+        } else if (pressed('guardMute')) {
+            state.guardMute = !state.guardMute;
+            for(const s in state.subtitledSounds) {
+                state.subtitledSounds[s].mute = state.guardMute;
+            }
+        } else if (pressed('volumeMute')) {
+            state.volumeMute = !state.volumeMute;
+            Howler.mute(state.volumeMute);
+        } else if (pressed('volumeDown')) {
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol-0.1,0.1));
+        } else if (pressed('volumeUp')) {
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol+0.1,1.0));
+        }
+    }
+    function onControlsInBetweenMansions() {
+        if (pressed('BracketLeft')) {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (pressed('BracketRight')) {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (pressed('restart')) {
+            restartGame(state);
+        } else if (pressed('heal')) {
+            tryHealPlayer(state);
+        } else if (pressed('nextLevel')) {
+            advanceToNextLevel(state);
+        } else if (pressed('menu')) {
+            state.helpActive = true;
+        }
+    }
+        
+    function onControlsInGameOver() {
+        if (pressed('BracketLeft')) {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (pressed('BracketRight')) {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (pressed('restart')) {
+            restartGame(state);
+        } else if (pressed('menu')) {
+            state.helpActive = true;
+        }
+    }
 }
 
 function advanceToNextLevel(state: State) {
@@ -333,16 +339,19 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         //Bump into torch
         if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
             preTurn(state);
-            if(item.type== ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
+            if(item.type === ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
             else state.sounds["douse"].play(0.05);
             item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
             advanceTime(state);
         }
         //Bump into gate
-        const typeBump = state.gameMap.cells.at(...posBump).type;
-        const typePlayer = state.gameMap.cells.at(...player.pos).type;
-        if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
-            state.sounds['gate'].play(0.3);    
+        const bump = state.gameMap.cells.at(...posBump);
+        if(bump) {
+            const typeBump = bump.type;
+            const typePlayer = state.gameMap.cells.at(...player.pos).type;
+            if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
+                state.sounds['gate'].play(0.3);    
+            }    
         }
         return;
     }
@@ -790,6 +799,17 @@ const colorForItemType: Array<number> = [
 
 const unlitColor: number = colorPreset.lightBlue;
 
+function renderTouchButtons(renderer:Renderer, screenSize:vec2, touchController:TouchController) {
+    for(const bkey in touchController.buttonMap) {
+        if(!(bkey in controlStates)) continue;
+        const b = touchController.buttonMap[bkey];
+        const lit = controlStates[bkey];
+        renderer.addGlyph(b.game[0],b.game[1],b.game[0]+b.game[2],b.game[1]+b.game[3],
+            {textureIndex:b.textureIndex, color:0xffffffff, unlitColor:0xff909090}, lit);
+    }
+    renderer.flush();
+}
+
 function renderWorld(state: State, renderer: Renderer) {
     const mappedItems:{[id:number]:Array<Item>} = {}; //Sweep over the items and allocate them to a map
     for(let item of state.gameMap.items) {
@@ -894,8 +914,8 @@ function renderGuards(state: State, renderer: Renderer) {
         const x = guard.pos[0] + offX;
         const y = guard.pos[1];
         if(guard.hasTorch) {
-            let g0 = guard.pos[0]+guard.dir[0]*0.375+guard.dir[1]*0.375;
-            let g1 = guard.pos[1];
+            let g0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
+            let g1 = y;
             if(guard.dir[1]>0) {
                 renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);
@@ -1036,7 +1056,7 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
-function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool): State {
+function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const initialLevel = 0;
     const gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
@@ -1065,6 +1085,10 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         activeSoundPool: activeSoundPool,
         guardMute: false,
         volumeMute: false,
+        touchController: touchController,
+        gamepadManager: new GamepadManager(),
+        keyboardController: new KeyboardController(),
+        oldControlStates: {...controlStates},
         popups: new Popups,
     };
 }
@@ -1113,14 +1137,18 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         snapCamera(state, screenSize);
     }
 
+    updateControllerState(state);
+
     if (dt > 0) {
         updateState(state, screenSize, dt);
     }
+    updateTouchButtons(state.touchController, renderer, screenSize, state);
 
     renderScene(renderer, screenSize, state);
 
     requestAnimationFrame(now => updateAndRender(now, renderer, state));
 }
+
 
 function updateState(state: State, screenSize: vec2, dt: number) {
     updateCamera(state, screenSize, dt);
@@ -1142,6 +1170,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderPlayer(state, renderer);
                 renderGuards(state, renderer);
                 renderIconOverlays(state, renderer);
+                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
                 renderer.flush();
 
                 if (state.helpActive) {
@@ -1162,6 +1191,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderer.start(matScreenFromWorld, 1);
                 renderWorld(state, renderer);
                 renderGuards(state, renderer);
+                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
                 renderer.flush();
 
                 if (state.helpActive) {
@@ -1190,6 +1220,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 renderWorld(state, renderer);
                 renderPlayer(state, renderer);
                 renderGuards(state, renderer);
+                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
                 renderer.flush();
 
                 if (state.helpActive) {
@@ -1237,6 +1268,86 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             break;
     }
 }
+
+type PosTranslator = {
+    screenToWorld: (vPos:vec2) => vec2;
+    worldToScreen: (vPos:vec2) => vec2;
+}
+
+function createPosTranslator(screenSize:vec2, worldSize: vec2, cameraPos:vec2, zoomLevel:number): PosTranslator {
+    const mapSizeX = worldSize[0];
+    const mapSizeY = worldSize[1];
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
+    const vpx = viewportPixelSize[0];
+    const vpy = viewportPixelSize[1];
+    const vws = viewWorldSize(viewportPixelSize, mapSizeX, mapSizeY, zoomLevel);
+    const vwsx = vws[0];
+    const vwsy = vws[1];
+    const cpx = cameraPos[0];
+    const cpy = cameraPos[1];
+
+    return {
+        screenToWorld: (vPos:vec2) => {
+            return vec2.fromValues(
+                (vPos[0]-vpx/2)*vwsx/vpx + cpx, 
+                (vPos[1]-vpy/2)*vwsy/vpy + cpy
+            )
+        },
+        worldToScreen: (cPos:vec2) => {
+            return vec2.fromValues(
+                (cPos[0] - cpx)*vpx/vwsx + vpx/2,
+                (cPos[1] - cpy)*vpy/vwsy + vpy/2
+            )
+        }
+    }    
+}
+
+function updateTouchButtons(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
+    if(lastController != touchController) return;
+    const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const sw = screenSize[0];
+    const sh = screenSize[1] - 4*statusBarCharPixelSizeY;
+    const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
+    const buttonAllocPixels = Math.floor(Math.min(sh,sw)/6);
+    const origin = pt.screenToWorld(vec2.fromValues(0,0));
+    const buttonAlloc = pt.screenToWorld(vec2.fromValues(buttonAllocPixels,buttonAllocPixels));
+    const screenAlloc = pt.screenToWorld(vec2.fromValues(sw, sh));
+    const x = origin[0];
+    const y = origin[1];
+    const w = screenAlloc[0]-x;
+    const h = screenAlloc[1]-y;
+    const bw = buttonAlloc[0]-x;
+    const bh = buttonAlloc[1]-y;
+    const offZoom = state.helpActive || state.gameMode!=GameMode.Mansion?100:0;
+    const offHealNext = state.helpActive || state.gameMode!=GameMode.BetweenMansions?100:0;
+    const offRestart = state.helpActive || [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
+    const buttonData:{[id:string]:{game:Rect,view:Rect,textureIndex:number}} = {
+        'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), textureIndex:4},
+        'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), textureIndex:5},
+        'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), textureIndex:6},
+        'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), textureIndex:7},
+        'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), textureIndex:8},
+        'jump':     {game:new Rect(x+w-bw,y,bw,bh), view: new Rect(), textureIndex:9},
+        'zoomIn':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), textureIndex:10},
+        'zoomOut':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:11},
+        'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), textureIndex:12},
+        'nextLevel':{game:new Rect(x+w-bw+offHealNext,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:13},
+        'forceRestart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), textureIndex:14},
+        'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), textureIndex:15},
+    }
+    for(const bkey in buttonData) {
+        const game = buttonData[bkey].game;
+        const xy0 = pt.worldToScreen(vec2.fromValues(game[0],game[1]));
+        const xy1 = pt.worldToScreen(vec2.fromValues(game[0]+game[2],game[1]+game[3]));
+        buttonData[bkey].view = new Rect(
+            xy0[0],xy0[1],xy1[0]-xy0[0],xy1[1]-xy0[1]
+        )
+    }
+    touchController.updateButtonLocations(buttonData);
+}
+
 
 function updateCamera(state: State, screenSize: vec2, dt: number) {
 
