@@ -248,6 +248,7 @@ class Player {
     damagedLastTurn: boolean;
     maxStamina: number;
     stamina: number;
+    staminaRechargeTimer: number; // recharge stamina in this many turns
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);
@@ -258,6 +259,7 @@ class Player {
         this.damagedLastTurn = false;
         this.maxStamina = 4;
         this.stamina = this.maxStamina;
+        this.staminaRechargeTimer = 0;
     }
 
     applyDamage(d: number) {

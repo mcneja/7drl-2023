@@ -279,6 +279,7 @@ function advanceToNextLevel(state: State) {
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
     state.player.stamina = state.player.maxStamina;
+    state.player.staminaRechargeTimer = 0;
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
@@ -318,17 +319,26 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         return;
     }
 
+    // If attempting to leap but don't have enough stamina, fail.
+
+    if (distDesired > 1 && player.stamina <= 0) {
+        state.topStatusMessage = 'Out of stamina; cannot leap';
+        state.topStatusMessageSticky = false;
+        return;
+    }
+
     // If just passing time, do that.
 
     if ((dx === 0 && dy === 0) || distDesired <= 0) {
         preTurn(state);
-        advanceTime(state, 1);
+        player.staminaRechargeTimer = Math.max(0, player.staminaRechargeTimer - 1);
+        advanceTime(state);
         return;
     }
 
     // Limit distDesired by stamina
 
-    distDesired = Math.min(distDesired, state.player.stamina + 1);
+    distDesired = Math.min(distDesired, player.stamina + 1);
 
     // Determine how far we're allowed to move by level constraints
 
@@ -342,7 +352,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if(item.type== ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
             else state.sounds["douse"].play(0.05);
             item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
-            advanceTime(state, 1);
+            advanceTime(state);
         }
         //Bump into gate
         const typeBump = state.gameMap.cells.at(...posBump).type;
@@ -390,7 +400,16 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         makeNoise(state.gameMap, player, 17, state.popups, state.sounds);
     }
 
-    advanceTime(state, (dist > 1) ? -1 : 1);
+    // Spend stamina (and shut off stamina recharge) if leaping
+
+    if (dist > 1) {
+        player.staminaRechargeTimer = 5;
+        player.stamina -= 1;
+    }
+
+    // Advance time
+
+    advanceTime(state);
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
@@ -429,7 +448,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         //Guard on gate sound effect
         if (gate!==undefined && guardOnGate===undefined) {
             const guard = state.gameMap.guards.find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]);
-            if(guard!==undefined && vec2.squaredDistance(state.player.pos, guard.pos) <= 100) state.sounds['gate'].play(0.2);
+            if(guard!==undefined && vec2.squaredDistance(player.pos, guard.pos) <= 100) state.sounds['gate'].play(0.2);
         }
     
 }
@@ -557,11 +576,20 @@ function preTurn(state: State) {
     state.player.damagedLastTurn = false;
 }
 
-function advanceTime(state: State, staminaAdjust: number) {
+function advanceTime(state: State) {
     let oldHealth = state.player.health;
 
+    let staminaAdjust = 0;
     if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
-        staminaAdjust -= 2;
+        state.player.staminaRechargeTimer = 5;
+        staminaAdjust -= 1;
+    }
+    if (state.player.staminaRechargeTimer > 0) {
+        state.player.staminaRechargeTimer -= 1;
+    }
+    if (state.player.staminaRechargeTimer <= 0) {
+        state.player.staminaRechargeTimer = 2;
+        staminaAdjust += 1;
     }
 
     state.player.stamina = Math.max(0, Math.min(state.player.maxStamina, state.player.stamina + staminaAdjust));
