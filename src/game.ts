@@ -4,10 +4,12 @@ import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, Terrain
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
-import { setupSounds, Howls, SubtitledHowls } from './audio';
+import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups, PopupType } from './popups';
 
 import * as colorPreset from './color-preset';
+import { type } from 'os';
+import { stat } from 'fs';
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
@@ -23,7 +25,7 @@ const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Scout the entire mansion, then leave. Keep any loot you find.';
+const startingTopStatusMessage = 'Esc or / for help';
 
 type Camera = {
     position: vec2;
@@ -59,6 +61,9 @@ type State = {
     gameMap: GameMap;
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
+    activeSoundPool: ActiveHowlPool;
+    guardMute: boolean;
+    volumeMute: boolean;
     popups: Popups;
 }
 
@@ -76,12 +81,13 @@ function main(images: Array<HTMLImageElement>) {
     const renderer = new Renderer(canvas, tileSet, fontTileSet);
     const sounds:Howls = {};
     const subtitledSounds:SubtitledHowls = {};
-    const state = initState(sounds, subtitledSounds);
+    const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
+    const state = initState(sounds, subtitledSounds, activeSoundPool);
 
     document.body.addEventListener('keydown', onKeyDown);
 
     function onKeyDown(e: KeyboardEvent) {
-        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds);
+        if (Object.keys(state.sounds).length==0) setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
 
         if (state.helpActive) {
             onKeyDownHelp(e);
@@ -179,6 +185,24 @@ function main(images: Array<HTMLImageElement>) {
         } else if (e.code == 'KeyF' || e.code == 'NumpadAdd') {
             e.preventDefault();
             state.leapToggleActive = !state.leapToggleActive;
+        } else if (e.code == 'Digit9') {
+            e.preventDefault();
+            state.guardMute = !state.guardMute;
+            for(const s in subtitledSounds) {
+                subtitledSounds[s].mute = state.guardMute;
+            }
+        } else if (e.code == 'Digit0') {
+            e.preventDefault();
+            state.volumeMute = !state.volumeMute;
+            Howler.mute(state.volumeMute);
+        } else if (e.code == 'Minus') {
+            e.preventDefault();
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol-0.1,0.1));
+        } else if (e.code == 'Equal') {
+            e.preventDefault();
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol+0.1,1.0));
         }
     }
 
@@ -244,6 +268,7 @@ function advanceToNextLevel(state: State) {
         return;
     }
 
+    state.activeSoundPool.empty();
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -262,14 +287,17 @@ function advanceToNextLevel(state: State) {
 }
 
 function advanceToBetweenMansions(state: State) {
-    state.sounds['levelCompleteJingle'].play(0.5);
+    state.activeSoundPool.empty();
+    state.sounds['levelCompleteJingle'].play(0.35);
     state.gameMode = GameMode.BetweenMansions;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
 }
 
 function advanceToWin(state: State) {
-    state.sounds['levelCompleteJingle'].play(0.5);
+    state.activeSoundPool.empty();
+    if (state.player.loot>95 && Math.random()>0.9) state.sounds['easterEgg'].play(0.5);
+    else state.sounds['victorySong'].play(0.5);
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -278,6 +306,11 @@ function advanceToWin(state: State) {
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
     const player = state.player;
+
+    const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
+    const guardOnGate = gate!==undefined ? state.gameMap.guards
+            .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
+
 
     // Can't move if you're dead.
 
@@ -303,10 +336,19 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
+        //Bump into torch
         if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
             preTurn(state);
+            if(item.type== ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
+            else state.sounds["douse"].play(0.05);
             item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
             advanceTime(state, 1);
+        }
+        //Bump into gate
+        const typeBump = state.gameMap.cells.at(...posBump).type;
+        const typePlayer = state.gameMap.cells.at(...player.pos).type;
+        if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
+            state.sounds['gate'].play(0.3);    
         }
         return;
     }
@@ -352,9 +394,16 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
-    const newTerrain = state.gameMap.cells.at(...player.pos).type;
-    const changedTile = oldTerrain !== newTerrain;
-    switch(newTerrain) {
+    const pCell = state.gameMap.cells.at(...player.pos)
+    const changedTile = oldTerrain !== pCell.type;
+
+    // Hide sound effect
+    if(pCell.hidesPlayer) {
+        state.sounds['hide'].play(0.2);
+        return
+    }
+    //Terrain sound effects
+    switch(pCell.type) {
         case TerrainType.GroundWoodCreaky:
             state.sounds["footstepCreaky"].play(0.15*volScale);
             break;
@@ -377,6 +426,12 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
             break;
         }
+        //Guard on gate sound effect
+        if (gate!==undefined && guardOnGate===undefined) {
+            const guard = state.gameMap.guards.find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]);
+            if(guard!==undefined && vec2.squaredDistance(state.player.pos, guard.pos) <= 100) state.sounds['gate'].play(0.2);
+        }
+    
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
@@ -397,9 +452,11 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             break;
         } else if (blocked(state.gameMap, posPrev, pos)) {
             if (isOneWayWindowTerrainType(state.gameMap.cells.at(...pos).type)) {
-                state.topStatusMessage = 'Window cannot be opened from outside';
+                state.topStatusMessage = 'Window cannot be accessed from outside';
                 state.topStatusMessageSticky = false;
-            }
+                if(state.level===0) state.sounds['tooHigh'].play(0.3);
+                else state.sounds['footstepTile'].play(0.1);    
+    }
             break;
         } else {
             distAllowed = d;
@@ -430,6 +487,14 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 --distAllowed;
                 state.topStatusMessage = 'Shift+move to leap';
                 state.topStatusMessageSticky = false;
+                if(state.level===0) {
+                    if([TerrainType.PortcullisEW, TerrainType.PortcullisNS].includes(state.gameMap.cells.at(x, y).type)) {
+                        setTimeout(()=>state.sounds['jump'].play(0.3),1000);
+                    } else {
+                        state.sounds['jump'].play(0.3);
+                    }
+                } 
+                else state.sounds['footstepTile'].play(0.1);    
             }
         }
     }
@@ -475,7 +540,6 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
 
 function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
     player.noisy = true;
-    popups.add(PopupType.Noise, player.pos);
 
     sounds.footstepCreaky.play(0.6);
 
@@ -513,7 +577,7 @@ function advanceTime(state: State, staminaAdjust: number) {
         state.sounds['hitPlayer'].play(0.5);
 
         if (state.player.health <= 0) {
-            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 2000);
+            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
             state.gameMode = GameMode.Dead;
         }
     }
@@ -750,7 +814,15 @@ function renderWorld(state: State, renderer: Renderer) {
             }
             const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
             const lit = alwaysLit || cell.lit;
-            renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+
+            //Draw tile
+            if([TerrainType.PortcullisEW].includes(terrainType)
+                && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lit);
+            } else {
+                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+            }
+            //Draw border for water
             if(terrainType===TerrainType.GroundWater) {
                 const ledge = renderer.tileSet.ledgeTiles;
                 let ctr = 0;
@@ -768,7 +840,13 @@ function renderWorld(state: State, renderer: Renderer) {
             for(let item of mappedItems[ind]) {
                 const alwaysLit = (item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) || item.type == ItemType.Coin;
                 const lit = alwaysLit || cell.lit;
-                renderer.addGlyph(item.pos[0], item.pos[1], item.pos[0] + 1, item.pos[1] + 1, renderer.tileSet.itemTiles[item.type], lit);    
+
+                if([TerrainType.PortcullisEW].includes(terrainType)
+                    && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                        renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lit);    
+                } else {
+                    renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[item.type], lit);    
+                }
             }
         }
     }
@@ -815,19 +893,23 @@ function renderGuards(state: State, renderer: Renderer) {
         else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) lit=false;
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
-        // if(guard.hasTorch) {
-        //     const g0 = guard.pos[0]+guard.dir[0]*0.25+guard.dir[1]*0.25;
-        //     const g1 = guard.pos[1];
-        //     if(guard.dir[1]>0) {
-        //         renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-        //         renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
-        //     } else {
-        //         renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);    
-        //         renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-        //     }
-        // }
-        // else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, true);
-        renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+        const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
+        const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
+        const x = guard.pos[0] + offX;
+        const y = guard.pos[1];
+        if(guard.hasTorch) {
+            let g0 = guard.pos[0]+guard.dir[0]*0.375+guard.dir[1]*0.375;
+            let g1 = guard.pos[1];
+            if(guard.dir[1]>0) {
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);
+            } else {
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);    
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+            }
+        }
+        else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+        // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
 
@@ -926,7 +1008,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0x80ffffff}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, true);
         }
     }
 }
@@ -958,7 +1040,7 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
-function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
+function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool): State {
     const initialLevel = 0;
     const gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
@@ -967,7 +1049,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         tLast: undefined,
         leapToggleActive: false,
         gameMode: GameMode.Mansion,
-        helpActive: true,
+        helpActive: false,
         helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
@@ -984,6 +1066,9 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls): State {
         gameMap: gameMap,
         sounds: sounds,
         subtitledSounds: subtitledSounds,
+        activeSoundPool: activeSoundPool,
+        guardMute: false,
+        volumeMute: false,
         popups: new Popups,
     };
 }
@@ -1002,6 +1087,7 @@ function restartGame(state: State) {
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
+    state.activeSoundPool.empty();
     state.popups.clear();
 }
 
@@ -1015,6 +1101,7 @@ function resetState(state: State) {
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
     state.popups.clear();
+    state.activeSoundPool.empty();
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
@@ -1283,37 +1370,143 @@ function statusBarZoom(screenSizeX: number): number {
 
 const helpPages: Array<Array<string>> = [
     [
-        '          Mansion Mapper 2D',
+        '         Lurk, Leap, Loot',
         '',
         'Your mission from the thieves\' guild',
         'is to map ' + numGameMaps + ' mansions. You can keep',
-        'any loot you find.',
+        'any loot you find (' + totalGameLoot + ' total).',
         '',
         '  Move: Arrows / WASD / HJKL',
         '  Wait: Space / Z / Period / Numpad5',
         '  Leap: Shift + move',
         '  Leap (Toggle): F / Numpad+',
         '  Zoom View: [ / ]',
+        '  Volume: (Mute/Down/Up) 0 / - / =',
+        '  Guard Mute (Toggle): 9',
         '',
         'Disable NumLock if using numpad',
         '',
-        'Page 1 of 2',
+        'Page 1 of 3',
     ],
     [
-        'A 2023 Seven-Day Roguelike Challenge entry',
-        'by James McNeill and Damien Moore.',
+        '   Thief: You!',
+        '   Guard: Avoid them!',
+        '   Loot: Collect for score, or to spend on healing',
+        '   Tree: Hiding place',
+        '   Table: Hiding place',
+        '   Stool: Not a hiding place',
+        '   Torch: Guards want them lit',
+        '   Window: One-way escape route',
         '',
-        'Hints:',
-        'Hide in trees or under tables; guards can be',
-        'next to you without seeing you unless they are',
-        'searching.',
+        'Page 2 of 3',
+    ],
+    [
+        'Made for 2023 Seven-Day Roguelike Challenge',
         '',
-        'Page 2 of 2',
+        'by James McNeill and Damien Moore',
+        '',
+        'Additional voices by Evan Moore',
+        'Additional assistance by Mike Gaffney',
+        'Testing by Tom Elmer',
+        'Special thanks to Mendi Carroll',
+        '',
+        'Page 3 of 3',
     ],
 ];
 
 function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
-    renderTextLines(renderer, screenSize, helpPages[state.helpPageIndex]);
+
+    const lines = helpPages[state.helpPageIndex];
+
+    let maxLineLength = 0;
+    for (const line of lines) {
+        maxLineLength = Math.max(maxLineLength, line.length);
+    }
+
+    const minCharsX = 65;
+    const minCharsY = 22;
+    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
+    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
+    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+    const pixelsPerCharX = 8 * scaleFactor;
+    const pixelsPerCharY = 16 * scaleFactor;
+    const linesPixelSizeX = maxLineLength * pixelsPerCharX;
+    const linesPixelSizeY = lines.length * pixelsPerCharY;
+    const numCharsX = screenSize[0] / pixelsPerCharX;
+    const numCharsY = screenSize[1] / pixelsPerCharY;
+    const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
+    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
+
+    const matScreenFromTextArea = mat4.create();
+    mat4.ortho(
+        matScreenFromTextArea,
+        offsetX,
+        offsetX + numCharsX,
+        offsetY,
+        offsetY + numCharsY,
+        1,
+        -1);
+    renderer.start(matScreenFromTextArea, 0);
+
+    const colorText = 0xffeef0ff;
+    const colorBackground = 0xf0101010;
+
+    // Draw a stretched box to make a darkened background for the text.
+    renderer.addGlyph(
+        -2, -1, maxLineLength + 2, lines.length + 1,
+        {textureIndex:219, color:colorBackground}
+    );
+
+    for (let i = 0; i < lines.length; ++i) {
+        const row = lines.length - (1 + i);
+        for (let j = 0; j < lines[i].length; ++j) {
+            const col = j;
+            const ch = lines[i];
+            if (ch === ' ') {
+                continue;
+            }
+            const glyphIndex = lines[i].charCodeAt(j);
+            renderer.addGlyph(
+                col, row, col + 1, row + 1,
+                {textureIndex:glyphIndex, color:colorText}
+            );
+        }
+    }
+
+    renderer.flush();
+
+    if (state.helpPageIndex == 1) {
+        const pixelsPerGlyphX = 16 * scaleFactor;
+        const pixelsPerGlyphY = 16 * scaleFactor;
+        const numCharsX = screenSize[0] / pixelsPerGlyphX;
+        const numCharsY = screenSize[1] / pixelsPerGlyphY;
+        const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerGlyphX;
+        const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerGlyphY;
+    
+        mat4.ortho(
+            matScreenFromTextArea,
+            offsetX,
+            offsetX + numCharsX,
+            offsetY,
+            offsetY + numCharsY,
+            1,
+            -1);
+
+        function putGlyph(x: number, y: number, glyph: number) {
+            renderer.addGlyph(x, y + 0.125, x+1, y+1.125, {textureIndex: glyph, color: colorPreset.white});
+        }
+
+        renderer.start(matScreenFromTextArea, 1);
+        putGlyph(0, 9, 114);
+        putGlyph(0, 8, 81);
+        putGlyph(0, 7, 53);
+        putGlyph(0, 6, 50);
+        putGlyph(0, 5, 52);
+        putGlyph(0, 4, 51);
+        putGlyph(0, 3, 49);
+        putGlyph(0, 2, 160);
+        renderer.flush();
+    }
 
     const status = 'Esc or / to return to game; left/right for more (' + (state.helpPageIndex + 1) + ' of ' + helpPages.length + ')';
     renderTopStatusBar(renderer, screenSize, status);
@@ -1400,16 +1593,14 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         renderer.addGlyph(staminaX + 8 + i, 0, staminaX + 9 + i, 1, {textureIndex:glyphBubble, color:color});
     }
 
-    if (state.gameMode == GameMode.Mansion) {
-        // Mapping percentage
+    // Mapping percentage
 
-        const percentSeen = state.gameMap.percentSeen();
+    const percentSeen = state.gameMap.percentSeen();
 
-        const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
+    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
 
-        const seenX = Math.floor(statusBarTileSizeX * 0.6 - seenMsg.length / 2 + 0.5);
-        putString(renderer, seenX, seenMsg, colorPreset.lightGray);
-    }
+    const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
+    putString(renderer, seenX, seenMsg, colorPreset.lightGray);
 
     // Total loot
 

@@ -1,8 +1,6 @@
-# Robbin'
+# Lurk, Leap, Loot
 
 2023 Seven-day Roguelike Challenge (7DRL) Entry
-
-Turn-based stealth in Merry Old England.
 
 ## Development
 

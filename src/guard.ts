@@ -1,6 +1,6 @@
 export { Guard, GuardMode, guardActAll, lineOfSight };
 
-import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates } from './game-map';
+import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
@@ -45,8 +45,7 @@ class Guard {
     patrolReverse: boolean;
     patrolLoops: boolean;
 
-    constructor(patrolPath: Array<vec2>, map: GameMap) {
-        const pathIndexStart = randomInRange(patrolPath.length);
+    constructor(patrolPath: Array<vec2>, pathIndexStart: number, map: GameMap) {
         const posStart = patrolPath[pathIndexStart];
         this.pos = vec2.clone(posStart);
         this.dir = vec2.fromValues(1, 0);
@@ -594,14 +593,14 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
 
 function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined {
     let bestItem: Item | undefined = undefined;
-    let bestDistSquared = Infinity;
+    let bestDistSquared = 65;
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit) {
             const distSquared = vec2.squaredDistance(item.pos, posViewer);
             if (distSquared >= bestDistSquared) {
                 continue;
             }
-            if (!lineOfSight(map, posViewer, item.pos)) {
+            if (!lineOfSightToTorch(map, posViewer, item.pos)) {
                 continue;
             }
             bestDistSquared = distSquared;
@@ -650,6 +649,51 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
         }
 
         if (map.cells.at(x, y).blocksSight) {
+            return false;
+        }
+
+        --n;
+    }
+
+    return true;
+}
+
+function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
+    let x = from[0];
+    let y = from[1];
+
+    const dx = to[0] - x;
+    const dy = to[1] - y;
+
+    let ax = Math.abs(dx);
+    let ay = Math.abs(dy);
+
+    const x_inc = (dx > 0) ? 1 : -1;
+    const y_inc = (dy > 0) ? 1 : -1;
+
+    let error = ay - ax;
+
+    let n = ax + ay - 1;
+
+    ax *= 2;
+    ay *= 2;
+
+    while (n > 0) {
+        if (error > 0) {
+            y += y_inc;
+            error -= ax;
+        } else {
+            x += x_inc;
+            error += ay;
+        }
+
+        const cell = map.cells.at(x, y);
+
+        if (cell.blocksSight) {
+            return false;
+        }
+
+        if (isWindowTerrainType(cell.type)) {
             return false;
         }
 
