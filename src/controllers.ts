@@ -11,6 +11,10 @@ const controlStates:ControlStates = {
     'right': false,
     'up':false,
     'down':false,
+    'jumpLeft': false,
+    'jumpRight': false,
+    'jumpUp':false,
+    'jumpDown':false,
     'los':false,
     'wait':false,
     'jump':false,
@@ -288,6 +292,10 @@ class TouchController extends Controller {
             'down': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'left': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'right': {id:-1,view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
+            'jumpUp': {id:-1,   view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
+            'jumpDown': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
+            'jumpLeft': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
+            'jumpRight': {id:-1,view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'wait': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'jump': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
             'zoomIn': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
@@ -309,6 +317,11 @@ class TouchController extends Controller {
                 b0.view = b.view;
                 b0.game = b.game;
                 b0.textureIndex = b.textureIndex;
+                if(b0.view.collide(b0.touchXY[0], this.canvas.clientHeight-b0.touchXY[1])) {
+                    if(!this.buttonMap[bname]) this.set(bname);
+                } else {
+                    if(this.buttonMap[bname]) this.set(bname, false);
+                }
             }
         }
     }
@@ -318,7 +331,7 @@ class TouchController extends Controller {
         for(let t of ev.changedTouches) { 
             for(let bname in this.buttonMap) {
                 let b = this.buttonMap[bname]
-                const touching = b.view.collide(t.clientX, this.canvas.height-t.clientY);
+                const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
                 if(touching) {
                     b.touchXY = [t.clientX, t.clientY];
                     b.id = t.identifier;
@@ -335,7 +348,7 @@ class TouchController extends Controller {
             for(let bname in this.buttonMap) {
                 let b = this.buttonMap[bname]
                 if(b.id == t.identifier) {
-                    const touching = b.view.collide(t.clientX, this.canvas.height-t.clientY);
+                    const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
                     } else {
@@ -343,14 +356,15 @@ class TouchController extends Controller {
                         this.set(bname, false);
                     }
                 }
-                else if(b.id==-1) {
-                    const touching = b.view.collide(t.clientX, this.canvas.height-t.clientY);
-                    if(touching) {
-                        b.touchXY = [t.clientX, t.clientY];
-                        b.id = t.identifier;
-                        this.set(bname);
-                    }
-                }
+                //Uncomment to enable sliding from outside to activate a button
+                // else if(b.id==-1) {
+                //     const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
+                //     if(touching) {
+                //         b.touchXY = [t.clientX, t.clientY];
+                //         b.id = t.identifier;
+                //         this.set(bname);
+                //     }
+                // }
             }
         }   
         ev.preventDefault();

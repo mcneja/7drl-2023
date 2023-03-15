@@ -21,6 +21,7 @@ const totalGameLoot: number = 100;
 const targetStatusBarWidthInChars: number = 65;
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
+//TODO: The constants live in the tileset and code should reference the tileset
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
@@ -219,6 +220,14 @@ function updateControllerState(state:State) {
         } else if (pressed('up')) {
             const moveSpeed = (state.leapToggleActive || controlStates['jump']) ? 2 : 1;
             tryMovePlayer(state, 0, 1, moveSpeed);
+        } else if (pressed('jumpLeft')) {
+            tryMovePlayer(state, -1, 0, 2);
+        } else if (pressed('jumpRight')) {
+            tryMovePlayer(state, 1, 0, 2);
+        } else if (pressed('jumpDown')) {
+            tryMovePlayer(state, 0, -1, 2);
+        } else if (pressed('jumpUp')) {
+            tryMovePlayer(state, 0, 1, 2);
         } else if (pressed('wait')) {
             tryMovePlayer(state, 0, 0, 1);
         } else if (pressed('menu')) {
@@ -1299,13 +1308,13 @@ function createPosTranslator(screenSize:vec2, worldSize: vec2, cameraPos:vec2, z
         screenToWorld: (vPos:vec2) => {
             return vec2.fromValues(
                 (vPos[0]-vpx/2)*vwsx/vpx + cpx, 
-                (vPos[1]-vpy/2)*vwsy/vpy + cpy
+                (vPos[1]-vpy/2-2*statusBarCharPixelSizeY)*vwsy/vpy + cpy
             )
         },
         worldToScreen: (cPos:vec2) => {
             return vec2.fromValues(
                 (cPos[0] - cpx)*vpx/vwsx + vpx/2,
-                (cPos[1] - cpy)*vpy/vwsy + vpy/2
+                (cPos[1] - cpy)*vpy/vwsy + vpy/2+2*statusBarCharPixelSizeY
             )
         }
     }    
@@ -1316,7 +1325,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const sw = screenSize[0];
-    const sh = screenSize[1] - 4*statusBarCharPixelSizeY;
+    const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
     const buttonAllocPixels = Math.floor(Math.min(sh,sw)/6);
     const origin = pt.screenToWorld(vec2.fromValues(0,0));
@@ -1330,15 +1339,9 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const bh = buttonAlloc[1]-y;
     const offZoom = state.helpActive || state.gameMode!=GameMode.Mansion?100:0;
     const offHealNext = state.helpActive || state.gameMode!=GameMode.BetweenMansions?100:0;
-    const offRestart = [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
+    const offRestart = !state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
     const offForceRestartFullscreen = state.helpActive ? 0:100;
     const buttonData:{[id:string]:{game:Rect,view:Rect,textureIndex:number}} = {
-        'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), textureIndex:4},
-        'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), textureIndex:5},
-        'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), textureIndex:6},
-        'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), textureIndex:7},
-        'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), textureIndex:8},
-        'jump':     {game:new Rect(x+w-bw,y+bw,bw,bh), view: new Rect(), textureIndex:9},
         'zoomIn':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:10},
         'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), textureIndex:11},
         'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), textureIndex:12},
@@ -1347,6 +1350,63 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), textureIndex:14},
         'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), textureIndex:14},
         'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), textureIndex:15},
+    }
+    const touchConfig = 'gamepad';
+    if(touchConfig=='gamepad') {
+        const moveButtons:{[id:string]:{game:Rect,view:Rect,textureIndex:number}} = {
+            'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), textureIndex:4},
+            'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), textureIndex:5},
+            'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), textureIndex:6},
+            'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), textureIndex:7},
+            'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), textureIndex:8},
+            'jump':     {game:new Rect(x+w-bw,y+bw,bw,bh), view: new Rect(), textureIndex:9},
+        }
+        for(let mb in moveButtons) {
+            buttonData[mb] = moveButtons[mb];
+        }
+    } 
+    else if (touchConfig=='mouse') {
+        //TODO: For this scheme we also want to allow Button to activate on release rather than press
+        // i.e., on touchend -- should be a simple mod
+        //TODO: Also add an option in the constructor to handle mouseevents in the TouchController
+        const pp = state.player.pos;
+        buttonData['wait'] = {game:new Rect(...pp,1,1), view: new Rect(), textureIndex:15+32}
+        for(const vals of [['left',[-1,0]],['right',[1,0]],['up',[0,1]],['down',[0,-1]]] as Array<[string, [number,number]]>) {
+            const name = vals[0];
+            const p = vals[1];
+            const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
+            if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
+            if(!state.gameMap.cells.at(...pt).blocksPlayerMove 
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE)
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW)
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowN)
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowS)
+                && !state.gameMap.items.find((item)=>item.pos[0]==pt[0] && item.pos[1]==pt[1] 
+                        && [ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type))
+                && !state.gameMap.guards.find((guard)=>guard.pos[0]==pt[0] && guard.pos[1]==pt[1])
+                )
+                buttonData[name] = {game:new Rect(...pt,1,1), view: new Rect(), textureIndex:15+32}
+        }
+        for(const vals of [['jumpLeft',[-1,0]],['jumpRight',[1,0]],['jumpUp',[0,1]],['jumpDown',[0,-1]]] as Array<[string, [number,number]]>) {
+            const name = vals[0];
+            const p = vals[1];
+            const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
+            const pt2 = vec2.fromValues(pp[0]+2*p[0],pp[1]+2*p[1]);
+            //TODO: If level objective is complete add a way to exit the level
+            if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
+            if(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1]) continue;
+            if(!state.gameMap.cells.at(...pt).blocksPlayerMove
+                && !state.gameMap.cells.at(...pt2).blocksPlayerMove 
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE && name=='jumpLeft')
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW && name=='jumpRight')
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowN && name=='jumpDown')
+                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowS && name=='jumpUp')
+                && !state.gameMap.items.find((item)=>item.pos[0]==pt2[0] && item.pos[1]==pt2[1] 
+                        && [ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type))
+                && !state.gameMap.guards.find((guard)=>guard.pos[0]==pt2[0] && guard.pos[1]==pt2[1])
+                )
+                buttonData[name] = {game:new Rect(...pt2,1,1), view: new Rect(), textureIndex:15+32}
+        }    
     }
     for(const bkey in buttonData) {
         const game = buttonData[bkey].game;
