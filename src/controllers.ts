@@ -1,6 +1,7 @@
 import * as internal from "stream";
+import { TileInfo } from "./tilesets";
 
-export {controlStates, ControlStates, lastController, TouchController, GamepadManager, KeyboardController};
+export {lastController, Controller, TouchController, GamepadManager, KeyboardController};
 
 type ControlStates = { [id:string]: boolean};
 type ControlTimes = { [id:string]: number};
@@ -25,6 +26,7 @@ const controlStates:ControlStates = {
     'restart': false,
     'heal': false,
     'nextLevel': false,
+    'exitLevel': false,
     'guardMute': false,
     'volumeMute': false,
     'volumeDown': false,
@@ -116,19 +118,25 @@ export class Rect extends Array<number> {
 
 class Controller {
     controlStates: ControlStates;
+    controlActivated: ControlStates;
     controlTimes : ControlTimes;
     constructor() {
         this.controlStates = {... controlStates0};
         this.controlTimes = {};
+        this.controlActivated = {... controlStates0};
         for(const c in this.controlStates) {
             this.controlTimes[c] = Date.now();
         }
     }
     set(action:string, state:boolean=true) {
-        this.controlStates[action] = state;        
-        controlStates[action] = state;        
+        this.controlActivated[action] = !this.controlStates[action] && state || this.controlStates[action] && !state;
+        this.controlStates[action] = state;
+        controlStates[action] = state;
         this.controlTimes[action] = Date.now();
         lastController = this; 
+    }
+    resetActivation () {
+        this.controlActivated = {... controlStates0};
     }
     vibrate(intensity1:number, intensity2:number, duration:number) {
 
@@ -271,7 +279,7 @@ class GamepadManager {
 class TouchController extends Controller {
     canvas: HTMLCanvasElement;
     screenDimensions: [number, number];
-    buttonMap: {[id:string]: {id:number, view:Rect, game:Rect, textureIndex:number, touchXY:[number, number]}};
+    buttonMap: {[id:string]: {id:number, view:Rect, game:Rect, tileInfo:TileInfo|null, trigger:'press'|'release', show:'always'|'press', touchXY:[number, number]}};
     constructor(canvas: HTMLCanvasElement) {
         super();
         this.canvas = canvas;
@@ -281,49 +289,109 @@ class TouchController extends Controller {
         canvas.addEventListener('touchmove', function(ev){that.process_touchmove(ev);}, true);
         canvas.addEventListener('touchcancel', function(ev){that.process_touchend(ev);}, true);
         canvas.addEventListener('touchend', function(ev){that.process_touchend(ev);}, true);
-        // canvas.addEventListener('touchstart', function(ev){that.process_touchstart(ev);}, false);
-        // canvas.addEventListener('touchmove', function(ev){that.process_touchmove(ev);}, false);
-        // canvas.addEventListener('touchcancel', function(ev){that.process_touchend(ev);}, false);
-        // canvas.addEventListener('touchend', function(ev){that.process_touchend(ev);}, false);
-        // document.addEventListener('backbutton', function(ev){that.process_back(ev);}, true);
+        canvas.addEventListener('mousedown', function(ev){that.process_mousedown(ev);}, true);
+        canvas.addEventListener('mouseup', function(ev){that.process_mouseup(ev);}, true);
+        canvas.addEventListener('mousemove', function(ev){that.process_mousemove(ev);}, true);
         const nullRect:[number,number,number,number] = [0,0,0,0];
         this.buttonMap = {
-            'up': {id:-1,   view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'down': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'left': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'right': {id:-1,view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'jumpUp': {id:-1,   view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'jumpDown': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'jumpLeft': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'jumpRight': {id:-1,view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'wait': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'jump': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'zoomIn': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'zoomOut': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'heal': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'nextLevel': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'restart': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'forceRestart': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'menu': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
-            'fullscreen': {id:-1,  view:new Rect(), game:new Rect(), touchXY:[0,0], textureIndex:0},
+            'up':           {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'down':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'left':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'right':        {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'jumpUp':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'jumpDown':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'jumpLeft':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'jumpRight':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'exitLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always', tileInfo:null},
+            'wait':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
+            'jump':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'heal':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'nextLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'restart':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'forceRestart': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'menu':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'fullscreen':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
         };
         this.screenDimensions = [0,0];
     }
-    updateButtonLocations(buttonPositions: {[id:string]:{view:Rect, game:Rect, textureIndex:number}}) {
+    set(action:string, state:boolean=true, activate:boolean=true) {
+        if(activate) this.controlActivated[action] = !this.controlStates[action] && state || this.controlStates[action] && !state;
+        this.controlStates[action] = state;
+        controlStates[action] = state;
+        this.controlTimes[action] = Date.now();
+        lastController = this; 
+    }
+    updateButtonLocations(buttonPositions: {[id:string]:{view:Rect, game:Rect, tileInfo:TileInfo}}) {
         for(const bname in buttonPositions) {
             const b = buttonPositions[bname];
             if (bname in this.buttonMap) {
                 const b0 = this.buttonMap[bname];
                 b0.view = b.view;
                 b0.game = b.game;
-                b0.textureIndex = b.textureIndex;
-                if(b0.view.collide(b0.touchXY[0], this.canvas.clientHeight-b0.touchXY[1])) {
-                    if(!this.buttonMap[bname]) this.set(bname);
-                } else {
-                    if(this.buttonMap[bname]) this.set(bname, false);
+                b0.tileInfo = b.tileInfo;
+                if(!b0.view.collide(b0.touchXY[0], this.canvas.clientHeight-b0.touchXY[1])) {
+                    if(this.controlStates[bname] && b0.id!=-1) {
+                        this.set(bname, false, b0.trigger=='press');
+                        b0.id = -1;
+                    }
                 }
             }
         }
+    }
+    //touchstart handler
+    process_mousedown(ev: MouseEvent) {
+        lastController = this;
+        for(let bname in this.buttonMap) {
+            let b = this.buttonMap[bname]
+            const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
+            if(touching) {
+                b.touchXY = [ev.clientX, ev.clientY];
+                b.id = -2;
+                this.set(bname);
+            }
+        }
+        ev.preventDefault();
+    }
+    // touchmove handler
+    process_mousemove(ev:MouseEvent) {
+        let state:{[id:string]:boolean} = {};
+        for(let bname in this.buttonMap) {
+            let b = this.buttonMap[bname]
+            if(b.id == -2) {
+                const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
+                if(this.controlStates[bname]) {
+                    if(touching) {
+                        b.touchXY = [ev.clientX, ev.clientY];
+                        this.set(bname, true, false);
+                    } else {
+                        this.set(bname, false, false);
+                        b.id = -1;
+                    }    
+                }    
+            }
+            //Uncomment to enable sliding from outside to activate a button
+            else if(b.trigger=='release') {
+                const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
+                if(touching) {
+                    b.touchXY = [ev.clientX, ev.clientY];
+                    this.set(bname, true, b.id==-2);
+                    b.id = -2;
+                }    
+            }
+        }   
+        ev.preventDefault();
+    }
+    // touchend handler
+    process_mouseup(ev:MouseEvent) {
+        for(const bname in this.buttonMap) {
+            const b = this.buttonMap[bname];
+            b.id = -1;
+            this.set(bname, false);
+            this.controlTimes[bname] = 0;
+        }
+        ev.preventDefault();
     }
     //touchstart handler
     process_touchstart(ev: TouchEvent) {
@@ -335,7 +403,7 @@ class TouchController extends Controller {
                 if(touching) {
                     b.touchXY = [t.clientX, t.clientY];
                     b.id = t.identifier;
-                    this.set(bname);    
+                    this.set(bname);
                 }
             }
         }   
@@ -351,20 +419,21 @@ class TouchController extends Controller {
                     const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
+                        this.set(bname, true, false);
                     } else {
                         b.id = -1;
-                        this.set(bname, false);
+                        this.set(bname, false, false);
                     }
                 }
                 //Uncomment to enable sliding from outside to activate a button
-                // else if(b.id==-1) {
-                //     const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
-                //     if(touching) {
-                //         b.touchXY = [t.clientX, t.clientY];
-                //         b.id = t.identifier;
-                //         this.set(bname);
-                //     }
-                // }
+                else if(b.id==-1 && b.trigger=='release') {
+                    const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
+                    if(touching) {
+                        b.touchXY = [t.clientX, t.clientY];
+                        b.id = t.identifier;
+                        this.set(bname, true);
+                    }
+                }
             }
         }   
         ev.preventDefault();
@@ -372,11 +441,12 @@ class TouchController extends Controller {
     // touchend handler
     process_touchend(ev:TouchEvent) {
         for(let t of ev.changedTouches) { 
-            for(let bname in this.buttonMap) {
-                let b = this.buttonMap[bname]
+            for(const bname in this.buttonMap) {
+                const b = this.buttonMap[bname];
                 if(b.id==t.identifier) {
                     b.id = -1;
                     this.set(bname, false);
+                    this.controlTimes[bname] = 0;
                 }
             }
         }
@@ -386,3 +456,4 @@ class TouchController extends Controller {
         window.navigator.vibrate(duration); //default vibration does not support intensity -- could simulate by staggering pulses over the duration
     }
 }
+

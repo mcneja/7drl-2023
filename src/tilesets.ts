@@ -22,6 +22,7 @@ export type TileSet = {
     tileSize: [number, number];
     cellSize: [number, number];
     offset: [number, number];
+    touchButtons?: {[id:string]:TileInfo};
     terrainTiles: Array<TileInfo>;
     itemTiles: Array<TileInfo>;
     guardStateTiles: Array<TileInfo>;
@@ -178,6 +179,25 @@ const tileSet31Color:TileSet = {
     offset: [0,0],
     flattenTexture: true,
     unlitTile: {textureIndex: r([0, 0])}, //color:colorPreset.lightBlue
+    touchButtons: {
+        'menu':         {textureIndex: r([15,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'up':           {textureIndex: r([6,   0]),  color:0xff00ffff, unlitColor:0xff00ffff},
+        'down':         {textureIndex: r([7,   0]),  color:0xff00ffff, unlitColor:0xff00ffff},
+        'left':         {textureIndex: r([4,   0]),  color:0xff00ffff, unlitColor:0xff00ffff},
+        'right':        {textureIndex: r([5,   0]),  color:0xff00ffff, unlitColor:0xff00ffff},
+        'wait':         {textureIndex: r([8,   0]),  color:0xff00ffff, unlitColor:0xff00ffff},
+        'exitLevel':    {textureIndex: r([13,  0]),  color:0xa000ffff, unlitColor:0x8000ffff},
+        'jump':         {textureIndex: r([9,   0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'zoomIn':       {textureIndex: r([10,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'zoomOut':      {textureIndex: r([11,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'heal':         {textureIndex: r([12,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'nextLevel':    {textureIndex: r([13,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'restart':      {textureIndex: r([14,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'forceRestart': {textureIndex: r([14,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'fullscreen':   {textureIndex: r([15,  2]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'picker':       {textureIndex: r([15,  2]),  color:0xff00ffff, unlitColor:0xff00ffff},
+
+    },
     terrainTiles: [ 
         {textureIndex: r([11,  4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundNormal,
         {textureIndex: r([8,   4]),  color:colorPreset.white, unlitColor:0xffa07070}, // TerrainType.GroundGrass,
