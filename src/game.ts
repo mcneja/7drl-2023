@@ -151,7 +151,6 @@ function updateControllerState(state:State) {
             const t = state.touchController;
             if(action in t.buttonMap && t.buttonMap[action].trigger=='release') {
                 result = !controlStates[action] && lastController.controlActivated[action];
-                if(result) console.log('release detect on',action,result);
                 if(result) lastController.controlTimes[action] = Date.now();
                 return result;
             }
@@ -1818,7 +1817,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
     if (playerUnderwater) {
-        const breathX = healthX + maxPlayerHealth + 88;
+        const breathX = healthX + maxPlayerHealth + 10;
 
         putString(renderer, breathX, "Air", colorPreset.lightCyan);
 
