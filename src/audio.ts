@@ -364,9 +364,15 @@ export class HowlGroup {
     play(volume:number):number {
         const howl = this.next();
         howl.volume(volume);
-        const id = howl.play()
-        if(this.soundPool!==null) this.soundPool.queue(howl, id);
-        return id;
+        try {
+            const id = howl.play();
+            if(this.soundPool!==null) this.soundPool.queue(howl, id);
+            return id;
+        }
+        catch (error) {
+            console.log(`Audio playback error ${howl}`,error)
+        }
+        return -1;
     }
     next(): Howl {
         this.howlNum++;
@@ -401,9 +407,15 @@ export class SubtitledHowlGroup {
         if(this.mute) return null;
         const subSound = this.next();
         subSound.sound.volume(volume);
-        const id = subSound.sound.play()
-        if(this.soundPool!==null) this.soundPool.queue(subSound.sound, id);
-        return subSound;
+        try {
+            const id = subSound.sound.play();
+            if(this.soundPool!==null) this.soundPool.queue(subSound.sound, id);
+            return subSound;
+        }
+        catch (error) {
+            console.log('Audio playback error',error)
+        }
+        return null;
     }
     next(): SubtitledSound {
         const subtitledSound = this.sounds[this.soundNum];
