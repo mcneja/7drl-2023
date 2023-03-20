@@ -1348,13 +1348,13 @@ function createPosTranslator(screenSize:vec2, worldSize: vec2, cameraPos:vec2, z
         screenToWorld: (vPos:vec2) => {
             return vec2.fromValues(
                 (vPos[0]-vpx/2)*vwsx/vpx + cpx, 
-                (vPos[1]-vpy/2-2*statusBarCharPixelSizeY)*vwsy/vpy + cpy
+                (vPos[1]-vpy/2 - statusBarCharPixelSizeY)*vwsy/vpy + cpy
             )
         },
         worldToScreen: (cPos:vec2) => {
             return vec2.fromValues(
                 (cPos[0] - cpx)*vpx/vwsx + vpx/2,
-                (cPos[1] - cpy)*vpy/vwsy + vpy/2+2*statusBarCharPixelSizeY
+                (cPos[1] - cpy)*vpy/vwsy + vpy/2 + statusBarCharPixelSizeY
             )
         }
     }    
