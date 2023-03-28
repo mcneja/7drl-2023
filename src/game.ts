@@ -512,13 +512,13 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 distAllowed = d;
             }
             break;
-        } else if (blocked(state.gameMap, posPrev, pos)) {
+        } else if (blocked(state.gameMap, posPrev, pos, maxDist)) {
             if (isOneWayWindowTerrainType(state.gameMap.cells.at(...pos).type)) {
                 state.topStatusMessage = 'Window cannot be accessed from outside';
                 state.topStatusMessageSticky = false;
                 if(state.level===0) state.sounds['tooHigh'].play(0.3);
                 else state.sounds['footstepTile'].play(0.1);    
-    }
+            }
             break;
         } else {
             distAllowed = d;
@@ -536,7 +536,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         }
     }
 
-    // If the move would end on a torch, portcullis, or window, shorten it
+    // If the move would end on a door, torch, portcullis, or window, shorten it
 
     if (distAllowed > 0) {
         const x = player.pos[0] + dx * distAllowed;
@@ -682,7 +682,7 @@ function tryHealPlayer(state: State) {
     state.healCost *= 2;
 }
 
-function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
+function blocked(map: GameMap, posOld: vec2, posNew: vec2, dist: number): boolean {
     if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= map.cells.sizeX || posNew[1] >= map.cells.sizeY) {
         return true;
     }
@@ -696,6 +696,25 @@ function blocked(map: GameMap, posOld: vec2, posNew: vec2): boolean {
 
     if (cell.blocksPlayerMove) {
         return true;
+    }
+
+    //Jump onto or through doors is blocked
+    if(dist>1) {
+        if (posNew[0]==posOld[0]) {
+            if ((tileType == TerrainType.DoorNS || tileType == TerrainType.DoorEW) && Math.abs(posNew[1]-posOld[1])==1) {
+                if(map.items.find((item)=>item.pos[0]==posNew[0] && item.pos[1]==posNew[1] && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
+                    return true;
+                }    
+            }
+        }
+    
+        if (posNew[1]==posOld[1]) {
+            if ((tileType == TerrainType.DoorNS || tileType == TerrainType.DoorEW) && Math.abs(posNew[0]-posOld[0])==1) {
+                if(map.items.find((item)=>item.pos[0]==posNew[0] && item.pos[1]==posNew[1] && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
+                    return true;
+                }    
+            }
+        }    
     }
 
     if (tileType == TerrainType.OneWayWindowE && posNew[0] <= posOld[0]) {
