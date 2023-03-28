@@ -39,6 +39,7 @@ const controlStates:ControlStates = {
     'guardSight': false,
     'guardPatrols': false,
     'prevLevel': false,
+    'gamepadStyleTouch': false,
     'fullscreen': false,
 };
 
@@ -280,7 +281,7 @@ class TouchController extends Controller {
     canvas: HTMLCanvasElement;
     screenDimensions: [number, number];
     buttonMap: {[id:string]: {id:number, view:Rect, game:Rect, tileInfo:TileInfo|null, trigger:'press'|'release', show:'always'|'press', touchXY:[number, number]}};
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(canvas: HTMLCanvasElement, asGamepad:boolean) {
         super();
         this.canvas = canvas;
         // Register touch event handlers
@@ -293,6 +294,7 @@ class TouchController extends Controller {
         canvas.addEventListener('mouseup', function(ev){that.process_mouseup(ev);}, true);
         canvas.addEventListener('mousemove', function(ev){that.process_mousemove(ev);}, true);
         const nullRect:[number,number,number,number] = [0,0,0,0];
+        this.screenDimensions = [0,0];
         this.buttonMap = {
             'up':           {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'down':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
@@ -302,19 +304,37 @@ class TouchController extends Controller {
             'jumpDown':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'jumpLeft':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'jumpRight':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'exitLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always', tileInfo:null},
             'wait':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'jump':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'heal':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'nextLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'restart':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'forceRestart': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'menu':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
-            'fullscreen':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always',   tileInfo:null},
+            'exitLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press', tileInfo:null},
+            'jump':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
+            'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'heal':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'nextLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'restart':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'forceRestart': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'menu':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'gamepadStyleTouch':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'fullscreen':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
         };
-        this.screenDimensions = [0,0];
+        this.setButtonConfig(asGamepad);
+    }
+    setButtonConfig(asGamepad:boolean) {
+        if(asGamepad) {
+            for (let c of ['up','down','left','right','wait','jump']) {
+                this.buttonMap[c].trigger = 'press';
+                this.buttonMap[c].show = 'always';
+            }
+            for(let c of ['jumpUp','jumpDown','jumpLeft','jumpRight']) {
+                this.buttonMap[c].trigger = 'press';
+                this.buttonMap[c].show = 'press';
+            }
+        } else {
+            for (let c of ['up','down','left','right','jumpUp','jumpDown','jumpLeft','jumpRight','wait','jump']) {
+                this.buttonMap[c].trigger = 'release';
+                this.buttonMap[c].show = 'press';
+            }
+        }
     }
     set(action:string, state:boolean=true, activate:boolean=true) {
         if(activate) this.controlActivated[action] = !this.controlStates[action] && state || this.controlStates[action] && !state;

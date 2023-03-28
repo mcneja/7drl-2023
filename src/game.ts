@@ -64,6 +64,7 @@ type State = {
     activeSoundPool: ActiveHowlPool;
     guardMute: boolean;
     volumeMute: boolean;
+    touchAsGamepad: boolean;
     touchController: TouchController;
     keyboardController: KeyboardController;
     gamepadManager: GamepadManager;
@@ -88,7 +89,7 @@ function main(images: Array<HTMLImageElement>) {
     const sounds:Howls = {};
     const subtitledSounds:SubtitledHowls = {};
     const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
-    const touchController = new TouchController(canvas);
+    const touchController = new TouchController(canvas, true);
     const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
 
     function onTouchDown(e: TouchEvent) {
@@ -168,6 +169,10 @@ function updateControllerState(state:State) {
             canvas.requestFullscreen({navigationUI:"hide"});
         } else if (activated('forceRestart')) {
             restartGame(state);
+        } else if (activated('gamepadStyleTouch')) {
+            state.touchAsGamepad = !state.touchAsGamepad;
+            state.touchController.setButtonConfig(state.touchAsGamepad);
+            state.topStatusMessage = state.touchAsGamepad ? 'Touch gamepad enabled' : 'Touch gamepad disabled (touch map to move)';
         } else if (activated('left')) {
             state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
         } else if (activated('right')) {
@@ -1142,6 +1147,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         activeSoundPool: activeSoundPool,
         guardMute: false,
         volumeMute: false,
+        touchAsGamepad: true,
         touchController: touchController,
         gamepadManager: new GamepadManager(),
         keyboardController: new KeyboardController(),
@@ -1391,10 +1397,10 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['fullscreen']},
         'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
         'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
+        'gamepadStyleTouch':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-3*bh,bw,bh), view: new Rect(), tileInfo:state.touchAsGamepad?tt['gamepadTouchOn']:tt['gamepadTouchOff']},
         'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['menu']},
     }
-    const touchAsGamepad = false;
-    if(touchAsGamepad) {
+    if(state.touchAsGamepad) {
         const moveButtons:{[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}} = {
             'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), tileInfo:tt['left']},
             'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['right']},
@@ -1407,7 +1413,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             buttonData[mb] = moveButtons[mb];
         }
     } 
-    else if (!touchAsGamepad) {
+    else {
         //TODO: For this scheme we also want to allow Button to activate on release rather than press
         // i.e., on touchend -- should be a simple mod
         //TODO: Also add an option in the constructor to handle mouseevents in the TouchController
@@ -1415,7 +1421,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         buttonData['wait'] = {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
         if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
                 && (pp[0]==0 || pp[1]==0 || pp[0]==worldSize[0]-1 || pp[1]==worldSize[1]-1)) {
-            buttonData['exitLevel'] = {game:new Rect(x,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['exitLevel']};
+            buttonData['exitLevel'] = {game:new Rect(x+w-bw,y+h-3*bh,bw,bh), view: new Rect(), tileInfo:tt['exitLevel']};
         } else {
             buttonData['exitLevel'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['exitLevel']};
         }
@@ -1443,10 +1449,9 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             const p = vals[1];
             const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
             const pt2 = vec2.fromValues(pp[0]+2*p[0],pp[1]+2*p[1]);
-            //TODO: If level objective is complete add a way to exit the level
-            if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
-            if(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1]) continue;
-            if(!state.gameMap.cells.at(...pt).blocksPlayerMove
+            if( !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) 
+                && !(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1])
+                && !state.gameMap.cells.at(...pt).blocksPlayerMove
                 && !state.gameMap.cells.at(...pt2).blocksPlayerMove 
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE && name=='jumpLeft')
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW && name=='jumpRight')
