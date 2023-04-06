@@ -156,6 +156,7 @@ type Cell = {
     hidesPlayer: boolean;
     lit: boolean;
     seen: boolean;
+    identified: boolean;
 }
 
 class CellGrid {
@@ -179,6 +180,7 @@ class CellGrid {
                 hidesPlayer: false,
                 lit: false,
                 seen: false,
+                identified: false,
             };
         }
     }

@@ -3,6 +3,7 @@ import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
 import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
+import { randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups, PopupType } from './popups';
@@ -386,7 +387,14 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     // If just passing time, do that.
 
     if ((dx === 0 && dy === 0) || distDesired <= 0) {
-        preTurn(state);
+        const x = player.pos[0];
+        const y = player.pos[1];
+        for(let x1=Math.max(x-1,0);x1<=Math.min(x+1,state.gameMap.cells.sizeX-1);++x1) {
+            for(let y1=Math.max(y-1,0);y1<=Math.min(y+1,state.gameMap.cells.sizeY-1);++y1) {
+                state.gameMap.cells.at(x1,y1).identified = true;
+            }
+        }
+        preTurn(state);        
         advanceTime(state);
         return;
     }
@@ -421,9 +429,18 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const oldTerrain = state.gameMap.cells.at(...player.pos).type;
 
+    const origDist = dist;
     for (; dist > 0; --dist) {
         const x = player.pos[0] + dx;
         const y = player.pos[1] + dy;
+
+        if(origDist==1 && dist==1) {
+            for(let x1=Math.max(x-1,0);x1<=Math.min(x+1,state.gameMap.cells.sizeX-1);++x1) {
+                for(let y1=Math.max(y-1,0);y1<=Math.min(y+1,state.gameMap.cells.sizeY-1);++y1) {
+                    state.gameMap.cells.at(x1,y1).identified = true;
+                }
+            }
+        }
 
         if (x < 0 || x >= state.gameMap.cells.sizeX ||
             y < 0 || y >= state.gameMap.cells.sizeY) {
@@ -605,8 +622,17 @@ function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups,
 
     sounds.footstepCreaky.play(0.6);
 
+    let gDist = radius*radius;
+    let closestGuard = null;
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
+        const dist =  (player.pos[0]-guard.pos[0])**2 + (player.pos[1]-guard.pos[1])**2 
+        if(dist<=gDist) closestGuard = guard;
         guard.heardThief = true;
+    }
+    if(closestGuard!=null) {
+        closestGuard.mode = GuardMode.MoveToLastSound; //Moving to a more alert state ensures guard will move to the noise
+//        closestGuard.modeTimeout = 4 + randomInRange(4);
+//        vec2.copy(closestGuard.goal, player.pos);
     }
 }
 
@@ -906,7 +932,7 @@ function renderWorld(state: State, renderer: Renderer) {
                 continue;
             }
             let terrainType = cell.type;
-            if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit) {
+            if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit && !cell.identified) {
                 terrainType = TerrainType.GroundWood;
             }
             const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
