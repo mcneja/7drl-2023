@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
-import { GuardMode, guardActAll, lineOfSight } from './guard';
+import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -626,7 +626,7 @@ function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups,
     let closestGuard = null;
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
         const dist =  (player.pos[0]-guard.pos[0])**2 + (player.pos[1]-guard.pos[1])**2 
-        if(dist<=gDist) closestGuard = guard;
+        if(dist<=gDist && isRelaxedGuardMode(guard.mode)) closestGuard = guard;
         guard.heardThief = true;
     }
     if(closestGuard!=null) {
