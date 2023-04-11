@@ -10,6 +10,7 @@ import { Popups, PopupType } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 
 import * as colorPreset from './color-preset';
+import { stat } from 'fs';
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
@@ -41,7 +42,18 @@ enum GameMode {
     Win,
 }
 
+type EndStats = {
+    lootStolen: number;
+    lootSpent: number;
+    levelsGhosted: number;
+    timeBonuses: number;
+    maxLevelsGhosted: number;
+    maxTimeBonsuses: number;
+    maxLootStolen: number;
+}
+
 type State = {
+    endStats: EndStats;
     tLast: number | undefined;
     leapToggleActive: boolean;
     gameMode: GameMode;
@@ -58,6 +70,12 @@ type State = {
     seeGuardPatrols: boolean;
     camera: Camera;
     level: number;
+    turns: number;
+    lootStolen: number;
+    lootSpent: number;
+    lootAvailable: number;
+    ghostBonus: number;
+    timeBonus: number;
     gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;
@@ -217,7 +235,9 @@ function updateControllerState(state:State) {
         } else if (activated('seeAll')) {
             state.seeAll = !state.seeAll;
         } else if (activated('collectLoot')) {
-            state.player.loot += state.gameMap.collectAllLoot();
+            const loot = state.gameMap.collectAllLoot();
+            state.player.loot += loot;
+            state.lootStolen += loot;
             postTurn(state);
         } else if (activated('guardSight')) {
             state.seeGuardSight = !state.seeGuardSight;
@@ -339,6 +359,23 @@ function advanceToNextLevel(state: State) {
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
+    state.healCost += 1;
+
+    const es = state.endStats;
+    es.lootStolen += state.lootStolen;
+    es.maxLootStolen += state.lootAvailable;
+    es.levelsGhosted += state.ghostBonus;
+    es.maxLevelsGhosted += 5;
+    es.timeBonuses += state.timeBonus;
+    es.maxTimeBonsuses += 5;
+    es.lootSpent += state.lootSpent;
+
+    state.turns = 0;
+    state.lootStolen = 0;
+    state.lootSpent = 0;
+    state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
+    state.ghostBonus = 5;
+    state.timeBonus = 5;   
 
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
@@ -353,6 +390,10 @@ function advanceToNextLevel(state: State) {
 }
 
 function advanceToBetweenMansions(state: State) {
+    const c = state.gameMap.cells;
+    const scale = (c.sizeX*c.sizeY)/10;
+    state.timeBonus -= Math.min(Math.floor(state.turns/scale), state.timeBonus);
+    state.player.loot += state.timeBonus + state.ghostBonus;
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
     state.gameMode = GameMode.BetweenMansions;
@@ -458,6 +499,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
         if (loot > 0) {
             player.loot += loot;
+            state.lootStolen += loot;
             state.sounds.coin.play(1.0);
         }
     }
@@ -647,6 +689,7 @@ function preTurn(state: State) {
 
 function advanceTime(state: State) {
     let oldHealth = state.player.health;
+    state.turns++;
     if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
@@ -655,9 +698,11 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-
     guardActAll(state.gameMap, state.popups, state.player);
 
+    if(state.gameMap.guards.find((guard)=> guard.mode==GuardMode.ChaseVisibleTarget)!==undefined) {
+        state.ghostBonus = 0;
+    }
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
 
@@ -704,6 +749,7 @@ function tryHealPlayer(state: State) {
     }
 
     state.player.loot -= state.healCost;
+    state.endStats.lootSpent += state.healCost;
     state.player.health += 1;
     state.healCost *= 2;
 }
@@ -1169,6 +1215,15 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
 
     return {
+        endStats: {    
+            lootStolen: 0,
+            lootSpent: 0,
+            levelsGhosted: 0,
+            timeBonuses: 0,
+            maxLevelsGhosted: 0,
+            maxTimeBonsuses: 0,
+            maxLootStolen: 0,
+        },
         tLast: undefined,
         leapToggleActive: false,
         gameMode: GameMode.Mansion,
@@ -1185,6 +1240,12 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         seeGuardPatrols: false,
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
+        turns: 0,
+        lootStolen: 0,
+        lootSpent: 0,
+        lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
+        ghostBonus: 5,
+        timeBonus: 5,   
         gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
@@ -1204,13 +1265,27 @@ function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot);
     state.level = 0;
 
+    state.endStats = {    
+        lootStolen: 0,
+        lootSpent: 0,
+        levelsGhosted: 0,
+        timeBonuses: 0,
+        maxLevelsGhosted: 0,
+        maxTimeBonsuses: 0,
+        maxLootStolen: 0,
+    };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
-
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
     state.healCost = 1;
+    state.turns = 0;
+    state.lootStolen = 0;
+    state.lootSpent = 0;
+    state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
+    state.ghostBonus = 5;
+    state.timeBonus = 5;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -1220,6 +1295,12 @@ function restartGame(state: State) {
 
 function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    state.turns = 0;
+    state.lootStolen = 0;
+    state.lootSpent = 0;
+    state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
+    state.ghostBonus = 5;
+    state.timeBonus = 5;
 
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -1311,6 +1392,13 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                     renderTextLines(renderer, screenSize, [
                         '   Mansion ' + (state.level + 1) + ' Complete!',
                         '',
+                        'Mansion Statistics',
+                        'Loot stolen:     ' + (state.lootStolen)+'/'+(state.lootAvailable),
+                        'Ghost bonus:     ' + (state.ghostBonus),
+                        'Timely delivery: ' + (state.timeBonus),
+                        'Mansion total:   ' + (state.lootStolen+state.ghostBonus+state.timeBonus),
+                        '',
+                        'Current loot:    ' + state.player.loot,
                         'H: Heal one heart for $' + state.healCost,
                         'N: Next mansion',
                     ]);
@@ -1336,9 +1424,17 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 } else {
                     renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
                     renderBottomStatusBar(renderer, screenSize, state);
-
+                    const es = state.endStats;
                     renderTextLines(renderer, screenSize, [
                         '   You are dead!',
+                        '',
+                        'Statistics',
+                        'Loot stolen:   ' + es.lootStolen +'/'+es.maxLootStolen,
+                        'Ghost bonuses: ' + es.levelsGhosted+'/'+es.maxLevelsGhosted,
+                        'Time bonuses:  ' + es.timeBonuses+'/'+es.maxTimeBonsuses,
+                        'Loot spent:    ' + es.lootSpent,
+                        '',
+                        'Final loot:    ' + state.player.loot,
                         '',
                         'R: Restart new game',
                     ]);
@@ -1363,11 +1459,17 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
                 } else {
                     renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
                     renderBottomStatusBar(renderer, screenSize, state);
-
+                    const es = state.endStats;
                     renderTextLines(renderer, screenSize, [
                         '   Mission Complete!',
                         '',
-                        'Score: ' + state.player.loot + ' of ' + totalGameLoot + ' loot',
+                        'Statistics',
+                        'Loot stolen:   ' + es.lootStolen +'/'+es.maxLootStolen,
+                        'Ghost bonuses: ' + es.levelsGhosted+'/'+es.maxLevelsGhosted,
+                        'Time bonuses:  ' + es.timeBonuses+'/'+es.maxTimeBonsuses,
+                        'Loot spent:    ' + es.lootSpent,
+                        '',
+                        'Score:         ' + state.player.loot,
                         '',
                         'R: Restart new game',
                     ]);
@@ -1652,11 +1754,21 @@ function statusBarZoom(screenSizeX: number): number {
 
 const helpPages: Array<Array<string>> = [
     [
-        '         Lurk, Leap, Loot',
+        '           Lurk, Leap, Loot',
         '',
-        'Your mission from the thieves\' guild',
-        'is to map ' + numGameMaps + ' mansions. You can keep',
-        'any loot you find (' + totalGameLoot + ' total).',
+        'Your mission from the thieves\' guild is to',
+        'map ' + numGameMaps + ' mansions. You can keep any loot you',
+        'find (' + totalGameLoot + ' total).',
+        '',
+        'Mansion bonuses:',
+        '- Up to 5 gold for a timely map delivery.',
+        '- 5 gold if you avoid alerting guards.',
+        '', 
+        '                      <Escape to close help>',
+        'Page 1 of 4 <Arrow right / D / L to advance>',
+    ],
+    [
+        'Keyboard controls',
         '',
         '  Move: Arrows / WASD / HJKL',
         '  Wait: Space / Z / Period / Numpad5',
@@ -1667,8 +1779,9 @@ const helpPages: Array<Array<string>> = [
         '  Guard Mute (Toggle): 9',
         '',
         'Disable NumLock if using numpad',
+        'Mouse, touch and gamepad also supported',
         '',
-        'Page 1 of 3',
+        'Page 2 of 4',
     ],
     [
         '   Thief: You!',
@@ -1680,7 +1793,7 @@ const helpPages: Array<Array<string>> = [
         '   Torch: Guards want them lit',
         '   Window: One-way escape route',
         '',
-        'Page 2 of 3',
+        'Page 3 of 4',
     ],
     [
         'Made for 2023 Seven-Day Roguelike Challenge',
@@ -1692,7 +1805,7 @@ const helpPages: Array<Array<string>> = [
         'Testing by Tom Elmer',
         'Special thanks to Mendi Carroll',
         '',
-        'Page 3 of 3',
+        'Page 4 of 4',
     ],
 ];
 
@@ -1757,7 +1870,7 @@ function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
 
     renderer.flush();
 
-    if (state.helpPageIndex == 1) {
+    if (state.helpPageIndex == 2) {
         const pixelsPerGlyphX = 16 * scaleFactor;
         const pixelsPerGlyphY = 16 * scaleFactor;
         const numCharsX = screenSize[0] / pixelsPerGlyphX;
@@ -1881,12 +1994,12 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const percentSeen = state.gameMap.percentSeen();
 
-    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped';
+    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped - ' +' Turn ' + state.turns;
 
     const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
     putString(renderer, seenX, seenMsg, colorPreset.lightGray);
 
-    // Total loot
+    // Total loot and turn
 
     let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
