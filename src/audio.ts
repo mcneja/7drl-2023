@@ -228,7 +228,7 @@ const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/not there anymore.ogg'), 'Not there anymore.'],
     [require('url:./audio/guards/probably nothing.ogg'), 'Probably nothing.'],
     [require('url:./audio/guards/hmm nothing.ogg'), 'Hmm, nothing.'],
-    [require('url:./audio/guards/i dont know why i work here.ogg'), 'I dont know why i work here.'],
+    [require('url:./audio/guards/i dont know why i work here.ogg'), 'I dont know why I work here.'],
     [require('url:./audio/guards/waste of my time.ogg'), 'Waste of my time.'],
     [require('url:./audio/guards/why do I even try.ogg'), 'Why do I even try.'],
     [require('url:./audio/guards/at least Im not on cleaning duty.ogg'), 'At least Im not on cleaning duty.'],
@@ -292,7 +292,7 @@ const guardEndChaseSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/for his holiness.ogg'), 'His Holiness is a lord of mercy!'],
     [require('url:./audio/guards/lousy day at work.ogg'), 'What a lousy day at work!'],
     [require('url:./audio/guards/i give up.ogg'), 'I give up...'],
-    [require('url:./audio/guards/what do i do help me.ogg'), 'What do i do help me, help me...'],
+    [require('url:./audio/guards/what do i do help me.ogg'), 'What do I do help me, help me...'],
     [require('url:./audio/guards/oh no he got away.ogg'), 'Oh no, he got away!'],
     [require('url:./audio/guards/guard rant.ogg'), '(guard rant)'],
 ];
@@ -303,9 +303,9 @@ const guardDamageSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/uh.ogg'), 'Ugg!!'],
     [require('url:./audio/guards/ah.ogg'), 'Ahh!!'],
     [require('url:./audio/guards/ah-2.ogg'), 'Ahh!!'],
-    [require('url:./audio/guards/ha ya.ogg'), 'Aiyah!'],
-    [require('url:./audio/guards/ha ya-2.ogg'), 'Aiyah!'],
-    [require('url:./audio/guards/ha ya-3.ogg'), 'Aiyah!'],
+    [require('url:./audio/guards/ha ya.ogg'), 'Hi-yah!'],
+    [require('url:./audio/guards/ha ya-2.ogg'), 'Hi-yah!'],
+    [require('url:./audio/guards/ha ya-3.ogg'), 'Hi-yah!'],
 ];
 
 
