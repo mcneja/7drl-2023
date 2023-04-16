@@ -9,6 +9,19 @@ const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
 
+const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
+    [3,3,2,2,6,6],
+    [3,5,2,5,6,12],
+    [3,5,2,6,9,15],
+    [3,5,2,6,12,18],
+    [3,7,3,6,15,21],
+    [3,7,3,6,18,24],
+    [3,7,3,6,21,30],
+    [5,7,4,6,24,36],
+    [5,9,4,6,30,42],
+    [7,9,4,6,36,48],
+];
+
 enum RoomType
 {
     Exterior,
@@ -44,11 +57,12 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number): Array<Game
     // First establish the sizes of the levels
 
     for (let level = 0; level < numMaps; ++level) {
-        const sizeX = randomHouseWidth(level);
-        const sizeY = randomHouseDepth(level);
+        const size = makeLevelSize(level);
+        // const sizeX = randomHouseWidth(level);
+        // const sizeY = randomHouseDepth(level);
         gameMapRoughPlans.push({
-            numRoomsX: sizeX,
-            numRoomsY: sizeY,
+            numRoomsX: size[0],
+            numRoomsY: size[1],
             totalLoot: 0
         });
     }
@@ -85,6 +99,17 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number): Array<Game
     return gameMapRoughPlans;
 }
 
+function makeLevelSize(level:number) : [number, number] {
+    let xmin, xmax, ymin, ymax, Amin, Amax;
+    [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];
+    const x = xmin + 2*randomInRange(1+(xmax-xmin)/2);
+    let y = ymin + randomInRange(1+ymax-ymin);
+    y = Math.min(Math.floor(Amax/x), y);
+    y = Math.max(y, Math.ceil(Amin/x));
+    return [x,y];
+}
+
+
 function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY);
 
@@ -118,28 +143,6 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     map.recomputeVisibility(map.playerStartPos);
 
     return map;
-}
-
-function randomHouseWidth(level: number): number {
-    let sizeX = 0;
-    const c = Math.min(3, level);
-    for (let i = 0; i < c; ++i) {
-        sizeX += randomInRange(2);
-    }
-    return sizeX * 2 + 3;
-}
-
-function randomHouseDepth(level: number): number {
-    if (level === 0) {
-        return 2;
-    } else {
-        let sizeY = 3;
-        const c = Math.min(4, level - 1);
-        for (let i = 0; i < c; ++i) {
-            sizeY += randomInRange(2);
-        }
-        return sizeY;
-    }
 }
 
 function makeSiheyuanRoomGrid(sizeX: number, sizeY: number): BooleanGrid {
