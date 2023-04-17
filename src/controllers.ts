@@ -21,6 +21,11 @@ const controlStates:ControlStates = {
     'jump':false,
     'zoomIn':false,
     'zoomOut':false,
+    'snapToPlayer':false,
+    'panUp':false,
+    'panDown':false,
+    'panLeft':false,
+    'panRight':false,
     'menu':false,
     'jumpToggle': false,
     'restart': false,
@@ -56,7 +61,7 @@ const defaultKeyMap:KeyMap = {
     'ArrowLeft': 'left',
     'KeyA': 'left',
     'Numpad4': 'left',
-//    'KeyH': 'left',
+//    'KeyH': 'left', --used by the health up key TODO: clean this up so we don't have to use the health controlstate for left movement in the level
 
     'ArrowRight': 'right',
     'KeyD': 'right',
@@ -92,15 +97,34 @@ const defaultKeyMap:KeyMap = {
     'Minus' : 'volumeDown',
     'Equal' : 'volumeUp',
 
+    'Control+Space': 'snapToPlayer',
+    'Control+Period': 'snapToPlayer',
+    'Control+ArrowUp': 'panUp',
+    'Control+KeyW': 'panUp',
+    'Control+KeyJ': 'panUp',
+    'Control+Numpad8': 'panUp',
+    'Control+ArrowDown': 'panDown',
+    'Control+KeyS': 'panDown',
+    'Control+KeyK': 'panDown',
+    'Control+Numpad2': 'panDown',
+    'Control+ArrowLeft': 'panLeft',
+    'Control+KeyA': 'panLeft',
+    'Control+KeyH': 'panLeft',
+    'Control+Numpad4': 'panLeft',
+    'Control+ArrowRight': 'panRight',
+    'Control+KeyD': 'panRight',
+    'Control+KeyL': 'panRight',
+    'Control+Numpad6': 'panRight',
+
     'Control+KeyR': 'forceRestart',
-    'Control+KeyG': 'resetState',
-    'Control+KeyA': 'seeAll',
-    'Control+KevC': 'collectLoot',
-    'Control+KeyS': 'markSeen',
-    'Control+KeyV': 'guardSight',
-    'Control+KeyP': 'guardPatrols',
-    'Control+Comma': 'prevLevel',
-    'Control+Period': 'nextLevel',
+    'Alt+KeyR': 'resetState',
+    'Alt+KeyA': 'seeAll',
+    'Alt+KevC': 'collectLoot',
+    'Alt+KeyS': 'markSeen',
+    'Alt+KeyV': 'guardSight',
+    'Alt+KeyP': 'guardPatrols',
+    'Alt+Comma': 'prevLevel',
+    'Alt+Period': 'nextLevel',
 }
 
 export class Rect extends Array<number> {
@@ -209,7 +233,7 @@ class GamepadController extends Controller {
     constructor(gamepad:Gamepad) {
         super();
         this.gamepad = gamepad;
-        this.thresh = 0.3;
+        this.thresh = 0.4;
         this.internalStates = {... this.controlStates};
     }
     set(action:string, state:boolean=true) {
@@ -270,6 +294,10 @@ class GamepadManager {
             c.set("right", this.buttonPressed(g.buttons[15]) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));
             c.set("up", this.buttonPressed(g.buttons[12]) || g.axes[1]<-c.thresh && (g.axes[1]<-0.5*Math.abs(g.axes[0])));
             c.set("down", this.buttonPressed(g.buttons[13]) || g.axes[1]>c.thresh    && (g.axes[1]>-0.5*Math.abs(g.axes[0])));
+            c.set("panLeft", g.axes[2]<-c.thresh && (g.axes[2]<-0.5*Math.abs(g.axes[3])));
+            c.set("panRight", g.axes[2]>c.thresh && (g.axes[2]>0.5*Math.abs(g.axes[3])));
+            c.set("panUp", g.axes[3]<-c.thresh && (g.axes[3]<-0.5*Math.abs(g.axes[2])));
+            c.set("panDown", g.axes[3]>c.thresh    && (g.axes[3]>-0.5*Math.abs(g.axes[2])));
         }
     }
     buttonPressed(b:GamepadButton) {
@@ -280,6 +308,7 @@ class GamepadManager {
 class TouchController extends Controller {
     canvas: HTMLCanvasElement;
     screenDimensions: [number, number];
+    lastMotion: {id:number, x0:number, y0:number, x:number, y:number};
     buttonMap: {[id:string]: {id:number, view:Rect, game:Rect, tileInfo:TileInfo|null, trigger:'press'|'release', show:'always'|'press', touchXY:[number, number]}};
     constructor(canvas: HTMLCanvasElement, asGamepad:boolean) {
         super();
@@ -295,6 +324,7 @@ class TouchController extends Controller {
         canvas.addEventListener('mousemove', function(ev){that.process_mousemove(ev);}, true);
         const nullRect:[number,number,number,number] = [0,0,0,0];
         this.screenDimensions = [0,0];
+        this.lastMotion = {id:-1,x0:0,y0:0,x:0,y:0};
         this.buttonMap = {
             'up':           {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'down':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
@@ -305,8 +335,9 @@ class TouchController extends Controller {
             'jumpLeft':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'jumpRight':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'wait':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'exitLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press', tileInfo:null},
+            'exitLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'jump':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
+            'pan':          {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
             'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'heal':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
@@ -321,7 +352,7 @@ class TouchController extends Controller {
     }
     setButtonConfig(asGamepad:boolean) {
         if(asGamepad) {
-            for (let c of ['up','down','left','right','wait','jump']) {
+            for (let c of ['up','down','left','right','wait','jump','pan']) {
                 this.buttonMap[c].trigger = 'press';
                 this.buttonMap[c].show = 'always';
             }
@@ -330,7 +361,11 @@ class TouchController extends Controller {
                 this.buttonMap[c].show = 'press';
             }
         } else {
-            for (let c of ['up','down','left','right','jumpUp','jumpDown','jumpLeft','jumpRight','wait','jump']) {
+            for (let c of ['exitLevel']) {
+                this.buttonMap[c].trigger = 'press';
+                this.buttonMap[c].show = 'always';
+            }
+            for (let c of ['up','down','left','right','pan','jumpUp','jumpDown','jumpLeft','jumpRight','wait','jump']) {
                 this.buttonMap[c].trigger = 'release';
                 this.buttonMap[c].show = 'press';
             }
@@ -363,6 +398,11 @@ class TouchController extends Controller {
     //touchstart handler
     process_mousedown(ev: MouseEvent) {
         lastController = this;
+        this.lastMotion.id=-2
+        this.lastMotion.x0 = ev.clientX;
+        this.lastMotion.y0 = this.canvas.clientHeight-ev.clientY;
+        this.lastMotion.x = ev.clientX;
+        this.lastMotion.y = this.canvas.clientHeight-ev.clientY;
         for(let bname in this.buttonMap) {
             let b = this.buttonMap[bname]
             const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
@@ -377,6 +417,10 @@ class TouchController extends Controller {
     // touchmove handler
     process_mousemove(ev:MouseEvent) {
         let state:{[id:string]:boolean} = {};
+        if(this.lastMotion.id == -2) {
+            this.lastMotion.x = ev.clientX;
+            this.lastMotion.y = this.canvas.clientHeight-ev.clientY;
+        }        
         for(let bname in this.buttonMap) {
             let b = this.buttonMap[bname]
             if(b.id == -2) {
@@ -391,7 +435,6 @@ class TouchController extends Controller {
                     }    
                 }    
             }
-            //Uncomment to enable sliding from outside to activate a button
             else if(b.trigger=='release') {
                 const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
                 if(touching) {
@@ -405,6 +448,11 @@ class TouchController extends Controller {
     }
     // touchend handler
     process_mouseup(ev:MouseEvent) {
+        this.lastMotion.id=-1;
+        this.lastMotion.x0 = 0;
+        this.lastMotion.y0 = 0;
+        this.lastMotion.x = 0;
+        this.lastMotion.y = 0;
         for(const bname in this.buttonMap) {
             const b = this.buttonMap[bname];
             b.id = -1;
@@ -417,6 +465,11 @@ class TouchController extends Controller {
     process_touchstart(ev: TouchEvent) {
         lastController = this;
         for(let t of ev.changedTouches) { 
+            this.lastMotion.id = t.identifier;
+            this.lastMotion.x0 = t.clientX; 
+            this.lastMotion.y0 = this.canvas.clientHeight-t.clientY;
+            this.lastMotion.x = t.clientX;
+            this.lastMotion.y = this.canvas.clientHeight-t.clientY;
             for(let bname in this.buttonMap) {
                 let b = this.buttonMap[bname]
                 const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
@@ -433,6 +486,10 @@ class TouchController extends Controller {
     process_touchmove(ev:TouchEvent) {
         let state:{[id:string]:boolean} = {};
         for(let t of ev.changedTouches) { 
+            if(this.lastMotion.id == t.identifier) {
+                    this.lastMotion.x = t.clientX;
+                    this.lastMotion.y = this.canvas.clientHeight-t.clientY;                    
+            }
             for(let bname in this.buttonMap) {
                 let b = this.buttonMap[bname]
                 if(b.id == t.identifier) {
@@ -461,6 +518,13 @@ class TouchController extends Controller {
     // touchend handler
     process_touchend(ev:TouchEvent) {
         for(let t of ev.changedTouches) { 
+            if(this.lastMotion.id == t.identifier) {
+                this.lastMotion.id = -1;
+                this.lastMotion.x0 = 0;  
+                this.lastMotion.y0 = 0;
+                this.lastMotion.x = 0;
+                this.lastMotion.y = 0;
+            }
             for(const bname in this.buttonMap) {
                 const b = this.buttonMap[bname];
                 if(b.id==t.identifier) {

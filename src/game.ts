@@ -32,7 +32,9 @@ const startingTopStatusMessage = 'Esc or / for help';
 type Camera = {
     position: vec2;
     velocity: vec2;
+    anchor: vec2;
     snapped: boolean;
+    panning: boolean;
 }
 
 enum GameMode {
@@ -55,6 +57,7 @@ type EndStats = {
 type State = {
     endStats: EndStats;
     tLast: number | undefined;
+    dt: number;
     leapToggleActive: boolean;
     gameMode: GameMode;
     helpActive: boolean;
@@ -200,7 +203,32 @@ function updateControllerState(state:State) {
     }
         
     function onControlsInMansion(controller: Controller) {
-        if (activated('left')) {
+        if(state.camera.panning) {
+            state.camera.velocity[0] = 0;
+            state.camera.velocity[1] = 0;
+        }
+        if (controller.controlStates['panLeft']) {
+            state.camera.panning = true;
+            state.camera.velocity[0] = -1000 * state.dt;
+//            console.log(state.dt, state.camera.velocity, state.camera.position);
+        }
+        if (controller.controlStates['panRight']) {
+            state.camera.panning = true;
+            state.camera.velocity[0] = +1000 * state.dt;
+        }
+        if (controller.controlStates['panUp']) {
+            state.camera.panning = true;
+            state.camera.velocity[1] = +1000 * state.dt;
+        }
+        if (controller.controlStates['panDown']) {
+            state.camera.panning = true;
+            state.camera.velocity[1] = -1000 * state.dt;
+        }
+        if (controller.controlStates['snapToPlayer']) {
+            state.camera.panning = false;
+            state.camera.snapped = false;
+        }
+        if (activated('left')||activated('heal')) {
             const moveSpeed = (state.leapToggleActive || controller.controlStates['jump']) ? 2 : 1;
             tryMovePlayer(state, -1, 0, moveSpeed);
         } else if (activated('right')) {
@@ -420,10 +448,11 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
 
     // Can't move if you're dead.
-
     if (player.health <= 0) {
         return;
     }
+
+    state.camera.panning = false; //Move camera back to player
 
     // If just passing time, do that.
 
@@ -1200,7 +1229,9 @@ function createCamera(posPlayer: vec2): Camera {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        anchor: vec2.create(),
         snapped: false,
+        panning: false,
     };
 
     vec2.copy(camera.position, posPlayer);
@@ -1225,6 +1256,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             maxLootStolen: 0,
         },
         tLast: undefined,
+        dt: 0,
         leapToggleActive: false,
         gameMode: GameMode.Mansion,
         helpActive: false,
@@ -1315,12 +1347,14 @@ function resetState(state: State) {
 function updateAndRender(now: number, renderer: Renderer, state: State) {
     const t = now / 1000;
     const dt = (state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
+    state.dt = dt;
     state.tLast = t;
 
     const screenSize = vec2.create();
     renderer.getScreenSize(screenSize);
 
     if (!state.camera.snapped) {
+        state.camera.panning = false;
         state.camera.snapped = true;
         snapCamera(state, screenSize);
     }
@@ -1520,6 +1554,21 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
+    if(touchController.lastMotion.id!=-1) {
+        const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
+        const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
+        state.camera.panning = true;
+        var d = vec2.fromValues(p1[0]-p0[0], p1[1]-p0[1]);
+        vec2.subtract(d, p1, p0);
+        state.camera.position[0] -= d[0]-state.camera.anchor[0];
+        state.camera.position[1] -= d[1]-state.camera.anchor[1];
+        state.camera.anchor[0] = d[0];
+        state.camera.anchor[1] = d[1];
+    } else {
+        state.camera.anchor[0] = 0;
+        state.camera.anchor[1] = 0;
+    }
+
     const buttonAllocPixels = Math.floor(Math.min(sh,sw)/6);
     const origin = pt.screenToWorld(vec2.fromValues(0,0));
     const buttonAlloc = pt.screenToWorld(vec2.fromValues(buttonAllocPixels,buttonAllocPixels));
@@ -1628,33 +1677,37 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
 
 function updateCamera(state: State, screenSize: vec2, dt: number) {
 
-    // Figure out where the camera should be pointed
-
-    const posCameraTarget = vec2.create();
-    cameraTargetCenterPosition(
-        posCameraTarget,
-        vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
-        state.zoomLevel,
-        screenSize,
-        state.player.pos
-    );
-
-    // Update player follow
-
-    const posError = vec2.create();
-    vec2.subtract(posError, posCameraTarget, state.camera.position);
-
-    const velError = vec2.create();
-    vec2.negate(velError, state.camera.velocity);
-
-    const kSpring = 8; // spring constant, radians/sec
-
-    const acc = vec2.create();
-    vec2.scale(acc, posError, kSpring**2);
-    vec2.scaleAndAdd(acc, acc, velError, 2*kSpring);
-
     const velNew = vec2.create();
-    vec2.scaleAndAdd(velNew, state.camera.velocity, acc, dt);
+
+    if(!state.camera.panning) {
+        // Figure out where the camera should be pointed
+
+        const posCameraTarget = vec2.create();
+        cameraTargetCenterPosition(
+            posCameraTarget,
+            vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
+            state.zoomLevel,
+            screenSize,
+            state.player.pos
+        );
+
+        // Update player follow
+
+        const posError = vec2.create();
+        vec2.subtract(posError, posCameraTarget, state.camera.position);
+
+        const velError = vec2.create();
+        vec2.negate(velError, state.camera.velocity);
+
+        const kSpring = 8; // spring constant, radians/sec
+
+        const acc = vec2.create();
+        vec2.scale(acc, posError, kSpring**2);
+        vec2.scaleAndAdd(acc, acc, velError, 2*kSpring);
+
+        vec2.scaleAndAdd(velNew, state.camera.velocity, acc, dt);
+
+    }
 
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
