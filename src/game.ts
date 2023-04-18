@@ -1554,11 +1554,11 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
-    if(touchController.lastMotion.id!=-1) {
+    if(touchController.lastMotion.id!=-1 && touchController.lastMotion.active) {
         const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
         const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
-        state.camera.panning = true;
         var d = vec2.fromValues(p1[0]-p0[0], p1[1]-p0[1]);
+        state.camera.panning = true;
         vec2.subtract(d, p1, p0);
         state.camera.position[0] -= d[0]-state.camera.anchor[0];
         state.camera.position[1] -= d[1]-state.camera.anchor[1];

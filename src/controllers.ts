@@ -308,7 +308,7 @@ class GamepadManager {
 class TouchController extends Controller {
     canvas: HTMLCanvasElement;
     screenDimensions: [number, number];
-    lastMotion: {id:number, x0:number, y0:number, x:number, y:number};
+    lastMotion: {id:number, active: boolean, x0:number, y0:number, x:number, y:number};
     buttonMap: {[id:string]: {id:number, view:Rect, game:Rect, tileInfo:TileInfo|null, trigger:'press'|'release', show:'always'|'press', touchXY:[number, number]}};
     constructor(canvas: HTMLCanvasElement, asGamepad:boolean) {
         super();
@@ -324,7 +324,7 @@ class TouchController extends Controller {
         canvas.addEventListener('mousemove', function(ev){that.process_mousemove(ev);}, true);
         const nullRect:[number,number,number,number] = [0,0,0,0];
         this.screenDimensions = [0,0];
-        this.lastMotion = {id:-1,x0:0,y0:0,x:0,y:0};
+        this.lastMotion = {id:-1,active:false,x0:0,y0:0,x:0,y:0};
         this.buttonMap = {
             'up':           {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'down':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
@@ -399,6 +399,7 @@ class TouchController extends Controller {
     process_mousedown(ev: MouseEvent) {
         lastController = this;
         this.lastMotion.id=-2
+        this.lastMotion.active = false;
         this.lastMotion.x0 = ev.clientX;
         this.lastMotion.y0 = this.canvas.clientHeight-ev.clientY;
         this.lastMotion.x = ev.clientX;
@@ -418,6 +419,7 @@ class TouchController extends Controller {
     process_mousemove(ev:MouseEvent) {
         let state:{[id:string]:boolean} = {};
         if(this.lastMotion.id == -2) {
+            this.lastMotion.active = true;
             this.lastMotion.x = ev.clientX;
             this.lastMotion.y = this.canvas.clientHeight-ev.clientY;
         }        
@@ -446,9 +448,10 @@ class TouchController extends Controller {
         }   
         ev.preventDefault();
     }
-    // touchend handler
+    // mouseup handler
     process_mouseup(ev:MouseEvent) {
         this.lastMotion.id=-1;
+        this.lastMotion.active = false;
         this.lastMotion.x0 = 0;
         this.lastMotion.y0 = 0;
         this.lastMotion.x = 0;
@@ -466,6 +469,7 @@ class TouchController extends Controller {
         lastController = this;
         for(let t of ev.changedTouches) { 
             this.lastMotion.id = t.identifier;
+            this.lastMotion.active = false;
             this.lastMotion.x0 = t.clientX; 
             this.lastMotion.y0 = this.canvas.clientHeight-t.clientY;
             this.lastMotion.x = t.clientX;
@@ -488,6 +492,7 @@ class TouchController extends Controller {
         for(let t of ev.changedTouches) { 
             if(this.lastMotion.id == t.identifier) {
                     this.lastMotion.x = t.clientX;
+                    this.lastMotion.active = true;
                     this.lastMotion.y = this.canvas.clientHeight-t.clientY;                    
             }
             for(let bname in this.buttonMap) {
@@ -520,6 +525,7 @@ class TouchController extends Controller {
         for(let t of ev.changedTouches) { 
             if(this.lastMotion.id == t.identifier) {
                 this.lastMotion.id = -1;
+                this.lastMotion.active = true;
                 this.lastMotion.x0 = 0;  
                 this.lastMotion.y0 = 0;
                 this.lastMotion.x = 0;
