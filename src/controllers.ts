@@ -491,9 +491,9 @@ class TouchController extends Controller {
         let state:{[id:string]:boolean} = {};
         for(let t of ev.changedTouches) { 
             if(this.lastMotion.id == t.identifier) {
-                    this.lastMotion.x = t.clientX;
-                    this.lastMotion.active = true;
-                    this.lastMotion.y = this.canvas.clientHeight-t.clientY;                    
+                this.lastMotion.active = true;
+                this.lastMotion.x = t.clientX;
+                this.lastMotion.y = this.canvas.clientHeight-t.clientY;                    
             }
             for(let bname in this.buttonMap) {
                 let b = this.buttonMap[bname]
@@ -525,7 +525,7 @@ class TouchController extends Controller {
         for(let t of ev.changedTouches) { 
             if(this.lastMotion.id == t.identifier) {
                 this.lastMotion.id = -1;
-                this.lastMotion.active = true;
+                this.lastMotion.active = false;
                 this.lastMotion.x0 = 0;  
                 this.lastMotion.y0 = 0;
                 this.lastMotion.x = 0;
