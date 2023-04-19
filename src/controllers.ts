@@ -371,6 +371,14 @@ class TouchController extends Controller {
             }
         }
     }
+    clearMotion() {
+        this.lastMotion.active = false;
+        this.lastMotion.id = -1;
+        this.lastMotion.x0 = 0;
+        this.lastMotion.y0 = 0;
+        this.lastMotion.x = 0;
+        this.lastMotion.y = 0;
+    }
     set(action:string, state:boolean=true, activate:boolean=true) {
         if(activate) this.controlActivated[action] = !this.controlStates[action] && state || this.controlStates[action] && !state;
         this.controlStates[action] = state;
@@ -450,12 +458,7 @@ class TouchController extends Controller {
     }
     // mouseup handler
     process_mouseup(ev:MouseEvent) {
-        this.lastMotion.id=-1;
-        this.lastMotion.active = false;
-        this.lastMotion.x0 = 0;
-        this.lastMotion.y0 = 0;
-        this.lastMotion.x = 0;
-        this.lastMotion.y = 0;
+        this.clearMotion();
         for(const bname in this.buttonMap) {
             const b = this.buttonMap[bname];
             b.id = -1;
@@ -524,12 +527,7 @@ class TouchController extends Controller {
     process_touchend(ev:TouchEvent) {
         for(let t of ev.changedTouches) { 
             if(this.lastMotion.id == t.identifier) {
-                this.lastMotion.id = -1;
-                this.lastMotion.active = false;
-                this.lastMotion.x0 = 0;  
-                this.lastMotion.y0 = 0;
-                this.lastMotion.x = 0;
-                this.lastMotion.y = 0;
+                this.clearMotion();
             }
             for(const bname in this.buttonMap) {
                 const b = this.buttonMap[bname];

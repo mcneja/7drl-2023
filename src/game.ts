@@ -453,6 +453,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     }
 
     state.camera.panning = false; //Move camera back to player
+    state.touchController.clearMotion();
 
     // If just passing time, do that.
 
