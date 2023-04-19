@@ -452,7 +452,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         return;
     }
 
-    state.camera.panning = false; //Move camera back to player
+    //Move camera with player by releasing any panning motion
+    state.camera.panning = false;
     state.touchController.clearMotion();
 
     // If just passing time, do that.
@@ -606,7 +607,11 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 state.topStatusMessage = 'Window cannot be accessed from outside';
                 state.topStatusMessageSticky = false;
                 if(state.level===0) state.sounds['tooHigh'].play(0.3);
-                else state.sounds['footstepTile'].play(0.1);    
+                else state.sounds['footstepTile'].play(0.1);
+            }
+            // If jumping but there's a door in the way, we allow a move into the door
+            if(d==1 && [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.at(...pos).type)) {
+                distAllowed = d;
             }
             break;
         } else {
