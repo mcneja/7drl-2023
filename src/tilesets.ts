@@ -191,6 +191,7 @@ const tileSet31Color:TileSet = {
         'zoomIn':       {textureIndex: r([10,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
         'zoomOut':      {textureIndex: r([11,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
         'heal':         {textureIndex: r([12,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
+        'startLevel':   {textureIndex: r([13,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
         'nextLevel':    {textureIndex: r([13,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
         'restart':      {textureIndex: r([14,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
         'forceRestart': {textureIndex: r([14,  0]),  color:0xa0ffffff, unlitColor:0x80ffffff},
