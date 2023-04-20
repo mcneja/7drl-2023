@@ -305,32 +305,11 @@ function updateControllerState(state:State) {
             state.seeGuardPatrols = !state.seeGuardPatrols;
         } else if (activated('forceRestart')) {
             restartGame(state);
-        } else if (activated('nextLevel')) {
-            if (state.level < state.gameMapRoughPlans.length - 1) {
-                ++state.level;
-                resetState(state);
-            }
-        } else if (activated('resetLevel')) {
-            resetState(state);
-        } else if (activated('prevLevel')) {
-            if (state.level > 0) {
-                --state.level;
-                resetState(state);
-            }
-        } else if (activated('markSeen')) {
-            state.gameMap.markAllSeen();
-            postTurn(state);
-        } else if (activated('zoomIn')) {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (activated('zoomOut')) {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
         } else if (activated('guardMute')) {
-        state.guardMute = !state.guardMute;
-        for(const s in state.subtitledSounds) {
-            state.subtitledSounds[s].mute = state.guardMute;
-        }
+            state.guardMute = !state.guardMute;
+            for(const s in state.subtitledSounds) {
+                state.subtitledSounds[s].mute = state.guardMute;
+            }
         } else if (activated('volumeMute')) {
             state.volumeMute = !state.volumeMute;
             Howler.mute(state.volumeMute);
@@ -353,7 +332,7 @@ function updateControllerState(state:State) {
             restartGame(state);
         } else if (activated('heal')) {
             tryHealPlayer(state);
-        } else if (activated('nextLevel')) {
+        } else if (activated('startLevel')) {
             advanceToNextLevel(state);
         } else if (activated('menu')) {
             state.helpActive = true;

@@ -30,7 +30,7 @@ const controlStates:ControlStates = {
     'jumpToggle': false,
     'restart': false,
     'heal': false,
-    'nextLevel': false,
+    'startLevel': false,
     'exitLevel': false,
     'guardMute': false,
     'volumeMute': false,
@@ -43,6 +43,7 @@ const controlStates:ControlStates = {
     'markSeen': false,
     'guardSight': false,
     'guardPatrols': false,
+    'nextLevel': false,
     'prevLevel': false,
     'gamepadStyleTouch': false,
     'fullscreen': false,
@@ -90,7 +91,7 @@ const defaultKeyMap:KeyMap = {
 
     'KeyR': 'restart',
     'KeyH': 'heal',
-    'KeyN': 'nextLevel',
+    'KeyN': 'startLevel',
 
     'Digit9' : 'guardMute',
     'Digit0:': 'volumeMute',
@@ -284,7 +285,7 @@ class GamepadManager {
             c.set("jump", this.buttonPressed(g.buttons[0]));
             c.set("heal", this.buttonPressed(g.buttons[1]));
             c.set("wait", this.buttonPressed(g.buttons[2]));
-            c.set("nextLevel", this.buttonPressed(g.buttons[3]));
+            c.set("startLevel", this.buttonPressed(g.buttons[3]));
             c.set("zoomIn", this.buttonPressed(g.buttons[6]));
             c.set("zoomOut", this.buttonPressed(g.buttons[7]));
             c.set("fullscreen", this.buttonPressed(g.buttons[8]));
@@ -341,7 +342,7 @@ class TouchController extends Controller {
             'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'heal':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'nextLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'startLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'restart':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'forceRestart': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'menu':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
