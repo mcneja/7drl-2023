@@ -3,13 +3,14 @@ export { createGameMap, createGameMapRoughPlans };
 import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
-import { randomInRange, shuffleArray } from './random';
+import { RNG } from './random';
 
 const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
 
 const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
+    //xmin,xmax,ymin,ymax,areamin,areamax -- params used to constrain the map size
     [3,3,2,2,6,6],
     [3,5,2,5,6,12],
     [3,5,2,6,9,15],
@@ -51,13 +52,13 @@ type Adjacency = {
     doorOffset: number,
 }
 
-function createGameMapRoughPlans(numMaps: number, totalLoot: number): Array<GameMapRoughPlan> {
+function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
     // First establish the sizes of the levels
 
     for (let level = 0; level < numMaps; ++level) {
-        const size = makeLevelSize(level);
+        const size = makeLevelSize(level, rng);
         // const sizeX = randomHouseWidth(level);
         // const sizeY = randomHouseDepth(level);
         gameMapRoughPlans.push({
@@ -99,43 +100,43 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number): Array<Game
     return gameMapRoughPlans;
 }
 
-function makeLevelSize(level:number) : [number, number] {
+function makeLevelSize(level:number, rng:RNG) : [number, number] {
     let xmin, xmax, ymin, ymax, Amin, Amax;
     [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];
-    const x = xmin + 2*randomInRange(1+(xmax-xmin)/2);
-    let y = ymin + randomInRange(1+ymax-ymin);
+    const x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
+    let y = ymin + rng.randomInRange(1+ymax-ymin);
     y = Math.min(Math.floor(Amax/x), y);
     y = Math.max(y, Math.ceil(Amin/x));
     return [x,y];
 }
 
 
-function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
-    const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY);
+function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap {
+    const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY, rng);
 
     const mirrorX: boolean = true;
     const mirrorY: boolean = false;
 
-    const [offsetX, offsetY] = offsetWalls(mirrorX, mirrorY, inside);
+    const [offsetX, offsetY] = offsetWalls(mirrorX, mirrorY, inside, rng);
 
     const cells = plotWalls(inside, offsetX, offsetY);
 
     const map = new GameMap(cells);
 
-    const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, map);
+    const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, map, rng);
 
     vec2.copy(map.playerStartPos, posStart);
 
-    placeExteriorBushes(map);
+    placeExteriorBushes(map, rng);
     placeFrontPillars(map);
-    placeLoot(plan.totalLoot, rooms, adjacencies, map);
+    placeLoot(plan.totalLoot, rooms, adjacencies, map, rng);
 
     fixupWalls(cells);
     cacheCellInfo(map);
 
-    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies);
+    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
 
-    placeGuards(level, map, patrolRoutes);
+    placeGuards(level, map, patrolRoutes, rng);
 
     markExteriorAsSeen(map);
 
@@ -145,15 +146,15 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     return map;
 }
 
-function makeSiheyuanRoomGrid(sizeX: number, sizeY: number): BooleanGrid {
+function makeSiheyuanRoomGrid(sizeX: number, sizeY: number, rng: RNG): BooleanGrid {
     const inside = new BooleanGrid(sizeX, sizeY, true);
 
     const halfX = Math.floor((sizeX + 1) / 2);
 
     const numCourtyardRoomsHalf = Math.floor((sizeY * halfX) / 4);
     for (let i = numCourtyardRoomsHalf; i > 0; --i) {
-        const x = randomInRange(halfX);
-        const y = randomInRange(sizeY);
+        const x = rng.randomInRange(halfX);
+        const y = rng.randomInRange(sizeY);
         inside.set(x, y, false);
     }
 
@@ -169,7 +170,8 @@ function makeSiheyuanRoomGrid(sizeX: number, sizeY: number): BooleanGrid {
 function offsetWalls(
     mirrorX: boolean,
     mirrorY: boolean,
-    inside: BooleanGrid): [offsetX: Int32Grid, offsetY: Int32Grid]
+    inside: BooleanGrid,
+    rng: RNG): [offsetX: Int32Grid, offsetY: Int32Grid]
 {
     const roomsX = inside.sizeX;
     const roomsY = inside.sizeY;
@@ -177,37 +179,37 @@ function offsetWalls(
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
 
-    let i = randomInRange(3) - 1;
+    let i = rng.randomInRange(3) - 1;
     for (let y = 0; y < roomsY; ++y)
         offsetX.set(0, y, i);
 
-    i = randomInRange(3) - 1;
+    i = rng.randomInRange(3) - 1;
     for (let y = 0; y < roomsY; ++y)
         offsetX.set(roomsX, y, i);
 
-    i = randomInRange(3) - 1;
+    i = rng.randomInRange(3) - 1;
     for (let x = 0; x < roomsX; ++x)
         offsetY.set(x, 0, i);
 
-    i = randomInRange(3) - 1;
+    i = rng.randomInRange(3) - 1;
     for (let x = 0; x < roomsX; ++x)
         offsetY.set(x, roomsY, i);
 
     for (let x = 1; x < roomsX; ++x) {
         for (let y = 0; y < roomsY; ++y) {
-            offsetX.set(x, y, randomInRange(3) - 1);
+            offsetX.set(x, y, rng.randomInRange(3) - 1);
         }
     }
 
     for (let x = 0; x < roomsX; ++x) {
         for (let y = 1; y < roomsY; ++y) {
-            offsetY.set(x, y, randomInRange(3) - 1);
+            offsetY.set(x, y, rng.randomInRange(3) - 1);
         }
     }
 
     for (let x = 1; x < roomsX; ++x) {
         for (let y = 1; y < roomsY; ++y) {
-            if (randomInRange(2) === 0) {
+            if (rng.randomInRange(2) === 0) {
                 offsetX.set(x, y, offsetX.get(x, y-1));
             } else {
                 offsetY.set(x, y, offsetY.get(x-1, y));
@@ -374,7 +376,8 @@ function createExits(
     inside: BooleanGrid,
     offsetX: Int32Grid,
     offsetY: Int32Grid,
-    map: GameMap
+    map: GameMap,
+    rng: RNG
 ): [Array<Room>, Array<Adjacency>, vec2] {
     // Make a set of rooms.
 
@@ -419,7 +422,7 @@ function createExits(
 
     // Connect rooms together.
 
-    let posStart = connectRooms(rooms, adjacencies);
+    let posStart = connectRooms(rooms, adjacencies, rng);
 
     // Assign types to the rooms.
 
@@ -427,11 +430,11 @@ function createExits(
 
     // Render doors and windows.
 
-    renderWalls(rooms, adjacencies, map);
+    renderWalls(rooms, adjacencies, map, rng);
 
     // Render floors.
 
-    renderRooms(level, rooms, map);
+    renderRooms(level, rooms, map, rng);
 
     return [rooms, adjacencies, posStart];
 }
@@ -799,11 +802,11 @@ function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>, rooms: Array<Roo
     }
 }
 
-function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>): vec2 {
+function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG): vec2 {
 
     // Collect sets of edges that are mirrors of each other
 
-    let edgeSets = getEdgeSets(adjacencies);
+    let edgeSets = getEdgeSets(adjacencies, rng);
 
     // Connect all adjacent courtyard rooms together.
 
@@ -839,7 +842,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>): vec2 {
             let group0 = rooms[i0].group;
             let group1 = rooms[i1].group;
 
-            if (group0 != group1 || Math.random() < 0.4) {
+            if (group0 != group1 || rng.random() < 0.4) {
                 adj.door = true;
                 addedDoor = true;
                 joinGroups(rooms, group0, group1);
@@ -888,7 +891,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>): vec2 {
             let group0 = rooms[i0].group;
             let group1 = rooms[i1].group;
 
-            if (group0 != group1 || Math.random() < 0.4) {
+            if (group0 != group1 || rng.random() < 0.4) {
                 adj.door = true;
                 addedDoor = true;
                 joinGroups(rooms, group0, group1);
@@ -937,7 +940,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>): vec2 {
     return posStart;
 }
 
-function getEdgeSets(adjacencies: Array<Adjacency>): Array<Array<number>> {
+function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Array<number>> {
     const edgeSets: Array<Array<number>> = [];
 
     for (let i = 0; i < adjacencies.length; ++i) {
@@ -952,7 +955,7 @@ function getEdgeSets(adjacencies: Array<Adjacency>): Array<Array<number>> {
         }
     }
 
-    shuffleArray(edgeSets);
+    rng.shuffleArray(edgeSets);
 
     return edgeSets;
 }
@@ -1114,7 +1117,8 @@ type PatrolNode = {
     visited: boolean;
 }
 
-function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
+function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
+    adjacencies: Array<Adjacency>, rng: RNG): Array<Array<vec2>> {
     const roomIncluded = Array(rooms.length).fill(false);
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
         const roomType = rooms[iRoom].roomType;
@@ -1140,7 +1144,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
     // Shuffle the room adjacencies
 
     const adjacenciesShuffled = [...adjacencies];
-    shuffleArray(adjacenciesShuffled);
+    rng.shuffleArray(adjacenciesShuffled);
 
     // Join rooms onto the start or end (or both) of patrol routes
 
@@ -1284,7 +1288,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             if (iRoomPrev === -1) {
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
                 if (positions.length > 0) {
-                    vec2.copy(posStart, positions[randomInRange(positions.length)]);
+                    vec2.copy(posStart, positions[rng.randomInRange(positions.length)]);
                 } else {
                     posBesideDoor(posStart, rooms, adjacencies, iRoom, iRoomNext, gameMap);
                 }
@@ -1296,7 +1300,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
                 posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
                 if (positions.length > 0) {
-                    vec2.copy(posEnd, positions[randomInRange(positions.length)]);
+                    vec2.copy(posEnd, positions[rng.randomInRange(positions.length)]);
                 } else {
                     posBesideDoor(posEnd, rooms, adjacencies, iRoom, iRoomPrev, gameMap);
                 }
@@ -1305,7 +1309,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
                 posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
                 if (positions.length > 0) {
-                    vec2.copy(posEnd, positions[randomInRange(positions.length)]);
+                    vec2.copy(posEnd, positions[rng.randomInRange(positions.length)]);
                 } else {
                     posBesideDoor(posEnd, rooms, adjacencies, iRoom, iRoomPrev, gameMap);
                 }
@@ -1657,7 +1661,7 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
     return oneWayWindowTerrainType[dir[0] + 2 * Math.max(0, dir[1]) + 1];
 }
 
-function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap) {
+function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
     // Render grass connecting courtyard rooms.
 
@@ -1694,9 +1698,9 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
         if (j == i) {
             offset = Math.floor(adj0.length / 2);
         } else if (adj0.length > 2) {
-            offset = 1 + randomInRange(adj0.length - 2);
+            offset = 1 + rng.randomInRange(adj0.length - 2);
         } else {
-            offset = randomInRange(adj0.length);
+            offset = rng.randomInRange(adj0.length);
         }
 
         let walls: Array<Adjacency> = [];
@@ -1724,7 +1728,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
                     }
                 }
             } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
-                let k = randomInRange(2);
+                let k = rng.randomInRange(2);
                 const k_end = Math.floor((adj0.length + 1) / 2);
 
                 while (k < k_end) {
@@ -1749,7 +1753,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             }
         }
 
-        let installMasterSuiteDoor = Math.random() < 0.3333;
+        let installMasterSuiteDoor = rng.random() < 0.3333;
 
         for (const a of walls) {
             if (!a.door) {
@@ -1781,7 +1785,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
     }
 }
 
-function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
+function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) {
     for (let iRoom = 1; iRoom < rooms.length; ++iRoom) {
         const room = rooms[iRoom];
 
@@ -1796,7 +1800,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
 
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
             for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
-                if (cellType == TerrainType.GroundWood && level > 3 && Math.random() < 0.02) {
+                if (cellType == TerrainType.GroundWood && level > 3 && rng.random() < 0.02) {
                     map.cells.at(x, y).type = TerrainType.GroundWoodCreaky;
                 } else {
                     map.cells.at(x, y).type = cellType;
@@ -1817,9 +1821,9 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
             } else if (dx >= 2 && dy >= 2) {
                 const itemTypes = [ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
                 if (dx > 2 && dy > 2) {
-                    itemTypes.push(randomlyLitTorch(level));
+                    itemTypes.push(randomlyLitTorch(level, rng));
                 }
-                shuffleArray(itemTypes);
+                rng.shuffleArray(itemTypes);
                 const itemPositions = [
                     [room.posMin[0], room.posMin[1]],
                     [room.posMax[0] - 1, room.posMin[1]],
@@ -1849,45 +1853,45 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
                 map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
                 map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
                 map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
-            } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
+            } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || rng.random() < 0.33333)) {
                 const itemTypes = new Array(dy - 2).fill(ItemType.Table);
-                itemTypes.push(randomlyLitTorch(level));
-                shuffleArray(itemTypes);
+                itemTypes.push(randomlyLitTorch(level, rng));
+                rng.shuffleArray(itemTypes);
                 for (let y = 1; y < dy-1; ++y) {
                     placeItem(map, room.posMin[0] + 1, room.posMin[1] + y, ItemType.Chair);
                     placeItem(map, room.posMin[0] + 2, room.posMin[1] + y, itemTypes[y - 1]);
                     placeItem(map, room.posMin[0] + 3, room.posMin[1] + y, ItemType.Chair);
                 }
-            } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || Math.random() < 0.33333)) {
+            } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || rng.random() < 0.33333)) {
                 const itemTypes = new Array(dx - 2).fill(ItemType.Table);
-                itemTypes.push(randomlyLitTorch(level));
-                shuffleArray(itemTypes);
+                itemTypes.push(randomlyLitTorch(level, rng));
+                rng.shuffleArray(itemTypes);
                 for (let x = 1; x < dx-1; ++x) {
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 1, ItemType.Chair);
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 2, itemTypes[x - 1]);
                     placeItem(map, room.posMin[0] + x, room.posMin[1] + 3, ItemType.Chair);
                 }
-            } else if (dx > dy && (dy & 1) == 1 && Math.random() < 0.66667) {
+            } else if (dx > dy && (dy & 1) == 1 && rng.random() < 0.66667) {
                 let y = Math.floor(room.posMin[1] + dy / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = randomlyLitTorch(level);
+                const torchType = randomlyLitTorch(level, rng);
                 const itemTypes = [torchType, furnitureType];
-                shuffleArray(itemTypes);
+                rng.shuffleArray(itemTypes);
                 tryPlaceItem(map, room.posMin[0] + 1, y, itemTypes[0]);
                 tryPlaceItem(map, room.posMax[0] - 2, y, itemTypes[1]);
-            } else if (dy > dx && (dx & 1) == 1 && Math.random() < 0.66667) {
+            } else if (dy > dx && (dx & 1) == 1 && rng.random() < 0.66667) {
                 let x = Math.floor(room.posMin[0] + dx / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = randomlyLitTorch(level);
+                const torchType = randomlyLitTorch(level, rng);
                 const itemTypes = [torchType, furnitureType];
-                shuffleArray(itemTypes);
+                rng.shuffleArray(itemTypes);
                 tryPlaceItem(map, x, room.posMin[1] + 1, itemTypes[0]);
                 tryPlaceItem(map, x, room.posMax[1] - 2, itemTypes[1]);
             } else if (dx > 3 && dy > 3) {
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
-                const torchType = randomlyLitTorch(level);
+                const torchType = randomlyLitTorch(level, rng);
                 const itemTypes = [torchType, furnitureType, furnitureType, furnitureType];
-                shuffleArray(itemTypes);
+                rng.shuffleArray(itemTypes);
                 tryPlaceItem(map, room.posMin[0], room.posMin[1], itemTypes[0]);
                 tryPlaceItem(map, room.posMax[0] - 1, room.posMin[1], itemTypes[1]);
                 tryPlaceItem(map, room.posMin[0], room.posMax[1] - 1, itemTypes[2]);
@@ -1897,12 +1901,12 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap) {
     }
 }
 
-function randomlyLitTorch(level: number): ItemType {
+function randomlyLitTorch(level: number, rng: RNG): ItemType {
     if (level === 0) {
         return ItemType.TorchUnlit;
     }
 
-    return (Math.random() < 0.5) ? ItemType.TorchUnlit : ItemType.TorchLit;
+    return (rng.random() < 0.5) ? ItemType.TorchUnlit : ItemType.TorchLit;
 }
 
 function tryPlaceItem(map: GameMap, x: number, y: number, itemType: ItemType) {
@@ -1965,7 +1969,8 @@ function placeItem(map: GameMap, x: number, y: number, type: ItemType) {
     });
 }
 
-function placeLoot(totalLootToPlace: number, rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap) {
+function placeLoot(totalLootToPlace: number, rooms: Array<Room>, 
+    adjacencies: Array<Adjacency>, map: GameMap, rng: RNG) {
 
     let totalLootPlaced = 0;
 
@@ -1988,7 +1993,7 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, adjacencies: Ar
         }
 
         if (numExits < 2) {
-            if (tryPlaceLoot(room.posMin, room.posMax, map)) {
+            if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
                 ++totalLootPlaced;
             }
         }
@@ -2005,11 +2010,11 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, adjacencies: Ar
             continue;
         }
 
-        if (Math.random() < 0.2) {
+        if (rng.random() < 0.2) {
             continue;
         }
 
-        if (tryPlaceLoot(room.posMin, room.posMax, map)) {
+        if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
             ++totalLootPlaced;
         }
     }
@@ -2019,7 +2024,7 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, adjacencies: Ar
     let posMin = vec2.fromValues(0, 0);
     let posMax = vec2.fromValues(map.cells.sizeX, map.cells.sizeY);
     for (let i = 1000; i > 0 && totalLootPlaced < totalLootToPlace; --i) {
-        if (tryPlaceLoot(posMin, posMax, map)) {
+        if (tryPlaceLoot(posMin, posMax, map, rng)) {
             ++totalLootPlaced;
         }
     }
@@ -2027,13 +2032,13 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, adjacencies: Ar
     console.assert(totalLootPlaced === totalLootToPlace);
 }
 
-function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap): boolean
+function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean
 {
     let dx = posMax[0] - posMin[0];
     let dy = posMax[1] - posMin[1];
 
     for (let i = 1000; i > 0; --i) {
-        let pos = vec2.fromValues(posMin[0] + randomInRange(dx), posMin[1] + randomInRange(dy));
+        let pos = vec2.fromValues(posMin[0] + rng.randomInRange(dx), posMin[1] + rng.randomInRange(dy));
 
         let cellType = map.cells.at(pos[0], pos[1]).type;
 
@@ -2052,7 +2057,7 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap): boolean
     return false;
 }
 
-function placeExteriorBushes(map: GameMap) {
+function placeExteriorBushes(map: GameMap, rng: RNG) {
     let sx = map.cells.sizeX;
     let sy = map.cells.sizeY;
 
@@ -2067,7 +2072,7 @@ function placeExteriorBushes(map: GameMap) {
             cell.seen = true;
         }
 
-        if ((x & 1) == 0 && Math.random() < 0.8) {
+        if ((x & 1) == 0 && rng.random() < 0.8) {
             placeItem(map, x, sy - 1, ItemType.Bush);
         }
     }
@@ -2094,10 +2099,10 @@ function placeExteriorBushes(map: GameMap) {
         }
 
         if (((sy - y) & 1) != 0) {
-            if (Math.random() < 0.8) {
+            if (rng.random() < 0.8) {
                 placeItem(map, 0, y, ItemType.Bush);
             }
-            if (Math.random() < 0.8) {
+            if (rng.random() < 0.8) {
                 placeItem(map, sx - 1, y, ItemType.Bush);
             }
         }
@@ -2138,7 +2143,7 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     }
 }
 
-function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>) {
+function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>, rng: RNG) {
     if (level <= 0) {
         return;
     }
@@ -2152,7 +2157,7 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
     for (const patrolPath of patrolRoutes) {
         let pathIndexStart = 0;
         const guard = new Guard(patrolPath, pathIndexStart, map);
-        if (level > 1 && randomInRange(5 + level) < level) {
+        if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
         }
         map.guards.push(guard);

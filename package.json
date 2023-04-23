@@ -9,12 +9,14 @@
     "start": "parcel src/index.html"
   },
   "devDependencies": {
-    "@types/node": "^18.11.18",
     "@types/howler": "^2.2.7",
+    "@types/node": "^18.11.18",
+    "@types/seedrandom": "^3.0.5",
     "parcel": "latest",
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "howler": "^2.2.3"
+    "howler": "^2.2.3",
+    "seedrandom": "^3.0.5"
   }
 }
