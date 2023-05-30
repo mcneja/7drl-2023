@@ -10,7 +10,7 @@ const imageTilesetFont = require('url:./font.png')
 
 
 export type TileInfo = {
-    textureIndex: number; //[number,number]|
+    textureIndex?: number; //[number,number]|
     color?: number;
     unlitColor?: number
 }

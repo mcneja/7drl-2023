@@ -231,7 +231,7 @@ const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/i dont know why i work here.ogg'), 'I dont know why I work here.'],
     [require('url:./audio/guards/waste of my time.ogg'), 'Waste of my time.'],
     [require('url:./audio/guards/why do I even try.ogg'), 'Why do I even try.'],
-    [require('url:./audio/guards/at least Im not on cleaning duty.ogg'), 'At least Im not on cleaning duty.'],
+    [require('url:./audio/guards/at least Im not on cleaning duty.ogg'), 'At least I\'m not on cleaning duty.'],
     [require('url:./audio/guards/at least my shift ends soon.ogg'), 'At least my shift ends soon.'],
     [require('url:./audio/guards/what do you want me to do about it.ogg'), 'What do you want me to do about it?'],
 ];

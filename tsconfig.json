@@ -19,5 +19,7 @@
         "./src/render.ts",
         "./src/tilesets.ts",
         "./src/audio.ts",
+        "./src/types.ts",
+        "./src/ui.ts",
     ]
 }

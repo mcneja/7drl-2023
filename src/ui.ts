@@ -1,0 +1,671 @@
+import { Renderer } from './render';
+import { vec2, mat4 } from './my-matrix';
+//import { TileInfo} from './tilesets';
+import { Rect, TouchTargets, lastController, Controller, TouchController } from './controllers';
+import {State, GameMode} from './types';
+import * as colorPreset from './color-preset';
+import * as game from './game';
+import { RNG } from './random';
+
+export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen };
+
+class TextWindow {
+    pages: Array<string> = [];
+
+    activePage: number = 0;
+    activePageData: Array<string> = [];
+    highlightedAction:number = -1;
+    actionSequence: Array<string> = [];
+
+    state: {[id:string]: any} = {};
+    glyphs: [spriteNum:number, r:Rect][] = [];
+    screenSize: vec2;
+    mat: mat4;
+    maxLineLength: number = 0;
+    scaleLargestX: number = 0;
+    scaleLargestY: number = 0;
+    scaleFactor: number = 0;
+    pixelsPerCharX: number = 0;
+    pixelsPerCharY: number = 0;
+    linesPixelSizeX: number = 0;
+    linesPixelSizeY: number = 0;
+    numCharsX: number = 0;
+    numCharsY: number = 0;
+    offsetX: number = 0;
+    offsetY: number = 0;
+    touchTargets: TouchTargets;
+    textW: number = 8; //width of character in pixels
+    textH: number =16; //height of character in pixels
+
+    constructor() {
+        this.mat = mat4.create();
+        this.screenSize = vec2.create();
+        this.touchTargets = {};
+    }
+    initAction(action:string) {
+        this.touchTargets[action] = {
+            id: -1,
+            active: true,
+            game: new Rect(0, 0, 0, 0),
+            view: new Rect(0, 0, 0, 0),
+            trigger: 'release',
+            tileInfo: {},
+            show: 'always',
+            touchXY: [-1, -1],        
+        };
+    }
+    nextPage() {
+        this.activePage = Math.min(this.pages.length - 1, this.activePage + 1);
+        // this.parseUI(state);
+    }
+    prevPage() {
+        this.activePage = Math.max(0, this.activePage - 1);
+        // this.parseUI(state);
+    }
+    parseImage(line:string, base:number, row:number, rows:number): [string, number] {
+        const end = line.slice(base+2).indexOf('#');
+        if(end<0) return [line, base];
+        const spriteNum = Number(line.slice(base+1, base+2+end));
+        if(Number.isNaN(spriteNum)) return [line, base];
+        this.glyphs.push([
+            spriteNum,
+            new Rect(base, rows-row-0.875, 2, 1)
+        ]);
+        line = line.slice(0,base)+'  '+line.slice(base+3+end); //trim out the sprite tag and replace with two spaces
+        return [line, base+1];
+    }
+    parseButton(line:string, base:number, row:number, rows:number): [string, number] {
+        const origin = base;
+        let pipe, end;
+        while(true) {
+            pipe = line.slice(base).indexOf('|');
+            if(pipe<0) return [line, base];
+            pipe += base;
+            end = line.slice(pipe+1).indexOf(']');
+            if(end<0) return [line, base];
+            end += pipe+1;
+            if(base===pipe) break;
+            if(line[base] === '#') { //Buttons may contain images
+                [line, base] = this.parseImage(line, base, row, rows);
+            }
+            base+=1;
+        }
+        const action = line.slice(pipe+1, end);
+        if(action!==undefined && action!=='') {
+            if(!(action in this.touchTargets)) {
+                this.initAction(action);
+            }
+            const posData = [origin, base+1, row];
+            const [x0,y0] = [posData[0],posData[2]-1/8];
+            const [x1,y1] = [posData[1],posData[2]+1];
+            const tt = this.touchTargets[action];
+            tt.game = new Rect(x0, rows-y1, x1-x0, y1-y0);
+            this.actionSequence.push(action);
+        }
+        line = line.slice(0, pipe)+line.slice(end);
+        base = pipe;
+        return [line, base];
+    }
+    parseUI() {
+        //TODO: Parse Glyphs and convert to double spaces
+        var pageText = this.pages[this.activePage];
+        const stateData = this.state;
+        for(const t in stateData) {
+            pageText = pageText.replace('$'+t+'$', String(stateData[t]))
+        }
+        this.activePageData = pageText.split('\n');
+        const lines = this.activePageData;
+        this.glyphs.length = 0;
+        this.actionSequence = [];
+        for (let row=0; row<lines.length; ++row) {
+            let line = lines[row];
+            let base = 0;
+            while(base<line.length) {
+                switch(line[base]) {
+                    case '#':
+                        [line, base] = this.parseImage(line, base, row, lines.length);
+                        break;
+                    case '[':
+                        [line, base] = this.parseButton(line, base, row, lines.length);
+                        break;
+                }
+                base += 1;
+            }
+            lines[row] = line;
+        }
+    }
+    updateScreenSize(screenSize: vec2) {
+        this.screenSize = screenSize;
+        this.maxLineLength = 0;
+        for (const line of this.activePageData) {
+            this.maxLineLength = Math.max(this.maxLineLength, line.length);
+        }    
+        const minCharsX = 65;
+        const minCharsY = 22;
+        this.scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (this.textW * minCharsX)));
+        this.scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (this.textH * minCharsY)));
+        this.scaleFactor = Math.min(this.scaleLargestX, this.scaleLargestY);
+        this.pixelsPerCharX = 8 * this.scaleFactor;
+        this.pixelsPerCharY = 16 * this.scaleFactor;
+        this.linesPixelSizeX = this.maxLineLength * this.pixelsPerCharX;
+        this.linesPixelSizeY = this.activePageData.length * this.pixelsPerCharY;
+        this.numCharsX = screenSize[0] / this.pixelsPerCharX;
+        this.numCharsY = screenSize[1] / this.pixelsPerCharY;
+        this.offsetX = Math.floor((screenSize[0] - this.linesPixelSizeX) / -2) / this.pixelsPerCharX;
+        this.offsetY = Math.floor((screenSize[1] - this.linesPixelSizeY) / -2) / this.pixelsPerCharY;
+    
+        this.mat = mat4.create();
+        mat4.ortho(
+            this.mat,
+            this.offsetX,
+            this.offsetX + this.numCharsX,
+            this.offsetY,
+            this.offsetY + this.numCharsY,
+            1,
+            -1);    
+    }
+    pixelCoords(textCoords: vec2): vec2 {
+        return [
+            (textCoords[0] - this.offsetX) * this.pixelsPerCharX,
+            (textCoords[1] - this.offsetY) * this.pixelsPerCharY
+        ];
+    }
+    textCoords(pixelCoords: [number, number]): [number, number] {
+        return [
+            pixelCoords[0] / this.pixelsPerCharX + this.offsetX,
+            pixelCoords[1] / this.pixelsPerCharY + this.offsetY
+        ];
+        }
+    getTouchData(): TouchTargets  {
+        for(let a in this.touchTargets) {
+            const tt = this.touchTargets[a];
+            const r = tt.game;
+            const [vx0,vy0] = this.pixelCoords([r[0], r[1]]);
+            const [vx1,vy1] = this.pixelCoords([r[2]+r[0], r[3]+r[1]]);
+            tt.view = new Rect(vx0, vy0, vx1-vx0, vy1-vy0);
+        }
+        return this.touchTargets;
+    }
+    render(renderer: Renderer) {
+        const lines = this.activePageData;
+        const matScreenFromTextArea = this.mat;
+        const maxLineLength = this.maxLineLength;
+
+        const colorText = 0xffeef0ff;
+        const colorBackground = 0xf0101010;
+        const buttonColor = 0xffa02080;
+        const uiSelectColor = 0xffd020b0;
+        const buttonDisabled = 0xff707070;
+    
+        // Draw a stretched box to make a darkened background for the text.
+        renderer.start(matScreenFromTextArea, 0);
+        renderer.addGlyph(
+            -2, -1, maxLineLength + 2, lines.length + 1,
+            {textureIndex:219, color:colorBackground}
+        );
+        renderer.flush();
+
+        // Draw background areas for touchTargets
+        renderer.start(matScreenFromTextArea, 0);
+        for (let a in this.touchTargets) {
+            const r = this.touchTargets[a].game;
+            if(lastController?.controlStates[a]) this.highlightedAction = this.actionSequence.indexOf(a);
+            if(this.touchTargets[a].active) {
+                const color = this.actionSequence[this.highlightedAction]===a? uiSelectColor : buttonColor;
+                renderer.addGlyph(
+                    r[0], r[1], r[0]+r[2], r[1]+r[3],
+                    {textureIndex:219, color:color}
+                );    
+            } else {
+                if(this.actionSequence[this.highlightedAction]===a) {
+                        renderer.addGlyph(
+                            r[0], r[1], r[0]+r[2], r[1]+r[3],
+                            {textureIndex:219, color:buttonDisabled}
+                        );            
+                }
+            }
+        }
+        renderer.flush();
+
+        // Draw glyphs
+        renderer.start(matScreenFromTextArea, 1);
+        for(const g of this.glyphs) {
+            const r = g[1];
+            renderer.addGlyph(r[0], r[1], r[2]+r[0], r[3]+r[1], {textureIndex: g[0], color: colorPreset.white});
+        }
+        renderer.flush();
+
+        // Draw text
+        renderer.start(matScreenFromTextArea, 0);
+        for (let i = 0; i < lines.length; ++i) {
+            const row = lines.length - (1 + i);
+            for (let j = 0; j < lines[i].length; ++j) {
+                const col = j;
+                const ch = lines[i];
+                if (ch === ' ') {
+                    continue;
+                }
+                const glyphIndex = lines[i].charCodeAt(j);
+                renderer.addGlyph(
+                    col, row, col + 1, row + 1,
+                    {textureIndex:glyphIndex, color:colorText}
+                );
+            }
+        }
+        renderer.flush();    
+    }
+    updateData(properties: object) {
+    }
+    update(state:State) {
+    }
+    navigateUI(activated:(action:string)=>boolean):string {
+        let action = ''
+        if(activated('up')) {
+            this.highlightedAction--;
+            if(this.highlightedAction<0) {
+                this.highlightedAction = this.actionSequence.length-1;
+            }
+        } else if(activated('down')) {
+            this.highlightedAction++;
+            if(this.highlightedAction>=this.actionSequence.length) {
+                this.highlightedAction = 0;
+            }
+        } else if(this.highlightedAction>=0 && this.touchTargets[this.actionSequence[this.highlightedAction]]?.active && activated('wait')) {
+            action = this.actionSequence[this.highlightedAction];
+        }
+        return action;
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+    }
+}
+
+class HomeScreen extends TextWindow {
+    pages = [
+`             Lurk Leap Loot
+     James McNeill and Damien Moore       
+
+            [P|homePlay]:  Play game
+            [D|homeDaily]:  Daily run
+            [S|homeStats]: Statistics
+            [O|homeOptions]:    Options`
+    ]; 
+    constructor() {
+        super();
+    }
+    update(state: State) {
+        if("homeDaily" in this.touchTargets) {
+            const store = window.localStorage;
+            const lastDaily = store.getItem("lastDaily");
+            if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {
+                this.touchTargets['homeDaily'].active = false;
+            } else {
+                this.touchTargets['homeDaily'].active = true;
+            }   
+        }
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const actionSelected = this.navigateUI(activated);
+
+        if (activated('homePlay') || actionSelected=='homePlay') {
+            state.rng = new RNG();
+            game.restartGame(state);
+        } else if(this.touchTargets['homeDaily'].active && ((activated('homeDaily') || actionSelected=='homeDaily'))) {
+            const store = window.localStorage;
+            store.setItem("lastDaily", game.getCurrentDateFormatted());
+            state.rng = new RNG('Daily '+game.getCurrentDateFormatted());
+            game.restartGame(state);
+        } else if(activated('homeStats') || actionSelected=='homeStats') {
+            state.gameMode = GameMode.StatsScreen;
+        } else if(activated('homeOptions') || actionSelected=='homeOptions') {
+            state.gameMode = GameMode.OptionsScreen;
+        }
+    }
+}
+
+
+class InGameMenuScreen extends TextWindow {
+    pages = [
+`             Lurk Leap Loot
+     James McNeill and Damien Moore
+
+            [Esc|menu]: Close menu
+            [?|help]:   Help
+            [X|home]:   Exit to main menu`
+    ];
+    constructor() {
+        super();
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+    }
+}
+
+class OptionsScreen extends TextWindow {
+    pages = [
+`                  Options
+
+[F|fullscreen]      $fullscreenMode$
+[T|gamepadStyleTouch]      Touch controls as $touchMode$
+[Ctrl+R|forceRestart] Reset data
+
+[Esc|menu]    Back to menu`,
+    ];
+    update(state: State): void {
+        let touchMode = window.localStorage.getItem('touchMode');
+        if(touchMode === null) {
+            touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
+            window.localStorage.setItem(touchMode, touchMode);
+        }
+        this.state['fullscreenMode'] = document.fullscreenElement? 'Fullscreen':'Windowed';
+        this.state['touchMode'] = touchMode;
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+        } else if(activated('fullscreen') || action=='fullscreen') {
+            if(this.state['fullscreenMode']=='Windowed') {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }         
+        } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
+            let touchMode = window.localStorage.getItem('touchMode');
+            if(touchMode=='Gamepad') {
+                state.touchAsGamepad = false;
+                state.touchController.setTouchConfig(false);
+                window.localStorage.setItem('touchMode','Mouse');
+            } else {
+                state.touchAsGamepad = true;
+                state.touchController.setTouchConfig(true);
+                window.localStorage.setItem('touchMode','Gamepad');
+            }
+        } else if(activated('forceRestart') || action=='forceRestart') {
+            //TODO: Prompt
+            window.localStorage.clear();
+        }
+    }
+};
+
+class StatsScreen extends TextWindow {
+    pages = [
+//Play stats
+`   Lurk Leap Loot Statistics
+
+Total plays $totalPlays$
+Total turns $totalTurns$
+Best score $bestScore$
+Average score $averageScore$
+
+1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+
+//High scores
+`            Lurk Leap Loot High Scores
+
+Name                            Score     Date
+
+$scoreTable
+
+2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+
+//Daily runs
+`   Lurk Leap Loot Daily Runs
+
+Total plays: $totalDailyPlays$
+Daily play streak: $totalDailyStreak$
+Last played: $lastPlayed$
+
+
+3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+
+//Achievements
+`   Lurk Leap Loot Achievements
+
+Ghost
+Klepto
+Ascetic
+Reckless
+
+
+4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+    ];
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
+            state.gameMode = GameMode.HomeScreen;
+        } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
+            this.prevPage();
+        } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
+            this.nextPage();
+        }
+    };
+}
+
+class BetweenMansionsScreen extends TextWindow {
+    pages = [
+`   Mansion $level$ Complete!
+
+Mansion Statistics
+Loot stolen:     $lootStolen$ / $lootAvailable$
+Ghost bonus:     $ghostBonus$
+Timely delivery: $timeBonus$
+Mansion total:   $totalScore$
+
+Current loot:    $loot$
+[H|heal]: Heal one heart for $$healCost$
+[N|startLevel]: Next mansion`
+    ];
+    update(state:State) {
+        this.state['level'] = state.level+1;
+        this.state['lootStolen'] = state.lootStolen;
+        this.state['lootAvailable'] = state.lootAvailable;
+        this.state['ghostBonus'] = state.ghostBonus;
+        this.state['timeBonus'] = game.calculateTimeBonus(state);
+        this.state['totalScore'] = this.state['lootStolen'] + this.state['timeBonus'] + this.state['ghostBonus'];
+        this.state['loot'] = state.player.loot;
+        this.state['healCost'] = state.healCost;
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if (activated('zoomIn') || action=='zoomIn') {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (activated('zoomOut') || action=='zoomOut') {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (activated('restart') || action=='restart') {
+            state.rng = new RNG();
+            game.restartGame(state);
+        } else if (activated('heal') || action=='heal') {
+            game.tryHealPlayer(state);
+        } else if (activated('startLevel') || action=='startLevel') {
+            game.advanceToNextLevel(state);
+        } else if (activated('menu') || action == 'menu') {
+            state.helpActive = true;
+        }
+    };
+}
+
+class DeadScreen extends TextWindow{
+    pages = [
+`         You are dead!
+
+StatisticsadvanceToNex
+Loot stolen:   $lootStolen$ / $maxLootStolen$
+Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
+Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
+Loot spent:    $lootSpent$
+
+Final loot:    $loot$
+
+[R|restartGame]: Start new game
+[Esc|menu]: Exit to home screen`
+    ];
+    update(state:State) {
+        this.state['lootStolen'] = state.endStats.lootStolen;
+        this.state['maxLootStolen'] = state.endStats.maxLootStolen;
+        this.state['ghostBonuses'] = state.endStats.ghostBonuses;
+        this.state['maxGhostBonuses'] = state.endStats.maxGhostBonuses;
+        this.state['timeBonuses'] = state.endStats.timeBonuses;
+        this.state['maxTimeBonuses'] = state.endStats.maxTimeBonuses;
+        this.state['lootSpent'] = state.endStats.lootSpent;
+        this.state['loot'] = state.player.loot;
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if (activated('zoomIn') || action=='zoomIn') {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (activated('zoomOut') || action=='zoomOut') {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (activated('restart') || action=='restart') {
+            state.rng = new RNG();
+            game.restartGame(state);
+        } else if (activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+            // state.helpActive = true;
+        }
+    }   
+};
+
+class WinScreen extends TextWindow {
+    pages = [
+`   Mission Complete!
+
+Statistics
+Loot stolen:   $lootStolen$ / $maxLootStolen$
+Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
+Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
+Loot spent:    $lootSpent$
+
+Score:         $loot$
+
+[R|restartGame]: Start new game
+[Esc|menu]: Exit to home screen`
+    ];
+    update(state:State) {
+        this.state['lootStolen'] = state.endStats.lootStolen;
+        this.state['maxLootStolen'] = state.endStats.maxLootStolen;
+        this.state['ghostBonuses'] = state.endStats.ghostBonuses;
+        this.state['maxGhostBonuses'] = state.endStats.maxGhostBonuses;
+        this.state['timeBonuses'] = state.endStats.timeBonuses;
+        this.state['maxTimeBonuses'] = state.endStats.maxTimeBonuses;
+        this.state['lootSpent'] = state.endStats.lootSpent;
+        this.state['loot'] = state.player.loot;
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if (activated('zoomIn') || action=='zoomIn') {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (activated('zoomOut') || action=='zoomOut') {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (activated('restart') || action=='restart') {
+            state.rng = new RNG();
+            game.restartGame(state);
+        } else if (activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+            // state.helpActive = true;
+        }
+    };
+}
+
+class HelpScreen extends TextWindow {
+    pages = [
+`Lurk Leap Loot
+
+Your mission from the thieves\' guild is to
+map $numGameMaps$ mansions. You can keep any loot you
+find ($totalGameLoot$ total).
+
+Mansion bonuses:
+- Up to 5 gold for a timely map delivery.
+- 5 gold if you avoid alerting guards.
+
+
+
+
+1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+`Keyboard controls
+
+  Move: Arrows / WASD / HJKL
+  Wait: Space / Z / Period / Numpad5
+  Leap: Shift + move
+  Leap (Toggle): F / Numpad+
+  Zoom View: [ / ]
+  Volume: (Mute/Down/Up) 0 / - / =
+  Guard Mute (Toggle): 9
+
+Disable NumLock if using numpad
+Mouse, touch and gamepad also supported
+
+2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+
+`Key 
+
+#114# Thief: You!
+#081# Guard: Avoid them!
+#053# Loot: Collect for score, or to spend on healing
+#050# Tree: Hiding place
+#052# Table: Hiding place
+#051# Stool: Not a hiding place
+#049# Torch: Guards want them lit
+#160# Window: One-way escape route
+
+
+
+3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+
+`Made for 2023 Seven-Day Roguelike Challenge
+
+by James McNeill and Damien Moore
+
+Additional voices by Evan Moore
+Additional assistance by Mike Gaffney
+Testing by Tom Elmer
+Special thanks to Mendi Carroll
+
+
+
+
+
+4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+    ];
+    update(state:State) {
+        this.state['numGameMaps'] = game.gameConfig.numGameMaps;
+        this.state['totalGameLoot'] = game.gameConfig.totalGameLoot;
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if (activated('home') || action=='home') {
+            this.activePage = 0;
+            state.helpActive = false;
+            state.gameMode = GameMode.HomeScreen;
+        }        
+        if (activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
+            this.activePage = 0;
+            state.helpActive = false;
+        } else if (activated('zoomIn') || action=='zoomIn') {
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.camera.snapped = false;
+        } else if (activated('zoomOut') || action=='zoomOut') {
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.camera.snapped = false;
+        } else if (activated('fullscreen') || action=='fullscreen') {
+            const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
+            canvas.requestFullscreen({navigationUI:"hide"});
+        } else if (activated('forceRestart')|| action=='forceRestart') {
+            state.rng = new RNG();
+            game.restartGame(state);
+        } else if (activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
+            state.touchAsGamepad = !state.touchAsGamepad;
+            state.touchController.setTouchConfig(state.touchAsGamepad);
+            state.topStatusMessage = state.touchAsGamepad ? 'Touch gamepad enabled' : 'Touch gamepad disabled (touch map to move)';
+        } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
+            this.prevPage();
+        } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
+            this.nextPage();
+        }
+    }
+};

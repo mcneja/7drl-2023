@@ -1,24 +1,28 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
-import { BooleanGrid, ItemType, GameMap, GameMapRoughPlan, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
+import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
 import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
-import { Popups, PopupType } from './popups';
+import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
+import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen } from './ui'
+import {Camera, GameMode, State} from './types';
 
 import * as colorPreset from './color-preset';
 import { stat } from 'fs';
+
+export const gameConfig = {
+    numGameMaps: 10,
+    totalGameLoot: 100
+}
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
 
 window.onload = loadResourcesThenRun;
-
-const numGameMaps: number = 10;
-const totalGameLoot: number = 100;
 
 const targetStatusBarWidthInChars: number = 65;
 const statusBarCharPixelSizeX: number = 8;
@@ -28,73 +32,6 @@ const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
 const startingTopStatusMessage = 'Esc or / for help';
-
-type Camera = {
-    position: vec2;
-    velocity: vec2;
-    anchor: vec2;
-    snapped: boolean;
-    panning: boolean;
-}
-
-enum GameMode {
-    HomeScreen,
-    StatsScreen,
-    Mansion,
-    BetweenMansions,
-    Dead,
-    Win,
-}
-
-type EndStats = {
-    lootStolen: number;
-    lootSpent: number;
-    ghostBonuses: number;
-    timeBonuses: number;
-    maxghostBonuses: number;
-    maxTimeBonsuses: number;
-    maxLootStolen: number;
-}
-
-type State = {
-    endStats: EndStats;
-    rng: RNG;
-    tLast: number | undefined;
-    dt: number;
-    leapToggleActive: boolean;
-    gameMode: GameMode;
-    helpActive: boolean;
-    helpPageIndex: number;
-    player: Player;
-    topStatusMessage: string;
-    topStatusMessageSticky: boolean;
-    finishedLevel: boolean;
-    healCost: number;
-    zoomLevel: number;
-    seeAll: boolean;
-    seeGuardSight: boolean;
-    seeGuardPatrols: boolean;
-    camera: Camera;
-    level: number;
-    turns: number;
-    lootStolen: number;
-    lootSpent: number;
-    lootAvailable: number;
-    ghostBonus: number;
-    maxTimeBonus: number;
-    gameMapRoughPlans: Array<GameMapRoughPlan>;
-    gameMap: GameMap;
-    sounds: Howls;
-    subtitledSounds: SubtitledHowls;
-    activeSoundPool: ActiveHowlPool;
-    guardMute: boolean;
-    volumeMute: boolean;
-    touchAsGamepad: boolean;
-    touchController: TouchController;
-    keyboardController: KeyboardController;
-    gamepadManager: GamepadManager;
-    popups: Popups;
-}
 
 function loadResourcesThenRun() {
     Promise.all([
@@ -153,64 +90,37 @@ function main(images: Array<HTMLImageElement>) {
 function updateControllerState(state:State) {
     state.gamepadManager.updateGamepadStates();
     if(lastController !== null) {
-        if (state.helpActive) {
-            onControlsInHelp();
+        if(state.helpActive) {
+            state.helpScreen.onControls(state, activated);
         } else {
-            switch (state.gameMode) {
-                case GameMode.HomeScreen: onControlsInHomeScreen(lastController); break;
-                case GameMode.StatsScreen: onControlsInStatsScreen(lastController); break;
-                case GameMode.Mansion: onControlsInMansion(lastController); break;
-                case GameMode.BetweenMansions: onControlsInBetweenMansions(); break;
-                case GameMode.Dead: onControlsInGameOver(); break;
-                case GameMode.Win: onControlsInGameOver(); break;
-            }
-        }    
+            if(state.gameMode == GameMode.Mansion) {
+                onControlsInMansion(lastController);
+            } else {
+                state.textWindows[state.gameMode]?.onControls(state, activated);
+            }    
+        }
+        state.touchController.resetActivation();
+        state.keyboardController.resetActivation();
+        for(const g in state.gamepadManager.gamepads) state.gamepadManager.gamepads[g].resetActivation();
     }
-    state.touchController.resetActivation();
-    state.keyboardController.resetActivation();
-    for(const g in state.gamepadManager.gamepads) state.gamepadManager.gamepads[g].resetActivation();
     function activated(action:string):boolean {
         let result = false;
-        if(lastController==null) return false;
+        if(lastController===null) return false;
         const controlStates = lastController.controlStates;
         if(!(action in controlStates)) return false;
-        if(lastController==null) return false
-        if(lastController == state.touchController) {
+        if(lastController===state.touchController) {
             const t = state.touchController;
-            if(action in t.buttonMap && t.buttonMap[action].trigger=='release') {
+            if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
                 result = !controlStates[action] && lastController.controlActivated[action];
                 if(result) lastController.controlTimes[action] = Date.now();
+                if(result) console.log(action, result);
                 return result;
             }
         }
         result = controlStates[action] && (lastController.controlActivated[action] || Date.now()-lastController.controlTimes[action]>250);
         if(result) lastController.controlTimes[action] = Date.now();
+        if(result) console.log(action, result);
         return result;
-    }
-    
-    function onControlsInHelp() {
-        if (activated('menu')) {
-            state.helpActive = false;
-        } else if (activated('fullscreen')) {
-            const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
-            canvas.requestFullscreen({navigationUI:"hide"});
-        } else if (activated('forceRestart')) {
-            restartGame(state);
-        } else if (activated('gamepadStyleTouch')) {
-            state.touchAsGamepad = !state.touchAsGamepad;
-            state.touchController.setButtonConfig(state.touchAsGamepad);
-            state.topStatusMessage = state.touchAsGamepad ? 'Touch gamepad enabled' : 'Touch gamepad disabled (touch map to move)';
-        } else if (activated('left')) {
-            state.helpPageIndex = Math.max(0, state.helpPageIndex - 1);
-        } else if (activated('right')) {
-            state.helpPageIndex = Math.min(helpPages.length - 1, state.helpPageIndex + 1);
-        }
-    }
-
-    function onControlsInHomeScreen(controller: Controller) {
-    }
-
-    function onControlsInStatsScreen(controller: Controller) {
     }
     
     function onControlsInMansion(controller: Controller) {
@@ -221,7 +131,6 @@ function updateControllerState(state:State) {
         if (controller.controlStates['panLeft']) {
             state.camera.panning = true;
             state.camera.velocity[0] = -1000 * state.dt;
-//            console.log(state.dt, state.camera.velocity, state.camera.position);
         }
         if (controller.controlStates['panRight']) {
             state.camera.panning = true;
@@ -262,7 +171,7 @@ function updateControllerState(state:State) {
         } else if (activated('wait')) {
             tryMovePlayer(state, 0, 0, 0);
         } else if (activated('exitLevel')) {
-            if (state.level >= numGameMaps - 1) {
+            if (state.level >= gameConfig.numGameMaps - 1) {
                 advanceToWin(state);
             } else {
                 advanceToBetweenMansions(state);
@@ -278,11 +187,8 @@ function updateControllerState(state:State) {
             state.player.loot += loot;
             state.lootStolen += loot;
             postTurn(state);
-        } else if (activated('guardSight')) {
-            state.seeGuardSight = !state.seeGuardSight;
-        } else if (activated('guardPatrols')) {
-            state.seeGuardPatrols = !state.seeGuardPatrols;
         } else if (activated('forceRestart')) {
+            state.rng = new RNG();
             restartGame(state);
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
@@ -296,6 +202,10 @@ function updateControllerState(state:State) {
                 --state.level;
                 resetState(state);
             }
+        } else if (activated('guardSight')) {
+            state.seeGuardSight = !state.seeGuardSight;
+        } else if (activated('guardPatrols')) {
+            state.seeGuardPatrols = !state.seeGuardPatrols;
         } else if (activated('markSeen')) {
             state.gameMap.markAllSeen();
             postTurn(state);
@@ -307,15 +217,6 @@ function updateControllerState(state:State) {
             state.camera.snapped = false;
         } else if (activated('seeAll')) {
             state.seeAll = !state.seeAll;
-        } else if (activated('collectLoot')) {
-            state.player.loot += state.gameMap.collectAllLoot();
-            postTurn(state);
-        } else if (activated('guardSight')) {
-            state.seeGuardSight = !state.seeGuardSight;
-        } else if (activated('guardPatrols')) {
-            state.seeGuardPatrols = !state.seeGuardPatrols;
-        } else if (activated('forceRestart')) {
-            restartGame(state);
         } else if (activated('guardMute')) {
             state.guardMute = !state.guardMute;
             for(const s in state.subtitledSounds) {
@@ -332,42 +233,12 @@ function updateControllerState(state:State) {
             Howler.volume(Math.max(vol+0.1,1.0));
         }
     }
-    function onControlsInBetweenMansions() {
-        if (activated('BracketLeft')) {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (activated('BracketRight')) {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
-        } else if (activated('restart')) {
-            restartGame(state);
-        } else if (activated('heal')) {
-            tryHealPlayer(state);
-        } else if (activated('startLevel')) {
-            advanceToNextLevel(state);
-        } else if (activated('menu')) {
-            state.helpActive = true;
-        }
-    }
-        
-    function onControlsInGameOver() {
-        if (activated('BracketLeft')) {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
-        } else if (activated('BracketRight')) {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
-        } else if (activated('restart')) {
-            restartGame(state);
-        } else if (activated('menu')) {
-            state.helpActive = true;
-        }
-    }
+
 }
 
-function advanceToNextLevel(state: State) {
+export function advanceToNextLevel(state: State) {
     state.level += 1;
-    if (state.level >= numGameMaps) {
+    if (state.level >= gameConfig.numGameMaps) {
         restartGame(state);
         return;
     }
@@ -383,9 +254,9 @@ function advanceToNextLevel(state: State) {
     es.lootStolen += state.lootStolen;
     es.maxLootStolen += state.lootAvailable;
     es.ghostBonuses += state.ghostBonus;
-    es.maxghostBonuses += 5;
+    es.maxGhostBonuses += 5;
     es.timeBonuses += calculateTimeBonus(state);
-    es.maxTimeBonsuses += state.maxTimeBonus;
+    es.maxTimeBonuses += state.maxTimeBonus;
     es.lootSpent += state.lootSpent;
 
     state.turns = 0;
@@ -407,7 +278,7 @@ function advanceToNextLevel(state: State) {
     state.gameMode = GameMode.Mansion;
 }
 
-function calculateTimeBonus(state:State):number {
+export function calculateTimeBonus(state:State):number {
     const c = state.gameMap.cells;
     const scale = Math.ceil((c.sizeX*c.sizeY)/10);
     return Math.max(state.maxTimeBonus - Math.floor(state.turns/scale), 0);    
@@ -510,7 +381,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
         if (x < 0 || x >= state.gameMap.cells.sizeX ||
             y < 0 || y >= state.gameMap.cells.sizeY) {
-            if (state.level >= numGameMaps - 1) {
+            if (state.level >= gameConfig.numGameMaps - 1) {
                 advanceToWin(state);
             } else {
                 advanceToBetweenMansions(state);
@@ -768,7 +639,7 @@ function postTurn(state: State) {
     }
 }
 
-function tryHealPlayer(state: State) {
+export function tryHealPlayer(state: State) {
     if (state.player.health >= maxPlayerHealth) {
         return;
     }
@@ -979,9 +850,9 @@ const colorForItemType: Array<number> = [
 const unlitColor: number = colorPreset.lightBlue;
 
 function renderTouchButtons(renderer:Renderer, screenSize:vec2, touchController:TouchController) {
-    for(const bkey in touchController.buttonMap) {
+    for(const bkey in touchController.coreTouchTargets) {
         if(!(bkey in touchController.controlStates)) continue;
-        const b = touchController.buttonMap[bkey];
+        const b = touchController.coreTouchTargets[bkey];
         const lit = touchController.controlStates[bkey];
         if(b.tileInfo===null) continue;
         if(b.show=='always' || b.show=='press' && b.id!=-1) {
@@ -1243,7 +1114,7 @@ function createCamera(posPlayer: vec2): Camera {
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const rng = new RNG();  
     const initialLevel = 0;
-    const gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot, rng);
+    const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel], rng);
 
     return {
@@ -1252,17 +1123,25 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             lootSpent: 0,
             ghostBonuses: 0,
             timeBonuses: 0,
-            maxghostBonuses: 0,
-            maxTimeBonsuses: 0,
+            maxGhostBonuses: 0,
+            maxTimeBonuses: 0,
             maxLootStolen: 0,
         },
         tLast: undefined,
         dt: 0,
         rng: rng,
         leapToggleActive: false,
-        gameMode: GameMode.Mansion,
+        gameMode: GameMode.HomeScreen,
+        helpScreen: new HelpScreen(),
+        textWindows: {
+            [GameMode.HomeScreen]: new HomeScreen(),
+            [GameMode.OptionsScreen]: new OptionsScreen(),
+            [GameMode.StatsScreen]: new StatsScreen(),
+            [GameMode.BetweenMansions]: new BetweenMansionsScreen(),
+            [GameMode.Dead]: new DeadScreen(),
+            [GameMode.Win]: new WinScreen(),
+        },
         helpActive: false,
-        helpPageIndex: 0,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
         topStatusMessageSticky: true,
@@ -1295,8 +1174,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     };
 }
 
-function restartGame(state: State) {
-    state.gameMapRoughPlans = createGameMapRoughPlans(numGameMaps, totalGameLoot, state.rng);
+export function restartGame(state: State) {
+    state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
     state.level = 0;
 
     state.endStats = {    
@@ -1304,8 +1183,8 @@ function restartGame(state: State) {
         lootSpent: 0,
         ghostBonuses: 0,
         timeBonuses: 0,
-        maxghostBonuses: 0,
-        maxTimeBonsuses: 0,
+        maxGhostBonuses: 0,
+        maxTimeBonuses: 0,
         maxLootStolen: 0,
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
@@ -1352,6 +1231,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     state.dt = dt;
     state.tLast = t;
 
+
     const screenSize = vec2.create();
     renderer.getScreenSize(screenSize);
 
@@ -1366,6 +1246,20 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     if (dt > 0) {
         updateState(state, screenSize, dt);
     }
+    if(state.helpActive) {
+        const hs = state.helpScreen;
+        hs.update(state);
+        hs.parseUI();
+        hs.updateScreenSize(screenSize);
+    } else {
+        const tw = state.textWindows[state.gameMode];
+        if(tw !== undefined) {
+            tw.update(state);
+            tw.parseUI();
+            tw.updateScreenSize(screenSize);
+        }
+    }
+
     updateTouchButtons(state.touchController, renderer, screenSize, state);
 
     renderScene(renderer, screenSize, state);
@@ -1380,144 +1274,44 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 
 function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderer.beginFrame(screenSize);
+    const matScreenFromWorld = mat4.create();
+    setupViewMatrix(state, screenSize, matScreenFromWorld);
 
-    switch (state.gameMode) {
-        case GameMode.HomeScreen:
-            break;
-        case GameMode.StatsScreen:
-            break;
-        case GameMode.Mansion:
-            {
-                const matScreenFromWorld = mat4.create();
-                setupViewMatrix(state, screenSize, matScreenFromWorld);
-            
-                renderer.start(matScreenFromWorld, 1);
-                renderWorld(state, renderer);
-                renderGuardSight(state, renderer);
-                renderGuardPatrolPaths(state, renderer);
-                renderPlayer(state, renderer);
-                renderGuards(state, renderer);
-                renderIconOverlays(state, renderer);
-                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
-                renderer.flush();
-
-                if (state.helpActive) {
-                    renderHelp(renderer, screenSize, state);
-                    renderBottomStatusBar(renderer, screenSize, state);
-                } else {
-                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
-                    renderBottomStatusBar(renderer, screenSize, state);
-                }
-            }
-            break;
-
-        case GameMode.BetweenMansions:
-            {
-                const matScreenFromWorld = mat4.create();
-                setupViewMatrix(state, screenSize, matScreenFromWorld);
-
-                renderer.start(matScreenFromWorld, 1);
-                renderWorld(state, renderer);
-                renderGuards(state, renderer);
-                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
-                renderer.flush();
-
-                if (state.helpActive) {
-                    renderHelp(renderer, screenSize, state);
-                    renderBottomStatusBar(renderer, screenSize, state);
-                } else {
-                    const timeBonus = calculateTimeBonus(state);
-                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
-                    renderBottomStatusBar(renderer, screenSize, state);
-    
-                    renderTextLines(renderer, screenSize, [
-                        '   Mansion ' + (state.level + 1) + ' Complete!',
-                        '',
-                        'Mansion Statistics',
-                        'Loot stolen:     ' + (state.lootStolen)+'/'+(state.lootAvailable),
-                        'Ghost bonus:     ' + (state.ghostBonus),
-                        'Timely delivery: ' + (timeBonus),
-                        'Mansion total:   ' + (state.lootStolen+state.ghostBonus+timeBonus),
-                        '',
-                        'Current loot:    ' + state.player.loot,
-                        'H: Heal one heart for $' + state.healCost,
-                        'N: Next mansion',
-                    ]);
-                }
-            }
-            break;
-
-        case GameMode.Dead:
-            {
-                const matScreenFromWorld = mat4.create();
-                setupViewMatrix(state, screenSize, matScreenFromWorld);
-
-                renderer.start(matScreenFromWorld, 1);
-                renderWorld(state, renderer);
-                renderPlayer(state, renderer);
-                renderGuards(state, renderer);
-                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
-                renderer.flush();
-
-                if (state.helpActive) {
-                    renderHelp(renderer, screenSize, state);
-                    renderBottomStatusBar(renderer, screenSize, state);
-                } else {
-                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
-                    renderBottomStatusBar(renderer, screenSize, state);
-                    const es = state.endStats;
-                    renderTextLines(renderer, screenSize, [
-                        '   You are dead!',
-                        '',
-                        'Statistics',
-                        'Loot stolen:   ' + es.lootStolen +'/'+es.maxLootStolen,
-                        'Ghost bonuses: ' + es.ghostBonuses+'/'+es.maxghostBonuses,
-                        'Time bonuses:  ' + es.timeBonuses+'/'+es.maxTimeBonsuses,
-                        'Loot spent:    ' + es.lootSpent,
-                        '',
-                        'Final loot:    ' + state.player.loot,
-                        '',
-                        'R: Restart new game',
-                    ]);
-                }
-            }
-            break;
-
-        case GameMode.Win:
-            {
-                const matScreenFromWorld = mat4.create();
-                setupViewMatrix(state, screenSize, matScreenFromWorld);
-
-                renderer.start(matScreenFromWorld, 1);
-                renderWorld(state, renderer);
-                renderGuards(state, renderer);
-                if(lastController==state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
-                renderer.flush();
-
-                if (state.helpActive) {
-                    renderHelp(renderer, screenSize, state);                    
-                    renderBottomStatusBar(renderer, screenSize, state);
-                } else {
-                    renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
-                    renderBottomStatusBar(renderer, screenSize, state);
-                    const es = state.endStats;
-                    renderTextLines(renderer, screenSize, [
-                        '   Mission Complete!',
-                        '',
-                        'Statistics',
-                        'Loot stolen:   ' + es.lootStolen +'/'+es.maxLootStolen,
-                        'Ghost bonuses: ' + es.ghostBonuses+'/'+es.maxghostBonuses,
-                        'Time bonuses:  ' + es.timeBonuses+'/'+es.maxTimeBonsuses,
-                        'Loot spent:    ' + es.lootSpent,
-                        '',
-                        'Score:         ' + state.player.loot,
-                        '',
-                        'R: Restart new game',
-                    ]);
-                }
-            }
-            break;
+    renderer.start(matScreenFromWorld, 1);
+    renderWorld(state, renderer);
+    if(state.gameMode===GameMode.Mansion) {
+        renderGuardSight(state, renderer);
+        renderGuardPatrolPaths(state, renderer);
+        renderPlayer(state, renderer);
     }
+    if(state.gameMode===GameMode.Dead) {
+        renderPlayer(state, renderer);
+    }
+    renderGuards(state, renderer);
+    if(state.gameMode===GameMode.Mansion) {
+        renderIconOverlays(state, renderer);
+    }
+    if(lastController===state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
+    renderer.flush();
+
+// Needed to update the endgame stats -- move to an update method
+//    const timeBonus = calculateTimeBonus(state);
+
+    const menuWindow = state.textWindows[state.gameMode];
+    if(menuWindow !== undefined) {
+        menuWindow.render(renderer);    
+    }
+
+    if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.BetweenMansions) {
+        if (state.helpActive) {
+            state.helpScreen.render(renderer);
+            renderBottomStatusBar(renderer, screenSize, state);
+        } else {
+            renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+            renderBottomStatusBar(renderer, screenSize, state);
+        }    
+    }
+
 }
 
 type PosTranslator = {
@@ -1542,25 +1336,30 @@ function createPosTranslator(screenSize:vec2, worldSize: vec2, cameraPos:vec2, z
         screenToWorld: (vPos:vec2) => {
             return vec2.fromValues(
                 (vPos[0]-vpx/2)*vwsx/vpx + cpx, 
-                (vPos[1]-vpy/2 - statusBarCharPixelSizeY)*vwsy/vpy + cpy
+                (vPos[1]-vpy/2 - 2*statusBarCharPixelSizeY)*vwsy/vpy + cpy
             )
         },
         worldToScreen: (cPos:vec2) => {
             return vec2.fromValues(
                 (cPos[0] - cpx)*vpx/vwsx + vpx/2,
-                (cPos[1] - cpy)*vpy/vwsy + vpy/2 + statusBarCharPixelSizeY
+                (cPos[1] - cpy)*vpy/vwsy + vpy/2 + 2*statusBarCharPixelSizeY
             )
         }
     }    
 }
 
 function updateTouchButtons(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
-    if(lastController != touchController) return;
+    //TODO: Move most of the game-specific logic from touchcontroller class into here
+    //TODO: Also disable when buttons activation and visibility when camera is panning
+    if(lastController !== touchController) return;
     const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
+    //TODO: Need to maintain the heirarchy of menus somewhere
+    //TODO: Block the panning if on the HomeScreen, StatsScreen etc.
+    //TODO: Update the size of buttons etc in menus
     if(touchController.lastMotion.id!=-1 && touchController.lastMotion.active) {
         const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
         const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
@@ -1592,31 +1391,38 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const offForceRestartFullscreen = state.helpActive ? 0:100;
     let tt = renderer.tileSet.touchButtons;
     if(tt === undefined) tt = {};
-    const buttonData:{[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}} = {
-        'zoomIn':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['zoomIn']},
-        'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['zoomOut']},
-        'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['heal']},
-        'startLevel':{game:new Rect(x+w-bw+offHealNext,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['nextLevel']},
-        'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['fullscreen']},
-        'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
-        'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
-        'gamepadStyleTouch':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-3*bh,bw,bh), view: new Rect(), tileInfo:state.touchAsGamepad?tt['gamepadTouchOn']:tt['gamepadTouchOff']},
-        'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['menu']},
-    }
-    if(state.touchAsGamepad) {
-        const moveButtons:{[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}} = {
+    const touchAsGamepad = state.touchAsGamepad && !(lastController===state.touchController && state.touchController.mouseActive);
+    state.touchController.setTouchConfig(touchAsGamepad);
+
+    if(touchAsGamepad) {
+        var buttonData:{[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}} = {
+            'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['menu']},
+            'zoomIn':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['zoomIn']},
+            'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['zoomOut']},
+            // 'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['heal']},
+            // 'startLevel':{game:new Rect(x+w-bw+offHealNext,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['nextLevel']},
+            'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['fullscreen']},
+            'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
+            'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
+            'gamepadStyleTouch':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-3*bh,bw,bh), view: new Rect(), tileInfo:touchAsGamepad?tt['gamepadTouchOn']:tt['gamepadTouchOff']},
             'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), tileInfo:tt['left']},
             'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['right']},
             'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), tileInfo:tt['up']},
             'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), tileInfo:tt['down']},
             'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['wait']},
             'jump':     {game:new Rect(x+w-bw,y+bw,bw,bh), view: new Rect(), tileInfo:tt['jump']},
-        }
-        for(let mb in moveButtons) {
-            buttonData[mb] = moveButtons[mb];
-        }
-    } 
-    else {
+        }    
+    } else {
+        const s = 4/state.zoomLevel;
+        var buttonData:{[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}} = {
+            'menu':     {game:new Rect(x,y+h-1.5*s,s,s), view: new Rect(), tileInfo:tt['menu']},
+            'zoomIn':  {game:new Rect(x,y+h-2.5*s,s,s), view: new Rect(), tileInfo:tt['zoomIn']},
+            'zoomOut':   {game:new Rect(x,y+h-3.5*s,s,s), view: new Rect(), tileInfo:tt['zoomOut']},
+            'fullscreen':  {game:new Rect(x+offForceRestartFullscreen,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['fullscreen']},
+            'restart':  {game:new Rect(x+offRestart,y+h-5.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
+            'forceRestart':  {game:new Rect(x+offForceRestartFullscreen,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
+            'gamepadStyleTouch':  {game:new Rect(x+offForceRestartFullscreen,y+h-7.5*s,s,s), view: new Rect(), tileInfo:touchAsGamepad?tt['gamepadTouchOn']:tt['gamepadTouchOff']},
+        }    
         //TODO: For this scheme we also want to allow Button to activate on release rather than press
         // i.e., on touchend -- should be a simple mod
         //TODO: Also add an option in the constructor to handle mouseevents in the TouchController
@@ -1624,7 +1430,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         buttonData['wait'] = {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
         if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
                 && (pp[0]==0 || pp[1]==0 || pp[0]==worldSize[0]-1 || pp[1]==worldSize[1]-1)) {
-            buttonData['exitLevel'] = {game:new Rect(x+w-bw,y+h-3*bh,bw,bh), view: new Rect(), tileInfo:tt['exitLevel']};
+            buttonData['exitLevel'] = {game:new Rect(x,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['exitLevel']};
         } else {
             buttonData['exitLevel'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['exitLevel']};
         }
@@ -1671,14 +1477,24 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         }    
     }
     for(const bkey in buttonData) {
-        const game = buttonData[bkey].game;
+        const b = buttonData[bkey];
+        const game = b.game;
         const xy0 = pt.worldToScreen(vec2.fromValues(game[0],game[1]));
         const xy1 = pt.worldToScreen(vec2.fromValues(game[0]+game[2],game[1]+game[3]));
-        buttonData[bkey].view = new Rect(
-            xy0[0],xy0[1],xy1[0]-xy0[0],xy1[1]-xy0[1]
+        touchController.updateCoreTouchTarget(bkey, game, 
+            new Rect(
+                xy0[0],xy0[1],xy1[0]-xy0[0],xy1[1]-xy0[1]
+            ), 
+            b.tileInfo
         )
     }
-    touchController.updateButtonLocations(buttonData);
+    if(state.helpActive) {
+        const hs = state.helpScreen;
+        touchController.activateTouchTargets(hs.getTouchData());
+    } else {
+        const tw = state.textWindows[state.gameMode];
+        touchController.activateTouchTargets(tw?.getTouchData());    
+    }
 }
 
 
@@ -1812,161 +1628,6 @@ function statusBarZoom(screenSizeX: number): number {
     return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
-const helpPages: Array<Array<string>> = [
-    [
-        '           Lurk, Leap, Loot',
-        '',
-        'Your mission from the thieves\' guild is to',
-        'map ' + numGameMaps + ' mansions. You can keep any loot you',
-        'find (' + totalGameLoot + ' total).',
-        '',
-        'Mansion bonuses:',
-        '- Up to 5 gold for a timely map delivery.',
-        '- 5 gold if you avoid alerting guards.',
-        '', 
-        '                      <Escape to close help>',
-        'Page 1 of 4 <Arrow right / D / L to advance>',
-    ],
-    [
-        'Keyboard controls',
-        '',
-        '  Move: Arrows / WASD / HJKL',
-        '  Wait: Space / Z / Period / Numpad5',
-        '  Leap: Shift + move',
-        '  Leap (Toggle): F / Numpad+',
-        '  Zoom View: [ / ]',
-        '  Volume: (Mute/Down/Up) 0 / - / =',
-        '  Guard Mute (Toggle): 9',
-        '',
-        'Disable NumLock if using numpad',
-        'Mouse, touch and gamepad also supported',
-        '',
-        'Page 2 of 4',
-    ],
-    [
-        '   Thief: You!',
-        '   Guard: Avoid them!',
-        '   Loot: Collect for score, or to spend on healing',
-        '   Tree: Hiding place',
-        '   Table: Hiding place',
-        '   Stool: Not a hiding place',
-        '   Torch: Guards want them lit',
-        '   Window: One-way escape route',
-        '',
-        'Page 3 of 4',
-    ],
-    [
-        'Made for 2023 Seven-Day Roguelike Challenge',
-        '',
-        'by James McNeill and Damien Moore',
-        '',
-        'Additional voices by Evan Moore',
-        'Additional assistance by Mike Gaffney',
-        'Testing by Tom Elmer',
-        'Special thanks to Mendi Carroll',
-        '',
-        'Page 4 of 4',
-    ],
-];
-
-function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
-
-    const lines = helpPages[state.helpPageIndex];
-
-    let maxLineLength = 0;
-    for (const line of lines) {
-        maxLineLength = Math.max(maxLineLength, line.length);
-    }
-
-    const minCharsX = 65;
-    const minCharsY = 22;
-    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
-    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
-    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
-    const pixelsPerCharX = 8 * scaleFactor;
-    const pixelsPerCharY = 16 * scaleFactor;
-    const linesPixelSizeX = maxLineLength * pixelsPerCharX;
-    const linesPixelSizeY = lines.length * pixelsPerCharY;
-    const numCharsX = screenSize[0] / pixelsPerCharX;
-    const numCharsY = screenSize[1] / pixelsPerCharY;
-    const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
-    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
-
-    const matScreenFromTextArea = mat4.create();
-    mat4.ortho(
-        matScreenFromTextArea,
-        offsetX,
-        offsetX + numCharsX,
-        offsetY,
-        offsetY + numCharsY,
-        1,
-        -1);
-    renderer.start(matScreenFromTextArea, 0);
-
-    const colorText = 0xffeef0ff;
-    const colorBackground = 0xf0101010;
-
-    // Draw a stretched box to make a darkened background for the text.
-    renderer.addGlyph(
-        -2, -1, maxLineLength + 2, lines.length + 1,
-        {textureIndex:219, color:colorBackground}
-    );
-
-    for (let i = 0; i < lines.length; ++i) {
-        const row = lines.length - (1 + i);
-        for (let j = 0; j < lines[i].length; ++j) {
-            const col = j;
-            const ch = lines[i];
-            if (ch === ' ') {
-                continue;
-            }
-            const glyphIndex = lines[i].charCodeAt(j);
-            renderer.addGlyph(
-                col, row, col + 1, row + 1,
-                {textureIndex:glyphIndex, color:colorText}
-            );
-        }
-    }
-
-    renderer.flush();
-
-    if (state.helpPageIndex == 2) {
-        const pixelsPerGlyphX = 16 * scaleFactor;
-        const pixelsPerGlyphY = 16 * scaleFactor;
-        const numCharsX = screenSize[0] / pixelsPerGlyphX;
-        const numCharsY = screenSize[1] / pixelsPerGlyphY;
-        const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerGlyphX;
-        const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerGlyphY;
-    
-        mat4.ortho(
-            matScreenFromTextArea,
-            offsetX,
-            offsetX + numCharsX,
-            offsetY,
-            offsetY + numCharsY,
-            1,
-            -1);
-
-        function putGlyph(x: number, y: number, glyph: number) {
-            renderer.addGlyph(x, y + 0.125, x+1, y+1.125, {textureIndex: glyph, color: colorPreset.white});
-        }
-
-        renderer.start(matScreenFromTextArea, 1);
-        putGlyph(0, 9, 114);
-        putGlyph(0, 8, 81);
-        putGlyph(0, 7, 53);
-        putGlyph(0, 6, 50);
-        putGlyph(0, 5, 52);
-        putGlyph(0, 4, 51);
-        putGlyph(0, 3, 49);
-        putGlyph(0, 2, 160);
-        renderer.flush();
-    }
-
-    const status = 'Esc or / to return to game; left/right for more (' + (state.helpPageIndex + 1) + ' of ' + helpPages.length + ')';
-    renderTopStatusBar(renderer, screenSize, status);
-}
-
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: string) {
     const tileZoom = statusBarZoom(screenSize[0]);
 
@@ -2082,61 +1743,23 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     renderer.flush();
 }
 
-function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<string>) {
-    let maxLineLength = 0;
-    for (const line of lines) {
-        maxLineLength = Math.max(maxLineLength, line.length);
-    }
-
-    const minCharsX = 65;
-    const minCharsY = 22;
-    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (8 * minCharsX)));
-    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (16 * minCharsY)));
-    const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
-    const pixelsPerCharX = 8 * scaleFactor;
-    const pixelsPerCharY = 16 * scaleFactor;
-    const linesPixelSizeX = maxLineLength * pixelsPerCharX;
-    const linesPixelSizeY = lines.length * pixelsPerCharY;
-    const numCharsX = screenSize[0] / pixelsPerCharX;
-    const numCharsY = screenSize[1] / pixelsPerCharY;
-    const offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / pixelsPerCharX;
-    const offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / pixelsPerCharY;
-
-    const matScreenFromTextArea = mat4.create();
-    mat4.ortho(
-        matScreenFromTextArea,
-        offsetX,
-        offsetX + numCharsX,
-        offsetY,
-        offsetY + numCharsY,
-        1,
-        -1);
-    renderer.start(matScreenFromTextArea, 0);
-
-    const colorText = 0xffeef0ff;
-    const colorBackground = 0xf0101010;
-
-    // Draw a stretched box to make a darkened background for the text.
-    renderer.addGlyph(
-        -2, -1, maxLineLength + 2, lines.length + 1,
-        {textureIndex:219, color:colorBackground}
-    );
-
-    for (let i = 0; i < lines.length; ++i) {
-        const row = lines.length - (1 + i);
-        for (let j = 0; j < lines[i].length; ++j) {
-            const col = j;
-            const ch = lines[i];
-            if (ch === ' ') {
-                continue;
-            }
-            const glyphIndex = lines[i].charCodeAt(j);
-            renderer.addGlyph(
-                col, row, col + 1, row + 1,
-                {textureIndex:glyphIndex, color:colorText}
-            );
-        }
-    }
-
-    renderer.flush();
+export function getCurrentDateFormatted():string {
+    const currentDate = new Date();
+  
+    // Extract the year, month, and day from the Date object
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1; // Months are 0-indexed, so we add 1
+    const day = currentDate.getDate();
+  
+    // Format the date components as strings with proper padding
+    const yearString = String(year);
+    const monthString = String(month).padStart(2, '0');
+    const dayString = String(day).padStart(2, '0');
+  
+    // Concatenate the date components using the desired format
+    const formattedDate = `${yearString}/${monthString}/${dayString}`;
+  
+    return formattedDate;
 }
+  
+  

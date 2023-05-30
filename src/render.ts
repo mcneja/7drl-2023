@@ -108,6 +108,7 @@ class Renderer {
         }
 
         this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) => {
+            if(tileInfo.textureIndex === undefined) return;
             if (numQuads >= maxQuads) {
                 this.flush();
             }
