@@ -9,7 +9,7 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './au
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen } from './ui'
-import {Camera, GameMode, State} from './types';
+import {Camera, GameMode, State, Statistics} from './types';
 
 import * as colorPreset from './color-preset';
 import { stat } from 'fs';
@@ -189,6 +189,7 @@ function updateControllerState(state:State) {
             postTurn(state);
         } else if (activated('forceRestart')) {
             state.rng = new RNG();
+            state.dailyRun = false;
             restartGame(state);
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
@@ -250,7 +251,7 @@ export function advanceToNextLevel(state: State) {
     state.finishedLevel = false;
     state.healCost += 1;
 
-    const es = state.endStats;
+    const es = state.gameStats;
     es.lootStolen += state.lootStolen;
     es.maxLootStolen += state.lootAvailable;
     es.ghostBonuses += state.ghostBonus;
@@ -290,6 +291,14 @@ function advanceToBetweenMansions(state: State) {
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
     state.gameMode = GameMode.BetweenMansions;
+    if(state.lootStolen === state.lootAvailable) {
+        state.stats.totalLootSweeps++;
+        setStat('totalLootSweeps',state.stats.totalLootSweeps);
+    }
+    if(state.ghostBonus>0) {
+        state.stats.totalGhosts++;
+        setStat('totalGhosts',state.stats.totalGhosts);
+    }
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
 }
@@ -298,6 +307,29 @@ function advanceToWin(state: State) {
     state.activeSoundPool.empty();
     if (state.player.loot>95 && Math.random()>0.9) state.sounds['easterEgg'].play(0.5);
     else state.sounds['victorySong'].play(0.5);
+    state.stats.totalWins++;
+    setStat('totalWins',state.stats.totalWins);
+    state.stats.bestScore = Math.max(state.stats.bestScore, state.player.loot);
+    setStat('bestScore',state.stats.bestScore);
+    state.stats.totalGold+= state.player.loot;
+    setStat('totalGold',state.stats.totalGold);
+    const score = {score:state.player.loot, date:getCurrentDateFormatted()};
+    state.stats.highScores.push(score);    
+    if(state.dailyRun) {
+        state.stats.bestDailyScore = Math.max(state.stats.bestDailyScore, state.player.loot);
+        setStat('bestDailyScore',state.stats.bestDailyScore);
+        state.stats.dailyWins++;
+        setStat('dailyWins',state.stats.dailyWins)    
+        state.stats.dailyWinStreak++;
+        setStat('dailyWinStreak',state.stats.dailyWinStreak)    
+        if(state.player.loot==150) {
+            state.stats.dailyPerfect++;
+            setStat('dailyPerfect', state.stats.dailyPerfect);
+        }
+        state.stats.lastDaily = score;
+        state.stats.dailyScores.push(state.stats.lastDaily);
+        setStat('lastDaily', state.stats.lastDaily);
+    }
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -613,6 +645,12 @@ function advanceTime(state: State) {
 
         if (state.player.health <= 0) {
             setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
+            if(state.dailyRun) {
+                state.stats.dailyWinStreak=0;
+                setStat('dailyWinStreak',state.stats.dailyWinStreak)    
+                state.stats.lastDaily = {score:state.player.loot, date:getCurrentDateFormatted()};
+                setStat('lastDaily', state.stats.lastDaily);
+            }       
             state.gameMode = GameMode.Dead;
         }
     }
@@ -649,7 +687,7 @@ export function tryHealPlayer(state: State) {
     }
 
     state.player.loot -= state.healCost;
-    state.endStats.lootSpent += state.healCost;
+    state.gameStats.lootSpent += state.healCost;
     state.player.health += 1;
     state.healCost *= 2;
 }
@@ -1111,14 +1149,46 @@ function createCamera(posPlayer: vec2): Camera {
     return camera;
 }
 
+//TODO: should do some runtime type checking here to validate what's being written
+function getStat<T>(name:string):T {
+    return JSON.parse(String(window.localStorage.getItem('stat.'+name)));
+}
+
+function setStat<T>(name:string, value:T) {
+    window.localStorage.setItem('stat.'+name, JSON.stringify(value));
+}
+
+function loadStats(): Statistics {
+    const stats0:Statistics = {
+        highScores: getStat('highScores') ?? [],
+        dailyScores: getStat('dailyScores') ?? [],
+        bestScore: getStat('bestScore') ?? 0,
+        bestDailyScore: getStat('bestDailyScores') ?? 0,
+        lastDaily: getStat('lastDaily') ?? {score:0, date:''},
+        dailyWinStreak: getStat('dailyWinStreak') ?? 0,
+        dailyPlays: getStat('dailyPlays') ?? 0,
+        dailyWins: getStat('dailyWins') ?? 0,
+        dailyPerfect: getStat('dailyPerfect') ?? 0,
+        totalGold: getStat('totalGold') ?? 0,
+        totalPlays: getStat('totalPlays') ?? 0,
+        totalWins: getStat('totalWins') ?? 0,
+        totalPerfect: getStat('totalPerfect') ?? 0,
+        totalGhosts: getStat('totalGhosts') ?? 0,
+        totalLootSweeps: getStat('totalLootSweeps') ?? 0,
+        achievements: getStat('achievements') ?? new Set(),
+    }
+    return stats0;
+}
+
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const rng = new RNG();  
     const initialLevel = 0;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel], rng);
+    const stats = loadStats();
 
     return {
-        endStats: {    
+        gameStats: {    
             lootStolen: 0,
             lootSpent: 0,
             ghostBonuses: 0,
@@ -1127,9 +1197,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             maxTimeBonuses: 0,
             maxLootStolen: 0,
         },
+        stats: stats,
         tLast: undefined,
         dt: 0,
         rng: rng,
+        dailyRun: false,
         leapToggleActive: false,
         gameMode: GameMode.HomeScreen,
         helpScreen: new HelpScreen(),
@@ -1178,7 +1250,14 @@ export function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
     state.level = 0;
 
-    state.endStats = {    
+    state.stats.totalPlays++;
+    setStat('totalPlays',state.stats.totalPlays);
+    if(state.dailyRun) {
+        state.stats.dailyPlays++;
+        setStat('dailyPlays',state.stats.dailyPlays);    
+    }
+
+    state.gameStats = {    
         lootStolen: 0,
         lootSpent: 0,
         ghostBonuses: 0,
@@ -1291,7 +1370,6 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);
     }
-    if(lastController===state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
     renderer.flush();
 
 // Needed to update the endgame stats -- move to an update method
@@ -1311,6 +1389,10 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             renderBottomStatusBar(renderer, screenSize, state);
         }    
     }
+
+    if(lastController===state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
+    renderer.flush();
+
 
 }
 

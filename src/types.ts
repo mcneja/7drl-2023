@@ -6,7 +6,7 @@ import { Popups } from './popups';
 import { TouchController, GamepadManager, KeyboardController } from './controllers';
 import { TextWindow } from './ui';
 
-export {Camera, GameMode, EndStats, State}
+export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry}
 
 type Camera = {
     position: vec2;
@@ -26,7 +26,31 @@ enum GameMode {
     Win,
 }
 
-type EndStats = {
+type ScoreEntry = {
+    score: number;
+    date: string;
+}
+
+type Statistics = {
+    highScores: Array<ScoreEntry>;
+    dailyScores: Array<ScoreEntry>;
+    lastDaily: ScoreEntry;
+    dailyWinStreak: number;
+    dailyPlays: number;
+    dailyWins: number;
+    dailyPerfect: number;
+    bestScore: number;
+    bestDailyScore: number;
+    totalGold: number;
+    totalPlays: number;
+    totalWins: number;
+    totalPerfect: number;
+    totalGhosts: number;
+    totalLootSweeps: number;
+    achievements: Set<string>;
+}
+
+type GameStats = {
     lootStolen: number;
     lootSpent: number;
     ghostBonuses: number;
@@ -37,8 +61,10 @@ type EndStats = {
 }
 
 type State = {
-    endStats: EndStats;
+    gameStats: GameStats;
+    stats: Statistics;
     rng: RNG;
+    dailyRun: boolean;
     tLast: number | undefined;
     dt: number;
     leapToggleActive: boolean;

@@ -308,11 +308,13 @@ class HomeScreen extends TextWindow {
 
         if (activated('homePlay') || actionSelected=='homePlay') {
             state.rng = new RNG();
+            state.dailyRun = false;
             game.restartGame(state);
         } else if(this.touchTargets['homeDaily'].active && ((activated('homeDaily') || actionSelected=='homeDaily'))) {
             const store = window.localStorage;
             store.setItem("lastDaily", game.getCurrentDateFormatted());
             state.rng = new RNG('Daily '+game.getCurrentDateFormatted());
+            state.dailyRun = true;
             game.restartGame(state);
         } else if(activated('homeStats') || actionSelected=='homeStats') {
             state.gameMode = GameMode.StatsScreen;
@@ -389,45 +391,74 @@ class OptionsScreen extends TextWindow {
 class StatsScreen extends TextWindow {
     pages = [
 //Play stats
-`   Lurk Leap Loot Statistics
+`                   Play Statistics
 
-Total plays $totalPlays$
-Total turns $totalTurns$
-Best score $bestScore$
-Average score $averageScore$
+            Total plays:             $totalPlays$ games
+            Total wins:              $totalWins$ games
+            Total loot:              $totalGold$ gold
+            Total mansions ghosted:  $totalGhosts$
+            Total mansions looted:   $totalLootSweeps$
+            Best score:              $bestScore$ gold
 
 1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
 
 //High scores
-`            Lurk Leap Loot High Scores
+`                        High Scores
 
-Name                            Score     Date
+Score                        Date
 
-$scoreTable
+$scoreTable$
 
 2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
 
 //Daily runs
-`   Lurk Leap Loot Daily Runs
+`                       Daily Runs
 
-Total plays: $totalDailyPlays$
-Daily play streak: $totalDailyStreak$
-Last played: $lastPlayed$
+            Last played:        $lastPlayed$
+            Last score:         $lastScore$ gold
+            Best score:         $bestScore$ gold
+
+            Total daily runs:   $dailyPlays$ games
+            Total daily wins:   $dailyWins$ games
+            Perfect runs:       $dailyPerfect$ games
+            Win streak:         $dailyWinStreak$ days
 
 
 3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
 
 //Achievements
-`   Lurk Leap Loot Achievements
+`                     Achievements
 
-Ghost
-Klepto
-Ascetic
-Reckless
-
+$achievements$
 
 4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
     ];
+    update(state:State) {
+        if(this.activePage==0) {
+            this.state['totalPlays'] = state.stats.totalPlays;
+            this.state['totalWins'] = state.stats.totalWins;
+            this.state['totalGold'] = state.stats.totalGold;
+            this.state['totalGhosts'] = state.stats.totalGhosts;
+            this.state['totalLootSweeps'] = state.stats.totalLootSweeps;
+            this.state['bestScore'] = state.stats.bestScore;    
+        }
+        else if(this.activePage==1) {
+            this.state['scoreTable'] = '';            
+        }
+        else if(this.activePage==2) {
+            this.state['lastPlayed'] = state.stats.lastDaily.date;
+            this.state['lastScore'] = state.stats.lastDaily.score;
+            this.state['bestScore'] = state.stats.bestScore;
+            this.state['dailyPlays'] = state.stats.dailyPlays;
+            this.state['dailyWins'] = state.stats.dailyWins;
+            this.state['dailyPerfect'] = state.stats.dailyPerfect;
+            this.state['dailyWinStreak'] = state.stats.dailyWinStreak;
+        }
+        else if(this.activePage==3) {
+            this.state['achievements'] = '';            
+        }
+
+    }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
@@ -474,6 +505,7 @@ Current loot:    $loot$
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
+            state.dailyRun = false;
             game.restartGame(state);
         } else if (activated('heal') || action=='heal') {
             game.tryHealPlayer(state);
@@ -489,7 +521,7 @@ class DeadScreen extends TextWindow{
     pages = [
 `         You are dead!
 
-StatisticsadvanceToNex
+Statistics
 Loot stolen:   $lootStolen$ / $maxLootStolen$
 Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
 Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
@@ -501,13 +533,13 @@ Final loot:    $loot$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
-        this.state['lootStolen'] = state.endStats.lootStolen;
-        this.state['maxLootStolen'] = state.endStats.maxLootStolen;
-        this.state['ghostBonuses'] = state.endStats.ghostBonuses;
-        this.state['maxGhostBonuses'] = state.endStats.maxGhostBonuses;
-        this.state['timeBonuses'] = state.endStats.timeBonuses;
-        this.state['maxTimeBonuses'] = state.endStats.maxTimeBonuses;
-        this.state['lootSpent'] = state.endStats.lootSpent;
+        this.state['lootStolen'] = state.gameStats.lootStolen;
+        this.state['maxLootStolen'] = state.gameStats.maxLootStolen;
+        this.state['ghostBonuses'] = state.gameStats.ghostBonuses;
+        this.state['maxGhostBonuses'] = state.gameStats.maxGhostBonuses;
+        this.state['timeBonuses'] = state.gameStats.timeBonuses;
+        this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
+        this.state['lootSpent'] = state.gameStats.lootSpent;
         this.state['loot'] = state.player.loot;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -520,6 +552,7 @@ Final loot:    $loot$
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
+            state.dailyRun = false;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
@@ -544,13 +577,13 @@ Score:         $loot$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
-        this.state['lootStolen'] = state.endStats.lootStolen;
-        this.state['maxLootStolen'] = state.endStats.maxLootStolen;
-        this.state['ghostBonuses'] = state.endStats.ghostBonuses;
-        this.state['maxGhostBonuses'] = state.endStats.maxGhostBonuses;
-        this.state['timeBonuses'] = state.endStats.timeBonuses;
-        this.state['maxTimeBonuses'] = state.endStats.maxTimeBonuses;
-        this.state['lootSpent'] = state.endStats.lootSpent;
+        this.state['lootStolen'] = state.gameStats.lootStolen;
+        this.state['maxLootStolen'] = state.gameStats.maxLootStolen;
+        this.state['ghostBonuses'] = state.gameStats.ghostBonuses;
+        this.state['maxGhostBonuses'] = state.gameStats.maxGhostBonuses;
+        this.state['timeBonuses'] = state.gameStats.timeBonuses;
+        this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
+        this.state['lootSpent'] = state.gameStats.lootSpent;
         this.state['loot'] = state.player.loot;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -563,6 +596,7 @@ Score:         $loot$
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
+            state.dailyRun = false;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
@@ -657,6 +691,7 @@ Special thanks to Mendi Carroll
             canvas.requestFullscreen({navigationUI:"hide"});
         } else if (activated('forceRestart')|| action=='forceRestart') {
             state.rng = new RNG();
+            state.dailyRun = false;
             game.restartGame(state);
         } else if (activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
             state.touchAsGamepad = !state.touchAsGamepad;
