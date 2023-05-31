@@ -280,11 +280,18 @@ function initShaderProgram(gl: WebGL2RenderingContext, vsSource: string, fsSourc
     return program;
 }
 
+// function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
+//     const parentElement = canvas.parentNode as HTMLElement;
+//     const rect = parentElement.getBoundingClientRect();
+//     if (canvas.width !== rect.width || canvas.height !== rect.height) {
+//         canvas.width = rect.width;
+//         canvas.height = rect.height;
+//     }
+// }
+
 function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
-    const parentElement = canvas.parentNode as HTMLElement;
-    const rect = parentElement.getBoundingClientRect();
-    if (canvas.width !== rect.width || canvas.height !== rect.height) {
-        canvas.width = rect.width;
-        canvas.height = rect.height;
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     }
 }

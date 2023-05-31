@@ -388,12 +388,9 @@ class TouchController extends Controller {
             'pan':          {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
             'zoomIn':       {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'zoomOut':      {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            // 'heal':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            // 'startLevel':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'restart':      {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'forceRestart': {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'menu':         {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'gamepadStyleTouch':   {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'fullscreen':   {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
         };
         this.touchTargets = this.coreTouchTargets;

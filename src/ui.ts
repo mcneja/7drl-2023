@@ -618,9 +618,9 @@ Mansion bonuses:
 - 5 gold if you avoid alerting guards.
 
 
+[X|home] Exit (abort game)
 
-
-1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
 `Keyboard controls
 
   Move: Arrows / WASD / HJKL
@@ -634,7 +634,7 @@ Mansion bonuses:
 Disable NumLock if using numpad
 Mouse, touch and gamepad also supported
 
-2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
 
 `Key 
 
@@ -649,7 +649,7 @@ Mouse, touch and gamepad also supported
 
 
 
-3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
 
 `Made for 2023 Seven-Day Roguelike Challenge
 
@@ -664,7 +664,7 @@ Special thanks to Mendi Carroll
 
 
 
-4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close      [X|home] Exit game`,
+4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
     ];
     update(state:State) {
         this.state['numGameMaps'] = game.gameConfig.numGameMaps;

@@ -1390,10 +1390,11 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         }    
     }
 
-    if(lastController===state.touchController) renderTouchButtons(renderer, screenSize, state.touchController);
-    renderer.flush();
-
-
+    if(lastController===state.touchController) {
+        renderer.start(matScreenFromWorld, 1);
+        renderTouchButtons(renderer, screenSize, state.touchController);
+        renderer.flush();
+    } 
 }
 
 type PosTranslator = {
@@ -1486,7 +1487,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['fullscreen']},
             'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
             'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
-            'gamepadStyleTouch':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-3*bh,bw,bh), view: new Rect(), tileInfo:touchAsGamepad?tt['gamepadTouchOn']:tt['gamepadTouchOff']},
             'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), tileInfo:tt['left']},
             'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['right']},
             'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), tileInfo:tt['up']},
@@ -1503,7 +1503,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             'fullscreen':  {game:new Rect(x+offForceRestartFullscreen,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['fullscreen']},
             'restart':  {game:new Rect(x+offRestart,y+h-5.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
             'forceRestart':  {game:new Rect(x+offForceRestartFullscreen,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
-            'gamepadStyleTouch':  {game:new Rect(x+offForceRestartFullscreen,y+h-7.5*s,s,s), view: new Rect(), tileInfo:touchAsGamepad?tt['gamepadTouchOn']:tt['gamepadTouchOff']},
         }    
         //TODO: For this scheme we also want to allow Button to activate on release rather than press
         // i.e., on touchend -- should be a simple mod
