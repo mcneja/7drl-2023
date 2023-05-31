@@ -117,6 +117,7 @@ class TextWindow {
         const lines = this.activePageData;
         this.glyphs.length = 0;
         this.actionSequence = [];
+        this.touchTargets = {};
         for (let row=0; row<lines.length; ++row) {
             let line = lines[row];
             let base = 0;
