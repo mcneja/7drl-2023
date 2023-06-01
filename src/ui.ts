@@ -199,7 +199,7 @@ class TextWindow {
 
         const colorText = 0xffeef0ff;
         const colorBackground = 0xf0101010;
-        const buttonColor = 0xffa02080;
+        const buttonColor = 0xff802060;
         const uiSelectColor = 0xffd020b0;
         const buttonDisabled = 0xff707070;
     
