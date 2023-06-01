@@ -87,8 +87,9 @@ const defaultKeyMap:KeyMap = {
     'Period': ['wait'],
     'Space': ['wait'],
     'Shift': ['jump'],
-    'KeyF': ['jumpToggle'],
+    'KeyF': ['jumpToggle','fullscreen'],
     'NumpadAdd': ['jumpToggle'],
+    'KeyT': ['gamepadStyleTouch'],
     'Escape' : ['menu', 'menuClose'],
     'Slash' : ['menu', 'menuClose'],
     'KeyR': ['restart'],
@@ -238,7 +239,6 @@ class KeyboardController extends Controller {
     }
     keyDownHandler(e:KeyboardEvent){
         lastController = this;
-        console.log("Key down",e, this.controlStates['homePlay'], Date.now()/1000);
         const code = this.getCode(e);
         if(['Alt','Control'].includes(code)) {
             this.updateModifierDown(code);
@@ -250,10 +250,8 @@ class KeyboardController extends Controller {
                 if (!this.controlStates[key]) this.set(key, true);
             }
         }
-        console.log("Key down 2",e, this.controlStates['homePlay'],Date.now()/1000);
     }
     keyUpHandler(e:KeyboardEvent){
-        console.log("Key up",e, this.controlStates['homePlay'],Date.now()/1000);
         const code = this.getCode(e);
         if(['Alt','Control'].includes(code)) {
             this.updateModifierUp(code);
@@ -265,7 +263,6 @@ class KeyboardController extends Controller {
                 this.set(key, false);
             }
         }
-        console.log("Key up 2",e, this.controlStates['homePlay']);
     }
 }
 

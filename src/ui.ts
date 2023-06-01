@@ -17,6 +17,9 @@ class TextWindow {
     highlightedAction:number = -1;
     actionSequence: Array<string> = [];
 
+    touchTargetsPage: number = 0;
+    touchTargets: TouchTargets;
+
     state: {[id:string]: any} = {};
     glyphs: [spriteNum:number, r:Rect][] = [];
     screenSize: vec2;
@@ -33,7 +36,6 @@ class TextWindow {
     numCharsY: number = 0;
     offsetX: number = 0;
     offsetY: number = 0;
-    touchTargets: TouchTargets;
     textW: number = 8; //width of character in pixels
     textH: number =16; //height of character in pixels
 
@@ -108,7 +110,7 @@ class TextWindow {
     }
     parseUI() {
         //TODO: Parse Glyphs and convert to double spaces
-        var pageText = this.pages[this.activePage];
+        let pageText = this.pages[this.activePage];
         const stateData = this.state;
         for(const t in stateData) {
             pageText = pageText.replace('$'+t+'$', String(stateData[t]))
@@ -117,7 +119,10 @@ class TextWindow {
         const lines = this.activePageData;
         this.glyphs.length = 0;
         this.actionSequence = [];
-        this.touchTargets = {};
+        if(this.touchTargetsPage !== this.activePage) {
+            this.touchTargets = {};
+            this.touchTargetsPage = this.activePage;
+        }
         for (let row=0; row<lines.length; ++row) {
             let line = lines[row];
             let base = 0;
@@ -271,7 +276,9 @@ class TextWindow {
             if(this.highlightedAction>=this.actionSequence.length) {
                 this.highlightedAction = 0;
             }
-        } else if(this.highlightedAction>=0 && this.touchTargets[this.actionSequence[this.highlightedAction]]?.active && activated('wait')) {
+        } else if(this.highlightedAction>=0 
+                    && this.touchTargets[this.actionSequence[this.highlightedAction]]?.active 
+                    && (activated('wait')) || (activated('jump'))) {
             action = this.actionSequence[this.highlightedAction];
         }
         return action;
@@ -294,15 +301,6 @@ class HomeScreen extends TextWindow {
         super();
     }
     update(state: State) {
-        if("homeDaily" in this.touchTargets) {
-            const store = window.localStorage;
-            const lastDaily = store.getItem("lastDaily");
-            if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {
-                this.touchTargets['homeDaily'].active = false;
-            } else {
-                this.touchTargets['homeDaily'].active = true;
-            }   
-        }
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
@@ -311,12 +309,24 @@ class HomeScreen extends TextWindow {
             state.rng = new RNG();
             state.dailyRun = false;
             game.restartGame(state);
-        } else if(this.touchTargets['homeDaily'].active && ((activated('homeDaily') || actionSelected=='homeDaily'))) {
-            const store = window.localStorage;
-            store.setItem("lastDaily", game.getCurrentDateFormatted());
-            state.rng = new RNG('Daily '+game.getCurrentDateFormatted());
-            state.dailyRun = true;
-            game.restartGame(state);
+        } else if('homeDaily' in this.touchTargets && this.touchTargets['homeDaily'].active 
+                && ((activated('homeDaily') || actionSelected=='homeDaily'))) {
+            if("homeDaily" in this.touchTargets) {
+                const store = window.localStorage;
+                const lastDaily = store.getItem("lastDaily");
+                if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {
+                    state.gameMode = GameMode.StatsScreen;
+                    const tw = state.textWindows[GameMode.StatsScreen];
+                    if(tw !== undefined) tw.activePage = 2;
+                } else {
+                    const store = window.localStorage;
+                    const date = game.getCurrentDateFormatted();
+                    store.setItem("lastDaily", date);
+                    state.rng = new RNG('Daily '+date);
+                    state.dailyRun = true;
+                    game.restartGame(state);
+                }   
+            }    
         } else if(activated('homeStats') || actionSelected=='homeStats') {
             state.gameMode = GameMode.StatsScreen;
         } else if(activated('homeOptions') || actionSelected=='homeOptions') {
@@ -370,7 +380,7 @@ class OptionsScreen extends TextWindow {
                 document.documentElement.requestFullscreen();
             } else {
                 document.exitFullscreen();
-            }         
+            }
         } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
             let touchMode = window.localStorage.getItem('touchMode');
             if(touchMode=='Gamepad') {
@@ -383,8 +393,10 @@ class OptionsScreen extends TextWindow {
                 window.localStorage.setItem('touchMode','Gamepad');
             }
         } else if(activated('forceRestart') || action=='forceRestart') {
-            //TODO: Prompt
+            //TODO: Prompt??
             window.localStorage.clear();
+            state.stats = game.loadStats();
+            state.gameMode = GameMode.HomeScreen;
         }
     }
 };
@@ -394,12 +406,12 @@ class StatsScreen extends TextWindow {
 //Play stats
 `                   Play Statistics
 
-            Total plays:             $totalPlays$ games
-            Total wins:              $totalWins$ games
-            Total loot:              $totalGold$ gold
+            Total plays:             $totalPlays$
+            Total wins:              $totalWins$
+            Total loot:              $totalGold$
             Total mansions ghosted:  $totalGhosts$
             Total mansions looted:   $totalLootSweeps$
-            Best score:              $bestScore$ gold
+            Best score:              $bestScore$
 
 1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
 
@@ -415,14 +427,16 @@ $scoreTable$
 //Daily runs
 `                       Daily Runs
 
-            Last played:        $lastPlayed$
-            Last score:         $lastScore$ gold
-            Best score:         $bestScore$ gold
+            $dailyStatus$
 
-            Total daily runs:   $dailyPlays$ games
-            Total daily wins:   $dailyWins$ games
-            Perfect runs:       $dailyPerfect$ games
-            Win streak:         $dailyWinStreak$ days
+            Last played:        $lastPlayed$
+            Last score:         $lastScore$
+            Best score:         $bestScore$
+
+            Total daily runs:   $dailyPlays$
+            Total daily wins:   $dailyWins$
+            Perfect runs:       $dailyPerfect$
+            Win streak:         $dailyWinStreak$
 
 
 3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
@@ -454,6 +468,14 @@ $achievements$
             this.state['dailyWins'] = state.stats.dailyWins;
             this.state['dailyPerfect'] = state.stats.dailyPerfect;
             this.state['dailyWinStreak'] = state.stats.dailyWinStreak;
+
+            const store = window.localStorage;
+            const lastDaily = store.getItem("lastDaily");
+            if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
+                this.state['dailyStatus'] = 'Next game at midnight';
+            } else {
+                this.state['dailyStatus'] = '[P|homePlay] Play daily game now'
+            }
         }
         else if(this.activePage==3) {
             this.state['achievements'] = '';            
@@ -464,6 +486,13 @@ $achievements$
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
             state.gameMode = GameMode.HomeScreen;
+        } else if (this.state['dailyStatus']!=='Next game at midnight' && (activated('homePlay') || action=='homePlay')) {
+            const store = window.localStorage;
+            const date = game.getCurrentDateFormatted();
+            store.setItem("lastDaily", date);
+            state.rng = new RNG('Daily '+date);
+            state.dailyRun = true;
+            game.restartGame(state);
         } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
             this.prevPage();
         } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
@@ -641,7 +670,7 @@ Mouse, touch and gamepad also supported
 
 #114# Thief: You!
 #081# Guard: Avoid them!
-#053# Loot: Collect for score, or to spend on healing
+#053# Loot: Collect for score, or spend to heal
 #050# Tree: Hiding place
 #052# Table: Hiding place
 #051# Stool: Not a hiding place
@@ -688,8 +717,11 @@ Special thanks to Mendi Carroll
             state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
         } else if (activated('fullscreen') || action=='fullscreen') {
-            const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
-            canvas.requestFullscreen({navigationUI:"hide"});
+            if(document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
         } else if (activated('forceRestart')|| action=='forceRestart') {
             state.rng = new RNG();
             state.dailyRun = false;

@@ -28,6 +28,7 @@ enum GameMode {
 
 type ScoreEntry = {
     score: number;
+    turns: number;
     date: string;
 }
 
@@ -84,6 +85,7 @@ type State = {
     camera: Camera;
     level: number;
     turns: number;
+    totalTurns: number;
     lootStolen: number;
     lootSpent: number;
     lootAvailable: number;

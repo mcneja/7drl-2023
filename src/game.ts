@@ -313,7 +313,7 @@ function advanceToWin(state: State) {
     setStat('bestScore',state.stats.bestScore);
     state.stats.totalGold+= state.player.loot;
     setStat('totalGold',state.stats.totalGold);
-    const score = {score:state.player.loot, date:getCurrentDateFormatted()};
+    const score = {score:state.player.loot, date:getCurrentDateFormatted(), turns:state.totalTurns};
     state.stats.highScores.push(score);    
     if(state.dailyRun) {
         state.stats.bestDailyScore = Math.max(state.stats.bestDailyScore, state.player.loot);
@@ -322,7 +322,7 @@ function advanceToWin(state: State) {
         setStat('dailyWins',state.stats.dailyWins)    
         state.stats.dailyWinStreak++;
         setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-        if(state.player.loot==150) {
+        if(state.player.loot==200) {
             state.stats.dailyPerfect++;
             setStat('dailyPerfect', state.stats.dailyPerfect);
         }
@@ -622,6 +622,7 @@ function preTurn(state: State) {
 function advanceTime(state: State) {
     let oldHealth = state.player.health;
     state.turns++;
+    state.totalTurns++;
     if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
@@ -648,7 +649,7 @@ function advanceTime(state: State) {
             if(state.dailyRun) {
                 state.stats.dailyWinStreak=0;
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-                state.stats.lastDaily = {score:state.player.loot, date:getCurrentDateFormatted()};
+                state.stats.lastDaily = {score:state.player.loot, date:getCurrentDateFormatted(), turns: state.totalTurns};
                 setStat('lastDaily', state.stats.lastDaily);
             }       
             state.gameMode = GameMode.Dead;
@@ -1158,7 +1159,7 @@ function setStat<T>(name:string, value:T) {
     window.localStorage.setItem('stat.'+name, JSON.stringify(value));
 }
 
-function loadStats(): Statistics {
+export function loadStats(): Statistics {
     const stats0:Statistics = {
         highScores: getStat('highScores') ?? [],
         dailyScores: getStat('dailyScores') ?? [],
@@ -1186,6 +1187,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel], rng);
     const stats = loadStats();
+    const touchMode = window.localStorage.getItem('touchMode')?? 'Gamepad';
+    const touchAsGamepad = touchMode==='Gamepad';
 
     return {
         gameStats: {    
@@ -1226,6 +1229,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         camera: createCamera(gameMap.playerStartPos),
         level: initialLevel,
         turns: 0,
+        totalTurns: 0,
         lootStolen: 0,
         lootSpent: 0,
         lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
@@ -1238,7 +1242,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         activeSoundPool: activeSoundPool,
         guardMute: false,
         volumeMute: false,
-        touchAsGamepad: true,
+        touchAsGamepad: touchAsGamepad,
         touchController: touchController,
         gamepadManager: new GamepadManager(),
         keyboardController: new KeyboardController(),
@@ -1273,6 +1277,7 @@ export function restartGame(state: State) {
     state.finishedLevel = false;
     state.healCost = 1;
     state.turns = 0;
+    state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootSpent = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
@@ -1288,6 +1293,7 @@ export function restartGame(state: State) {
 function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.turns = 0;
+    state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootSpent = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
@@ -1385,7 +1391,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             state.helpScreen.render(renderer);
             renderBottomStatusBar(renderer, screenSize, state);
         } else {
-            renderTopStatusBar(renderer, screenSize, state.topStatusMessage);
+            renderTopStatusBar(renderer, screenSize, state.topStatusMessage, state);
             renderBottomStatusBar(renderer, screenSize, state);
         }    
     }
@@ -1709,7 +1715,7 @@ function statusBarZoom(screenSizeX: number): number {
     return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
-function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: string) {
+function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: string, state: State) {
     const tileZoom = statusBarZoom(screenSize[0]);
 
     const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
@@ -1733,6 +1739,10 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: strin
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
     const barBackgroundColor = 0xff101010;
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
+
+    if(state.dailyRun) {
+        putString(renderer, 0, 'Daily run', colorPreset.lightYellow);    
+    }
 
     const messageX = Math.floor((statusBarTileSizeX - message.length) / 2 + 0.5);
     putString(renderer, messageX, message, colorPreset.lightGray);
