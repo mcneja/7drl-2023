@@ -8,11 +8,13 @@ import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
-import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen } from './ui'
+import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen } from './ui'
 import {Camera, GameMode, State, Statistics} from './types';
 
 import * as colorPreset from './color-preset';
 import { stat } from 'fs';
+
+import {ScoreServer} from './firebase';
 
 export const gameConfig = {
     numGameMaps: 10,
@@ -313,7 +315,7 @@ function advanceToWin(state: State) {
     setStat('bestScore',state.stats.bestScore);
     state.stats.totalGold+= state.player.loot;
     setStat('totalGold',state.stats.totalGold);
-    const score = {score:state.player.loot, date:getCurrentDateFormatted(), turns:state.totalTurns};
+    const score = {score:state.player.loot, date:getCurrentDateFormatted(), turns:state.totalTurns, level:state.level+1};
     state.stats.highScores.push(score);    
     if(state.dailyRun) {
         state.stats.bestDailyScore = Math.max(state.stats.bestDailyScore, state.player.loot);
@@ -329,6 +331,7 @@ function advanceToWin(state: State) {
         state.stats.lastDaily = score;
         state.stats.dailyScores.push(state.stats.lastDaily);
         setStat('lastDaily', state.stats.lastDaily);
+        state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
     }
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
@@ -649,8 +652,9 @@ function advanceTime(state: State) {
             if(state.dailyRun) {
                 state.stats.dailyWinStreak=0;
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-                state.stats.lastDaily = {score:state.player.loot, date:getCurrentDateFormatted(), turns: state.totalTurns};
+                state.stats.lastDaily = {score:state.player.loot, date:getCurrentDateFormatted(), turns: state.totalTurns, level:state.level+1};
                 setStat('lastDaily', state.stats.lastDaily);
+                state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level);
             }       
             state.gameMode = GameMode.Dead;
         }
@@ -1191,6 +1195,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const touchAsGamepad = touchMode==='Gamepad';
 
     return {
+        scoreServer: new ScoreServer(),
         gameStats: {    
             lootStolen: 0,
             lootSpent: 0,
@@ -1212,6 +1217,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.HomeScreen]: new HomeScreen(),
             [GameMode.OptionsScreen]: new OptionsScreen(),
             [GameMode.StatsScreen]: new StatsScreen(),
+            [GameMode.DailyHub]: new DailyHubScreen(),
             [GameMode.BetweenMansions]: new BetweenMansionsScreen(),
             [GameMode.Dead]: new DeadScreen(),
             [GameMode.Win]: new WinScreen(),
@@ -1510,11 +1516,10 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             'restart':  {game:new Rect(x+offRestart,y+h-5.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
             'forceRestart':  {game:new Rect(x+offForceRestartFullscreen,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
         }    
-        //TODO: For this scheme we also want to allow Button to activate on release rather than press
-        // i.e., on touchend -- should be a simple mod
-        //TODO: Also add an option in the constructor to handle mouseevents in the TouchController
         const pp = state.player.pos;
-        buttonData['wait'] = {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
+        buttonData['wait'] = (state.gameMode==GameMode.Mansion)? 
+                        {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
+                        : {game:new Rect(-1-1,1,1), view: new Rect(), tileInfo:tt['wait']};
         if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
                 && (pp[0]==0 || pp[1]==0 || pp[0]==worldSize[0]-1 || pp[1]==worldSize[1]-1)) {
             buttonData['exitLevel'] = {game:new Rect(x,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['exitLevel']};
@@ -1526,7 +1531,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             const p = vals[1];
             const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
             if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
-            if(!state.gameMap.cells.at(...pt).blocksPlayerMove 
+            if(state.gameMode==GameMode.Mansion && !state.gameMap.cells.at(...pt).blocksPlayerMove 
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE)
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW)
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowN)
@@ -1545,7 +1550,8 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             const p = vals[1];
             const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
             const pt2 = vec2.fromValues(pp[0]+2*p[0],pp[1]+2*p[1]);
-            if( !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) 
+            if( state.gameMode==GameMode.Mansion 
+                && !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) 
                 && !(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1])
                 && !state.gameMap.cells.at(...pt).blocksPlayerMove
                 && !state.gameMap.cells.at(...pt2).blocksPlayerMove 

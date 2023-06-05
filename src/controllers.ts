@@ -55,6 +55,7 @@ const controlStates:ControlStates = {
     'prevLevel': false,
     'gamepadStyleTouch': false,
     'fullscreen': false,
+    'serverConfig': false,
 };
 
 const controlStates0:ControlStates = {... controlStates};
@@ -99,6 +100,7 @@ const defaultKeyMap:KeyMap = {
     'Digit0:': ['volumeMute'],
     'Minus' : ['volumeDown'],
     'Equal' : ['volumeUp'],
+    'KeyC': ['serverConfig'],
     'Control+Space': ['snapToPlayer'],
     'Control+Period': ['snapToPlayer'],
     'Control+ArrowUp': ['panUp'],
@@ -143,6 +145,7 @@ export class Rect extends Array<number> {
 }
 
 class Controller {
+    preventDefault:boolean = true;
     controlStates: ControlStates;
     controlActivated: ControlStates;
     controlTimes : ControlTimes;
@@ -231,9 +234,6 @@ class KeyboardController extends Controller {
                 if(key.includes(mod) && this.controlStates[a]) {
                     this.controlStates[a] = false;
                 }
-                // if(!key.includes(mod) && !this.controlStates[a]) {
-                //     this.controlStates[a] = true;
-                // }
             }
         }
     }
@@ -244,7 +244,7 @@ class KeyboardController extends Controller {
             this.updateModifierDown(code);
         }
         if(code in this.keyMap) {
-            e.preventDefault();
+            if(this.preventDefault) e.preventDefault();
             const keys = this.keyMap[code];
             for (let key of keys) {
                 if (!this.controlStates[key]) this.set(key, true);
@@ -257,7 +257,7 @@ class KeyboardController extends Controller {
             this.updateModifierUp(code);
         }
         if(code in this.keyMap) {
-            e.preventDefault();
+            if(this.preventDefault) e.preventDefault();
             const keys = this.keyMap[code];
             for (let key of keys) {
                 this.set(key, false);
@@ -468,7 +468,7 @@ class TouchController extends Controller {
                 this.set(bname);
             }
         }
-        ev.preventDefault();
+        if(this.preventDefault) ev.preventDefault();
     }
     // touchmove handler
     process_mousemove(ev:MouseEvent) {
@@ -503,7 +503,7 @@ class TouchController extends Controller {
                 }    
             }
         }   
-        ev.preventDefault();
+        if(this.preventDefault) ev.preventDefault();
     }
     // mouseup handler
     process_mouseup(ev:MouseEvent) {
@@ -515,7 +515,7 @@ class TouchController extends Controller {
             this.set(bname, false);
             this.controlTimes[bname] = 0;
         }
-        ev.preventDefault();
+        if(this.preventDefault) ev.preventDefault();
     }
     //touchstart handler
     process_touchstart(ev: TouchEvent) {
@@ -538,7 +538,7 @@ class TouchController extends Controller {
                 }
             }
         }   
-        ev.preventDefault();
+        if(this.preventDefault) ev.preventDefault();
     }
     // touchmove handler
     process_touchmove(ev:TouchEvent) {
@@ -573,7 +573,7 @@ class TouchController extends Controller {
                 }
             }
         }   
-        ev.preventDefault();
+        if(this.preventDefault) ev.preventDefault();
     }
     // touchend handler
     process_touchend(ev:TouchEvent) {
@@ -591,7 +591,7 @@ class TouchController extends Controller {
                 }
             }
         }
-        ev.preventDefault();
+        if(this.preventDefault) ev.preventDefault();
     }
     vibrate(intensity1:number, intensity2:number, duration:number) {
         window.navigator.vibrate(duration); //default vibration does not support intensity -- could simulate by staggering pulses over the duration

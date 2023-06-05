@@ -5,6 +5,7 @@ import { Howls, SubtitledHowls, ActiveHowlPool } from './audio';
 import { Popups } from './popups';
 import { TouchController, GamepadManager, KeyboardController } from './controllers';
 import { TextWindow } from './ui';
+import { ScoreServer } from './firebase';
 
 export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry}
 
@@ -24,11 +25,14 @@ enum GameMode {
     BetweenMansions,
     Dead,
     Win,
+    DailyHub,
+    ServerConfig,
 }
 
 type ScoreEntry = {
     score: number;
     turns: number;
+    level: number;
     date: string;
 }
 
@@ -62,6 +66,7 @@ type GameStats = {
 }
 
 type State = {
+    scoreServer: ScoreServer;
     gameStats: GameStats;
     stats: Statistics;
     rng: RNG;

@@ -6,7 +6,7 @@ a {
 }
 body {
   margin: 0;
-  display: flex;
+  /* display: flex; */
   font-family: sans-serif;
   background-color: #222;
   color: #ddd;
@@ -23,6 +23,28 @@ body {
 canvas {
   position: absolute;
 }
+.struct {
+  position: absolute;
+  display: none;
+  /* visibility: hidden; */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+.prompt {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  top: 25%;
+  left: 25%;
+  text-align: center;
+  background: rgb(46, 44, 44);
+  color: #ddd;
+  /* z-index: 1000; */
+}
 </style>
 <head profile="http://www.w3.org/2005/10/profile">
 <link rel="icon" type="image/ico" href="favicon.ico"/>
@@ -31,6 +53,17 @@ canvas {
 <title>7DRL 2023</title>
 </head>
 <body>
+<div class="struct" id="server-login">
+  <div class="prompt" id="firebaseui-auth-container"></div>
+</div>
+<div class="struct" id="server-config">
+  <div class="prompt" id="config-dialog">
+    <h1>Score Server Configuration Settings</h1>
+    <p>Display name: <input id="displayname"></input></p>
+    <p id="servermessage"></p>
+    <button id="serversubmit">Submit</button> <button id="serverclose">Close</button>
+  </div>
+</div>
 <div class="full-viewport">
 <div class="canvas-container">
 <canvas id="canvas"></canvas>

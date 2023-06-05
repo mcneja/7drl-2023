@@ -3,6 +3,7 @@
         "outDir": "./dist",
         "target": "es6",
         "module": "es6",
+        "moduleResolution": "nodenext",
         "strict": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
@@ -21,5 +22,6 @@
         "./src/audio.ts",
         "./src/types.ts",
         "./src/ui.ts",
+        "./src/firebase.ts",
     ]
 }

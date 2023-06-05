@@ -7,7 +7,7 @@ import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
 
-export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen };
+export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen };
 
 class TextWindow {
     pages: Array<string> = [];
@@ -16,8 +16,9 @@ class TextWindow {
     activePageData: Array<string> = [];
     highlightedAction:number = -1;
     actionSequence: Array<string> = [];
+    cachedPageText:string = '';
 
-    touchTargetsPage: number = 0;
+    touchTargetsDirty: boolean = false;
     touchTargets: TouchTargets;
 
     state: {[id:string]: any} = {};
@@ -58,10 +59,12 @@ class TextWindow {
     }
     nextPage() {
         this.activePage = Math.min(this.pages.length - 1, this.activePage + 1);
+        this.touchTargetsDirty = true;
         // this.parseUI(state);
     }
     prevPage() {
         this.activePage = Math.max(0, this.activePage - 1);
+        this.touchTargetsDirty = true;
         // this.parseUI(state);
     }
     parseImage(line:string, base:number, row:number, rows:number): [string, number] {
@@ -115,14 +118,16 @@ class TextWindow {
         for(const t in stateData) {
             pageText = pageText.replace('$'+t+'$', String(stateData[t]))
         }
+        if(pageText === this.cachedPageText) return;
+        this.cachedPageText = pageText;
         this.activePageData = pageText.split('\n');
         const lines = this.activePageData;
         this.glyphs.length = 0;
         this.actionSequence = [];
-        if(this.touchTargetsPage !== this.activePage) {
-            this.touchTargets = {};
-            this.touchTargetsPage = this.activePage;
-        }
+        this.touchTargets = {};
+        // if(this.touchTargetsDirty) {
+        //     this.touchTargetsDirty = false;
+        // }
         for (let row=0; row<lines.length; ++row) {
             let line = lines[row];
             let base = 0;
@@ -292,10 +297,10 @@ class HomeScreen extends TextWindow {
 `             Lurk Leap Loot
      James McNeill and Damien Moore       
 
-            [P|homePlay]:  Play game
-            [D|homeDaily]:  Daily run
-            [S|homeStats]: Statistics
-            [O|homeOptions]:    Options`
+            [P|homePlay]:        Play game
+            [D|homeDaily]:  Daily challenge
+            [S|homeStats]:       Statistics
+            [O|homeOptions]:          Options`
     ]; 
     constructor() {
         super();
@@ -304,29 +309,12 @@ class HomeScreen extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
-
         if (activated('homePlay') || actionSelected=='homePlay') {
             state.rng = new RNG();
             state.dailyRun = false;
             game.restartGame(state);
-        } else if('homeDaily' in this.touchTargets && this.touchTargets['homeDaily'].active 
-                && ((activated('homeDaily') || actionSelected=='homeDaily'))) {
-            if("homeDaily" in this.touchTargets) {
-                const store = window.localStorage;
-                const lastDaily = store.getItem("lastDaily");
-                if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {
-                    state.gameMode = GameMode.StatsScreen;
-                    const tw = state.textWindows[GameMode.StatsScreen];
-                    if(tw !== undefined) tw.activePage = 2;
-                } else {
-                    const store = window.localStorage;
-                    const date = game.getCurrentDateFormatted();
-                    store.setItem("lastDaily", date);
-                    state.rng = new RNG('Daily '+date);
-                    state.dailyRun = true;
-                    game.restartGame(state);
-                }   
-            }    
+        }  if((activated('homeDaily') || actionSelected=='homeDaily')) {
+            state.gameMode = GameMode.DailyHub;
         } else if(activated('homeStats') || actionSelected=='homeStats') {
             state.gameMode = GameMode.StatsScreen;
         } else if(activated('homeOptions') || actionSelected=='homeOptions') {
@@ -401,33 +389,14 @@ class OptionsScreen extends TextWindow {
     }
 };
 
-class StatsScreen extends TextWindow {
+class DailyHubScreen extends TextWindow {
     pages = [
-//Play stats
-`                   Play Statistics
-
-            Total plays:             $totalPlays$
-            Total wins:              $totalWins$
-            Total loot:              $totalGold$
-            Total mansions ghosted:  $totalGhosts$
-            Total mansions looted:   $totalLootSweeps$
-            Best score:              $bestScore$
-
-1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
-
-//High scores
-`                        High Scores
-
-Score                        Date
-
-$scoreTable$
-
-2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
-
 //Daily runs
-`                       Daily Runs
+`                       Daily Challenge
 
             $dailyStatus$
+
+            $dailyServerStatus$
 
             Last played:        $lastPlayed$
             Last score:         $lastScore$
@@ -439,28 +408,40 @@ $scoreTable$
             Win streak:         $dailyWinStreak$
 
 
-3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+1/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+//Daily rankings
+`                       Daily Results
 
-//Achievements
-`                     Achievements
+    Challenge Date: $tableHeading$
+    Your rank: $dayRanking$
 
-$achievements$
+$scoreTable$
 
-4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+    [-|scrollUp] Scroll up  [+|scrollDown] Scroll down
+    [PgUp|nextDay] Next day   [PgDn|priorDay] Prior day     [Home|today]  Current day
+
+2/2 [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
     ];
+    timeToMidnightUTC():string {
+        const d = new Date();
+        const duration = new Date(d).setUTCHours(24,0,0,0) - d;
+        var milliseconds = Math.floor((duration % 1000) / 100),
+          seconds = Math.floor((duration / 1000) % 60),
+          minutes = Math.floor((duration / (1000 * 60)) % 60),
+          hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+        
+        console.log('timeleft',duration, seconds, minutes, hours);
+        return hours.toString().padStart(2,'0') + ":" 
+            + minutes.toString().padStart(2,'0') + ":" 
+            + seconds.toString().padStart(2,'0');
+      }    
     update(state:State) {
         if(this.activePage==0) {
-            this.state['totalPlays'] = state.stats.totalPlays;
-            this.state['totalWins'] = state.stats.totalWins;
-            this.state['totalGold'] = state.stats.totalGold;
-            this.state['totalGhosts'] = state.stats.totalGhosts;
-            this.state['totalLootSweeps'] = state.stats.totalLootSweeps;
-            this.state['bestScore'] = state.stats.bestScore;    
-        }
-        else if(this.activePage==1) {
-            this.state['scoreTable'] = '';            
-        }
-        else if(this.activePage==2) {
+            if(state.scoreServer.user!==null) {
+                this.state['dailyServerStatus'] = `Signed in as ${state.scoreServer.user.displayName?.slice(0,20)}\n            [X|home] Signout [C|serverConfig] Configure`;
+            } else {
+                this.state['dailyServerStatus'] = `[R|restart] register or sign in\n            to track your scores online`;
+            }
             this.state['lastPlayed'] = state.stats.lastDaily.date;
             this.state['lastScore'] = state.stats.lastDaily.score;
             this.state['bestScore'] = state.stats.bestScore;
@@ -472,14 +453,31 @@ $achievements$
             const store = window.localStorage;
             const lastDaily = store.getItem("lastDaily");
             if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
-                this.state['dailyStatus'] = 'Next game at midnight';
+                this.state['dailyStatus'] = 'Time to next game: '+this.timeToMidnightUTC();
             } else {
                 this.state['dailyStatus'] = '[P|homePlay] Play daily game now'
             }
         }
-        else if(this.activePage==3) {
-            this.state['achievements'] = '';            
+        if(this.activePage==1) {
+            if(state.scoreServer.user===null) {
+                this.state['scoreTable'] = '    No score data available.';
+                this.state['tableHeading'] = '';
+                this.state['dayRanking'] = 'N/A';
+            } else {
+                if(state.scoreServer.scoreData===null) {
+                    this.state['scoreTable'] = '    Loading...';
+                    this.state['tableHeading'] = '';
+                    this.state['dayRanking'] = 'Loading...';
+                } else {
+                    const [table, date, start, count] = state.scoreServer.getFormattedScoreData(0,7,'');
+                    this.state['scoreTable'] = table;
+                    this.state['tableHeading'] = date;
+                    this.state['dayRanking'] = state.scoreServer.userScoreRanking +' of '+state.scoreServer.scoreData.length;
+                }
+
+            }
         }
+
 
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -496,9 +494,94 @@ $achievements$
         } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
             this.prevPage();
         } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
+            const op = this.activePage;
             this.nextPage();
+            if(this.activePage===1 && op===0) {
+                const dt = new Date();
+                state.scoreServer.getScoresForDate(dt.toUTCString());
+            }
+        } else if(activated('home') || action=='home') {
+            console.log('Server signout')
+            state.scoreServer.signOut();
+        } else if(activated('restart') || action=='restart') {
+            console.log('Server signin', action);
+            state.keyboardController.preventDefault = false;
+            state.touchController.preventDefault = false;
+            state.gameMode = GameMode.ServerConfig;
+            state.scoreServer.openSignInPopup(()=>{
+                state.gameMode=GameMode.DailyHub;
+                console.log('signin callback');
+            });
+        } else if(activated('serverConfig') || action=='serverConfig') {
+            console.log('Server config', action);
+            state.keyboardController.preventDefault = false;
+            state.touchController.preventDefault = false;
+            state.gameMode = GameMode.ServerConfig;
+            state.scoreServer.openConfigPopup(()=>{
+                state.gameMode=GameMode.DailyHub;
+                console.log('config callback');
+            });
         }
-    };
+    };        
+}
+
+class StatsScreen extends TextWindow {
+    pages = [
+//Play stats
+`                   Play Statistics
+
+            Total plays:             $totalPlays$
+            Total wins:              $totalWins$
+            Total loot:              $totalGold$
+            Total mansions ghosted:  $totalGhosts$
+            Total mansions looted:   $totalLootSweeps$
+            Best score:              $bestScore$
+
+1/3    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+
+//High scores
+`                        High Scores
+
+Score                        Date
+
+$scoreTable$
+
+2/3    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+
+//Achievements
+`                     Achievements
+
+$achievements$
+
+3/3    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+    ];
+    update(state:State) {
+        if(this.activePage==0) {
+            this.state['totalPlays'] = state.stats.totalPlays;
+            this.state['totalWins'] = state.stats.totalWins;
+            this.state['totalGold'] = state.stats.totalGold;
+            this.state['totalGhosts'] = state.stats.totalGhosts;
+            this.state['totalLootSweeps'] = state.stats.totalLootSweeps;
+            this.state['bestScore'] = state.stats.bestScore;    
+        }
+        else if(this.activePage==1) {
+            this.state['scoreTable'] = '';            
+        }
+        else if(this.activePage==2) {
+            this.state['achievements'] = '';            
+        }
+
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
+            state.gameMode = GameMode.HomeScreen;
+        } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
+            this.prevPage();
+        } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
+            this.nextPage();
+        };
+    }
 }
 
 class BetweenMansionsScreen extends TextWindow {
