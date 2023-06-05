@@ -510,7 +510,8 @@ $scoreTable$
             state.gameMode = GameMode.ServerConfig;
             state.scoreServer.openSignInPopup(()=>{
                 state.gameMode=GameMode.DailyHub;
-                console.log('signin callback');
+                state.keyboardController.preventDefault = true;
+                state.touchController.preventDefault = true;
             });
         } else if(activated('serverConfig') || action=='serverConfig') {
             console.log('Server config', action);
@@ -519,7 +520,8 @@ $scoreTable$
             state.gameMode = GameMode.ServerConfig;
             state.scoreServer.openConfigPopup(()=>{
                 state.gameMode=GameMode.DailyHub;
-                console.log('config callback');
+                state.keyboardController.preventDefault = true;
+                state.touchController.preventDefault = true;
             });
         }
     };        
