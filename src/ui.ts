@@ -311,7 +311,7 @@ class HomeScreen extends TextWindow {
         const actionSelected = this.navigateUI(activated);
         if (activated('homePlay') || actionSelected=='homePlay') {
             state.rng = new RNG();
-            state.dailyRun = false;
+            state.dailyRun = null;
             game.restartGame(state);
         }  if((activated('homeDaily') || actionSelected=='homeDaily')) {
             state.gameMode = GameMode.DailyHub;
@@ -410,27 +410,46 @@ class DailyHubScreen extends TextWindow {
 
 1/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
 //Daily rankings
-`                       Daily Results
+`                  Daily Challenge Results
 
-    Challenge Date: $tableHeading$
+    Challenge ending $tableHeading$
     Your rank: $dayRanking$
 
 $scoreTable$
 
-    [-|scrollUp] Scroll up  [+|scrollDown] Scroll down
-    [PgUp|nextDay] Next day   [PgDn|priorDay] Prior day     [Home|today]  Current day
+    [PgUp|scrollUp] Scroll up  [PgDn|scrollDown] Scroll down
+    [-|priorDay] Prior day     [+|nextDay] Next day   [0|today]  Current day
 
 2/2 [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
     ];
+    scoreTablePos:number = 0;
+    scoreTableCount: number = 8;
+    scoreTableDate: Date|null = null;
+    endTimeForDate(d:Date):Date {
+        const dm = new Date(d);
+        dm.setUTCHours(24,0,0,0);
+        return dm //utc?dm.toUTCString():dm.toDateString();
+    }
+    prevDay(d:Date):Date {
+        const pd = new Date(d);
+        pd.setDate(pd.getDate()-1);
+        return pd;
+    }
+    nextDay(d:Date):Date {
+        const pd = new Date(d);
+        pd.setDate(pd.getDate()+1);
+        return pd;
+    }
     timeToMidnightUTC():string {
         const d = new Date();
-        const duration = new Date(d).setUTCHours(24,0,0,0) - d;
+        const dm = new Date(d);
+        dm.setUTCHours(24,0,0,0);
+        const duration = dm.getTime() - d.getTime();
         var milliseconds = Math.floor((duration % 1000) / 100),
           seconds = Math.floor((duration / 1000) % 60),
           minutes = Math.floor((duration / (1000 * 60)) % 60),
           hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
         
-        console.log('timeleft',duration, seconds, minutes, hours);
         return hours.toString().padStart(2,'0') + ":" 
             + minutes.toString().padStart(2,'0') + ":" 
             + seconds.toString().padStart(2,'0');
@@ -453,9 +472,9 @@ $scoreTable$
             const store = window.localStorage;
             const lastDaily = store.getItem("lastDaily");
             if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
-                this.state['dailyStatus'] = 'Time to next game: '+this.timeToMidnightUTC();
+                this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
             } else {
-                this.state['dailyStatus'] = '[P|homePlay] Play daily game now'
+                this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to submit: '+this.timeToMidnightUTC();
             }
         }
         if(this.activePage==1) {
@@ -469,9 +488,9 @@ $scoreTable$
                     this.state['tableHeading'] = '';
                     this.state['dayRanking'] = 'Loading...';
                 } else {
-                    const [table, date, start, count] = state.scoreServer.getFormattedScoreData(0,7,'');
+                    const [table, date, start, count] = state.scoreServer.getFormattedScoreData(this.scoreTablePos,this.scoreTableCount,'');
                     this.state['scoreTable'] = table;
-                    this.state['tableHeading'] = date;
+                    this.state['tableHeading'] = this.scoreTableDate?.toLocaleString();
                     this.state['dayRanking'] = state.scoreServer.userScoreRanking +' of '+state.scoreServer.scoreData.length;
                 }
 
@@ -484,12 +503,12 @@ $scoreTable$
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
             state.gameMode = GameMode.HomeScreen;
-        } else if (this.state['dailyStatus']!=='Next game at midnight' && (activated('homePlay') || action=='homePlay')) {
+        } else if (this.state['dailyStatus'][0]!=='T' && (activated('homePlay') || action=='homePlay')) {
             const store = window.localStorage;
             const date = game.getCurrentDateFormatted();
             store.setItem("lastDaily", date);
             state.rng = new RNG('Daily '+date);
-            state.dailyRun = true;
+            state.dailyRun = date;
             game.restartGame(state);
         } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
             this.prevPage();
@@ -497,9 +516,30 @@ $scoreTable$
             const op = this.activePage;
             this.nextPage();
             if(this.activePage===1 && op===0) {
-                const dt = new Date();
-                state.scoreServer.getScoresForDate(dt.toUTCString());
+                this.scoreTableDate = this.endTimeForDate(new Date());
+                state.scoreServer.getScoresForDate(this.scoreTableDate);
             }
+        } else if(activated('today') || action=='today') {
+            if(!this.scoreTableDate) return;
+            this.scoreTablePos = 0;
+            this.scoreTableDate = this.endTimeForDate(new Date());
+            state.scoreServer.getScoresForDate(this.scoreTableDate);
+        } else if(activated('nextDay') || action=='nextDay') {
+            if(!this.scoreTableDate) return;
+            this.scoreTablePos = 0;
+            this.scoreTableDate = this.nextDay(this.scoreTableDate);
+            state.scoreServer.getScoresForDate(this.scoreTableDate);
+        } else if(activated('priorDay') || action=='priorDay') {
+            if(!this.scoreTableDate) return;
+            this.scoreTablePos = 0;
+            this.scoreTableDate = this.prevDay(this.scoreTableDate);
+            state.scoreServer.getScoresForDate(this.scoreTableDate);
+        } else if(activated('scrollUp') || action=='scrollUp') {
+            if(state.scoreServer.scoreData===null) return;
+            this.scoreTablePos = Math.max(this.scoreTablePos-this.scoreTableCount,0)
+        } else if(activated('scrollDown') || action=='scrollDown') {
+            if(state.scoreServer.scoreData===null) return;
+            this.scoreTablePos = Math.min(this.scoreTablePos+this.scoreTableCount,state.scoreServer.scoreData.length-this.scoreTableCount)
         } else if(activated('home') || action=='home') {
             console.log('Server signout')
             state.scoreServer.signOut();
@@ -620,7 +660,7 @@ Current loot:    $loot$
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
-            state.dailyRun = false;
+            state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('heal') || action=='heal') {
             game.tryHealPlayer(state);
@@ -667,7 +707,7 @@ Final loot:    $loot$
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
-            state.dailyRun = false;
+            state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
@@ -711,7 +751,7 @@ Score:         $loot$
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
-            state.dailyRun = false;
+            state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
@@ -809,7 +849,7 @@ Special thanks to Mendi Carroll
             }
         } else if (activated('forceRestart')|| action=='forceRestart') {
             state.rng = new RNG();
-            state.dailyRun = false;
+            state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
             state.touchAsGamepad = !state.touchAsGamepad;

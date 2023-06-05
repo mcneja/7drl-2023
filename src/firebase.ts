@@ -6,6 +6,13 @@ import { getFirestore, setDoc, getDocs, getDoc, doc, collection, query, where, F
 import { userInfo } from "os";
 import { format } from "path";
 
+type ScoreTableEntry = {
+    uid: string;
+    dname: string;
+    score: number;
+    level: number;
+    turns: number;
+}
 
 export class ScoreServer {
     firebaseConfig = {
@@ -20,8 +27,8 @@ export class ScoreServer {
     app:FirebaseApp;
     db:Firestore;
     user:User|null = null;
-    scoreData:Array<object>|null = null;
-    scoreDate:string = '';
+    scoreData:Array<ScoreTableEntry>|null = null;
+    scoreDate:Date|null = null;
     userScoreRanking:number = NaN; 
 
     constructor() {
@@ -185,17 +192,16 @@ export class ScoreServer {
             .then((result)=>{console.log('Added score')})
             .catch((error)=>{console.log(error)});
     }
-    async getScoresForDate(date: string) {
-        console.log('Get scores for date',date);
-        this.scoreDate = '';
+    async getScoresForDate(date: Date) {
+        this.scoreDate = null;
         this.scoreData = null;
         this.userScoreRanking = NaN;
         var dt = new Date(date);
-        dt = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+        // dt = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
         console.log(dt);
-        const startDate = Timestamp.fromDate(dt);
-        dt.setDate(dt.getDate()+1);
         const endDate = Timestamp.fromDate(dt);
+        dt.setDate(dt.getDate()-1);
+        const startDate = Timestamp.fromDate(dt);
         console.log('date_range', startDate, endDate, startDate.toDate(), endDate.toDate());
       
         const scoreRef = await collection(this.db, 'daily_challenge_scores');
@@ -203,14 +209,15 @@ export class ScoreServer {
             where('date', '>=', startDate),
             where('date', '<', endDate));
         const docSnap = await getDocs(scoreQ);
-        const table:Array<object> = [];
+        const table:Array<ScoreTableEntry> = [];
         for(let d of docSnap.docs) {
             const uid = d.id.split('_',1)[0];
             console.log('uid',uid);
             const dnameRef = doc(this.db, 'display_names', uid);
             const dnameSnap = await getDoc(dnameRef);
-            const dname = dnameSnap.exists()? dnameSnap.data()['display_name']: '';
-            const row = {uid: uid, dname:dname, ...d.data()};
+            const dname = dnameSnap.exists()? String(dnameSnap.data()['display_name']): '';
+            const entries = d.data(); //TODO: This is a bit of a footgun because we don't have any guarantees that entries contain score, level and turns keys.
+            const row:ScoreTableEntry = {uid: uid, dname:dname, score: entries['score'], level:entries['level'], turns:entries['turns']};
             table.push(row);
         }
         this.scoreData = table.sort((a,b)=> -(a['level']-b['level'])*10000000 - (a['score']-b['score'])*100000 + (a['turns']-b['turns']))
@@ -223,8 +230,8 @@ export class ScoreServer {
             this.userScoreRanking = NaN;
         }
     }
-    getFormattedScoreData(begin:number, count:number, sortby:string):[string, string, number, number] {
-        if(this.scoreData===null) return['','', 0, 0];
+    getFormattedScoreData(begin:number, count:number, sortby:string):[string, Date|null, number, number] {
+        if(this.scoreData===null) return['',null, 0, 0];
         let formattedTable = '    '+'Name'.padEnd(21)+'Lvl'.padEnd(5)+'Score'.padEnd(6)+'Turns'.padEnd(7)+'\n\n';
         const uid = this.user?.uid;
         const min = Math.max(Math.min(begin, this.scoreData.length-count),0);

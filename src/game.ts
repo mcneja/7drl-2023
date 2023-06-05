@@ -191,7 +191,7 @@ function updateControllerState(state:State) {
             postTurn(state);
         } else if (activated('forceRestart')) {
             state.rng = new RNG();
-            state.dailyRun = false;
+            state.dailyRun = null;
             restartGame(state);
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
@@ -328,10 +328,12 @@ function advanceToWin(state: State) {
             state.stats.dailyPerfect++;
             setStat('dailyPerfect', state.stats.dailyPerfect);
         }
-        state.stats.lastDaily = score;
+        const dscore = {score:state.player.loot, date:state.dailyRun, turns:state.totalTurns, level:state.level+1};
+        state.stats.lastDaily = dscore;
         state.stats.dailyScores.push(state.stats.lastDaily);
         setStat('lastDaily', state.stats.lastDaily);
-        state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
+        //TODO: notify user if the game was finished after the deadline
+        if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
     }
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
@@ -652,9 +654,10 @@ function advanceTime(state: State) {
             if(state.dailyRun) {
                 state.stats.dailyWinStreak=0;
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-                state.stats.lastDaily = {score:state.player.loot, date:getCurrentDateFormatted(), turns: state.totalTurns, level:state.level+1};
+                state.stats.lastDaily = {score:state.player.loot, date:state.dailyRun, turns: state.totalTurns, level:state.level+1};
                 setStat('lastDaily', state.stats.lastDaily);
-                state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level);
+                //TODO: notify user if the game was finished after the deadline
+                if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level);
             }       
             state.gameMode = GameMode.Dead;
         }
@@ -1209,7 +1212,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         tLast: undefined,
         dt: 0,
         rng: rng,
-        dailyRun: false,
+        dailyRun: null,
         leapToggleActive: false,
         gameMode: GameMode.HomeScreen,
         helpScreen: new HelpScreen(),
@@ -1840,13 +1843,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     renderer.flush();
 }
 
-export function getCurrentDateFormatted():string {
+export function getCurrentDateFormatted(utc:boolean=true):string {
     const currentDate = new Date();
   
     // Extract the year, month, and day from the Date object
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1; // Months are 0-indexed, so we add 1
-    const day = currentDate.getDate();
+    const year = utc?currentDate.getUTCFullYear():currentDate.getFullYear();
+    const month = 1 + (utc?currentDate.getUTCMonth():currentDate.getMonth()); // Months are 0-indexed, so we add 1
+    const day = utc?currentDate.getUTCDate():currentDate.getDate();
   
     // Format the date components as strings with proper padding
     const yearString = String(year);

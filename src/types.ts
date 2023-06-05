@@ -70,7 +70,7 @@ type State = {
     gameStats: GameStats;
     stats: Statistics;
     rng: RNG;
-    dailyRun: boolean;
+    dailyRun: string|null;
     tLast: number | undefined;
     dt: number;
     leapToggleActive: boolean;
