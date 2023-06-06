@@ -457,7 +457,7 @@ $scoreTable$
     update(state:State) {
         if(this.activePage==0) {
             if(state.scoreServer.user!==null) {
-                this.state['dailyServerStatus'] = `Signed in as ${state.scoreServer.user.displayName?.slice(0,20)}\n            [X|home] Signout [C|serverConfig] Configure`;
+                this.state['dailyServerStatus'] = `Signed in as ${state.scoreServer.user.displayName?.slice(0,20).replace(']',')').replace('[','(')}\n            [X|home] Signout [C|serverConfig] Configure`;
             } else {
                 this.state['dailyServerStatus'] = `[R|restart] register or sign in\n            to track your scores online`;
             }
@@ -482,19 +482,17 @@ $scoreTable$
                 this.state['scoreTable'] = '    No score data available.';
                 this.state['tableHeading'] = '';
                 this.state['dayRanking'] = 'N/A';
+            } else if(state.scoreServer.scoreData===null) {
+                this.state['scoreTable'] = '    Loading...';
+                this.state['tableHeading'] = '';
+                this.state['dayRanking'] = 'Loading...';
             } else {
-                if(state.scoreServer.scoreData===null) {
-                    this.state['scoreTable'] = '    Loading...';
-                    this.state['tableHeading'] = '';
-                    this.state['dayRanking'] = 'Loading...';
-                } else {
-                    const [table, date, start, count] = state.scoreServer.getFormattedScoreData(this.scoreTablePos,this.scoreTableCount,'');
-                    this.state['scoreTable'] = table;
-                    this.state['tableHeading'] = this.scoreTableDate?.toLocaleString();
-                    this.state['dayRanking'] = state.scoreServer.userScoreRanking +' of '+state.scoreServer.scoreData.length;
-                }
-
+                const [table, date, start, count] = state.scoreServer.getFormattedScoreData(this.scoreTablePos,this.scoreTableCount,'');
+                this.state['scoreTable'] = table;
+                this.state['tableHeading'] = this.scoreTableDate?.toLocaleString();
+                this.state['dayRanking'] = state.scoreServer.userScoreRanking +' of '+state.scoreServer.scoreData.length;
             }
+
         }
 
 

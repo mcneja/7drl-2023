@@ -215,7 +215,7 @@ export class ScoreServer {
             console.log('uid',uid);
             const dnameRef = doc(this.db, 'display_names', uid);
             const dnameSnap = await getDoc(dnameRef);
-            const dname = dnameSnap.exists()? String(dnameSnap.data()['display_name']): '';
+            const dname = dnameSnap.exists()? String(dnameSnap.data()['display_name'].slice(0,20).replace(']',')').replace('[','(')): '';
             const entries = d.data(); //TODO: This is a bit of a footgun because we don't have any guarantees that entries contain score, level and turns keys.
             const row:ScoreTableEntry = {uid: uid, dname:dname, score: entries['score'], level:entries['level'], turns:entries['turns']};
             table.push(row);
@@ -242,11 +242,11 @@ export class ScoreServer {
             const prefix = (row['uid']===uid)? ' #80# ':'    ';
             formattedTable += prefix+name.slice(0,20).padEnd(21) + String(row['level']).padEnd(5) + String(row['score']).padEnd(6) + String(row['turns']).padEnd(7)+'\n';
         }
+        if(this.scoreData.length==0) {
+            formattedTable += '    No scores submitted.'
+        }
         for(let i=max-min; i<count; ++i) {
             formattedTable += '\n';
-        }
-        if(this.scoreData.length==0) {
-            formattedTable += 'No scores submitted.'
         }
         return [formattedTable, this.scoreDate, min, max-min];
     }
