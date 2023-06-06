@@ -23,5 +23,6 @@
         "./src/types.ts",
         "./src/ui.ts",
         "./src/firebase.ts",
+        "./src/animation.ts",
     ]
 }

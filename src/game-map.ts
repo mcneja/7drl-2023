@@ -17,6 +17,7 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
+import { TileAnimation } from './animation';
 
 const cardinalDirections: Array<vec2> = [
     vec2.fromValues(-1, 0),
@@ -248,6 +249,7 @@ class Player {
     noisy: boolean; // did the player make noise last turn?
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
+    animation: null|TileAnimation = null;
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);

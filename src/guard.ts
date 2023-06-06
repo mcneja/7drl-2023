@@ -4,6 +4,7 @@ import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates 
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
+import { TileAnimation } from './animation';
 
 enum MoveResult {
     StoodStill,
@@ -34,6 +35,8 @@ class Guard {
     hearingGuard: boolean;
     heardGuard: boolean;
     heardGuardPos: vec2;
+
+    animation: TileAnimation|null = null;
 
     // Chase
     goal: vec2;
@@ -137,6 +140,11 @@ class Guard {
                     if (!player.damagedLastTurn) {
                         popups.add(PopupType.Damage, this.pos);
                     }
+                    const startend = vec2.create();
+                    const middle = vec2.create();
+                    vec2.subtract(middle, player.pos, this.pos);
+                    vec2.scale(middle, middle, 0.5);
+                    this.animation = new TileAnimation([{pt:startend, time:0}, {pt:middle, time:0.08}, {pt:startend, time:0.2}], []);
                     player.applyDamage(1);
                 }
             } else {
@@ -370,6 +378,10 @@ class Guard {
             return MoveResult.BumpedPlayer;
         }
 
+        const start = vec2.create();
+        vec2.subtract(start, this.pos, posNext) 
+        const end = vec2.create();
+        this.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], []);
         vec2.copy(this.pos, posNext);
         this.onMove(map, player);
         return MoveResult.Moved;
@@ -389,6 +401,11 @@ class Guard {
             return MoveResult.BumpedPlayer;
         }
 
+        const start = vec2.create();
+        vec2.subtract(start, this.pos, posNext) 
+        const end = vec2.create();
+        this.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], []);
+
         vec2.copy(this.pos, posNext);
         this.onMove(map, player);
         return MoveResult.Moved;
@@ -407,6 +424,11 @@ class Guard {
         if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
             return MoveResult.BumpedPlayer;
         }
+
+        const start = vec2.create();
+        vec2.subtract(start, this.pos, posNext) 
+        const end = vec2.create();
+        this.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], []);
 
         vec2.copy(this.pos, posNext);
         this.onMove(map, player);

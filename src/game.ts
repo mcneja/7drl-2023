@@ -1,6 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
+import { TileAnimation } from './animation';
 import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG } from './random';
@@ -426,8 +427,13 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             return;
         }
 
+        const opos = vec2.clone(player.pos);
         player.pos[0] = x;
         player.pos[1] = y;
+        const start = vec2.create();
+        const end = vec2.create();
+        vec2.subtract(start, opos, player.pos);
+        player.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], [tileSet.playerTiles[0]]);
 
         const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
         if (loot > 0) {
@@ -549,7 +555,9 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                     if([TerrainType.PortcullisEW, TerrainType.PortcullisNS].includes(state.gameMap.cells.at(x, y).type)) {
                         setTimeout(()=>state.sounds['jump'].play(0.3),1000);
                     } else {
-                        state.sounds['jump'].play(0.3);
+                        if([TerrainType.OneWayWindowE, TerrainType.OneWayWindowW, TerrainType.OneWayWindowN, TerrainType.OneWayWindowS].includes(state.gameMap.cells.at(x, y).type)) {
+                            state.sounds['jump'].play(0.3);
+                        }
                     }
                 } 
                 else state.sounds['footstepTile'].play(0.1);    
@@ -969,9 +977,12 @@ function renderWorld(state: State, renderer: Renderer) {
 
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
-    const x = player.pos[0];
-    const y = player.pos[1];
-    const lit = state.gameMap.cells.at(x, y).lit;
+    let offset = state.player.animation?.offset?? vec2.create();
+    const x = player.pos[0] + offset[0];
+    const y = player.pos[1] + offset[1];
+    const x0 = player.pos[0];
+    const y0 = player.pos[1];
+    const lit = state.gameMap.cells.at(x0, y0).lit;
     const hidden = player.hidden(state.gameMap);
     // const color =
     //     player.damagedLastTurn ? 0xff0000ff :
@@ -979,16 +990,18 @@ function renderPlayer(state: State, renderer: Renderer) {
     //     hidden ? 0xd0101010 :
     //     !lit ? colorPreset.lightBlue :
     //     colorPreset.lightGray;
-
     const p = renderer.tileSet.playerTiles;
 
-    let tileInfo:TileInfo = renderer.tileSet.unlitTile;
-    tileInfo =
-        player.damagedLastTurn ? p[1] :
+    let tileInfo:TileInfo;
+    if(state.player.animation) {
+        tileInfo = state.player.animation.currentTile();
+    } else {
+        tileInfo = player.damagedLastTurn ? p[1] :
         player.noisy ? p[3] :
         hidden ? p[2] :
         !lit ? p[4] :
         p[0];
+    }
 
     renderer.addGlyph(x, y, x+1, y+1, tileInfo);
 }
@@ -1010,8 +1023,13 @@ function renderGuards(state: State, renderer: Renderer) {
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
         const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
-        const x = guard.pos[0] + offX;
-        const y = guard.pos[1];
+
+        let offset = guard.animation?.offset?? vec2.create();
+        const x = guard.pos[0] + offset[0] + offX;
+        const y = guard.pos[1] + offset[1];
+        // const x0 = guard.pos[0] + offX;
+        // const y0 = guard.pos[1];
+    
         if(guard.hasTorch) {
             let g0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
             let g1 = y;
@@ -1023,7 +1041,7 @@ function renderGuards(state: State, renderer: Renderer) {
                 renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
             }
         }
-        else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+        else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
         // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
@@ -1043,8 +1061,9 @@ function renderIconOverlays(state: State, renderer: Renderer) {
             continue;
         }
 
-        const x = guard.pos[0];
-        const y = guard.pos[1] + 0.625;
+        let offset = guard.animation?.offset?? vec2.create();
+        const x = guard.pos[0] + offset[0];
+        const y = guard.pos[1] + offset[1] + 0.625;
 
         renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], true);
     }
@@ -1339,6 +1358,18 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 
     if (dt > 0) {
         updateState(state, screenSize, dt);
+    }
+    if(state.player.animation) {
+        if(state.player.animation.update(dt)) {
+            state.player.animation = null;
+        }
+    }
+    for(let g of state.gameMap.guards) {
+        if(g.animation!==null) {
+            if(g.animation.update(dt)) {
+                g.animation = null;
+            }    
+        }
     }
     if(state.helpActive) {
         const hs = state.helpScreen;
