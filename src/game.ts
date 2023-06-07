@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates } from './game-map';
-import { TileAnimation } from './animation';
+import { TileAnimation, tween } from './animation';
 import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG } from './random';
@@ -284,8 +284,9 @@ export function advanceToNextLevel(state: State) {
 
 export function calculateTimeBonus(state:State):number {
     const c = state.gameMap.cells;
-    const scale = Math.ceil((c.sizeX*c.sizeY)/10);
-    return Math.max(state.maxTimeBonus - Math.floor(state.turns/scale), 0);    
+    const s = Math.ceil((c.sizeX*c.sizeY)*(1-state.initialSeen)/4);
+    const t = state.turns;
+    return 5 - Math.max(Math.floor(t/s)-1,0);
 }
 
 function advanceToBetweenMansions(state: State) {
@@ -344,6 +345,7 @@ function advanceToWin(state: State) {
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
     const player = state.player;
+    const origPos = vec2.clone(player.pos);
 
     const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
     const guardOnGate = gate!==undefined ? state.gameMap.guards
@@ -427,13 +429,12 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             return;
         }
 
-        const opos = vec2.clone(player.pos);
         player.pos[0] = x;
         player.pos[1] = y;
         const start = vec2.create();
         const end = vec2.create();
-        vec2.subtract(start, opos, player.pos);
-        player.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], [tileSet.playerTiles[0]]);
+        vec2.subtract(start, origPos, player.pos);
+        player.animation = new TileAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
 
         const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
         if (loot > 0) {
@@ -1230,6 +1231,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         stats: stats,
         tLast: undefined,
         dt: 0,
+        initialSeen: 0,
         rng: rng,
         dailyRun: null,
         leapToggleActive: false,
@@ -1311,6 +1313,7 @@ export function restartGame(state: State) {
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
+    state.initialSeen = gameMap.percentSeen()/100;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -1327,6 +1330,7 @@ function resetState(state: State) {
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
+    state.initialSeen = gameMap.percentSeen()/100;
 
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -1848,8 +1852,9 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const ptsLeft = calculateTimeBonus(state);
     const c = state.gameMap.cells;
-    const scale = Math.ceil((c.sizeX*c.sizeY)/10);
-    let turnsLeft = scale*Math.ceil((state.turns+1)/scale) - state.turns
+    const scale = Math.ceil((c.sizeX*c.sizeY)*(1-state.initialSeen)/4);
+    let turnsLeft = (6-ptsLeft)*scale + scale - 1 - state.turns;
+
 
     const turnsLeftText = ptsLeft>0 ? ' Timer ' + turnsLeft + " (+" + ptsLeft + ")" : ' Turns '+state.turns + " (--)";
     const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped - ' + turnsLeftText;

@@ -4,7 +4,7 @@ import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates 
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
-import { TileAnimation } from './animation';
+import { TileAnimation, tween } from './animation';
 
 enum MoveResult {
     StoodStill,
@@ -144,7 +144,9 @@ class Guard {
                     const middle = vec2.create();
                     vec2.subtract(middle, player.pos, this.pos);
                     vec2.scale(middle, middle, 0.5);
-                    this.animation = new TileAnimation([{pt:startend, time:0}, {pt:middle, time:0.08}, {pt:startend, time:0.2}], []);
+                    this.animation = new TileAnimation([{pt0:startend, pt1:middle, duration:0.1, fn:tween.easeInQuad},
+                                                        {pt0:middle, pt1:startend, duration:0.1, fn:tween.easeOutQuad},
+                                                        ], []);
                     player.applyDamage(1);
                 }
             } else {
@@ -381,7 +383,7 @@ class Guard {
         const start = vec2.create();
         vec2.subtract(start, this.pos, posNext) 
         const end = vec2.create();
-        this.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], []);
+        this.animation = new TileAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
         vec2.copy(this.pos, posNext);
         this.onMove(map, player);
         return MoveResult.Moved;
@@ -404,7 +406,7 @@ class Guard {
         const start = vec2.create();
         vec2.subtract(start, this.pos, posNext) 
         const end = vec2.create();
-        this.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], []);
+        this.animation = new TileAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
 
         vec2.copy(this.pos, posNext);
         this.onMove(map, player);
@@ -428,7 +430,7 @@ class Guard {
         const start = vec2.create();
         vec2.subtract(start, this.pos, posNext) 
         const end = vec2.create();
-        this.animation = new TileAnimation([{pt:start, time:0}, {pt:end, time:0.2}], []);
+        this.animation = new TileAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
 
         vec2.copy(this.pos, posNext);
         this.onMove(map, player);

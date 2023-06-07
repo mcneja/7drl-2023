@@ -56,6 +56,11 @@ const controlStates:ControlStates = {
     'gamepadStyleTouch': false,
     'fullscreen': false,
     'serverConfig': false,
+    'today':false,
+    'priorDay':false,
+    'nextDay':false,
+    'scrollUp':false,
+    'scrollDown':false,
 };
 
 const controlStates0:ControlStates = {... controlStates};
@@ -99,7 +104,7 @@ const defaultKeyMap:KeyMap = {
     'KeyH': ['heal'],
     'KeyN': ['startLevel'],
     'Digit9' : ['guardMute'],
-    'Digit0:': ['volumeMute', 'today'],
+    'Digit0': ['volumeMute', 'today'],
     'Minus' : ['volumeDown', 'priorDay'],
     'Equal' : ['volumeUp', 'nextDay'],
     'PageUp': ['scrollUp'],

@@ -72,6 +72,7 @@ type State = {
     rng: RNG;
     dailyRun: string|null;
     tLast: number | undefined;
+    initialSeen: number;
     dt: number;
     leapToggleActive: boolean;
     gameMode: GameMode;

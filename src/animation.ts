@@ -1,40 +1,51 @@
 import { vec2 } from './my-matrix';
 import { TileInfo } from './tilesets';
+var tween = require('tween-functions');
 
-export { TileAnimation };
+export { TileAnimation, tween };
+
+tween.easeInQuad()
+
+type TweenData = {
+    pt0:vec2; 
+    pt1:vec2; 
+    duration:number 
+    fn:(time:number, begin:number, end:number, duration:number)=>number;
+}
 
 class TileAnimation {
     offset: vec2;
     activeFrame: number;
     frameStep: number;
-    elapsed: number;
+    time: number;
     tileInfo:Array<TileInfo>;
-    activeWaypoint: number;
-    waypoints: Array<{pt:vec2, time:number}>;
-    constructor(waypoints: Array<{pt:vec2, time:number}>, tileInfo:Array<TileInfo>) {
-        this.elapsed = 0;
-        this.offset = vec2.clone(waypoints[0].pt);
+    activePt: number;
+    tweenSeq: Array<TweenData>;
+    constructor(tweenSeq: Array<TweenData>, tileInfo:Array<TileInfo>) {
+        this.time = 0;
+        this.offset = vec2.clone(tweenSeq[0].pt0);
         this.tileInfo = tileInfo;
         this.activeFrame = 0;
         this.frameStep = 1;
-        this.activeWaypoint = 0;
-        this.waypoints = waypoints;
+        this.activePt = 0;
+        this.tweenSeq = tweenSeq;
     }
     update(dt:number):boolean {
-        const start = this.waypoints[this.activeWaypoint].pt;
-        const ptime = this.waypoints[this.activeWaypoint].time;
-        const end = this.waypoints[this.activeWaypoint+1].pt;
-        const time = this.waypoints[this.activeWaypoint+1].time;
+        const start = this.tweenSeq[this.activePt].pt0;
+        const end = this.tweenSeq[this.activePt].pt1;
+        const duration = this.tweenSeq[this.activePt].duration;
+        const fn = this.tweenSeq[this.activePt].fn;
         if(start===undefined || end==undefined) {
             return true;
         }
-        this.elapsed=Math.min(this.elapsed+dt, time);
-        const wt = (this.elapsed-ptime)/(time-ptime);
-        this.offset[0] = (1-wt)*start[0] + wt*end[0];
-        this.offset[1] = (1-wt)*start[1] + wt*end[1];
-        this.activeFrame = Math.floor(wt*this.tileInfo.length*this.frameStep)%this.frameStep;
-        if(this.elapsed == time) this.activeWaypoint++;
-        return this.activeWaypoint === this.waypoints.length-1;
+        this.time=Math.min(this.time+dt, duration);
+        this.offset[0] = fn(this.time, start[0], end[0], duration);
+        this.offset[1] = fn(this.time, start[1], end[1], duration);
+        if(this.time == duration) {
+            this.activePt++;
+            this.time = 0;
+        }
+        return this.activePt === this.tweenSeq.length;
     }
     currentTile():TileInfo {
         return this.tileInfo[this.activeFrame];
