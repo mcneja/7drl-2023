@@ -73,6 +73,7 @@ type State = {
     dailyRun: string|null;
     tLast: number | undefined;
     initialSeen: number;
+    lightStates: Array<number>;
     dt: number;
     leapToggleActive: boolean;
     gameMode: GameMode;

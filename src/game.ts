@@ -249,6 +249,7 @@ export function advanceToNextLevel(state: State) {
 
     state.activeSoundPool.empty();
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
+    state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
@@ -904,11 +905,16 @@ const colorForItemType: Array<number> = [
 
 const unlitColor: number = colorPreset.lightBlue;
 
+function lightAnimator(lightStates:Array<number>, srcIds:Array<number>) {
+    if(srcIds.length==0) return 1;
+    return 1+srcIds.reduce((p,c)=>p+lightStates[c],0)/srcIds.length;
+}
+
 function renderTouchButtons(renderer:Renderer, screenSize:vec2, touchController:TouchController) {
     for(const bkey in touchController.coreTouchTargets) {
         if(!(bkey in touchController.controlStates)) continue;
         const b = touchController.coreTouchTargets[bkey];
-        const lit = touchController.controlStates[bkey];
+        const lit = touchController.controlStates[bkey]? 1:0;
         if(b.tileInfo===null) continue;
         if(b.show=='always' || b.show=='press' && b.id!=-1) {
             renderer.addGlyph(b.game[0],b.game[1],b.game[0]+b.game[2],b.game[1]+b.game[3],
@@ -936,8 +942,9 @@ function renderWorld(state: State, renderer: Renderer) {
             if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit && !cell.identified) {
                 terrainType = TerrainType.GroundWood;
             }
-            const alwaysLit = terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW;
-            const lit = alwaysLit || cell.lit;
+            const alwaysLit = (terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW) ? 1:0;
+            const lit = Math.max(alwaysLit, cell.lit) ** lightAnimator(state.lightStates, cell.litSrc);
+
 
             //Draw tile
             if([TerrainType.PortcullisEW].includes(terrainType)
@@ -962,8 +969,9 @@ function renderWorld(state: State, renderer: Renderer) {
             const ind = state.gameMap.cells.index(x, y);
             if(!(ind in mappedItems)) continue;
             for(let item of mappedItems[ind]) {
-                const alwaysLit = (item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) || item.type == ItemType.Coin;
-                const lit = alwaysLit || cell.lit;
+                const alwaysLit = ((item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) 
+                                || item.type == ItemType.Coin)? 1 : 0;
+                const lit = Math.max(alwaysLit, cell.lit) ** lightAnimator(state.lightStates, cell.litSrc);
 
                 if([TerrainType.PortcullisEW].includes(terrainType)
                     && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
@@ -983,7 +991,8 @@ function renderPlayer(state: State, renderer: Renderer) {
     const y = player.pos[1] + offset[1];
     const x0 = player.pos[0];
     const y0 = player.pos[1];
-    const lit = state.gameMap.cells.at(x0, y0).lit;
+    const cell = state.gameMap.cells.at(x0, y0)
+    const lit = cell.lit  ** lightAnimator(state.lightStates, cell.litSrc);
     const hidden = player.hidden(state.gameMap);
     // const color =
     //     player.damagedLastTurn ? 0xff0000ff :
@@ -1035,14 +1044,14 @@ function renderGuards(state: State, renderer: Renderer) {
             let g0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
             let g1 = y;
             if(guard.dir[1]>0) {
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], 1);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, 1);
             } else {
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);    
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, 1);    
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], 1);
             }
         }
-        else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
+        else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, 1);
         // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
@@ -1066,7 +1075,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         const x = guard.pos[0] + offset[0];
         const y = guard.pos[1] + offset[1] + 0.625;
 
-        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], true);
+        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], 1);
     }
 
     // Render an icon over the player if the player is being noisy
@@ -1074,7 +1083,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     if (state.player.noisy) {
         const x = state.player.pos[0];
         const y = state.player.pos[1] - 0.5;
-        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, true);
+        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, 1);
     }
 }
 
@@ -1115,7 +1124,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
                 if (vec2.dot(guard.dir, dpos) < 0) {
                     continue;
                 }
-                if (vec2.squaredLength(dpos) >= guard.sightCutoff(cell.lit)) {
+                if (vec2.squaredLength(dpos) >= guard.sightCutoff(cell.lit>0)) {
                     continue;
                 }
                 if (!lineOfSight(state.gameMap, guard.pos, pos)) {
@@ -1130,7 +1139,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:3, color:0xffffffff}, true);
+                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:3, color:0xffffffff}, 1);
             }
         }
     }
@@ -1143,7 +1152,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, 1);
         }
     }
 }
@@ -1228,6 +1237,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             maxTimeBonuses: 0,
             maxLootStolen: 0,
         },
+        lightStates:[],
         stats: stats,
         tLast: undefined,
         dt: 0,
@@ -1301,6 +1311,7 @@ export function restartGame(state: State) {
         maxLootStolen: 0,
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
+    state.lightStates = Array(gameMap.lightCount).fill(0);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -1323,6 +1334,7 @@ export function restartGame(state: State) {
 
 function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
+    state.lightStates = Array(gameMap.lightCount).fill(0);
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
@@ -1368,6 +1380,18 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
             state.player.animation = null;
         }
     }
+    let ls = state.lightStates;
+    for(let i=0; i<ls.length; i++) {
+        const k = Math.random();
+        if(ls[i]==0 && k>0.99) {
+            ls[i] = 0.98;
+        }
+        else if(ls[i]>0) {
+            ls[i] = Math.max(ls[i]-dt,0);
+        }
+//        ls[i] += dt*(-3.0*ls[i]) + dt**0.5*(Math.random()*0.2-0.1);
+    }
+    console.log(ls)
     for(let g of state.gameMap.guards) {
         if(g.animation!==null) {
             if(g.animation.update(dt)) {

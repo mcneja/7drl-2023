@@ -10,7 +10,7 @@ class Renderer {
     getScreenSize(screenSize: vec2) {}
     beginFrame = (screenSize:vec2) => {}
     start(matScreenFromWorld: mat4, textureIndex: number) {}
-    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) {}
+    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number=1) {}
     flush() {}
     fontTileSet: FontTileSet;
     tileSet: TileSet;
@@ -57,6 +57,27 @@ class Renderer {
             vColor: 2,
         };
 
+        function hexToRgbaArray(hex:number) {
+            const alpha = (hex >> 24) & 0xff;
+            const blue = (hex >> 16) & 0xff;
+            const green = (hex >> 8) & 0xff;
+            const red = hex & 0xff;
+          
+            return [red, green, blue, alpha];
+        }
+
+        function rgbaArrayToHex(rgbaArray:[number, number, number, number]) {
+            const [red, green, blue, alpha] = rgbaArray;
+
+            // Perform the bit shifting and bitwise OR operations
+            const hex =
+                ((alpha << 24) >>> 0) |
+                ((blue << 16) >>> 0) |
+                ((green << 8) >>> 0) |
+                (red >>> 0);
+
+            return hex;
+        }
         const tileRatios = [tileSet.tileSize[0]/tileSet.cellSize[0], tileSet.tileSize[1]/tileSet.cellSize[1]]
 
         const program = initShaderProgram(gl, vsSource, fsSource, attribs);
@@ -107,7 +128,7 @@ class Renderer {
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
         }
 
-        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) => {
+        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number=1) => {
             if(tileInfo.textureIndex === undefined) return;
             if (numQuads >= maxQuads) {
                 this.flush();
@@ -116,8 +137,15 @@ class Renderer {
             x1 = x0+(x1-x0)*tileRatios[0];
             y1 = y0+(y1-y0)*tileRatios[1];
 
-            const color = lit? tileInfo.color? tileInfo.color:0xffffffff
-                    : tileInfo.unlitColor? tileInfo.unlitColor:0xffffffff;
+            const cl = hexToRgbaArray(tileInfo.color? tileInfo.color:0xffffffff);
+            const cu = hexToRgbaArray(tileInfo.unlitColor? tileInfo.unlitColor:0xff505050);
+            const wt = lit**0.25;
+            const color = rgbaArrayToHex([
+                cu[0]+wt*(cl[0]-cu[0]), 
+                cu[1]+wt*(cl[1]-cu[1]), 
+                cu[2]+wt*(cl[2]-cu[2]), 
+                cu[3]+wt*(cl[3]-cu[3])
+            ]);
 
             const i = numQuads * wordsPerQuad;
             const srcBase = tileInfo.textureIndex << 16;
@@ -125,7 +153,7 @@ class Renderer {
             vertexDataAsFloat32[i+0] = x0;
             vertexDataAsFloat32[i+1] = y0;
             vertexDataAsUint32[i+2] = srcBase + 256;
-            vertexDataAsUint32[i+3] = color;
+            vertexDataAsUint32[i+3] = color; //TODO: we get smoother light if we put smoothed values in each quad
 
             vertexDataAsFloat32[i+4] = x1;
             vertexDataAsFloat32[i+5] = y0;

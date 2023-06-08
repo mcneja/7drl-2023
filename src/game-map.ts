@@ -155,7 +155,8 @@ type Cell = {
     blocksSight: boolean;
     blocksSound: boolean;
     hidesPlayer: boolean;
-    lit: boolean;
+    lit: number;
+    litSrc: Array<number>;
     seen: boolean;
     identified: boolean;
 }
@@ -179,7 +180,8 @@ class CellGrid {
                 blocksSight: false,
                 blocksSound: false,
                 hidesPlayer: false,
-                lit: false,
+                lit: 0,
+                litSrc: [-1,-1,-1],
                 seen: false,
                 identified: false,
             };
@@ -342,6 +344,7 @@ class GameMap {
     items: Array<Item>;
     guards: Array<Guard>;
     playerStartPos: vec2;
+    lightCount: number;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -350,6 +353,7 @@ class GameMap {
         this.items = [];
         this.guards = [];
         this.playerStartPos = vec2.create();
+        this.lightCount = 0;
     }
 
     collectLootAt(x: number, y: number): number {
@@ -528,30 +532,42 @@ class GameMap {
     }
 
     computeLighting() {
+        //TODO: These light source calculation depend on the number of lights (either on or off) 
+        //not changing and not changing their order during play to avoid ugly flickering when lights
+        //switch on/off
         for (const cell of this.cells.values) {
-            cell.lit = false;
+            cell.lit = 0;
+            cell.litSrc = [];
         }
+        let lightId = 0;
         for (const item of this.items) {
             if (item.type == ItemType.TorchLit) {
-                this.castLight(item.pos, 180);
+                this.castLight(item.pos, 180, lightId);
+                lightId++;
+            }
+            if (item.type == ItemType.TorchUnlit) {
+                lightId++;
             }
         }
         for (const guard of this.guards) {
             if (guard.hasTorch) {
-                this.castLight(guard.pos, 60);
+                this.castLight(guard.pos, 60, lightId);
+                lightId++;
             }
         }
+        this.lightCount = lightId;
     }
 
-    castLight(posLight: vec2, radiusSquared: number) {
-        this.cells.at(posLight[0], posLight[1]).lit = true;
+    castLight(posLight: vec2, radiusSquared: number, lightId:number) {
+        this.cells.at(posLight[0], posLight[1]).lit = 0;
         for (const portal of portals) {
             this.castLightRecursive(
                 posLight[0], posLight[1],
                 posLight[0] + portal.nx, posLight[1] + portal.ny,
                 portal.lx, portal.ly,
                 portal.rx, portal.ry,
-                radiusSquared
+                radiusSquared,
+                lightId
             );
         }
     }
@@ -570,7 +586,9 @@ class GameMap {
         rdx: number,
         rdy: number,
         // Max radius of light source
-        radiusSquared: number) {
+        radiusSquared: number,
+        lightId: number
+        ) {
         // End recursion if the target cell is out of bounds.
         if (targetX < 0 || targetY < 0 || targetX >= this.cells.sizeX || targetY >= this.cells.sizeY) {
             return;
@@ -580,13 +598,20 @@ class GameMap {
         const dx = 2 * (targetX - lightX);
         const dy = 2 * (targetY - lightY);
     
-        if (dx**2 + dy**2 > radiusSquared) {
+
+        const dist2 = dx**2 + dy**2;
+        if (dist2 > radiusSquared) {
             return;
         }
 
         // The cell is lit
         const cell = this.cells.at(targetX, targetY);
-        cell.lit = true;
+        if(!cell.litSrc.includes(lightId)) {
+            const dist2 =  (targetX-lightX)**2+(targetY-lightY)**2;
+            cell.lit += 1/(dist2+1);
+            if(cell.lit>1) cell.lit=1;
+            cell.litSrc.push(lightId);
+        }
 
         // A solid target square blocks all further light through it.
         if (cell.blocksSight) {
@@ -607,7 +632,15 @@ class GameMap {
                     ny < this.cells.sizeY &&
                     !aRightOfB(ldx, ldy, cdx, cdy) &&
                     !aRightOfB(cdx, cdy, rdx, rdy)) {
-                    this.cells.at(nx, ny).lit = true;
+                    const c = this.cells.at(nx, ny);
+                    if(!c.litSrc.includes(lightId)) {
+                        const dx = (nx-lightX);
+                        const dy = (ny-lightY);
+                        const dist2 = dx**2 + dy**2;
+                        c.lit += 1/(dist2+1); //TODO: might need to make this a lower value
+                        if(c.lit>1) c.lit=1;
+                        c.litSrc.push(lightId);    
+                    }
                 }
             }
         }
@@ -631,7 +664,8 @@ class GameMap {
                     targetX + portal.nx, targetY + portal.ny,
                     cldx, cldy,
                     crdx, crdy,
-                    radiusSquared
+                    radiusSquared,
+                    lightId
                 );
             }
         }
