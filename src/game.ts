@@ -116,13 +116,11 @@ function updateControllerState(state:State) {
             if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
                 result = !controlStates[action] && lastController.controlActivated[action];
                 if(result) lastController.controlTimes[action] = Date.now();
-                if(result) console.log(action, result);
                 return result;
             }
         }
         result = controlStates[action] && (lastController.controlActivated[action] || Date.now()-lastController.controlTimes[action]>250);
         if(result) lastController.controlTimes[action] = Date.now();
-        if(result) console.log(action, result);
         return result;
     }
     
@@ -1354,6 +1352,7 @@ function resetState(state: State) {
     state.activeSoundPool.empty();
 }
 
+
 function updateAndRender(now: number, renderer: Renderer, state: State) {
     const t = now / 1000;
     const dt = (state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
@@ -1380,18 +1379,17 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
             state.player.animation = null;
         }
     }
+    // console.log('frame', Date.now()-frame);
+    // frame=Date.now();
     let ls = state.lightStates;
     for(let i=0; i<ls.length; i++) {
-        const k = Math.random();
-        if(ls[i]==0 && k>0.99) {
-            ls[i] = 0.98;
-        }
+        if(ls[i]==0 && Math.random()>0.995**(dt*60)) {
+            ls[i] = 0.98;        }
         else if(ls[i]>0) {
             ls[i] = Math.max(ls[i]-dt,0);
         }
 //        ls[i] += dt*(-3.0*ls[i]) + dt**0.5*(Math.random()*0.2-0.1);
     }
-    console.log(ls)
     for(let g of state.gameMap.guards) {
         if(g.animation!==null) {
             if(g.animation.update(dt)) {

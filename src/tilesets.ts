@@ -202,12 +202,12 @@ const tileSet31Color:TileSet = {
 
     },
     terrainTiles: [ 
-        {textureIndex: r([11,  4]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GroundNormal,
-        {textureIndex: r([8,   4]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GroundGrass,
-        {textureIndex: r([10,  4]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWater,
-        {textureIndex: r([0,   4]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GroundMarble,
-        {textureIndex: r([7,   4]),  color:colorPreset.white, unlitColor:colorPreset.darkerGray}, // TerrainType.GroundWood,
-        {textureIndex: r([11,  5]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWoodCreaky,
+        {textureIndex: r([11,  4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GroundNormal,
+        {textureIndex: r([8,   4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GroundGrass,
+        {textureIndex: r([10,  4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWater,
+        {textureIndex: r([0,   4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GroundMarble,
+        {textureIndex: r([7,   4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkerGray}, // TerrainType.GroundWood,
+        {textureIndex: r([11,  5]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GroundWoodCreaky,
         {textureIndex: r([0,  11]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0000,
         {textureIndex: r([2,  11]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0001,
         {textureIndex: r([4,  11]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.Wall0010,
@@ -228,25 +228,25 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([2,  14]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowW,
         {textureIndex: r([3,  14]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowN,
         {textureIndex: r([1,  14]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.OneWayWindowS,
-        {textureIndex: r([14, 12]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisNS,
-        {textureIndex: r([13, 12]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisEW,
+        {textureIndex: r([14, 12]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisNS,
+        {textureIndex: r([13, 12]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.PortcullisEW,
         {textureIndex: r([7,  14]),  color:colorPreset.lighterGray, unlitColor:colorPreset.darkGray}, // TerrainType.DoorNS,
         {textureIndex: r([5,  14]),  color:colorPreset.lighterGray, unlitColor:colorPreset.darkGray}, // TerrainType.DoorEW,
-        {textureIndex: r([2+6, 4]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorNS,
-        {textureIndex: r([2+6, 4]),  color:colorPreset.white, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorEW,
+        {textureIndex: r([2+6, 4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorNS,
+        {textureIndex: r([2+6, 4]),  color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // TerrainType.GardenDoorEW,
     ], 
     itemTiles: [
-        {textureIndex: r([3,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.Chair,
-        {textureIndex: r([4,  3]),                                 unlitColor:colorPreset.darkGray}, // ItemType.Table,
+        {textureIndex: r([3,  3]),   color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // ItemType.Chair,
+        {textureIndex: r([4,  3]),   color:colorPreset.yellowTint, unlitColor:colorPreset.darkGray}, // ItemType.Table,
         {textureIndex: r([2,  3]),   color:colorPreset.white,      unlitColor:colorPreset.darkGray}, // ItemType.Bush,
-        {textureIndex: r([5,  3]),                                 unlitColor:0xffffffff}, // ItemType.Coin,
+        {textureIndex: r([5,  3]),   color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.Coin,
         {textureIndex: r([6,  14]),  color:colorPreset.white,      unlitColor:colorPreset.darkGray}, // ItemType.DoorNS,
         {textureIndex: r([4,  14]),  color:colorPreset.white,      unlitColor:colorPreset.darkGray}, // ItemType.DoorEW,
-        {textureIndex: r([14, 12]), color:colorPreset.white,       unlitColor:colorPreset.darkGray}, // ItemType.PortcullisNS,
-        {textureIndex: r([13, 12]), color:colorPreset.white,       unlitColor:colorPreset.darkGray}, // ItemType.PortcullisEW,
-        {textureIndex: r([0,  3]),                                 unlitColor:0xffffffff}, // ItemType.TorchUnlit,
-        {textureIndex: r([1,  3]),                                 unlitColor:0xffffffff}, // ItemType.TorchLit,    
-        {textureIndex: r([12,  3]),                                unlitColor:0xffa07070}, // ItemType.TorchCarry,    
+        {textureIndex: r([14, 12]),  color:colorPreset.white,      unlitColor:colorPreset.darkGray}, // ItemType.PortcullisNS,
+        {textureIndex: r([13, 12]),  color:colorPreset.white,      unlitColor:colorPreset.darkGray}, // ItemType.PortcullisEW,
+        {textureIndex: r([0,  3]),   color:colorPreset.white, unlitColor:0xffffffff}, // ItemType.TorchUnlit,
+        {textureIndex: r([1,  3]),   color:colorPreset.white, unlitColor:0xffffffff}, // ItemType.TorchLit,    
+        {textureIndex: r([12,  3]),  color:colorPreset.yellowTint, unlitColor:0xffa07070}, // ItemType.TorchCarry,    
     ],
     npcTiles: [
         {textureIndex: r([3, 5])},//guardE:
@@ -263,7 +263,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1, 5]) },//guardS:
     ],
     playerTiles: [
-        {textureIndex: r([2,5+2]), }, //playerNormal
+        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerNormal
         {textureIndex: r([2,5+2]), color:colorPreset.darkRed}, //playerWounded
         {textureIndex: r([2,6+2]), color:colorPreset.darkGray}, //playerHidden: 
         {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerNoisy: 

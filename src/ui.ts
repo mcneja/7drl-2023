@@ -539,10 +539,8 @@ $scoreTable$
             if(state.scoreServer.scoreData===null) return;
             this.scoreTablePos = Math.min(this.scoreTablePos+this.scoreTableCount,state.scoreServer.scoreData.length-this.scoreTableCount)
         } else if(activated('home') || action=='home') {
-            console.log('Server signout')
             state.scoreServer.signOut();
         } else if(activated('restart') || action=='restart') {
-            console.log('Server signin', action);
             state.keyboardController.preventDefault = false;
             state.touchController.preventDefault = false;
             state.gameMode = GameMode.ServerConfig;

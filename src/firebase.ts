@@ -42,10 +42,9 @@ export class ScoreServer {
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 this.user = user;
-                console.log(user);
                 }
             else {
-                console.log('no user');
+                console.log('Auth state changed: no user logged in');
                 this.user = null;
             }
         });
@@ -150,10 +149,8 @@ export class ScoreServer {
         return true;
     }
     closeConfigPopup(closeNotification:()=>void) {
-        console.log('Close server-config');
         let div = document.getElementById("server-config") as HTMLDivElement;
         if(div!==null) {
-            console.log('Hiding div');
             div.style.display = 'none';
             // div.style.visibility = 'hidden';
             // div.style.zIndex = '0';
@@ -182,14 +179,11 @@ export class ScoreServer {
             date: Timestamp.fromDate(date),
         };
 
-        console.log(this.user);
         console.log(getAuth(this.app));
         const dt = new Date(date);
         const docId = uid + "_" + dt.getUTCFullYear() + "_" + (dt.getUTCMonth()+1) + "_" + dt.getUTCDate();
-        console.log(docId);
-        // Add a new document with a generated id.
-            setDoc(doc(this.db, 'daily_challenge_scores', docId), scoreData)
-            .then((result)=>{console.log('Added score')})
+        setDoc(doc(this.db, 'daily_challenge_scores', docId), scoreData)
+            .then((result)=>{console.log('Added score to firebase')})
             .catch((error)=>{console.log(error)});
     }
     async getScoresForDate(date: Date) {
@@ -197,12 +191,9 @@ export class ScoreServer {
         this.scoreData = null;
         this.userScoreRanking = NaN;
         var dt = new Date(date);
-        // dt = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
-        console.log(dt);
         const endDate = Timestamp.fromDate(dt);
         dt.setDate(dt.getDate()-1);
         const startDate = Timestamp.fromDate(dt);
-        console.log('date_range', startDate, endDate, startDate.toDate(), endDate.toDate());
       
         const scoreRef = await collection(this.db, 'daily_challenge_scores');
         const scoreQ = await query(scoreRef, 
@@ -212,7 +203,6 @@ export class ScoreServer {
         const table:Array<ScoreTableEntry> = [];
         for(let d of docSnap.docs) {
             const uid = d.id.split('_',1)[0];
-            console.log('uid',uid);
             const dnameRef = doc(this.db, 'display_names', uid);
             const dnameSnap = await getDoc(dnameRef);
             const dname = dnameSnap.exists()? String(dnameSnap.data()['display_name'].slice(0,20).replace(']',')').replace('[','(')): '';
@@ -224,7 +214,7 @@ export class ScoreServer {
         this.scoreDate = date;
         if(this.user?.uid) {
             const uid = this.user.uid;
-            this.userScoreRanking = table.findIndex((row)=>{console.log(row['uid'],uid,row['uid']==uid);return row['uid']==uid;})+1;
+            this.userScoreRanking = table.findIndex((row)=>{return row['uid']==uid;})+1;
         }
         if(this.userScoreRanking===0) {
             this.userScoreRanking = NaN;
@@ -240,7 +230,7 @@ export class ScoreServer {
             const row = this.scoreData[i];
             const name = row['dname']!=''?row['dname']:row['uid'];
             const prefix = (row['uid']===uid)? ' #80# ':'    ';
-            formattedTable += prefix+name.slice(0,20).padEnd(21) + String(row['level']).padEnd(5) + String(row['score']).padEnd(6) + String(row['turns']).padEnd(7)+'\n';
+            formattedTable += prefix+String(i+1).padEnd(3)+' '+name.slice(0,20).padEnd(21) + String(row['level']).padEnd(5) + String(row['score']).padEnd(6) + String(row['turns']).padEnd(7)+'\n';
         }
         if(this.scoreData.length==0) {
             formattedTable += '    No scores submitted.'
