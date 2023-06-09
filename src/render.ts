@@ -10,7 +10,7 @@ class Renderer {
     getScreenSize(screenSize: vec2) {}
     beginFrame = (screenSize:vec2) => {}
     start(matScreenFromWorld: mat4, textureIndex: number) {}
-    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number=1) {}
+    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number|[number,number,number,number]=1) {}
     flush() {}
     fontTileSet: FontTileSet;
     tileSet: TileSet;
@@ -128,7 +128,8 @@ class Renderer {
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
         }
 
-        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number=1) => {
+        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, 
+                lit:number|[number,number,number,number]=1) => {
             if(tileInfo.textureIndex === undefined) return;
             if (numQuads >= maxQuads) {
                 this.flush();
@@ -137,40 +138,82 @@ class Renderer {
             x1 = x0+(x1-x0)*tileRatios[0];
             y1 = y0+(y1-y0)*tileRatios[1];
 
-            const cl = hexToRgbaArray(tileInfo.color? tileInfo.color:0xffffffff);
-            const cu = hexToRgbaArray(tileInfo.unlitColor? tileInfo.unlitColor:0xff505050);
-            const wt = lit**0.25;
-            const color = rgbaArrayToHex([
-                cu[0]+wt*(cl[0]-cu[0]), 
-                cu[1]+wt*(cl[1]-cu[1]), 
-                cu[2]+wt*(cl[2]-cu[2]), 
-                cu[3]+wt*(cl[3]-cu[3])
-            ]);
+            if(typeof lit == 'number') {
+                const cl = hexToRgbaArray(tileInfo.color? tileInfo.color:0xffffffff);
+                const cu = hexToRgbaArray(tileInfo.unlitColor? tileInfo.unlitColor:0xff505050);
+                const wt = lit**0.25;
+                const color = rgbaArrayToHex([
+                    cu[0]+wt*(cl[0]-cu[0]), 
+                    cu[1]+wt*(cl[1]-cu[1]), 
+                    cu[2]+wt*(cl[2]-cu[2]), 
+                    cu[3]+wt*(cl[3]-cu[3])
+                ]);
 
-            const i = numQuads * wordsPerQuad;
-            const srcBase = tileInfo.textureIndex << 16;
+                const i = numQuads * wordsPerQuad;
+                const srcBase = tileInfo.textureIndex << 16;
+    
+                vertexDataAsFloat32[i+0] = x0;
+                vertexDataAsFloat32[i+1] = y0;
+                vertexDataAsUint32[i+2] = srcBase + 256;
+                vertexDataAsUint32[i+3] = color; //TODO: we get smoother light if we put smoothed values in each quad
+    
+                vertexDataAsFloat32[i+4] = x1;
+                vertexDataAsFloat32[i+5] = y0;
+                vertexDataAsUint32[i+6] = srcBase + 257;
+                vertexDataAsUint32[i+7] = color;
+    
+                vertexDataAsFloat32[i+8] = x0;
+                vertexDataAsFloat32[i+9] = y1;
+                vertexDataAsUint32[i+10] = srcBase;
+                vertexDataAsUint32[i+11] = color;
+    
+                vertexDataAsFloat32[i+12] = x1;
+                vertexDataAsFloat32[i+13] = y1;
+                vertexDataAsUint32[i+14] = srcBase + 1;
+                vertexDataAsUint32[i+15] = color;
+    
+                ++numQuads;
+    
+            } else {
+                const cv = [];
+                for(const l of lit) {
+                    const cl = hexToRgbaArray(tileInfo.color? tileInfo.color:0xffffffff);
+                    const cu = hexToRgbaArray(tileInfo.unlitColor? tileInfo.unlitColor:0xff505050);
+                    const wt = l**0.25;
+                    const color = rgbaArrayToHex([
+                        cu[0]+wt*(cl[0]-cu[0]), 
+                        cu[1]+wt*(cl[1]-cu[1]), 
+                        cu[2]+wt*(cl[2]-cu[2]), 
+                        cu[3]+wt*(cl[3]-cu[3])
+                    ]);
+                    cv.push(color);    
+                }
+                const i = numQuads * wordsPerQuad;
+                const srcBase = tileInfo.textureIndex << 16;
+    
+                vertexDataAsFloat32[i+0] = x0;
+                vertexDataAsFloat32[i+1] = y0;
+                vertexDataAsUint32[i+2] = srcBase + 256;
+                vertexDataAsUint32[i+3] = cv[0]; //TODO: we get smoother light if we put smoothed values in each quad
+    
+                vertexDataAsFloat32[i+4] = x1;
+                vertexDataAsFloat32[i+5] = y0;
+                vertexDataAsUint32[i+6] = srcBase + 257;
+                vertexDataAsUint32[i+7] = cv[1];
+    
+                vertexDataAsFloat32[i+8] = x0;
+                vertexDataAsFloat32[i+9] = y1;
+                vertexDataAsUint32[i+10] = srcBase;
+                vertexDataAsUint32[i+11] = cv[2];
+    
+                vertexDataAsFloat32[i+12] = x1;
+                vertexDataAsFloat32[i+13] = y1;
+                vertexDataAsUint32[i+14] = srcBase + 1;
+                vertexDataAsUint32[i+15] = cv[3];
+    
+                ++numQuads;
+            }
 
-            vertexDataAsFloat32[i+0] = x0;
-            vertexDataAsFloat32[i+1] = y0;
-            vertexDataAsUint32[i+2] = srcBase + 256;
-            vertexDataAsUint32[i+3] = color; //TODO: we get smoother light if we put smoothed values in each quad
-
-            vertexDataAsFloat32[i+4] = x1;
-            vertexDataAsFloat32[i+5] = y0;
-            vertexDataAsUint32[i+6] = srcBase + 257;
-            vertexDataAsUint32[i+7] = color;
-
-            vertexDataAsFloat32[i+8] = x0;
-            vertexDataAsFloat32[i+9] = y1;
-            vertexDataAsUint32[i+10] = srcBase;
-            vertexDataAsUint32[i+11] = color;
-
-            vertexDataAsFloat32[i+12] = x1;
-            vertexDataAsFloat32[i+13] = y1;
-            vertexDataAsUint32[i+14] = srcBase + 1;
-            vertexDataAsUint32[i+15] = color;
-
-            ++numQuads;
         }
 
         this.flush = () => {

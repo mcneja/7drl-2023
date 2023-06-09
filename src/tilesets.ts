@@ -263,11 +263,11 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1, 5]) },//guardS:
     ],
     playerTiles: [
-        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerNormal
-        {textureIndex: r([2,5+2]), color:colorPreset.darkRed}, //playerWounded
-        {textureIndex: r([2,6+2]), color:colorPreset.darkGray}, //playerHidden: 
-        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerNoisy: 
-        {textureIndex: r([2,5+2]), color:colorPreset.white}, //playerUnlit: 
+        {textureIndex: r([2,5+2]), color:colorPreset.white,     unlitColor:colorPreset.lightGray}, //playerNormal
+        {textureIndex: r([2,5+2]), color:colorPreset.lightRed,  unlitColor:colorPreset.darkRed}, //playerWounded
+        {textureIndex: r([2,6+2]), color:colorPreset.darkGray,  unlitColor:colorPreset.darkerGray}, //playerHidden: 
+        {textureIndex: r([2,5+2]), color:colorPreset.lightGray, unlitColor:colorPreset.darkGray}, //playerNoisy: 
+        {textureIndex: r([2,5+2]), color:colorPreset.white,     unlitColor:colorPreset.lightGray}, //playerUnlit: 
     ],
     guardStateTiles: [
         {textureIndex: r([4,0]) }, //Relaxed

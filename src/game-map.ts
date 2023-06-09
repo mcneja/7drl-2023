@@ -156,7 +156,7 @@ type Cell = {
     blocksSound: boolean;
     hidesPlayer: boolean;
     lit: number;
-    litSrc: Array<number>;
+    litSrc: Set<number>; //Array<number>; //TODO: this should be a set pointing to the item/guard
     seen: boolean;
     identified: boolean;
 }
@@ -172,31 +172,36 @@ class CellGrid {
         const size = sizeX * sizeY;
         this.values = new Array<Cell>(size);
         for (let i = 0; i < size; ++i) {
-            this.values[i] = {
-                type: TerrainType.GroundNormal,
-                moveCost: Infinity,
-                blocksPlayerMove: false,
-                blocksPlayerSight: false,
-                blocksSight: false,
-                blocksSound: false,
-                hidesPlayer: false,
-                lit: 0,
-                litSrc: [-1,-1,-1],
-                seen: false,
-                identified: false,
-            };
-        }
+            this.values[i] = this.emptyCell();
+        };
     }
 
     at(x: number, y: number): Cell {
+        if(x<0 || x>=this.sizeX || y<0 || y>=this.sizeY) {
+            return this.emptyCell();
+        }
         const i = this.sizeX * y + x;
-        console.assert(i >= 0);
-        console.assert(i < this.values.length);
         return this.values[i];
     }
 
     index(x: number, y:number): number {
         return this.sizeX * y + x;
+    }
+
+    emptyCell(): Cell {
+        return {
+            type: TerrainType.GroundNormal,
+            moveCost: Infinity,
+            blocksPlayerMove: false,
+            blocksPlayerSight: false,
+            blocksSight: false,
+            blocksSound: false,
+            hidesPlayer: false,
+            lit: 0,
+            litSrc: new Set<number>(),
+            seen: false,
+            identified: false,
+        }
     }
 }
 
@@ -537,7 +542,7 @@ class GameMap {
         //switch on/off
         for (const cell of this.cells.values) {
             cell.lit = 0;
-            cell.litSrc = [];
+            cell.litSrc.clear();
         }
         let lightId = 0;
         for (const item of this.items) {
@@ -559,7 +564,7 @@ class GameMap {
     }
 
     castLight(posLight: vec2, radiusSquared: number, lightId:number) {
-        this.cells.at(posLight[0], posLight[1]).lit = 0;
+        this.cells.at(posLight[0], posLight[1]).lit = 1;
         for (const portal of portals) {
             this.castLightRecursive(
                 posLight[0], posLight[1],
@@ -593,31 +598,31 @@ class GameMap {
         if (targetX < 0 || targetY < 0 || targetX >= this.cells.sizeX || targetY >= this.cells.sizeY) {
             return;
         }
-    
+
         // End recursion if the target square is too far away.
         const dx = 2 * (targetX - lightX);
-        const dy = 2 * (targetY - lightY);
-    
+        const dy = 2 * (targetY - lightY);    
 
         const dist2 = dx**2 + dy**2;
         if (dist2 > radiusSquared) {
             return;
         }
 
-        // The cell is lit
         const cell = this.cells.at(targetX, targetY);
-        if(!cell.litSrc.includes(lightId)) {
-            const dist2 =  (targetX-lightX)**2+(targetY-lightY)**2;
-            cell.lit += 1/(dist2+1);
-            if(cell.lit>1) cell.lit=1;
-            cell.litSrc.push(lightId);
-        }
 
         // A solid target square blocks all further light through it.
         if (cell.blocksSight) {
             return;
         }
-    
+
+        // The cell is lit
+        if(!cell.litSrc.has(lightId)) {
+            const dist2 =  (targetX-lightX)**2+(targetY-lightY)**2;
+            cell.lit += 1/(dist2+1);
+            if(cell.lit>1) cell.lit=1;
+            cell.litSrc.add(lightId);
+        }
+
         // Mark diagonally-adjacent squares as lit if their corners are lit
         for (let x = 0; x < 2; ++x) {
             for (let y = 0; y < 2; ++y) {
@@ -633,13 +638,13 @@ class GameMap {
                     !aRightOfB(ldx, ldy, cdx, cdy) &&
                     !aRightOfB(cdx, cdy, rdx, rdy)) {
                     const c = this.cells.at(nx, ny);
-                    if(!c.litSrc.includes(lightId)) {
+                    if(!c.blocksSight && !c.litSrc.has(lightId)) {
                         const dx = (nx-lightX);
                         const dy = (ny-lightY);
                         const dist2 = dx**2 + dy**2;
-                        c.lit += 1/(dist2+1); //TODO: might need to make this a lower value
+                        c.lit += 1/(dist2+1);
                         if(c.lit>1) c.lit=1;
-                        c.litSrc.push(lightId);    
+                        c.litSrc.add(lightId);    
                     }
                 }
             }
