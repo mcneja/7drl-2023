@@ -913,7 +913,7 @@ function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<numbe
     const clu = cells.at(x-1,y-1);
     const cu =  cells.at(x,y-1);
     const cru = cells.at(x+1,y-1);
-    const cl =  cells.at(x-1,y-1);
+    const cl =  cells.at(x-1,y);
     const c =   cells.at(x,y);
     const cr =  cells.at(x+1,y);
     const cld = cells.at(x-1,y+1);
