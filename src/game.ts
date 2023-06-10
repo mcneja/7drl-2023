@@ -1052,14 +1052,14 @@ function renderGuards(state: State, renderer: Renderer) {
         let tileIndex = 0 + tileIndexOffsetForDir(guard.dir);
 
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
+        let lit = cell.lit ** lightAnimator(state.lightStates, cell.litSrc);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
         }
 
-        let lit = true;
         if(!visible) tileIndex+=4;
-        else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) lit=false;
+        else if(guard.mode == GuardMode.Patrol && !guard.speaking && cell.lit==0) lit=0;
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
@@ -1068,21 +1068,19 @@ function renderGuards(state: State, renderer: Renderer) {
         let offset = guard.animation?.offset?? vec2.create();
         const x = guard.pos[0] + offset[0] + offX;
         const y = guard.pos[1] + offset[1];
-        // const x0 = guard.pos[0] + offX;
-        // const y0 = guard.pos[1];
     
         if(guard.hasTorch) {
             let g0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
             let g1 = y;
             if(guard.dir[1]>0) {
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], 1);
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, 1);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], lit);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
             } else {
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, 1);    
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], 1);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], lit);
             }
         }
-        else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, 1);
+        else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
         // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
