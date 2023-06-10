@@ -303,7 +303,7 @@ export function calculateTimeBonus(state:State):number {
     const c = state.gameMap.cells;
     const s = Math.ceil((c.sizeX*c.sizeY)*(1-state.initialSeen)/4);
     const t = state.turns;
-    return 5 - Math.max(Math.floor(t/s)-1,0);
+    return Math.max(5 - Math.max(Math.floor(t/s)-1,0),0);
 }
 
 function advanceToBetweenMansions(state: State) {
@@ -667,8 +667,9 @@ function advanceTime(state: State) {
     if(state.gameMap.guards.find((guard)=> guard.mode==GuardMode.ChaseVisibleTarget)!==undefined) {
         state.ghostBonus = 0;
     }
-    state.gameMap.computeLighting();
-    state.gameMap.recomputeVisibility(state.player.pos);
+    const p = state.player.pos;
+    state.gameMap.computeLighting(state.gameMap.cells.at(p[0],p[1]));
+    state.gameMap.recomputeVisibility(p);
 
     postTurn(state);
 

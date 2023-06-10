@@ -536,10 +536,15 @@ class GameMap {
         }
     }
 
-    computeLighting() {
+    computeLighting(playerCell:Cell|null=null) {
         //TODO: These light source calculation depend on the number of lights (either on or off) 
         //not changing and not changing their order during play to avoid ugly flickering when lights
         //switch on/off
+        const occupied:Set<Cell> = new Set();
+        if(playerCell!==null) occupied.add(playerCell);
+        for(let g of this.guards) {
+            occupied.add(this.cells.at(g.pos[0],g.pos[1]));
+        }
         for (const cell of this.cells.values) {
             cell.lit = 0;
             cell.litSrc.clear();
@@ -547,7 +552,7 @@ class GameMap {
         let lightId = 0;
         for (const item of this.items) {
             if (item.type == ItemType.TorchLit) {
-                this.castLight(item.pos, 180, lightId);
+                this.castLight(item.pos, 180, lightId, occupied);
                 lightId++;
             }
             if (item.type == ItemType.TorchUnlit) {
@@ -556,14 +561,14 @@ class GameMap {
         }
         for (const guard of this.guards) {
             if (guard.hasTorch) {
-                this.castLight(guard.pos, 60, lightId);
+                this.castLight(guard.pos, 60, lightId, occupied);
                 lightId++;
             }
         }
         this.lightCount = lightId;
     }
 
-    castLight(posLight: vec2, radiusSquared: number, lightId:number) {
+    castLight(posLight: vec2, radiusSquared: number, lightId:number, occupied:Set<Cell>) {
         this.cells.at(posLight[0], posLight[1]).lit = 1;
         for (const portal of portals) {
             this.castLightRecursive(
@@ -572,7 +577,8 @@ class GameMap {
                 portal.lx, portal.ly,
                 portal.rx, portal.ry,
                 radiusSquared,
-                lightId
+                lightId,
+                occupied
             );
         }
     }
@@ -592,7 +598,8 @@ class GameMap {
         rdy: number,
         // Max radius of light source
         radiusSquared: number,
-        lightId: number
+        lightId: number,
+        occupied:Set<Cell>
         ) {
         // End recursion if the target cell is out of bounds.
         if (targetX < 0 || targetY < 0 || targetX >= this.cells.sizeX || targetY >= this.cells.sizeY) {
@@ -611,7 +618,7 @@ class GameMap {
         const cell = this.cells.at(targetX, targetY);
 
         // A solid target square blocks all further light through it.
-        if (cell.blocksSight) {
+        if (cell.blocksSight && !occupied.has(cell)) {
             return;
         }
 
@@ -670,7 +677,8 @@ class GameMap {
                     cldx, cldy,
                     crdx, crdy,
                     radiusSquared,
-                    lightId
+                    lightId,
+                    occupied
                 );
             }
         }
