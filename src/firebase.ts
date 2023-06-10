@@ -222,7 +222,7 @@ export class ScoreServer {
     }
     getFormattedScoreData(begin:number, count:number, sortby:string):[string, Date|null, number, number] {
         if(this.scoreData===null) return['',null, 0, 0];
-        let formattedTable = '    '+'Name'.padEnd(21)+'Lvl'.padEnd(5)+'Score'.padEnd(6)+'Turns'.padEnd(7)+'\n\n';
+        let formattedTable = '    #   '+'Name'.padEnd(21)+'Lvl'.padEnd(5)+'Score'.padEnd(6)+'Turns'.padEnd(7)+'\n\n';
         const uid = this.user?.uid;
         const min = Math.max(Math.min(begin, this.scoreData.length-count),0);
         const max = this.scoreData.length-min;
