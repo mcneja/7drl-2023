@@ -249,18 +249,18 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([12,  3]),  color:colorPreset.yellowTint, unlitColor:0xffa07070}, // ItemType.TorchCarry,    
     ],
     npcTiles: [
-        {textureIndex: r([3, 5])},//guardE:
-        {textureIndex: r([2, 5])},//guardN:
-        {textureIndex: r([4, 5])},//guardW:
-        {textureIndex: r([1, 5])},//guardS:
+        {textureIndex: r([3, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE:
+        {textureIndex: r([2, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN:
+        {textureIndex: r([4, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW:
+        {textureIndex: r([1, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS:
         {textureIndex: r([3, 5]), color:colorPreset.darkGray},//guardEnoLoS:
         {textureIndex: r([2, 5]), color:colorPreset.darkGray},//guardNnoLoS:
         {textureIndex: r([4, 5]), color:colorPreset.darkGray},//guardWnoLoS:
         {textureIndex: r([1, 5]), color:colorPreset.darkGray},//guardSnoLoS:
-        {textureIndex: r([3, 5]) },//guardE:
-        {textureIndex: r([2, 5]) },//guardN:
-        {textureIndex: r([4, 5]) },//guardW:
-        {textureIndex: r([1, 5]) },//guardS:
+        {textureIndex: r([3, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE:
+        {textureIndex: r([2, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN:
+        {textureIndex: r([4, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW:
+        {textureIndex: r([1, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS:
     ],
     playerTiles: [
         {textureIndex: r([2,5+2]), color:colorPreset.white,     unlitColor:colorPreset.lightGray}, //playerNormal
@@ -270,9 +270,9 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([2,5+2]), color:colorPreset.white,     unlitColor:colorPreset.lightGray}, //playerUnlit: 
     ],
     guardStateTiles: [
-        {textureIndex: r([4,0]) }, //Relaxed
-        {textureIndex: r([5,5]), }, //Alerted
-        {textureIndex: r([6,5]), }, //Chasing
+        {textureIndex: r([4,0])}, //Relaxed
+        {textureIndex: r([5,5])}, //Alerted
+        {textureIndex: r([6,5])}, //Chasing
     ],
     ledgeTiles: [
         {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},

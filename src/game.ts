@@ -99,7 +99,7 @@ function updateControllerState(state:State) {
             if(state.gameMode == GameMode.Mansion) {
                 onControlsInMansion(lastController);
             } else {
-                state.textWindows[state.gameMode]?.onControls(state, activated);
+                state.textWindows[state.gameMode]?.onControls(state, menuActivated);
             }    
         }
         state.touchController.resetActivation();
@@ -120,6 +120,24 @@ function updateControllerState(state:State) {
             }
         }
         result = controlStates[action] && (lastController.controlActivated[action] || Date.now()-lastController.controlTimes[action]>250);
+        if(result) lastController.controlTimes[action] = Date.now();
+        return result;
+    }
+    function menuActivated(action:string):boolean {
+        //same as activated but no repeating, which is better for menus
+        let result = false;
+        if(lastController===null) return false;
+        const controlStates = lastController.controlStates;
+        if(!(action in controlStates)) return false;
+        if(lastController===state.touchController) {
+            const t = state.touchController;
+            if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
+                result = !controlStates[action] && lastController.controlActivated[action];
+                if(result) lastController.controlTimes[action] = Date.now();
+                return result;
+            }
+        }
+        result = controlStates[action] && (lastController.controlActivated[action]);
         if(result) lastController.controlTimes[action] = Date.now();
         return result;
     }
@@ -1359,6 +1377,11 @@ export function restartGame(state: State) {
     state.gameMap = gameMap;
     state.activeSoundPool.empty();
     state.popups.clear();
+
+    const displayMode = window.localStorage.getItem('displayMode')?? 'Windowed';
+    if(displayMode=='fullscreen') {
+        document.documentElement.requestFullscreen();
+    }
 }
 
 function resetState(state: State) {
@@ -1608,7 +1631,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             'forceRestart':  {game:new Rect(x+offForceRestartFullscreen,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']},
         }    
         const pp = state.player.pos;
-        buttonData['wait'] = (state.gameMode==GameMode.Mansion)? 
+        buttonData['wait'] = (state.gameMode==GameMode.Mansion && !state.helpActive)? 
                         {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
                         : {game:new Rect(-1-1,1,1), view: new Rect(), tileInfo:tt['wait']};
         if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
@@ -1622,7 +1645,8 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             const p = vals[1];
             const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
             if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
-            if(state.gameMode==GameMode.Mansion && !state.gameMap.cells.at(...pt).blocksPlayerMove 
+            if(state.gameMode==GameMode.Mansion &&  !state.helpActive
+                && !state.gameMap.cells.at(...pt).blocksPlayerMove 
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE)
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW)
                 && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowN)
@@ -1641,7 +1665,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             const p = vals[1];
             const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
             const pt2 = vec2.fromValues(pp[0]+2*p[0],pp[1]+2*p[1]);
-            if( state.gameMode==GameMode.Mansion 
+            if( state.gameMode==GameMode.Mansion && !state.helpActive
                 && !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) 
                 && !(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1])
                 && !state.gameMap.cells.at(...pt).blocksPlayerMove
@@ -1932,8 +1956,8 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     renderer.flush();
 }
 
-export function getCurrentDateFormatted(utc:boolean=true):string {
-    const currentDate = new Date();
+export function getCurrentDateFormatted(date:Date|null=null, utc:boolean=true):string {
+    const currentDate = date ?? new Date();
   
     // Extract the year, month, and day from the Date object
     const year = utc?currentDate.getUTCFullYear():currentDate.getFullYear();

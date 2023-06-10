@@ -336,7 +336,7 @@ class GamepadManager {
             c.set("zoomIn", this.buttonPressed(g.buttons[6]));
             c.set("zoomOut", this.buttonPressed(g.buttons[7]));
             c.set("fullscreen", this.buttonPressed(g.buttons[8]));
-            c.set("restart", this.buttonPressed(g.buttons[5]));
+//            c.set("restart", this.buttonPressed(g.buttons[5]));
             c.set("menu", this.buttonPressed(g.buttons[9]));
             c.set("left", this.buttonPressed(g.buttons[14]) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
             c.set("right", this.buttonPressed(g.buttons[15]) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));

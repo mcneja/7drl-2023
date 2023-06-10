@@ -356,7 +356,8 @@ class OptionsScreen extends TextWindow {
             touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
             window.localStorage.setItem(touchMode, touchMode);
         }
-        this.state['fullscreenMode'] = document.fullscreenElement? 'Fullscreen':'Windowed';
+        const displayMode = window.localStorage.getItem('displayMode') ?? 'fullscreen';
+        this.state['fullscreenMode'] = displayMode=='fullscreen' ? 'Fullscreen':'Windowed';
         this.state['touchMode'] = touchMode;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -365,9 +366,15 @@ class OptionsScreen extends TextWindow {
             state.gameMode = GameMode.HomeScreen;
         } else if(activated('fullscreen') || action=='fullscreen') {
             if(this.state['fullscreenMode']=='Windowed') {
-                document.documentElement.requestFullscreen();
+                if(!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                }
+                window.localStorage.setItem('displayMode','fullscreen');
             } else {
-                document.exitFullscreen();
+                if(document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                window.localStorage.setItem('displayMode','windowed');
             }
         } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
             let touchMode = window.localStorage.getItem('touchMode');
@@ -400,7 +407,7 @@ class DailyHubScreen extends TextWindow {
 
             Last played:        $lastPlayed$
             Last score:         $lastScore$
-            Best score:         $bestScore$
+            Best winning score: $bestScore$
 
             Total daily runs:   $dailyPlays$
             Total daily wins:   $dailyWins$
@@ -414,6 +421,7 @@ class DailyHubScreen extends TextWindow {
 
     Challenge ending $tableHeading$
     Your rank: $dayRanking$
+    $playMode$
 
 $scoreTable$
 
@@ -455,6 +463,17 @@ $scoreTable$
             + seconds.toString().padStart(2,'0');
       }    
     update(state:State) {
+        const store = window.localStorage;
+        const lastDaily = store.getItem("lastDaily");
+        if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
+            this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
+            this.state['playMode'] = state.scoreServer.user? '[P|homePlay] Play this game (score not submitted)':'';
+        } else {
+            this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to submit: '+this.timeToMidnightUTC();
+            this.state['playMode'] ='[P|homePlay] Play daily game now';
+        }
+
+
         if(this.activePage==0) {
             if(state.scoreServer.user!==null) {
                 this.state['dailyServerStatus'] = `Signed in as ${state.scoreServer.user.displayName?.slice(0,20).replace(']',')').replace('[','(')}\n            [X|home] Signout [C|serverConfig] Configure`;
@@ -463,19 +482,11 @@ $scoreTable$
             }
             this.state['lastPlayed'] = state.stats.lastDaily.date;
             this.state['lastScore'] = state.stats.lastDaily.score;
-            this.state['bestScore'] = state.stats.bestScore;
+            this.state['bestScore'] = state.stats.bestDailyScore;
             this.state['dailyPlays'] = state.stats.dailyPlays;
             this.state['dailyWins'] = state.stats.dailyWins;
             this.state['dailyPerfect'] = state.stats.dailyPerfect;
             this.state['dailyWinStreak'] = state.stats.dailyWinStreak;
-
-            const store = window.localStorage;
-            const lastDaily = store.getItem("lastDaily");
-            if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
-                this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
-            } else {
-                this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to submit: '+this.timeToMidnightUTC();
-            }
         }
         if(this.activePage==1) {
             if(state.scoreServer.user===null) {
@@ -501,12 +512,24 @@ $scoreTable$
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
             state.gameMode = GameMode.HomeScreen;
-        } else if (this.state['dailyStatus'][0]!=='T' && (activated('homePlay') || action=='homePlay')) {
-            const store = window.localStorage;
-            const date = game.getCurrentDateFormatted();
-            store.setItem("lastDaily", date);
+        } else if ((activated('homePlay') || action=='homePlay')) {
+            let date;
+            if(this.activePage==1) {
+                date = game.getCurrentDateFormatted();
+            } else {
+                if(state.scoreServer.scoreDate===null) {
+                    return;
+                }
+                date = game.getCurrentDateFormatted(state.scoreServer.scoreDate);
+            }
             state.rng = new RNG('Daily '+date);
-            state.dailyRun = date;
+            if(this.state['dailyStatus'][0]!=='T') { //This is a challenge run
+                const store = window.localStorage;
+                store.setItem("lastDaily", date);
+                state.dailyRun = date;    
+            } else {
+                state.dailyRun = null;
+            }
             game.restartGame(state);
         } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
             this.prevPage();
@@ -573,25 +596,15 @@ class StatsScreen extends TextWindow {
             Total loot:              $totalGold$
             Total mansions ghosted:  $totalGhosts$
             Total mansions looted:   $totalLootSweeps$
-            Best score:              $bestScore$
+            Best winning score:      $bestScore$
 
-1/3    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
-
-//High scores
-`                        High Scores
-
-Score                        Date
-
-$scoreTable$
-
-2/3    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
-
+1/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
 //Achievements
 `                     Achievements
 
 $achievements$
 
-3/3    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+2/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
     ];
     update(state:State) {
         if(this.activePage==0) {
@@ -603,9 +616,6 @@ $achievements$
             this.state['bestScore'] = state.stats.bestScore;    
         }
         else if(this.activePage==1) {
-            this.state['scoreTable'] = '';            
-        }
-        else if(this.activePage==2) {
             this.state['achievements'] = '';            
         }
 
@@ -768,8 +778,7 @@ Mansion bonuses:
 - Up to 5 gold for a timely map delivery.
 - 5 gold if you avoid alerting guards.
 
-
-[X|home] Exit (abort game)
+[X|home] Exit to menu (abort game)
 
 1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
 `Keyboard controls
@@ -797,7 +806,7 @@ Mouse, touch and gamepad also supported
 #051# Stool: Not a hiding place
 #049# Torch: Guards want them lit
 #160# Window: One-way escape route
-
+#091# Creaky floorboard: Alerts guards if stepped on
 
 
 3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
@@ -827,10 +836,14 @@ Special thanks to Mendi Carroll
             this.activePage = 0;
             state.helpActive = false;
             state.gameMode = GameMode.HomeScreen;
-        }        
+        }
         if (activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
             this.activePage = 0;
             state.helpActive = false;
+            const displayMode = window.localStorage.getItem('displayMode')??'windowed';
+            if(displayMode=='fullscreen' && !document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            }
         } else if (activated('zoomIn') || action=='zoomIn') {
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
             state.camera.snapped = false;
@@ -840,8 +853,10 @@ Special thanks to Mendi Carroll
         } else if (activated('fullscreen') || action=='fullscreen') {
             if(document.fullscreenElement) {
                 document.exitFullscreen();
+                window.localStorage.setItem('displayMode','windowed');
             } else {
                 document.documentElement.requestFullscreen();
+                window.localStorage.setItem('displayMode','fullscreen');
             }
         } else if (activated('forceRestart')|| action=='forceRestart') {
             state.rng = new RNG();
