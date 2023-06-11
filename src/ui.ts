@@ -514,7 +514,7 @@ $scoreTable$
             state.gameMode = GameMode.HomeScreen;
         } else if ((activated('homePlay') || action=='homePlay')) {
             let date;
-            if(this.activePage==1) {
+            if(this.activePage==0) {
                 date = game.getCurrentDateFormatted();
             } else {
                 if(state.scoreServer.scoreDate===null) {
