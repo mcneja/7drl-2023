@@ -102,9 +102,9 @@ function updateControllerState(state:State) {
                 state.textWindows[state.gameMode]?.onControls(state, menuActivated);
             }    
         }
-        state.touchController.resetActivation();
-        state.keyboardController.resetActivation();
-        for(const g in state.gamepadManager.gamepads) state.gamepadManager.gamepads[g].resetActivation();
+        state.touchController.endFrame();
+        state.keyboardController.endFrame();
+        for(const g in state.gamepadManager.gamepads) state.gamepadManager.gamepads[g].endFrame();
     }
     function activated(action:string):boolean {
         let result = false;
@@ -114,12 +114,12 @@ function updateControllerState(state:State) {
         if(lastController===state.touchController) {
             const t = state.touchController;
             if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
-                result = !controlStates[action] && lastController.controlActivated[action];
+                result = lastController.currentFrameReleases.has(action);
                 if(result) lastController.controlTimes[action] = Date.now();
                 return result;
             }
         }
-        result = controlStates[action] && (lastController.controlActivated[action] || Date.now()-lastController.controlTimes[action]>250);
+        result = lastController.currentFramePresses.has(action) || controlStates[action] && Date.now()-lastController.controlTimes[action]>250;
         if(result) lastController.controlTimes[action] = Date.now();
         return result;
     }
@@ -132,13 +132,13 @@ function updateControllerState(state:State) {
         if(lastController===state.touchController) {
             const t = state.touchController;
             if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
-                result = !controlStates[action] && lastController.controlActivated[action];
-                if(result) lastController.controlTimes[action] = Date.now();
+                result = lastController.currentFrameReleases.has(action);
+                if(result) lastController.controlTimes[action] == Date.now();
                 return result;
             }
         }
-        result = controlStates[action] && (lastController.controlActivated[action]);
-        if(result) lastController.controlTimes[action] = Date.now();
+        result = lastController.currentFramePresses.has(action);
+        if(result) lastController.controlTimes[action] == Date.now();
         return result;
     }
     

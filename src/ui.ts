@@ -467,7 +467,7 @@ $scoreTable$
         const lastDaily = store.getItem("lastDaily");
         if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
             this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
-            this.state['playMode'] = state.scoreServer.user? '[P|homePlay] Play this game (score not submitted)':'';
+            this.state['playMode'] = state.scoreServer.user? '[P|homePlay] Replay this game seed in non-challenge mode':'';
         } else {
             this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to submit: '+this.timeToMidnightUTC();
             this.state['playMode'] ='[P|homePlay] Play daily game now';

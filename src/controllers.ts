@@ -152,28 +152,44 @@ export class Rect extends Array<number> {
     }
 }
 
+class Activations {
+    presses: {[id:string]:Array<[Controller]>} = {};
+    releases: {[id:string]:Array<[Controller]>} = {};
+    clear() {
+        this.presses = {};
+        this.releases = {};
+    }
+}
+
 class Controller {
     preventDefault:boolean = true;
     controlStates: ControlStates;
-    controlActivated: ControlStates;
     controlTimes : ControlTimes;
+    currentFramePresses: Set<string> = new Set();
+    currentFrameReleases: Set<string> = new Set();
     constructor() {
         this.controlStates = {... controlStates0};
         this.controlTimes = {};
-        this.controlActivated = {... controlStates0};
         for(const c in this.controlStates) {
             this.controlTimes[c] = Date.now();
         }
     }
-    set(action:string, state:boolean=true) {
-        this.controlActivated[action] = !this.controlStates[action] && state || this.controlStates[action] && !state;
+    set(action:string, state:boolean=true, updateFrame:boolean=true) {
         this.controlStates[action] = state;
         controlStates[action] = state;
         this.controlTimes[action] = Date.now();
+        if(updateFrame) {
+            if(state) {
+                this.currentFramePresses.add(action);
+            } else { 
+                this.currentFrameReleases.add(action);
+            }    
+        }
         lastController = this; 
     }
-    resetActivation () {
-        this.controlActivated = {... controlStates0};
+    endFrame () {
+        this.currentFramePresses.clear();
+        this.currentFrameReleases.clear();
     }
     vibrate(intensity1:number, intensity2:number, duration:number) {
 
@@ -430,14 +446,6 @@ class TouchController extends Controller {
         this.lastMotion.x = 0;
         this.lastMotion.y = 0;
     }
-    set(action:string, state:boolean=true, activate:boolean=true) {
-        if(state) this.clearMotion();
-        if(activate) this.controlActivated[action] = !this.controlStates[action] && state || this.controlStates[action] && !state;
-        this.controlStates[action] = state;
-        controlStates[action] = state;
-        this.controlTimes[action] = Date.now();
-        lastController = this; 
-    }
     updateCoreTouchTarget(id:string, game:Rect, view:Rect, tileInfo:TileInfo) {
         const b0 = this.coreTouchTargets[id];
         b0.view = view;
@@ -445,7 +453,7 @@ class TouchController extends Controller {
         b0.tileInfo = tileInfo;
         if(!b0.view.collide(b0.touchXY[0], this.canvas.clientHeight-b0.touchXY[1])) {
             if(this.controlStates[id] && b0.id!=-1) {
-                this.set(id, false, b0.trigger=='press');
+                this.set(id, false, false); // , b0.trigger=='press'
                 b0.id = -1;
             }
         }
@@ -490,25 +498,21 @@ class TouchController extends Controller {
         }        
         for(let bname in this.touchTargets) {
             let b = this.touchTargets[bname]
-            if(b.id == -2) {
+            if(b.id == -2) { //already pressing this button down
                 const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
-                if(this.controlStates[bname]) {
-                    if(touching) {
-                        b.touchXY = [ev.clientX, ev.clientY];
-                        this.set(bname, true, false);
-                    } else {
-                        this.set(bname, false, false);
-                        b.id = -1;
-                    }    
+                if(touching) {
+                    b.touchXY = [ev.clientX, ev.clientY]; //update touch info but don't trigger another activation
+                } else {
+                    this.set(bname, false, false);
+                    b.id = -1;
                 }    
-            }
-            else if(b.trigger=='release') {
+            } else if(b.trigger=='release') {
                 const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY];
-                    this.set(bname, true, b.id==-2);
+                    this.set(bname, true);
                     b.id = -2;
-                }    
+                }        
             }
         }   
         if(this.preventDefault) ev.preventDefault();
@@ -519,9 +523,11 @@ class TouchController extends Controller {
         this.clearMotion();
         for(const bname in this.touchTargets) {
             const b = this.touchTargets[bname];
-            b.id = -1;
-            this.set(bname, false);
-            this.controlTimes[bname] = 0;
+            if(this.controlStates[bname]) {
+                b.id = -1;
+                this.set(bname, false);
+                this.controlTimes[bname] = 0;
+            }
         }
         if(this.preventDefault) ev.preventDefault();
     }
@@ -564,7 +570,6 @@ class TouchController extends Controller {
                     const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
-                        this.set(bname, true, false);
                     } else {
                         b.id = -1;
                         this.set(bname, false, false);
