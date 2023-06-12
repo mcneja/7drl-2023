@@ -17,7 +17,7 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { TileAnimation } from './animation';
+import { Animator, TileAnimation } from './animation';
 
 const cardinalDirections: Array<vec2> = [
     vec2.fromValues(-1, 0),
@@ -228,6 +228,7 @@ enum ItemType {
 type Item = {
     pos: vec2;
     type: ItemType;
+    animation? : Animator;
 }
 
 function guardMoveCostForItemType(itemType: ItemType): number {
@@ -256,7 +257,7 @@ class Player {
     noisy: boolean; // did the player make noise last turn?
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
-    animation: null|TileAnimation = null;
+    animation: null|Animator = null;
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);

@@ -4,7 +4,7 @@ import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates 
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
-import { TileAnimation, tween } from './animation';
+import { LightSourceAnimation, TileAnimation, tween } from './animation';
 
 enum MoveResult {
     StoodStill,
@@ -29,6 +29,7 @@ class Guard {
     dir: vec2;
     mode: GuardMode;
     hasTorch: boolean;
+    torchAnimation: LightSourceAnimation|null = null;
     speaking: boolean;
     hasMoved: boolean;
     heardThief: boolean;
@@ -260,7 +261,7 @@ class Guard {
             return false;
         }
     
-        let playerIsLit = map.cells.at(player.pos[0], player.pos[1]).lit;
+        let playerIsLit = map.cells.at(player.pos[0], player.pos[1]).lit>0;
     
         let d2 = vec2.squaredLength(d);
         if (d2 >= this.sightCutoff(playerIsLit)) {

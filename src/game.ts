@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid } from './game-map';
-import { TileAnimation, tween } from './animation';
+import { TileAnimation, LightSourceAnimation, Animator, tween, LightState } from './animation';
 import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG } from './random';
@@ -266,6 +266,7 @@ export function advanceToNextLevel(state: State) {
     state.activeSoundPool.empty();
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
+    setLights(state.gameMap, state);
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
@@ -402,7 +403,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             preTurn(state);
             if(item.type === ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
             else state.sounds["douse"].play(0.05);
-            item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
+            item.type = item.type === ItemType.TorchUnlit? ItemType.TorchLit:ItemType.TorchUnlit;
             advanceTime(state);
         }
         //Bump into gate
@@ -1027,7 +1028,10 @@ function renderWorld(state: State, renderer: Renderer) {
                     && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
                         renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lv);    
                 } else {
-                    renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[item.type], lv);
+                    const ti = item.animation? 
+                        item.animation.currentTile():
+                        renderer.tileSet.itemTiles[item.type];
+                    renderer.addGlyph(x, y, x + 1, y + 1, ti, lv);
                 }
             }
         }
@@ -1036,7 +1040,8 @@ function renderWorld(state: State, renderer: Renderer) {
 
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
-    let offset = state.player.animation?.offset?? vec2.create();
+    const a = state.player.animation
+    const offset = a &&  a instanceof TileAnimation ? a.offset : vec2.create();
     const x = player.pos[0] + offset[0];
     const y = player.pos[1] + offset[1];
     const x0 = player.pos[0];
@@ -1091,12 +1096,13 @@ function renderGuards(state: State, renderer: Renderer) {
         if(guard.hasTorch) {
             let g0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
             let g1 = y;
+            const tti = guard.torchAnimation?.currentTile() ?? renderer.tileSet.itemTiles[ItemType.TorchCarry];
             if(guard.dir[1]>0) {
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], lit);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, tti, lit);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
             } else {
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], lit);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, tti, lit);
             }
         }
         else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
@@ -1338,6 +1344,40 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     };
 }
 
+function setLights(gameMap: GameMap, state: State) {
+    let id = 0;
+    const candleSeq:Array<[TileInfo, number]> = [
+        [{textureIndex: 0x77}, 0.5],
+        [{textureIndex: 0x78}, 0.5],
+        [{textureIndex: 0x79}, 0.5],
+    ]
+    const candleDim = {textureIndex: 0x7a}
+    const candleOff = {textureIndex: 0x30}
+    for(let i of gameMap.items) {
+        if(i.type === ItemType.TorchLit) {
+            i.animation = new LightSourceAnimation(LightState.idle, id, state.lightStates, i, candleSeq, candleDim, candleOff);
+            id++;    
+        } else if(i.type === ItemType.TorchUnlit) {
+            i.animation = new LightSourceAnimation(LightState.off, id, state.lightStates, i, candleSeq, candleDim, candleOff);
+            id++;
+        }
+    }
+    const torchSeq:Array<[TileInfo, number]> = [
+        [{textureIndex: 0x3c}, 0.5],
+        [{textureIndex: 0x3d}, 0.5],
+        [{textureIndex: 0x3e}, 0.5],
+    ]
+    const torchDim = {textureIndex: 0x3f}
+    const torchOff = {textureIndex: 0x3f}
+    for(let g of gameMap.guards) {
+        if(g.hasTorch) {
+            g.torchAnimation = new LightSourceAnimation(LightState.idle, id, state.lightStates, null, torchSeq, torchDim, torchOff);
+            id++;
+        }
+    }
+
+}
+
 export function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
     state.level = 0;
@@ -1360,6 +1400,7 @@ export function restartGame(state: State) {
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.lightStates = Array(gameMap.lightCount).fill(0);
+    setLights(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -1388,6 +1429,7 @@ export function restartGame(state: State) {
 function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.lightStates = Array(gameMap.lightCount).fill(0);
+    setLights(gameMap, state);
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
@@ -1434,23 +1476,16 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
             state.player.animation = null;
         }
     }
-    // console.log('frame', Date.now()-frame);
-    // frame=Date.now();
-    let ls = state.lightStates;
-    for(let i=0; i<ls.length; i++) {
-        if(ls[i]==0 && Math.random()>0.995**(dt*60)) {
-            ls[i] = 0.98;        }
-        else if(ls[i]>0) {
-            ls[i] = Math.max(ls[i]-dt,0);
-        }
-//        ls[i] += dt*(-3.0*ls[i]) + dt**0.5*(Math.random()*0.2-0.1);
-    }
     for(let g of state.gameMap.guards) {
-        if(g.animation!==null) {
-            if(g.animation.update(dt)) {
-                g.animation = null;
-            }    
+        if(g.animation?.update(dt)) {
+            g.animation = null;
         }
+        if(g.torchAnimation?.update(dt)) {
+            g.torchAnimation = null;
+        }    
+    }
+    for(let i of state.gameMap.items) {
+        i.animation?.update(dt);
     }
     if(state.helpActive) {
         const hs = state.helpScreen;
