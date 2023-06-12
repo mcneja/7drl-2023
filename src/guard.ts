@@ -184,7 +184,7 @@ class Guard {
             --this.modeTimeout;
             updateDir(this.dir, this.pos, this.goal);
             if (this.modeTimeout <= 0) {
-                relightTorchAt(map, this.goal);
+                relightTorchAt(map, this.goal, player);
                 this.mode = GuardMode.Patrol;
             }
             break;
@@ -194,7 +194,7 @@ class Guard {
         // the player using the new lighting
 
         if (this.hasTorch && (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1])) {
-            map.computeLighting();
+            map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
         }
 
         // Update state based on target visibility from new position
@@ -647,13 +647,13 @@ function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined
     return bestItem;
 }
 
-function relightTorchAt(map: GameMap, posTorch: vec2) {
+function relightTorchAt(map: GameMap, posTorch: vec2, player: Player) {
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit && item.pos[0] === posTorch[0] && item.pos[1] === posTorch[1]) {
             item.type = ItemType.TorchLit;
         }
     }
-    map.computeLighting();
+    map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
 }
 
 function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
