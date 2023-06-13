@@ -923,10 +923,11 @@ const colorForItemType: Array<number> = [
 
 const unlitColor: number = colorPreset.lightBlue;
 
-function lightAnimator(lightStates:Array<number>, srcIds:Set<number>) {
+function lightAnimator(baseVal:number, lightStates:Array<number>, srcIds:Set<number>, seen:boolean=true) {
     //Returns the exponent to apply to the light value for tiles hit with animated light
-    if(srcIds.size==0) return 1;
-    return 1+[...srcIds].reduce((p,c)=>p+lightStates[c],0)/srcIds.size;
+    if(srcIds.size==0) return baseVal;
+    if(!seen) return 0;
+    return baseVal**(1+[...srcIds].reduce((p,c)=>p+lightStates[c],0)/srcIds.size);
 }
 
 function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>):[number,number,number,number] {
@@ -939,15 +940,15 @@ function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<numbe
     const cld = cells.at(x-1,y+1);
     const cd =  cells.at(x,y+1);
     const crd = cells.at(x+1,y+1);
-    const llu = clu.lit**lightAnimator(lightStates, clu.litSrc);
-    const lu =  cu.lit**lightAnimator(lightStates, cu.litSrc);
-    const lru = cru.lit**lightAnimator(lightStates, cru.litSrc);
-    const ll =  cl.lit**lightAnimator(lightStates, cl.litSrc);
-    const l =   c.lit**lightAnimator(lightStates, c.litSrc);
-    const lr =  cr.lit**lightAnimator(lightStates, cr.litSrc);
-    const lld = cld.lit**lightAnimator(lightStates, cld.litSrc);
-    const ld =  cd.lit**lightAnimator(lightStates, cd.litSrc);
-    const lrd = crd.lit**lightAnimator(lightStates, crd.litSrc);
+    const llu = lightAnimator(clu.lit, lightStates, clu.litSrc, clu.seen);
+    const lu =  lightAnimator(cu.lit,  lightStates, cu.litSrc, cu.seen);
+    const lru = lightAnimator(cru.lit, lightStates, cru.litSrc, cru.seen);
+    const ll =  lightAnimator(cl.lit,  lightStates, cl.litSrc, cl.seen);
+    const l =   lightAnimator(c.lit,   lightStates, c.litSrc, c.seen);
+    const lr =  lightAnimator(cr.lit,  lightStates, cr.litSrc, cr.seen);
+    const lld = lightAnimator(cld.lit, lightStates, cld.litSrc, cld.seen);
+    const ld =  lightAnimator(cd.lit,  lightStates, cd.litSrc, cd.seen);
+    const lrd = lightAnimator(crd.lit, lightStates, crd.litSrc, crd.seen);
     
     return [
         (llu+lu+ll+l)/4, //top left vertex
@@ -991,8 +992,7 @@ function renderWorld(state: State, renderer: Renderer) {
                 terrainType = TerrainType.GroundWood;
             }
             const alwaysLit = (terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW) ? 1:0;
-            const la = lightAnimator(state.lightStates, cell.litSrc);
-            const lit = Math.max(alwaysLit, cell.lit) ** la;
+            const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, cell.seen);
             const lv = litVertices(x, y, state.gameMap.cells, state.lightStates);
 
             //Draw tile
@@ -1020,8 +1020,7 @@ function renderWorld(state: State, renderer: Renderer) {
             for(let item of mappedItems[ind]) {
                 const alwaysLit = ((item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) 
                                 || item.type == ItemType.Coin)? 1 : 0;
-                const la = lightAnimator(state.lightStates, cell.litSrc);
-                const lit = Math.max(alwaysLit, cell.lit) ** la;
+                const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, cell.seen);
                 const lv = litVertices(x, y, state.gameMap.cells, state.lightStates);
     
                 if([TerrainType.PortcullisEW].includes(terrainType)
@@ -1047,7 +1046,7 @@ function renderPlayer(state: State, renderer: Renderer) {
     const x0 = player.pos[0];
     const y0 = player.pos[1];
     const cell = state.gameMap.cells.at(x0, y0)
-    const lit = cell.lit ** lightAnimator(state.lightStates, cell.litSrc);
+    const lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, cell.seen);
     const hidden = player.hidden(state.gameMap);
     // const color =
     //     player.damagedLastTurn ? 0xff0000ff :
@@ -1076,7 +1075,7 @@ function renderGuards(state: State, renderer: Renderer) {
         let tileIndex = 0 + tileIndexOffsetForDir(guard.dir);
 
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
-        let lit = cell.lit ** lightAnimator(state.lightStates, cell.litSrc);
+        let lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, cell.seen);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
