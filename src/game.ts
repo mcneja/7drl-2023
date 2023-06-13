@@ -1991,13 +1991,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     renderer.flush();
 }
 
-export function getCurrentDateFormatted(date:Date|null=null, utc:boolean=true):string {
+export function getCurrentDateFormatted(date:Date|null=null, utcConvert:boolean=true):string {
     const currentDate = date ?? new Date();
   
     // Extract the year, month, and day from the Date object
-    const year = utc?currentDate.getUTCFullYear():currentDate.getFullYear();
-    const month = 1 + (utc?currentDate.getUTCMonth():currentDate.getMonth()); // Months are 0-indexed, so we add 1
-    const day = utc?currentDate.getUTCDate():currentDate.getDate();
+    const year = utcConvert?currentDate.getUTCFullYear():currentDate.getFullYear();
+    const month = 1 + (utcConvert?currentDate.getUTCMonth():currentDate.getMonth()); // Months are 0-indexed, so we add 1
+    const day = utcConvert?currentDate.getUTCDate():currentDate.getDate();
   
     // Format the date components as strings with proper padding
     const yearString = String(year);

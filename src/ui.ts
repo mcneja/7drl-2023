@@ -446,6 +446,9 @@ $scoreTable$
     nextDay(d:Date):Date {
         const pd = new Date(d);
         pd.setDate(pd.getDate()+1);
+        const dnow = new Date();
+        dnow.setUTCHours(24,0,0,0);
+        if(pd>dnow) return d;
         return pd;
     }
     timeToMidnightUTC():string {
@@ -520,7 +523,7 @@ $scoreTable$
                 if(state.scoreServer.scoreDate===null) {
                     return;
                 }
-                date = game.getCurrentDateFormatted(state.scoreServer.scoreDate);
+                date = game.getCurrentDateFormatted(state.scoreServer.scoreDate, false);
             }
             state.rng = new RNG('Daily '+date);
             if(this.state['dailyStatus'][0]!=='T') { //This is a challenge run
