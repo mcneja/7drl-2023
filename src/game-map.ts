@@ -17,7 +17,7 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { Animator, TileAnimation } from './animation';
+import { Animator, SpriteAnimation } from './animation';
 
 const cardinalDirections: Array<vec2> = [
     vec2.fromValues(-1, 0),
@@ -159,6 +159,7 @@ type Cell = {
     litSrc: Set<number>; //Array<number>; //TODO: this should be a set pointing to the item/guard
     seen: boolean;
     identified: boolean;
+    animation?: Animator;
 }
 
 class CellGrid {

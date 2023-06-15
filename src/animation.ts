@@ -4,7 +4,7 @@ import { TileInfo } from './tilesets';
 import { Item, ItemType } from './game-map';
 var tween = require('tween-functions');
 
-export { Animator, TileAnimation, LightSourceAnimation, tween, LightState };
+export { Animator, SpriteAnimation, FrameAnimator, LightSourceAnimation, tween, LightState };
 
 type TweenData = {
     pt0:vec2; 
@@ -22,7 +22,34 @@ class Animator {
     }
 }
 
-class TileAnimation extends Animator {
+class FrameAnimator extends Animator {
+    activeFrame: number;
+    frameDuration: number|Array<number>;
+    time: number;
+    tileInfo:Array<TileInfo>;
+    constructor(tileInfo:Array<TileInfo>, frameDuration:number|Array<number>, time:number=0, frame:number=0) {
+        super()
+        this.time = time;
+        this.tileInfo = tileInfo;
+        this.activeFrame = frame;
+        this.frameDuration = frameDuration;
+    }
+    update(dt:number):boolean {
+        this.time+=dt;
+        const fDuration = this.frameDuration instanceof Array? this.frameDuration[this.activeFrame]:this.frameDuration;
+        if(this.time>fDuration) {
+            this.activeFrame++;
+            if(this.activeFrame>=this.tileInfo.length) this.activeFrame=0;
+            this.time = 0;
+        }
+        return false;
+    }
+    currentTile():TileInfo {
+        return this.tileInfo[this.activeFrame];
+    }
+}
+
+class SpriteAnimation extends Animator {
     offset: vec2;
     activeFrame: number;
     frameStep: number;

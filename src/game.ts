@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid } from './game-map';
-import { TileAnimation, LightSourceAnimation, Animator, tween, LightState } from './animation';
+import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
 import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG } from './random';
@@ -267,6 +267,7 @@ export function advanceToNextLevel(state: State) {
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
+    setCellAnimations(state.gameMap, state);
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
@@ -452,7 +453,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         const start = vec2.create();
         const end = vec2.create();
         vec2.subtract(start, origPos, player.pos);
-        player.animation = new TileAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
+        player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
 
         const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
         if (loot > 0) {
@@ -1000,7 +1001,8 @@ function renderWorld(state: State, renderer: Renderer) {
                 && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
                 renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lv);
             } else {
-                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lv);
+                const tile = cell.animation? cell.animation.currentTile():renderer.tileSet.terrainTiles[terrainType];
+                renderer.addGlyph(x, y, x+1, y+1, tile, lv);
             }
             //Draw border for water
             if(terrainType===TerrainType.GroundWater) {
@@ -1040,7 +1042,7 @@ function renderWorld(state: State, renderer: Renderer) {
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const a = state.player.animation
-    const offset = a &&  a instanceof TileAnimation ? a.offset : vec2.create();
+    const offset = a &&  a instanceof SpriteAnimation ? a.offset : vec2.create();
     const x = player.pos[0] + offset[0];
     const y = player.pos[1] + offset[1];
     const x0 = player.pos[0];
@@ -1343,6 +1345,18 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     };
 }
 
+function setCellAnimations(gameMap: GameMap, state: State) {
+    for(let c of gameMap.cells.values) {
+        if(c.type===TerrainType.GroundWater) {
+            c.animation = new FrameAnimator([
+                {textureIndex: 0x6b}, 
+                {textureIndex: 0x6c}, 
+                {textureIndex: 0x6d}, 
+                {textureIndex: 0x6e}], 1.5);
+        }
+    }
+}
+
 function setLights(gameMap: GameMap, state: State) {
     let id = 0;
     const candleSeq:Array<[TileInfo, number]> = [
@@ -1400,6 +1414,7 @@ export function restartGame(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
+    setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -1429,6 +1444,7 @@ function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
+    setCellAnimations(gameMap, state);
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
@@ -1474,6 +1490,9 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         if(state.player.animation.update(dt)) {
             state.player.animation = null;
         }
+    }
+    for(let c of state.gameMap.cells.values) {
+        c.animation?.update(dt);
     }
     for(let g of state.gameMap.guards) {
         if(g.animation?.update(dt)) {
