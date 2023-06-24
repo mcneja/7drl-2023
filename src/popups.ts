@@ -9,11 +9,15 @@ enum PopupType {
     GuardSeeThief,
     GuardHearThief,
     GuardHearGuard,
+    GuardDownWarning,
+    GuardAwakesWarning,
+    GuardWarningResponse,
     GuardInvestigate,
     GuardEndChase,
     GuardFinishInvestigating,
     GuardFinishLooking,
     GuardFinishListening,
+    GuardStirring,
 }
 
 type Popup = {
@@ -67,10 +71,14 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardSeeThief: return 'guardSeeThief';
         case PopupType.GuardHearThief: return 'guardHearThief';
         case PopupType.GuardHearGuard: return 'guardHearGuard';
+        case PopupType.GuardDownWarning: return 'guardDownWarning';
+        case PopupType.GuardAwakesWarning: return 'guardAwakesWarning';
+        case PopupType.GuardWarningResponse: return 'guardWarningResponse';
         case PopupType.GuardInvestigate: return 'guardInvestigate';
         case PopupType.GuardEndChase: return 'guardEndChase';
         case PopupType.GuardFinishInvestigating: return 'guardFinishInvestigating';
         case PopupType.GuardFinishLooking: return 'guardFinishLooking';
         case PopupType.GuardFinishListening: return 'guardFinishListening';
+        case PopupType.GuardStirring: return 'guardStirring';
     }
 }

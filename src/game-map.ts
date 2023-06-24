@@ -219,6 +219,8 @@ enum ItemType {
     Coin,
     DoorNS,
     DoorEW,
+    LockedDoorNS,
+    LockedDoorEW,
     PortcullisNS,
     PortcullisEW,
     TorchUnlit,
@@ -240,6 +242,8 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.Coin: return 0;
         case ItemType.DoorNS: return 0;
         case ItemType.DoorEW: return 0;
+        case ItemType.LockedDoorNS: return 0;
+        case ItemType.LockedDoorEW: return 0;
         case ItemType.PortcullisNS: return 0;
         case ItemType.PortcullisEW: return 0;
         case ItemType.TorchUnlit: return Infinity;
@@ -256,6 +260,12 @@ class Player {
     health: number;
     loot: number;
     noisy: boolean; // did the player make noise last turn?
+    canHit: boolean;
+    canHitFromLeap: boolean;
+    canPickLock: boolean;
+    canPickPocket: boolean;
+    hasMansionKey: boolean;
+    hasChestKey: boolean;
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
     animation: null|Animator = null;
@@ -268,6 +278,12 @@ class Player {
         this.noisy = false;
         this.damagedLastTurn = false;
         this.turnsRemainingUnderwater = 0;
+        this.canHit = true;
+        this.canHitFromLeap = true;
+        this.canPickLock = true;
+        this.canPickPocket = true;
+        this.hasMansionKey = false;
+        this.hasChestKey = false;
     }
 
     applyDamage(d: number) {

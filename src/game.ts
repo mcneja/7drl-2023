@@ -2,9 +2,9 @@ import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
 import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
-import { GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
+import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
-import { RNG } from './random';
+import { RNG, randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
@@ -395,7 +395,23 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         return;
     }
 
-    let dist = playerMoveDistAllowed(state, dx, dy, distDesired);
+    let [dist, guard] = playerMoveDistAllowed(state, dx, dy, distDesired);
+    if(guard !== undefined) {
+        if(guard.mode !== GuardMode.Unconscious) {
+            guard.mode = GuardMode.Unconscious;
+            guard.modeTimeout = 40 - 2*state.level + randomInRange(20);
+        } else {
+            const gpos0 = vec2.fromValues(guard.pos[0]-player.pos[0], guard.pos[1]-player.pos[1]);
+            const gpos1 = vec2.create();
+            guard.pos = vec2.fromValues(player.pos[0], player.pos[1]);
+            if(state.gameMap.cells.at(guard.pos[0], guard.pos[1]).type===TerrainType.GroundWater) {
+                guard.modeTimeout = 0;
+            }
+            guard.animation = new SpriteAnimation([
+                {pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}
+            ],[]);
+        }
+    } 
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
@@ -453,7 +469,15 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         const start = vec2.create();
         const end = vec2.create();
         vec2.subtract(start, origPos, player.pos);
-        player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
+        if(guard !== undefined) {
+            const gp = vec2.fromValues(0.5*(guard.pos[0]-player.pos[0]),0.5*(guard.pos[1]-player.pos[1]));
+            player.animation = new SpriteAnimation([
+                {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
+                {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},            
+            ],[tileSet.playerTiles[0]]);
+        } else {
+            player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
+        }
 
         const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
         if (loot > 0) {
@@ -514,7 +538,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     
 }
 
-function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): number {
+function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): [number, Guard|undefined] {
     const player = state.player;
 
     let posPrev = vec2.clone(player.pos);
@@ -549,26 +573,36 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         posPrev = pos;
     }
 
-    // If the move would end on a guard, reject it
-
-    if (distAllowed > 0) {
-        const pos = vec2.fromValues(player.pos[0] + dx * distAllowed, player.pos[1] + dy * distAllowed);
-        if (state.gameMap.guards.find((guard) => guard.pos[0] == pos[0] && guard.pos[1] == pos[1]) !== undefined) {
-            distAllowed = 0;
-        }
-    }
-
-    // If the move would end on a door, torch, portcullis, or window, shorten it
-
-    if (distAllowed > 0) {
+    // Shrink the distance allowed based on what is in the destination spaces
+    // Runs in a loop 
+    // If the move would end on a guard, check if we can KO and shorten the step
+    // If the move would end on an adjacent KO'd guard, shorten the step
+    // If the move would end on a door, torch, portcullis, or window, shorten the step
+    let targetGuard:Guard|undefined = undefined;
+    while (distAllowed > 0) {
         const x = player.pos[0] + dx * distAllowed;
         const y = player.pos[1] + dy * distAllowed;
+        const guard = state.gameMap.guards.find((guard) => guard.pos[0] == x && guard.pos[1] == y);
+        if(guard!==undefined) {
+            if(((player.canHit && distAllowed===1) || (player.canHitFromLeap && distAllowed>1)) && isRelaxedGuardMode(guard.mode) && guard.mode!==GuardMode.Unconscious) {
+                targetGuard = guard; //Hit a guard
+                distAllowed--;
+                continue;
+            } else if(guard.mode===GuardMode.Unconscious && distAllowed===1) {
+                targetGuard = guard; //Swap positions with a KO'd guard, allow the move
+            } else {
+                targetGuard = undefined; //Disallow move onto guard, shorten step
+                distAllowed--;
+                continue;
+            }
+        }
         if (x >= 0 && x < state.gameMap.cells.sizeX &&
             y >= 0 && y < state.gameMap.cells.sizeY) {
             if (state.gameMap.items.find((item) => item.pos[0] === x && item.pos[1] === y &&
                     isLeapableMoveObstacle(item.type)) !== undefined ||
-                isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
+                    isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
                 --distAllowed;
+                targetGuard = undefined;
                 state.topStatusMessage = 'Shift+move to leap';
                 state.topStatusMessageSticky = false;
                 if(state.level===0) {
@@ -581,11 +615,13 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                     }
                 } 
                 else state.sounds['footstepTile'].play(0.1);    
+                continue;
             }
         }
+        break;
     }
 
-    return distAllowed;
+    return [distAllowed, targetGuard];
 }
 
 function isLeapableMoveObstacle(itemType: ItemType): boolean {
@@ -666,7 +702,8 @@ function advanceTime(state: State) {
 
     guardActAll(state.gameMap, state.popups, state.player);
 
-    if(state.gameMap.guards.find((guard)=> guard.mode==GuardMode.ChaseVisibleTarget)!==undefined) {
+    if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
+        //TODO: Play a disappointed sound if the first time this happens on the level
         state.ghostBonus = 0;
     }
     const p = state.player.pos;
@@ -1083,8 +1120,9 @@ function renderGuards(state: State, renderer: Renderer) {
             continue;
         }
 
-        if(!visible) tileIndex+=4;
-        else if(guard.mode == GuardMode.Patrol && !guard.speaking && cell.lit==0) lit=0;
+        if(!visible && guard.mode !== GuardMode.Unconscious) tileIndex+=4;
+        else if(guard.mode === GuardMode.Patrol && !guard.speaking && cell.lit==0) lit=0;
+        else if(guard.mode === GuardMode.Unconscious) tileIndex+=12;
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
