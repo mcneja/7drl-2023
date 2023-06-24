@@ -592,7 +592,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 targetGuard = guard; //Swap positions with a KO'd guard, allow the move
             } else {
                 targetGuard = undefined; //Disallow move onto guard, shorten step
-                distAllowed--;
+                distAllowed = 0;
                 continue;
             }
         }
