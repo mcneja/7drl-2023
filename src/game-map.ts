@@ -208,8 +208,10 @@ class CellGrid {
 
 enum GuardStates {
     Relaxed,
+    Angry,
     Alerted,
     Chasing,
+    Unconscious,
 }
 
 enum ItemType {

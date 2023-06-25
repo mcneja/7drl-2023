@@ -78,8 +78,11 @@ class Guard {
     }
 
     overheadIcon(): number {
-        if (isRelaxedGuardMode(this.mode) && !this.angry) {
-            return GuardStates.Relaxed;
+        if (this.mode === GuardMode.Unconscious) {
+            return GuardStates.Unconscious;
+        }
+        if (isRelaxedGuardMode(this.mode)) {
+            return this.angry? GuardStates.Angry : GuardStates.Relaxed;
         }
     
         return (this.mode == GuardMode.ChaseVisibleTarget) ? GuardStates.Chasing : GuardStates.Alerted;

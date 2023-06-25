@@ -1579,12 +1579,11 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     if(state.gameMode===GameMode.Mansion) {
         renderGuardSight(state, renderer);
         renderGuardPatrolPaths(state, renderer);
-        renderPlayer(state, renderer);
-    }
-    if(state.gameMode===GameMode.Dead) {
-        renderPlayer(state, renderer);
     }
     renderGuards(state, renderer);
+    if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.Dead) {
+        renderPlayer(state, renderer);
+    }
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);
     }

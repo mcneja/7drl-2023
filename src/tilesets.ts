@@ -277,8 +277,10 @@ const tileSet31Color:TileSet = {
     ],
     guardStateTiles: [
         {textureIndex: r([4,0])}, //Relaxed
+        {textureIndex: r([7,8])}, //Angry
         {textureIndex: r([5,5])}, //Alerted
         {textureIndex: r([6,5])}, //Chasing
+        {textureIndex: r([5,8])}, //Unconscious
     ],
     ledgeTiles: [
         {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},
