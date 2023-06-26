@@ -249,6 +249,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([0,  3]),   color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.TorchUnlit,
         {textureIndex: r([1,  3]),   color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.TorchLit,    
         {textureIndex: r([12,  3]),  color:colorPreset.yellowTint, unlitColor:0xffa07070}, // ItemType.TorchCarry,    
+        {textureIndex: r([10,  8]),  color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.PurseCarry,    
     ],
     npcTiles: [
         {textureIndex: r([3, 5]), color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE:

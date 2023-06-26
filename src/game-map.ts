@@ -17,7 +17,8 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { Animator, SpriteAnimation } from './animation';
+import { Animator, SpriteAnimation, tween } from './animation';
+
 
 const cardinalDirections: Array<vec2> = [
     vec2.fromValues(-1, 0),
@@ -227,7 +228,8 @@ enum ItemType {
     PortcullisEW,
     TorchUnlit,
     TorchLit,
-    TorchCarry, //TODO: Doesn't belong here because it is guard carried but solves a problem for now.
+    TorchCarry, //TODO: Next two don't belong here because they are carried by guards but solves a problem for now.
+    PurseCarry
 }
 
 type Item = {
@@ -251,6 +253,7 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.TorchUnlit: return Infinity;
         case ItemType.TorchLit: return Infinity;
         case ItemType.TorchCarry: return 0;
+        case ItemType.PurseCarry: return 0;
     }
 }
 
@@ -270,7 +273,9 @@ class Player {
     hasChestKey: boolean;
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
-    animation: null|Animator = null;
+    animation: Animator|null = null;
+    pickTarget: ItemType|Guard|null = null;
+    pickTimeout: number = 0;
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);

@@ -361,6 +361,15 @@ function advanceToWin(state: State) {
     state.topStatusMessageSticky = false;
 }
 
+export function playerMoveTo(player:Player, pos: vec2) {
+    const pt0 = vec2.fromValues(player.pos[0]-pos[0], player.pos[1]-pos[1]);
+    const pt1 = vec2.create();
+    player.animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.2, fn:tween.easeOutQuad}],
+        [tileSet.playerTiles[0]]);
+    player.pos = vec2.fromValues(pos[0], pos[1]);
+}
+
+
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
     const player = state.player;
@@ -398,8 +407,31 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     let [dist, guard] = playerMoveDistAllowed(state, dx, dy, distDesired);
     if(guard !== undefined) {
         if(guard.mode !== GuardMode.Unconscious) {
-            guard.mode = GuardMode.Unconscious;
-            guard.modeTimeout = 40 - 2*state.level + randomInRange(20);
+            if(guard.adjacentTo(player.pos) && distDesired==1) {
+                preTurn(state);
+                if(player.pickTarget!==guard) {
+                    player.pickTimeout = 2;
+                    player.pickTarget = guard;
+                }
+                player.pickTimeout--;
+                if(player.pickTimeout===0  && guard.hasPurse) {
+                    guard.hasPurse = false;
+                    player.loot += 1;
+                    state.lootStolen += 1;
+                    state.sounds.coin.play(1.0);        
+                }    
+                advanceTime(state);
+                return;
+            } else { //KO a guard
+                guard.mode = GuardMode.Unconscious;
+                guard.modeTimeout = 40 - 2*state.level + randomInRange(20);    
+                if(guard.hasPurse) {
+                    guard.hasPurse = false;
+                    player.loot += 1;
+                    state.lootStolen += 1;
+                    state.sounds.coin.play(1.0);            
+                }
+            }
         } else {
             const gpos0 = vec2.fromValues(guard.pos[0]-player.pos[0], guard.pos[1]-player.pos[1]);
             const gpos1 = vec2.create();
@@ -411,7 +443,9 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                 {pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}
             ],[]);
         }
-    } 
+    } else {
+        player.pickTarget = null;
+    }
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
@@ -1132,16 +1166,25 @@ function renderGuards(state: State, renderer: Renderer) {
         const x = guard.pos[0] + offset[0] + offX;
         const y = guard.pos[1] + offset[1];
     
-        if(guard.hasTorch) {
-            let g0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
-            let g1 = y;
+        if(guard.hasTorch || guard.hasPurse) {
+            let t0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
+            let t1 = y-0.125;
             const tti = guard.torchAnimation?.currentTile() ?? renderer.tileSet.itemTiles[ItemType.TorchCarry];
+            let p0 = x-guard.dir[0]*0.250+(guard.dir[1]<0?0.375:0);
+            let p1 = y-0.125;
+            const pti = renderer.tileSet.itemTiles[ItemType.PurseCarry];
             if(guard.dir[1]>0) {
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, tti, lit);
+                if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
+                if(guard.hasPurse) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+            } else if(guard.dir[1]<0) {
+                if(guard.hasPurse) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
+                if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
             } else {
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, tti, lit);
+                if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
+                if(guard.hasPurse) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
             }
         }
         else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);

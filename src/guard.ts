@@ -5,7 +5,7 @@ import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
-import { GameMode } from './types';
+import { playerMoveTo } from './game';
 
 enum MoveResult {
     StoodStill,
@@ -34,6 +34,7 @@ class Guard {
     mode: GuardMode;
     angry: boolean;
     hasTorch: boolean;
+    hasPurse: boolean;
     torchAnimation: LightSourceAnimation|null = null;
     speaking: boolean;
     hasMoved: boolean;
@@ -61,6 +62,7 @@ class Guard {
         this.mode = GuardMode.Patrol;
         this.angry = false;
         this.hasTorch = false;
+        this.hasPurse = false;
         this.speaking = false;
         this.hasMoved = false;
         this.heardThief = false;
@@ -325,6 +327,10 @@ class Guard {
     
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
+        }
+
+        if(player.pickTarget===this && (posPrev[0]!==this.pos[0] || posPrev[1]!==this.pos[1])) {
+            playerMoveTo(player, posPrev);
         }
     }
 

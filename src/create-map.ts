@@ -129,14 +129,15 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     placeExteriorBushes(map, rng);
     placeFrontPillars(map);
-    placeLoot(plan.totalLoot, rooms, adjacencies, map, rng);
+    const guardLoot = Math.min(Math.floor(level/3), plan.totalLoot);
+    placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
 
     fixupWalls(cells);
     cacheCellInfo(map);
 
     const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
 
-    placeGuards(level, map, patrolRoutes, rng);
+    placeGuards(level, map, patrolRoutes, guardLoot, rng);
 
     markExteriorAsSeen(map);
 
@@ -2143,7 +2144,7 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     }
 }
 
-function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>, rng: RNG) {
+function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>, guardLoot:number, rng: RNG) {
     if (level <= 0) {
         return;
     }
@@ -2160,8 +2161,13 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
         }
+        if (guardLoot>0) {
+            guard.hasPurse = true;
+            guardLoot--;
+        }
         map.guards.push(guard);
     }
+    console.assert(guardLoot===0);
 }
 
 function markExteriorAsSeen(map: GameMap) {
