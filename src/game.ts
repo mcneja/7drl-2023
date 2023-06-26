@@ -367,6 +367,12 @@ export function playerMoveTo(player:Player, pos: vec2) {
     player.animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.2, fn:tween.easeOutQuad}],
         [tileSet.playerTiles[0]]);
     player.pos = vec2.fromValues(pos[0], pos[1]);
+    // const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+    // if (loot > 0) {
+    //     player.loot += loot;
+    //     state.lootStolen += loot;
+    //     state.sounds.coin.play(1.0);
+    // }
 }
 
 
@@ -418,7 +424,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     if(guard !== undefined) {
         if(guard.mode !== GuardMode.Unconscious) {
             if(player.pickTarget!==guard) {
-                preTurn(state);
+                // preTurn(state);
                 if(player.pickTarget!==guard) {
                     player.pickTimeout = 2;
                     player.pickTarget = guard;
@@ -430,8 +436,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                     state.lootStolen += 1;
                     state.sounds.coin.play(1.0);        
                 }    
-                advanceTime(state);
-                return;
+                // advanceTime(state);
+                // return;
             } else { //KO a guard
                 guard.mode = GuardMode.Unconscious;
                 guard.modeTimeout = 40 - 2*state.level + randomInRange(20);    
@@ -457,7 +463,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     } else {
         player.pickTarget = null;
     }
-    if (dist <= 0) {
+    if (dist <= 0 && guard===undefined) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
         //Bump into torch
@@ -514,7 +520,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         const start = vec2.create();
         const end = vec2.create();
         vec2.subtract(start, origPos, player.pos);
-        if(guard !== undefined) {
+        if(guard !== undefined && guard.mode===GuardMode.Unconscious) {
             const gp = vec2.fromValues(0.5*(guard.pos[0]-player.pos[0]),0.5*(guard.pos[1]-player.pos[1]));
             player.animation = new SpriteAnimation([
                 {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
@@ -629,12 +635,12 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         const y = player.pos[1] + dy * distAllowed;
         const guard = state.gameMap.guards.find((guard) => guard.pos[0] == x && guard.pos[1] == y);
         if(guard!==undefined) {
-            if(((player.canHit && distAllowed===1) || (player.canHitFromLeap && distAllowed>1)) && isRelaxedGuardMode(guard.mode) && guard.mode!==GuardMode.Unconscious) {
-                targetGuard = guard; //Hit a guard
+            if(isRelaxedGuardMode(guard.mode) && guard.mode!==GuardMode.Unconscious) {
+                targetGuard = guard; //Guard we can tail
                 distAllowed--;
                 continue;
             } else if(guard.mode===GuardMode.Unconscious && distAllowed===1) {
-                targetGuard = guard; //Swap positions with a KO'd guard, allow the move
+                targetGuard = guard; //Guard we can swap position with
             } else {
                 targetGuard = undefined; //Disallow move onto guard, shorten step
                 distAllowed--;
