@@ -399,7 +399,17 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                 state.gameMap.cells.at(x1,y1).identified = true;
             }
         }
-        preTurn(state);        
+        preTurn(state);
+        const guard = player.pickTarget;
+        if(guard instanceof Guard && guard.cardinallyAdjacentTo(player.pos)) {
+            player.pickTimeout--;
+            if(player.pickTimeout===0  && guard.hasPurse) {
+                guard.hasPurse = false;
+                player.loot += 1;
+                state.lootStolen += 1;
+                state.sounds.coin.play(1.0);        
+            }        
+        }
         advanceTime(state);
         return;
     }
@@ -407,7 +417,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     let [dist, guard] = playerMoveDistAllowed(state, dx, dy, distDesired);
     if(guard !== undefined) {
         if(guard.mode !== GuardMode.Unconscious) {
-            if(guard.adjacentTo(player.pos) && distDesired==1) {
+            if(player.pickTarget!==guard) {
                 preTurn(state);
                 if(player.pickTarget!==guard) {
                     player.pickTimeout = 2;
@@ -431,6 +441,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                     state.lootStolen += 1;
                     state.sounds.coin.play(1.0);            
                 }
+                player.pickTarget = null;
             }
         } else {
             const gpos0 = vec2.fromValues(guard.pos[0]-player.pos[0], guard.pos[1]-player.pos[1]);
@@ -626,7 +637,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 targetGuard = guard; //Swap positions with a KO'd guard, allow the move
             } else {
                 targetGuard = undefined; //Disallow move onto guard, shorten step
-                distAllowed = 0;
+                distAllowed--;
                 continue;
             }
         }
