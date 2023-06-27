@@ -5,6 +5,7 @@ import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
+import { State } from './types';
 import { playerMoveTo } from './game';
 
 enum MoveResult {
@@ -328,10 +329,6 @@ class Guard {
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
         }
-
-        if(player.pickTarget===this && (posPrev[0]!==this.pos[0] || posPrev[1]!==this.pos[1])) {
-            playerMoveTo(player, posPrev);
-        }
     }
 
     cardinallyAdjacentTo(pos: vec2): boolean {
@@ -592,7 +589,7 @@ type Shout = {
     target: Player|Guard;
 }
 
-function guardActAll(map: GameMap, popups: Popups, player: Player) {
+function guardActAll(state: State, map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
@@ -604,9 +601,19 @@ function guardActAll(map: GameMap, popups: Popups, player: Player) {
     }
 
     // Update each guard for this turn.
-
     const shouts: Array<Shout> = [];
-    for (const guard of map.guards) {
+    if(player.pickTarget instanceof Guard) {
+        const guard = player.pickTarget;
+        const oldPos = vec2.fromValues(guard.pos[0], guard.pos[1]);
+        guard.act(map, popups, player, shouts);
+        guard.hasMoved = true;
+        if(oldPos[0]!==guard.pos[0] || oldPos[1]!==guard.pos[1]) {
+            playerMoveTo(state, map, player, oldPos);
+        }
+    }
+
+    const otherGuards = map.guards.filter((guard)=>guard!==player.pickTarget);
+    for (const guard of otherGuards) {
         guard.act(map, popups, player, shouts);
         guard.hasMoved = true;
     }
@@ -615,6 +622,10 @@ function guardActAll(map: GameMap, popups: Popups, player: Player) {
 
     for (const shout of shouts) {
         alertNearbyGuards(map, shout);
+    }
+
+    if(player.pickTarget instanceof Guard && !isRelaxedGuardMode(player.pickTarget.mode)) {
+        player.pickTarget = null;
     }
 }
 

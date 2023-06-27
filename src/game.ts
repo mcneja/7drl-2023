@@ -361,18 +361,32 @@ function advanceToWin(state: State) {
     state.topStatusMessageSticky = false;
 }
 
-export function playerMoveTo(player:Player, pos: vec2) {
+export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: vec2) {
+    if(player.pos[0]===pos[0] && player.pos[1]===pos[1]) {
+        return;
+    }
+
     const pt0 = vec2.fromValues(player.pos[0]-pos[0], player.pos[1]-pos[1]);
     const pt1 = vec2.create();
     player.animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.2, fn:tween.easeOutQuad}],
         [tileSet.playerTiles[0]]);
     player.pos = vec2.fromValues(pos[0], pos[1]);
-    // const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
-    // if (loot > 0) {
-    //     player.loot += loot;
-    //     state.lootStolen += loot;
-    //     state.sounds.coin.play(1.0);
-    // }
+
+    const x = player.pos[0];
+    const y = player.pos[1];
+
+    for(let x1=Math.max(x-1,0);x1<=Math.min(x+1, gameMap.cells.sizeX-1);++x1) {
+        for(let y1=Math.max(y-1,0);y1<=Math.min(y+1, gameMap.cells.sizeY-1);++y1) {
+            gameMap.cells.at(x1,y1).identified = true;
+        }
+    }
+
+    const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+    if (loot > 0) {
+        player.loot += loot;
+        state.lootStolen += loot;
+        state.sounds.coin.play(1.0);
+    }
 }
 
 
@@ -407,7 +421,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         }
         preTurn(state);
         const guard = player.pickTarget;
-        if(guard instanceof Guard && guard.cardinallyAdjacentTo(player.pos)) {
+        if(guard instanceof Guard && guard.adjacentTo(player.pos)) {
             player.pickTimeout--;
             if(player.pickTimeout===0  && guard.hasPurse) {
                 guard.hasPurse = false;
@@ -751,7 +765,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-    guardActAll(state.gameMap, state.popups, state.player);
+    guardActAll(state, state.gameMap, state.popups, state.player);
 
     if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
         //TODO: Play a disappointed sound if the first time this happens on the level
@@ -1212,7 +1226,8 @@ function renderGuards(state: State, renderer: Renderer) {
 }
 
 function renderIconOverlays(state: State, renderer: Renderer) {
-    for (const guard of state.gameMap.guards) {
+        const player = state.player
+        for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
@@ -1220,24 +1235,32 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         }
 
         const guardState = guard.overheadIcon();
-        if (guardState === GuardStates.Relaxed) {
-            continue;
+        let gtile:TileInfo;
+        if (guardState!==GuardStates.Relaxed) {
+            gtile = renderer.tileSet.guardStateTiles[guardState]
+        } else {
+            // Render the shadowing indicator if player is shadowing a guard
+            if (guard===player.pickTarget) {
+                gtile = {textureIndex:0xf0, color:0xffffffff};
+            } else {
+                continue;
+            }
         }
 
         let offset = guard.animation?.offset?? vec2.create();
         const x = guard.pos[0] + offset[0];
         const y = guard.pos[1] + offset[1] + 0.625;
 
-        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], 1);
+        renderer.addGlyph(x, y, x+1, y+1, gtile, 1);
     }
 
     // Render an icon over the player if the player is being noisy
-
-    if (state.player.noisy) {
-        const x = state.player.pos[0];
-        const y = state.player.pos[1] - 0.5;
+    if (player.noisy) {
+        const x = player.pos[0];
+        const y = player.pos[1] - 0.5;
         renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, 1);
     }
+
 }
 
 function renderGuardSight(state: State, renderer: Renderer) {
