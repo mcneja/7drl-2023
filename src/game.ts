@@ -557,6 +557,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
         }
 
+        //TODO: There's potential for double collection here that needs to be fixed
         const lootCollected = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
         if(lootCollected.length>0) {
             state.sounds.coin.play(1.0);
@@ -571,7 +572,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             animation.removeOnFinish = true;
             loot.animation = animation;
         }
-        }
+    }
 
     // Generate movement noises.
 
@@ -1650,8 +1651,8 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         }    
     }
     state.gameMap.items = state.gameMap.items.filter( (i) => {
+        i.animation?.update(dt);
         if(i.animation instanceof SpriteAnimation) {
-            i.animation.update(dt);
             return !(i.animation.removeOnFinish && i.animation.time===0)
         }
         return true;
