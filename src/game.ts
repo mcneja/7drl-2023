@@ -381,11 +381,18 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
         }
     }
 
-    const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
-    if (loot > 0) {
-        player.loot += loot;
-        state.lootStolen += loot;
+    const lootCollected = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+    if(lootCollected.length>0) {
         state.sounds.coin.play(1.0);
+    }
+    for (let loot of lootCollected) {
+        player.loot++;
+        state.lootStolen++;
+        const pt2 = vec2.fromValues(pt0[0]/2, pt0[0]/2)
+        const animation = new SpriteAnimation([{pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeOutQuad}], 
+            [tileSet.itemTiles[ItemType.Coin]]);
+        animation.removeOnFinish = true;
+        loot.animation = animation;
     }
 }
 
@@ -462,7 +469,13 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                     state.sounds.coin.play(1.0);            
                 }
                 player.pickTarget = null;
-            }
+                const pos0 = vec2.create();
+                const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
+                player.animation = new SpriteAnimation([
+                    {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
+                ],[tileSet.playerTiles[0]]);
+                }
         } else {
             const gpos0 = vec2.fromValues(guard.pos[0]-player.pos[0], guard.pos[1]-player.pos[1]);
             const gpos1 = vec2.create();
@@ -544,13 +557,21 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
         }
 
-        const loot = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
-        if (loot > 0) {
-            player.loot += loot;
-            state.lootStolen += loot;
+        const lootCollected = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        if(lootCollected.length>0) {
             state.sounds.coin.play(1.0);
         }
-    }
+        for (let loot of lootCollected) {
+            player.loot++;
+            state.lootStolen++;
+            const pt0 = vec2.create();
+            const pt1 = vec2.fromValues((origPos[0]-loot.pos[0])/2, (origPos[1]-loot.pos[1])/2);
+            const animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad}], 
+                [tileSet.itemTiles[ItemType.Coin]]);
+            animation.removeOnFinish = true;
+            loot.animation = animation;
+        }
+        }
 
     // Generate movement noises.
 
@@ -1134,7 +1155,12 @@ function renderWorld(state: State, renderer: Renderer) {
                     const ti = item.animation? 
                         item.animation.currentTile():
                         renderer.tileSet.itemTiles[item.type];
-                    renderer.addGlyph(x, y, x + 1, y + 1, ti, lv);
+                    if (item.animation instanceof SpriteAnimation) {
+                        const o = item.animation.offset;
+                        renderer.addGlyph(x+o[0], y+o[1], x+o[0] + 1, y+o[1] + 1, ti, lv);
+                    } else {
+                        renderer.addGlyph(x, y, x + 1, y + 1, ti, lv);
+                    }
                 }
             }
         }
@@ -1623,9 +1649,13 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
             g.torchAnimation = null;
         }    
     }
-    for(let i of state.gameMap.items) {
-        i.animation?.update(dt);
-    }
+    state.gameMap.items = state.gameMap.items.filter( (i) => {
+        if(i.animation instanceof SpriteAnimation) {
+            i.animation.update(dt);
+            return !(i.animation.removeOnFinish && i.animation.time===0)
+        }
+        return true;
+    });
     if(state.helpActive) {
         const hs = state.helpScreen;
         hs.update(state);

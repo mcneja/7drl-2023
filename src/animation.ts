@@ -57,6 +57,7 @@ class SpriteAnimation extends Animator {
     tileInfo:Array<TileInfo>;
     activePt: number;
     tweenSeq: Array<TweenData>;
+    removeOnFinish: boolean;
     constructor(tweenSeq: Array<TweenData>, tileInfo:Array<TileInfo>) {
         super()
         this.time = 0;
@@ -66,6 +67,7 @@ class SpriteAnimation extends Animator {
         this.frameStep = 1;
         this.activePt = 0;
         this.tweenSeq = tweenSeq;
+        this.removeOnFinish = false;
     }
     update(dt:number):boolean {
         const start = this.tweenSeq[this.activePt].pt0;

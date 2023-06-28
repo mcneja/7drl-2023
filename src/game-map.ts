@@ -386,17 +386,14 @@ class GameMap {
         this.lightCount = 0;
     }
 
-    collectLootAt(x: number, y: number): number {
-        let gold = 0;
-        this.items = this.items.filter((item) => {
+    collectLootAt(x: number, y: number): Array<Item> {
+        let coins:Array<Item> = [];
+        for(let item of this.items) {
             if (item.type == ItemType.Coin && item.pos[0] == x && item.pos[1] == y) {
-                ++gold;
-                return false;
-            } else {
-                return true;
+                coins.push(item);
             }
-        });
-        return gold;
+        }
+        return coins;
     }
     
     collectAllLoot(): number {
