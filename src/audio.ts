@@ -37,6 +37,11 @@ const hitPlayerSet:Array<string> = [
     require('url:./audio/hitting/hit27.mp3.flac'),
 ];
 
+const hitGuardSet:Array<string> = [
+    require('url:./audio/hitting/hit26.mp3.flac'),
+];
+
+
 const coinSet = [
     require('url:./audio/coin.mp3'),
     require('url:./audio/coin-2.mp3'),
@@ -470,6 +475,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.gameOverJingle = new HowlGroup([gameOverJingle], howlPool);
     sounds.easterEgg = new HowlGroup([easterEgg], howlPool);
     sounds.hitPlayer = new HowlGroup(hitPlayerSet);
+    sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
 
     sounds.grunt = new HowlGroup(gruntSet),

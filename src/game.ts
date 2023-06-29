@@ -471,6 +471,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                 player.pickTarget = null;
                 const pos0 = vec2.create();
                 const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
+                state.sounds.hitGuard.play(0.25);
                 player.animation = new SpriteAnimation([
                     {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
                     {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
@@ -1268,7 +1269,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         } else {
             // Render the shadowing indicator if player is shadowing a guard
             if (guard===player.pickTarget) {
-                gtile = {textureIndex:0xf0, color:0xffffffff};
+                gtile = {textureIndex:0xf1, color:0xffffffff};
             } else {
                 continue;
             }
