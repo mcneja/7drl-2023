@@ -362,7 +362,7 @@ function advanceToWin(state: State) {
 }
 
 export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: vec2) {
-    if(player.pos[0]===pos[0] && player.pos[1]===pos[1]) {
+    if(player.pos.equals(pos)) {
         return;
     }
 
@@ -370,7 +370,7 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
     const pt1 = vec2.create();
     player.animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.2, fn:tween.easeOutQuad}],
         [tileSet.playerTiles[0]]);
-    player.pos = vec2.fromValues(pos[0], pos[1]);
+    player.pos = vec2.clone(pos);
 
     const x = player.pos[0];
     const y = player.pos[1];
@@ -381,7 +381,9 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
         }
     }
 
-    const lootCollected = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+    //TODO: This leads to duplicate pickups if player is quick. Need to remove the collected loot from items collection
+    // and add it to a particle collection for animation
+    const lootCollected = state.gameMap.collectLootAt(player.pos);
     if(lootCollected.length>0) {
         state.sounds.coin.play(1.0);
     }
@@ -399,13 +401,17 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
+    //Logic:
+    //Try to move a player in cardinal direction dx, dy (1,0), (0,1) etc, up to distance distDesired
+    //if distDesired==0 => stand still
+    //if distDesired>=2 => jump to the destination space if possible, 
+    //    else jump to nearest space to destination (some spaces block leap, others prevent entry and leap)
+    //    else rest
+    //if distDesired==1 => move to the space if it can be entered, 
+    //    else bump the space
+
     const player = state.player;
     const origPos = vec2.clone(player.pos);
-
-    const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
-    const guardOnGate = gate!==undefined ? state.gameMap.guards
-            .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
-
 
     // Can't move if you're dead.
     if (player.health <= 0) {
@@ -478,10 +484,10 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                 ],[tileSet.playerTiles[0]]);
                 }
         } else {
-            const gpos0 = vec2.fromValues(guard.pos[0]-player.pos[0], guard.pos[1]-player.pos[1]);
+            const gpos0 = vec2.clone(guard.pos).subtract(player.pos);
             const gpos1 = vec2.create();
-            guard.pos = vec2.fromValues(player.pos[0], player.pos[1]);
-            if(state.gameMap.cells.at(guard.pos[0], guard.pos[1]).type===TerrainType.GroundWater) {
+            guard.pos = vec2.clone(player.pos);
+            if(state.gameMap.cells.atVec(guard.pos).type===TerrainType.GroundWater) {
                 guard.modeTimeout = 0;
             }
             guard.animation = new SpriteAnimation([
@@ -493,7 +499,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     }
     if (dist <= 0 && guard===undefined) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
-        const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
+        const item = state.gameMap.items.find((item) => item.pos.equals(posBump));
         //Bump into torch
         if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
             preTurn(state);
@@ -503,10 +509,10 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             advanceTime(state);
         }
         //Bump into gate
-        const bump = state.gameMap.cells.at(...posBump);
+        const bump = state.gameMap.cells.atVec(posBump);
         if(bump) {
             const typeBump = bump.type;
-            const typePlayer = state.gameMap.cells.at(...player.pos).type;
+            const typePlayer = state.gameMap.cells.atVec(player.pos).type;
             if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
                 state.sounds['gate'].play(0.3);    
             }    
@@ -518,7 +524,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     preTurn(state);
 
-    const oldTerrain = state.gameMap.cells.at(...player.pos).type;
+    const oldTerrain = state.gameMap.cells.atVec(player.pos).type;
 
     const origDist = dist;
     for (; dist > 0; --dist) {
@@ -545,9 +551,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
         player.pos[0] = x;
         player.pos[1] = y;
-        const start = vec2.create();
+        const start = vec2.clone(origPos).subtract(player.pos);
         const end = vec2.create();
-        vec2.subtract(start, origPos, player.pos);
         if(guard !== undefined && guard.mode===GuardMode.Unconscious) {
             const gp = vec2.fromValues(0.5*(guard.pos[0]-player.pos[0]),0.5*(guard.pos[1]-player.pos[1]));
             player.animation = new SpriteAnimation([
@@ -559,7 +564,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         }
 
         //TODO: There's potential for double collection here that needs to be fixed
-        const lootCollected = state.gameMap.collectLootAt(player.pos[0], player.pos[1]);
+        const lootCollected = state.gameMap.collectLootAt(player.pos);
         if(lootCollected.length>0) {
             state.sounds.coin.play(1.0);
         }
@@ -577,7 +582,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     // Generate movement noises.
 
-    let cellType = state.gameMap.cells.at(player.pos[0], player.pos[1]).type;
+    let cellType = state.gameMap.cells.atVec(player.pos).type;
     if (cellType == TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, 17, state.popups, state.sounds);
     }
@@ -586,7 +591,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
-    const pCell = state.gameMap.cells.at(...player.pos)
+    const pCell = state.gameMap.cells.atVec(player.pos)
     const changedTile = oldTerrain !== pCell.type;
 
     // Hide sound effect
@@ -617,13 +622,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         default:
             if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
             break;
-        }
-        //Guard on gate sound effect
-        if (gate!==undefined && guardOnGate===undefined) {
-            const guard = state.gameMap.guards.find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]);
-            if(guard!==undefined && vec2.squaredDistance(state.player.pos, guard.pos) <= 100) state.sounds['gate'].play(0.2);
-        }
-    
+        }    
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): [number, Guard|undefined] {
@@ -643,14 +642,14 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             }
             break;
         } else if (blocked(state.gameMap, posPrev, pos, maxDist)) {
-            if (isOneWayWindowTerrainType(state.gameMap.cells.at(...pos).type)) {
+            if (isOneWayWindowTerrainType(state.gameMap.cells.atVec(pos).type)) {
                 state.topStatusMessage = 'Window cannot be accessed from outside';
                 state.topStatusMessageSticky = false;
                 if(state.level===0) state.sounds['tooHigh'].play(0.3);
                 else state.sounds['footstepTile'].play(0.1);
             }
             // If jumping but there's a door in the way, we allow a move into the door
-            if(d==1 && [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.at(...pos).type)) {
+            if(d==1 && /*isOpenableDoor(player, state.gameMap.cells.atVec(pos))*/ [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.atVec(pos).type)) {
                 distAllowed = d;
             }
             break;
@@ -670,7 +669,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     while (distAllowed > 0) {
         const x = player.pos[0] + dx * distAllowed;
         const y = player.pos[1] + dy * distAllowed;
-        const guard = state.gameMap.guards.find((guard) => guard.pos[0] == x && guard.pos[1] == y);
+        const guard = state.gameMap.guards.find((guard) => guard.pos.equalsValues(x, y));
         if(guard!==undefined) {
             if(isRelaxedGuardMode(guard.mode) && guard.mode!==GuardMode.Unconscious) {
                 targetGuard = guard; //Guard we can tail
@@ -686,7 +685,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         }
         if (x >= 0 && x < state.gameMap.cells.sizeX &&
             y >= 0 && y < state.gameMap.cells.sizeY) {
-            if (state.gameMap.items.find((item) => item.pos[0] === x && item.pos[1] === y &&
+            if (state.gameMap.items.find((item) => item.pos.equalsValues(x, y) &&
                     isLeapableMoveObstacle(item.type)) !== undefined ||
                     isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
                 --distAllowed;
@@ -712,10 +711,49 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
     return [distAllowed, targetGuard];
 }
 
+
+function isPlayerEnterableMoveObstacle(itemType: ItemType): boolean {
+    switch (itemType) {
+        case ItemType.Chair:
+        case ItemType.Table:
+        case ItemType.Bush:
+        case ItemType.DoorEW:
+        case ItemType.DoorNS:
+        case ItemType.Coin:
+            return true;
+        default:
+            return false;
+    }
+}
+
+function isPlayerEnterableTerrainType(terrainType: TerrainType): boolean {
+    switch (terrainType) {
+        case TerrainType.DoorEW:
+        case TerrainType.DoorNS:
+        case TerrainType.GardenDoorEW:
+        case TerrainType.GardenDoorNS:
+        case TerrainType.GroundGrass:
+        case TerrainType.GroundMarble:
+        case TerrainType.GroundNormal:
+        case TerrainType.GroundWood:
+        case TerrainType.GroundWoodCreaky:
+        case TerrainType.GroundWater:
+            return true;
+        default:
+            return false;
+    }
+}
+
+
 function isLeapableMoveObstacle(itemType: ItemType): boolean {
     switch (itemType) {
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
+        // case ItemType.Chair:
+        // case ItemType.Table:
+        // case ItemType.Bush:
+        // case ItemType.PortcullisEW:
+        // case ItemType.PortcullisNS:
             return true;
         default:
             return false;
@@ -730,6 +768,14 @@ function isLeapableTerrainType(terrainType: TerrainType): boolean {
         case TerrainType.OneWayWindowS:
         case TerrainType.PortcullisNS:
         case TerrainType.PortcullisEW:
+        // case TerrainType.GardenDoorEW:
+        // case TerrainType.GardenDoorNS:
+        // case TerrainType.GroundGrass:
+        // case TerrainType.GroundMarble:
+        // case TerrainType.GroundNormal:
+        // case TerrainType.GroundWood:
+        // case TerrainType.GroundWoodCreaky:
+        // case TerrainType.GroundWater:
             return true;
         default:
             return false;
@@ -756,7 +802,7 @@ function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups,
     let gDist = radius*radius;
     let closestGuard = null;
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
-        const dist =  (player.pos[0]-guard.pos[0])**2 + (player.pos[1]-guard.pos[1])**2 
+        const dist = player.pos.squaredDistance(guard.pos);
         if(dist<=gDist && isRelaxedGuardMode(guard.mode)) closestGuard = guard;
         guard.heardThief = true;
     }
@@ -780,7 +826,7 @@ function advanceTime(state: State) {
     let oldHealth = state.player.health;
     state.turns++;
     state.totalTurns++;
-    if (state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater) {
+    if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
         }
@@ -795,7 +841,7 @@ function advanceTime(state: State) {
         state.ghostBonus = 0;
     }
     const p = state.player.pos;
-    state.gameMap.computeLighting(state.gameMap.cells.at(p[0],p[1]));
+    state.gameMap.computeLighting(state.gameMap.cells.atVec(p));
     state.gameMap.recomputeVisibility(p);
 
     postTurn(state);
@@ -859,11 +905,11 @@ function blocked(map: GameMap, posOld: vec2, posNew: vec2, dist: number): boolea
         return true;
     }
 
-    if (posOld[0] == posNew[0] && posOld[1] == posNew[1]) {
+    if (posOld.equals(posNew)) {
         return false;
     }
 
-    const cell = map.cells.at(posNew[0], posNew[1]);
+    const cell = map.cells.atVec(posNew);
     const tileType = cell.type;
 
     if (cell.blocksPlayerMove) {
@@ -874,7 +920,7 @@ function blocked(map: GameMap, posOld: vec2, posNew: vec2, dist: number): boolea
     if(dist>1) {
         if (posNew[0]==posOld[0]) {
             if ((tileType == TerrainType.DoorNS || tileType == TerrainType.DoorEW) && Math.abs(posNew[1]-posOld[1])==1) {
-                if(map.items.find((item)=>item.pos[0]==posNew[0] && item.pos[1]==posNew[1] && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
+                if(map.items.find((item)=>item.pos.equals(posNew) && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
                     return true;
                 }    
             }
@@ -882,7 +928,7 @@ function blocked(map: GameMap, posOld: vec2, posNew: vec2, dist: number): boolea
     
         if (posNew[1]==posOld[1]) {
             if ((tileType == TerrainType.DoorNS || tileType == TerrainType.DoorEW) && Math.abs(posNew[0]-posOld[0])==1) {
-                if(map.items.find((item)=>item.pos[0]==posNew[0] && item.pos[1]==posNew[1] && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
+                if(map.items.find((item)=>item.pos.equals(posNew) && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
                     return true;
                 }    
             }
@@ -1102,7 +1148,7 @@ function renderTouchButtons(renderer:Renderer, screenSize:vec2, touchController:
 function renderWorld(state: State, renderer: Renderer) {
     const mappedItems:{[id:number]:Array<Item>} = {}; //Sweep over the items and allocate them to a map
     for(let item of state.gameMap.items) {
-        const ind = state.gameMap.cells.index(...item.pos);
+        const ind = state.gameMap.cells.indexVec(item.pos);
         if(ind in mappedItems) mappedItems[ind].push(item);
         else mappedItems[ind] = [item];
     }
@@ -1206,7 +1252,7 @@ function renderGuards(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
         let tileIndex = 0 + tileIndexOffsetForDir(guard.dir);
 
-        const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
+        const cell = state.gameMap.cells.atVec(guard.pos);
         let lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, cell.seen);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
@@ -1219,7 +1265,7 @@ function renderGuards(state: State, renderer: Renderer) {
         else tileIndex+=8;
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
-        const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
+        const offX = (gate!==undefined && gate.pos.equals(guard.pos))? 0.25 : 0;
 
         let offset = guard.animation?.offset?? vec2.create();
         const x = guard.pos[0] + offset[0] + offX;
@@ -1256,7 +1302,7 @@ function renderGuards(state: State, renderer: Renderer) {
 function renderIconOverlays(state: State, renderer: Renderer) {
         const player = state.player
         for (const guard of state.gameMap.guards) {
-        const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
+        const cell = state.gameMap.cells.atVec(guard.pos);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
@@ -1778,9 +1824,8 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     if(touchController.lastMotion.id!=-1 && touchController.lastMotion.active) {
         const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
         const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
-        var d = vec2.fromValues(p1[0]-p0[0], p1[1]-p0[1]);
         state.camera.panning = true;
-        vec2.subtract(d, p1, p0);
+        let d = p1.subtract(p0);
         state.camera.position[0] -= d[0]-state.camera.anchor[0];
         state.camera.position[1] -= d[1]-state.camera.anchor[1];
         state.camera.anchor[0] = d[0];
@@ -1852,14 +1897,14 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
             if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
             if(state.gameMode==GameMode.Mansion &&  !state.helpActive
-                && !state.gameMap.cells.at(...pt).blocksPlayerMove 
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE)
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW)
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowN)
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowS)
-                && !state.gameMap.items.find((item)=>item.pos[0]==pt[0] && item.pos[1]==pt[1] 
+                && !state.gameMap.cells.atVec(pt).blocksPlayerMove 
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowE)
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowW)
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowN)
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowS)
+                && !state.gameMap.items.find((item)=>item.pos.equals(pt) 
                         && [ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type))
-                && !state.gameMap.guards.find((guard)=>guard.pos[0]==pt[0] && guard.pos[1]==pt[1])
+                && !state.gameMap.guards.find((guard)=>guard.pos.equals(pt))
                 ) {
                     buttonData[name] = {game:new Rect(...pt,1,1), view: new Rect(), tileInfo:tt['picker']}
                 } else {
@@ -1868,21 +1913,21 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         }
         for(const vals of [['jumpLeft',[-1,0]],['jumpRight',[1,0]],['jumpUp',[0,1]],['jumpDown',[0,-1]]] as Array<[string, [number,number]]>) {
             const name = vals[0];
-            const p = vals[1];
-            const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
-            const pt2 = vec2.fromValues(pp[0]+2*p[0],pp[1]+2*p[1]);
+            const p = vec2.fromValues(...vals[1]);
+            const pt = pp.add(p);
+            const pt2 = pp.scaleAndAdd(p, 2);
             if( state.gameMode==GameMode.Mansion && !state.helpActive
                 && !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) 
                 && !(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1])
-                && !state.gameMap.cells.at(...pt).blocksPlayerMove
-                && !state.gameMap.cells.at(...pt2).blocksPlayerMove 
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowE && name=='jumpLeft')
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowW && name=='jumpRight')
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowN && name=='jumpDown')
-                && !(state.gameMap.cells.at(...pt).type==TerrainType.OneWayWindowS && name=='jumpUp')
-                && !state.gameMap.items.find((item)=>item.pos[0]==pt2[0] && item.pos[1]==pt2[1] 
+                && !state.gameMap.cells.atVec(pt).blocksPlayerMove
+                && !state.gameMap.cells.atVec(pt2).blocksPlayerMove 
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowE && name=='jumpLeft')
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowW && name=='jumpRight')
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowN && name=='jumpDown')
+                && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowS && name=='jumpUp')
+                && !state.gameMap.items.find((item)=>item.pos.equals(pt2) 
                         && [ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type))
-                && !state.gameMap.guards.find((guard)=>guard.pos[0]==pt2[0] && guard.pos[1]==pt2[1])
+                && !state.gameMap.guards.find((guard)=>guard.pos.equals(pt2))
                 ) {
                     buttonData[name] = {game:new Rect(...pt2,1,1), view: new Rect(), tileInfo:tt['picker']}
                 } else {

@@ -199,8 +199,7 @@ class Guard {
         case GuardMode.MoveToDownedGuard:
             if (this.cardinallyAdjacentTo(this.goal)) {
                 if(map.guards.find(
-                    (g) => g.pos[0] === this.goal[0] 
-                    && g.pos[1] === this.goal[1]
+                    (g) => g.pos.equals(this.goal)
                     && g.mode === GuardMode.Unconscious
                 ))  {
                     updateDir(this.dir, this.pos, this.goal);
@@ -222,8 +221,7 @@ class Guard {
                 --this.modeTimeout;
                 updateDir(this.dir, this.pos, this.goal);
                 const g = map.guards.find(
-                    (g) => g.pos[0] === this.goal[0] 
-                    && g.pos[1] === this.goal[1]
+                    (g) => g.pos.equals(this.goal)
                     && g.mode === GuardMode.Unconscious
                 )
                 if(g !== undefined)  {
@@ -307,7 +305,7 @@ class Guard {
                 vec2.copy(this.goal, torch.pos);
                 this.mode = GuardMode.RelightTorch;
                 this.modeTimeout = 3;
-            } else if (posPrev[0] === this.pos[0] && posPrev[1] === this.pos[1]) {
+            } else if (posPrev.equals(this.pos)) {
                 const posLookAt = this.tryGetPosLookAt(map);
                 if (posLookAt !== undefined) {
                     updateDir(this.dir, this.pos, posLookAt);
@@ -329,6 +327,7 @@ class Guard {
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
         }
+    
     }
 
     cardinallyAdjacentTo(pos: vec2): boolean {
@@ -387,8 +386,7 @@ class Guard {
     patrolStep(map: GameMap, player: Player) {
         let moveResult;
 
-        const onPatrolPath = this.patrolPath[this.patrolPathIndex][0] === this.pos[0] &&
-                             this.patrolPath[this.patrolPathIndex][1] === this.pos[1];
+        const onPatrolPath = this.patrolPath[this.patrolPathIndex].equals(this.pos);
 
         if (onPatrolPath) {
             if (this.patrolReverse) {
@@ -464,13 +462,13 @@ class Guard {
         const distanceField = map.computeDistancesToPosition(posGoal);
         const posNext = posNextBest(map, distanceField, this.pos);
 
-        if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
+        if (posNext.equals(this.pos)) {
             return MoveResult.StoodStill;
         }
 
         updateDir(this.dir, this.pos, posNext);
 
-        if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
+        if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
         }
 
@@ -487,13 +485,13 @@ class Guard {
         const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
         const posNext = posNextBest(map, distanceField, this.pos);
 
-        if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
+        if (posNext.equals(this.pos)) {
             return MoveResult.StoodStill;
         }
 
         updateDir(this.dir, this.pos, posNext);
 
-        if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
+        if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
         }
 
@@ -511,13 +509,13 @@ class Guard {
         const distanceField = map.computeDistancesToPatrolPath(this.patrolPath);
         const posNext = posNextBest(map, distanceField, this.pos);
 
-        if (posNext[0] == this.pos[0] && posNext[1] == this.pos[1]) {
+        if (posNext.equals(this.pos)) {
             return MoveResult.StoodStill;
         }
 
         updateDir(this.dir, this.pos, posNext);
 
-        if (player.pos[0] == posNext[0] && player.pos[1] == posNext[1]) {
+        if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
         }
 
@@ -544,7 +542,7 @@ class Guard {
         // Search forward from guard's current path index
         for (let iPatrolPos = this.patrolPathIndex; iPatrolPos < this.patrolPath.length; ++iPatrolPos) {
             const posPath = this.patrolPath[iPatrolPos];
-            if (posPath[0] === this.pos[0] && posPath[1] === this.pos[1]) {
+            if (posPath.equals(this.pos)) {
                 this.patrolPathIndex = iPatrolPos;
                 return true;
             }
@@ -552,7 +550,7 @@ class Guard {
         // Search backward from guard's current path index
         for (let iPatrolPos = this.patrolPathIndex - 1; iPatrolPos >= 0; --iPatrolPos) {
             const posPath = this.patrolPath[iPatrolPos];
-            if (posPath[0] === this.pos[0] && posPath[1] === this.pos[1]) {
+            if (posPath.equals(this.pos)) {
                 this.patrolPathIndex = iPatrolPos;
                 return true;
             }
@@ -589,6 +587,11 @@ type Shout = {
     target: Player|Guard;
 }
 
+function guardOnGate(guard: Guard, map: GameMap):boolean {
+    const gate = map.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
+    return gate!==undefined && guard.pos.equals(gate.pos);
+}
+
 function guardActAll(state: State, map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
@@ -600,22 +603,27 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = false;
     }
 
+    let ontoGate:boolean = false;
+
     // Update each guard for this turn.
     const shouts: Array<Shout> = [];
     if(player.pickTarget instanceof Guard) {
         const guard = player.pickTarget;
-        const oldPos = vec2.fromValues(guard.pos[0], guard.pos[1]);
+        const oldPos = vec2.clone(guard.pos);
         guard.act(map, popups, player, shouts);
+        ontoGate = ontoGate || guardOnGate(guard, map) && !oldPos.equals(guard.pos);
         guard.hasMoved = true;
-        if(oldPos[0]!==guard.pos[0] || oldPos[1]!==guard.pos[1]) {
+        if(!oldPos.equals(guard.pos)) {
             playerMoveTo(state, map, player, oldPos);
         }
     }
 
     const otherGuards = map.guards.filter((guard)=>guard!==player.pickTarget);
     for (const guard of otherGuards) {
+        const oldPos = vec2.clone(guard.pos);
         guard.act(map, popups, player, shouts);
         guard.hasMoved = true;
+        ontoGate = ontoGate || guardOnGate(guard, map) && !oldPos.equals(guard.pos);
     }
 
     // Process shouts
@@ -627,6 +635,9 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
     if(player.pickTarget instanceof Guard && !isRelaxedGuardMode(player.pickTarget.mode)) {
         player.pickTarget = null;
     }
+
+    if(ontoGate) state.sounds['gate'].play(0.2);
+
 }
 
 function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): PopupType | undefined {
@@ -762,11 +773,11 @@ function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined
 
 function relightTorchAt(map: GameMap, posTorch: vec2, player: Player) {
     for (const item of map.items) {
-        if (item.type === ItemType.TorchUnlit && item.pos[0] === posTorch[0] && item.pos[1] === posTorch[1]) {
+        if (item.type === ItemType.TorchUnlit && item.pos.equals(posTorch)) {
             item.type = ItemType.TorchLit;
         }
     }
-    map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
+    map.computeLighting(map.cells.atVec(player.pos));
 }
 
 function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {

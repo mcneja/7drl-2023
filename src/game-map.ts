@@ -148,6 +148,10 @@ enum TerrainType {
     GardenDoorEW,
 }
 
+type ActorCheckFunc = (actor:Guard|Player)=>boolean;
+type ActorFunc = (actor:Guard|Player)=>void;
+type ActorPosFunc = (actor:Guard|Player, pos:vec2)=>void;
+
 type Cell = {
     type: TerrainType;
     moveCost: number;
@@ -161,6 +165,11 @@ type Cell = {
     seen: boolean;
     identified: boolean;
     animation?: Animator;
+    enterable?: ActorCheckFunc;
+    leapable?: ActorCheckFunc;
+    enter?: ActorFunc;
+    leap?: ActorFunc;
+    bump?: ActorFunc;
 }
 
 class CellGrid {
@@ -186,9 +195,18 @@ class CellGrid {
         return this.values[i];
     }
 
+    atVec(pos:vec2): Cell {
+        return this.at(pos[0], pos[1]);
+    }
+
     index(x: number, y:number): number {
         return this.sizeX * y + x;
     }
+
+    indexVec(pos:vec2): number {
+        return this.index(pos[0], pos[1]);
+    }
+
 
     emptyCell(): Cell {
         return {
@@ -303,11 +321,11 @@ class Player {
             return false;
         }
 
-        if (map.cells.at(this.pos[0], this.pos[1]).hidesPlayer) {
+        if (map.cells.atVec(this.pos).hidesPlayer) {
             return true;
         }
 
-        let cellType = map.cells.at(this.pos[0], this.pos[1]).type;
+        let cellType = map.cells.atVec(this.pos).type;
 
         if (cellType == TerrainType.GroundWater && this.turnsRemainingUnderwater > 0) {
             return true;
@@ -386,10 +404,10 @@ class GameMap {
         this.lightCount = 0;
     }
 
-    collectLootAt(x: number, y: number): Array<Item> {
+    collectLootAt(pos:vec2): Array<Item> {
         let coins:Array<Item> = [];
         for(let item of this.items) {
-            if (item.type == ItemType.Coin && item.pos[0] == x && item.pos[1] == y) {
+            if (item.type == ItemType.Coin && item.pos.equals(pos)) {
                 coins.push(item);
             }
         }
@@ -711,11 +729,15 @@ class GameMap {
     }
 
     isGuardAt(x: number, y: number): boolean {
-        return this.guards.find((guard) => guard.hasMoved && guard.pos[0] == x && guard.pos[1] == y) != undefined;
+        return this.guards.find((guard) => guard.hasMoved && guard.pos.equalsValues(x,y)) != undefined;
+    }
+
+    isGuardAtVec(pos: vec2): boolean {
+        return this.guards.find((guard) => guard.hasMoved && guard.pos.equals(pos)) != undefined;
     }
 
     guardMoveCost(posOld: vec2, posNew: vec2): number {
-        const cost = this.cells.at(posNew[0], posNew[1]).moveCost;
+        const cost = this.cells.atVec(posNew).moveCost;
     
         if (cost === Infinity) {
             return cost;
@@ -725,8 +747,8 @@ class GameMap {
     
         if (posOld[0] != posNew[0] &&
             posOld[1] != posNew[1] &&
-            (this.cells.at(posOld[0], posNew[1]).moveCost === Infinity ||
-             this.cells.at(posNew[0], posOld[1]).moveCost === Infinity)) {
+            (this.cells.atVec(posOld).moveCost === Infinity ||
+             this.cells.atVec(posNew).moveCost === Infinity)) {
             return Infinity;
         }
     
@@ -737,8 +759,8 @@ class GameMap {
         const goal: Array<DistPos> = [];
     
         for (const pos of patrolPositions) {
-            const cost = this.cells.at(pos[0], pos[1]).moveCost;
-            goal.push({ priority: cost, pos: pos });
+            const cost = this.cells.atVec(pos).moveCost;
+            goal.push({ priority: cost, pos: vec2.clone(pos) });
         }
     
         return this.computeDistanceField(goal);
@@ -750,18 +772,17 @@ class GameMap {
         console.assert(pos_goal[0] < this.cells.sizeX);
         console.assert(pos_goal[1] < this.cells.sizeY);
     
-        return this.computeDistanceField([{ priority: 0, pos: pos_goal }]);
+        return this.computeDistanceField([{ priority: 0, pos: vec2.clone(pos_goal) }]);
     }
 
     computeDistancesToAdjacentToPosition(pos_goal: vec2): Float64Grid {
         const goal: Array<DistPos> = [];
         for (const dir of cardinalDirections) {
-            const pos = vec2.create();
-            vec2.add(pos, pos_goal, dir);
+            const pos = vec2.clone(pos_goal).add(dir);
             if (pos[0] < 0 || pos[1] < 0 || pos[0] >= this.cells.sizeX || pos[1] >= this.cells.sizeY) {
                 continue;
             }
-            const cell = this.cells.at(pos[0], pos[1]);
+            const cell = this.cells.atVec(pos);
             if (cell.moveCost !== Infinity) {
                 goal.push({ priority: cell.moveCost, pos: pos });
             }

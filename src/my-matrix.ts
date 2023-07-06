@@ -1,25 +1,85 @@
 export { vec2, mat4 };
 
-type vec2 = [number, number];
+// type vec2 = [number, number];
 type mat4 =
     [number, number, number, number,
      number, number, number, number,
      number, number, number, number,
      number, number, number, number];
 
+class vec2 extends Array<number> {
+    static fromValues(x:number, y:number):vec2 {
+        return new vec2(x, y);
+    }
+    static create(): vec2 {
+        return new vec2(0, 0);
+    }
+    static clone(v: vec2): vec2 {
+        return new vec2(v[0], v[1]);
+    }
+    equals(v: vec2):boolean {
+        return this[0]===v[0] && this[1]===v[1];
+    }
+    equalsValues(x:number, y:number):boolean {
+        return this[0]===x && this[1]===y;
+    }
+    copy(v: vec2) {
+        this[0] = v[0];
+        this[1] = v[1];
+    }
+    set(x0: number, x1: number) {
+        this[0] = x0;
+        this[1] = x1;
+    }
+    add(b: vec2):vec2 {
+        return vec2.fromValues(this[0] + b[0], this[1] + b[1])
+    }
+    subtract(b: vec2):vec2 {
+        return vec2.fromValues(this[0] - b[0], this[1] - b[1])
+    }
+    multiply(b: vec2):vec2 {
+        return vec2.fromValues(this[0] * b[0], this[1] * b[1])
+    }
+    scale(scale: number):vec2 {
+        return vec2.fromValues(this[0] * scale, this[1] * scale)
+    }
+    scaleAndAdd(b: vec2, scale: number):vec2 {
+        return vec2.fromValues(this[0] + b[0] * scale, this[1] + b[1] * scale)
+    }
+    distance(b: vec2): number {
+        const x = this[0] - b[0];
+        const y = this[1] - b[1];
+        return Math.hypot(x, y);
+    }
+    squaredDistance(b: vec2): number {
+        const x = this[0] - b[0];
+        const y = this[1] - b[1];
+        return x * x + y * y;
+    }
+    len(): number {
+        return Math.hypot(this[0], this[1]);
+    }
+    squaredLen(a: vec2): number {
+        const x = this[0];
+        const y = this[1];
+        return x * x + y * y;
+    }
+    negate() {
+        return vec2.fromValues(-this[0], -this[1]);
+    }
+    dot(b: vec2): number {
+        return this[0] * b[0] + this[1] * b[1];
+    }
+    lerp(b: vec2, t: number) {
+        return vec2.fromValues (this[0] + t * (b[0] - this[0]), this[1] + t * (b[1] - this[1]));
+    }
+    zero() {
+        this[0] = 0;
+        this[1] = 0;
+    }
+}
+
 namespace vec2 {
-    export function create(): vec2 {
-        return [0, 0];
-    }
-
-    export function clone(v: vec2): vec2 {
-        return [v[0], v[1]];
-    }
-
-    export function fromValues(x0: number, x1: number): vec2 {
-        return [x0, x1];
-    }
-
     export function copy(result: vec2, v: vec2) {
         result[0] = v[0];
         result[1] = v[1];

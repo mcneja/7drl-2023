@@ -1598,10 +1598,10 @@ function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2
     const distanceField = gameMap.computeDistancesToPosition(pos1);
     const pos = vec2.clone(pos0);
     const path: Array<vec2> = [];
-    while (pos[0] !== pos1[0] || pos[1] !== pos1[1]) {
+    while (!pos.equals(pos1)) {
         path.push(vec2.clone(pos));
         const posNext = posNextBest(gameMap, distanceField, pos);
-        if (posNext[0] === pos[0] && posNext[1] === pos[1]) {
+        if (posNext.equals(pos)) {
             break;
         }
         vec2.copy(pos, posNext);
@@ -1639,7 +1639,7 @@ function posNextBest(gameMap: GameMap, distanceField: Float64Grid, posFrom: vec2
         }
     }
 
-    if (posBest[0] === posFrom[0] && posBest[1] === posFrom[1]) {
+    if (posBest.equals(posFrom)) {
         console.log('failed to proceed');
         for (let x = posMin[0]; x < posMax[0]; ++x) {
             for (let y = posMin[1]; y < posMax[1]; ++y) {
@@ -1675,9 +1675,8 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
         }
 
         for (let j = 0; j < adj.length; ++j) {
-            const p = vec2.create();
-            vec2.scaleAndAdd(p, adj.origin, adj.dir, j);
-            map.cells.at(p[0], p[1]).type = TerrainType.GroundGrass;
+            const p = vec2.clone(adj.origin).scaleAndAdd(adj.dir, j);
+            map.cells.atVec(p).type = TerrainType.GroundGrass;
         }
     }
 
@@ -1717,15 +1716,14 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
                     let k = Math.floor(adj0.length / 2);
 
                     for (const a of walls) {
-                        const p = vec2.create();
-                        vec2.scaleAndAdd(p, a.origin, a.dir, k);
+                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
 
                         let dir = vec2.clone(a.dir);
                         if (rooms[a.room_right].roomType == RoomType.Exterior) {
                             vec2.negate(dir, dir);
                         }
 
-                        map.cells.at(p[0], p[1]).type = oneWayWindowTerrainTypeFromDir(dir);
+                        map.cells.atVec(p).type = oneWayWindowTerrainTypeFromDir(dir);
                     }
                 }
             } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
@@ -1736,18 +1734,16 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
                     for (const a of walls) {
                         let dir = vec2.clone(a.dir);
                         if (isCourtyardRoomType(rooms[a.room_right].roomType)) {
-                            vec2.negate(dir, dir);
+                            dir = dir.negate();
                         }
 
                         let windowType = oneWayWindowTerrainTypeFromDir(dir);
 
-                        const p = vec2.create();
-                        vec2.scaleAndAdd(p, a.origin, a.dir, k);
-                        const q = vec2.create();
-                        vec2.scaleAndAdd(q, a.origin, a.dir, a.length - (k + 1));
+                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
+                        const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - (k+1));
 
-                        map.cells.at(p[0], p[1]).type = windowType;
-                        map.cells.at(q[0], q[1]).type = windowType;
+                        map.cells.atVec(p).type = windowType;
+                        map.cells.atVec(q).type = windowType;
                     }
                     k += 2;
                 }
@@ -1763,8 +1759,7 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
             a.doorOffset = offset;
 
-            const p = vec2.create();
-            vec2.scaleAndAdd(p, a.origin, a.dir, offset);
+            const p = vec2.clone(a.origin).scaleAndAdd(a.dir, offset);
 
             let orientNS = (a.dir[0] == 0);
 
@@ -1772,15 +1767,15 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             let roomTypeRight = rooms[a.room_right].roomType;
 
             if (roomTypeLeft == RoomType.Exterior || roomTypeRight == RoomType.Exterior) {
-                map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
-                placeItem(map, p[0], p[1], orientNS ? ItemType.PortcullisNS : ItemType.PortcullisEW);
+                map.cells.atVec(p).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
+                placeItem(map, p, orientNS ? ItemType.PortcullisNS : ItemType.PortcullisEW);
             } else if (isCourtyardRoomType(roomTypeLeft) && isCourtyardRoomType(roomTypeRight)) {
-                map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.GardenDoorNS : TerrainType.GardenDoorEW;
+                map.cells.atVec(p).type = orientNS ? TerrainType.GardenDoorNS : TerrainType.GardenDoorEW;
             } else if (roomTypeLeft != RoomType.PrivateRoom || roomTypeRight != RoomType.PrivateRoom || installMasterSuiteDoor) {
-                map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
-                placeItem(map, p[0], p[1], orientNS ? ItemType.DoorNS : ItemType.DoorEW);
+                map.cells.atVec(p).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
+                placeItem(map, p, orientNS ? ItemType.DoorNS : ItemType.DoorEW);
             } else {
-                map.cells.at(p[0], p[1]).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
+                map.cells.atVec(p).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
             }
         }
     }
@@ -1826,18 +1821,18 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
                 }
                 rng.shuffleArray(itemTypes);
                 const itemPositions = [
-                    [room.posMin[0], room.posMin[1]],
-                    [room.posMax[0] - 1, room.posMin[1]],
-                    [room.posMin[0], room.posMax[1] - 1],
-                    [room.posMax[0] - 1, room.posMax[1] - 1],
+                    vec2.fromValues(room.posMin[0], room.posMin[1]),
+                    vec2.fromValues(room.posMax[0] - 1, room.posMin[1]),
+                    vec2.fromValues(room.posMin[0], room.posMax[1] - 1),
+                    vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1),
                 ];
                 for (let i = 0; i < itemPositions.length; ++i) {
-                    const [x, y] = itemPositions[i];
-                    if (map.cells.at(x, y).type != TerrainType.GroundGrass) {
+                    const pos = itemPositions[i];
+                    if (map.cells.atVec(pos).type != TerrainType.GroundGrass) {
                         continue;
                     }
                 
-                    tryPlaceItem(map, x, y, itemTypes[i]);
+                    tryPlaceItem(map, pos, itemTypes[i]);
                 }
             }
         } else if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
@@ -1859,18 +1854,18 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
                 itemTypes.push(randomlyLitTorch(level, rng));
                 rng.shuffleArray(itemTypes);
                 for (let y = 1; y < dy-1; ++y) {
-                    placeItem(map, room.posMin[0] + 1, room.posMin[1] + y, ItemType.Chair);
-                    placeItem(map, room.posMin[0] + 2, room.posMin[1] + y, itemTypes[y - 1]);
-                    placeItem(map, room.posMin[0] + 3, room.posMin[1] + y, ItemType.Chair);
+                    placeItem(map, vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + y), ItemType.Chair);
+                    placeItem(map, vec2.fromValues(room.posMin[0] + 2, room.posMin[1] + y), itemTypes[y - 1]);
+                    placeItem(map, vec2.fromValues(room.posMin[0] + 3, room.posMin[1] + y), ItemType.Chair);
                 }
             } else if (dy == 5 && dx >= 3 && (room.roomType == RoomType.PublicRoom || rng.random() < 0.33333)) {
                 const itemTypes = new Array(dx - 2).fill(ItemType.Table);
                 itemTypes.push(randomlyLitTorch(level, rng));
                 rng.shuffleArray(itemTypes);
                 for (let x = 1; x < dx-1; ++x) {
-                    placeItem(map, room.posMin[0] + x, room.posMin[1] + 1, ItemType.Chair);
-                    placeItem(map, room.posMin[0] + x, room.posMin[1] + 2, itemTypes[x - 1]);
-                    placeItem(map, room.posMin[0] + x, room.posMin[1] + 3, ItemType.Chair);
+                    placeItem(map, vec2.fromValues(room.posMin[0] + x, room.posMin[1] + 1), ItemType.Chair);
+                    placeItem(map, vec2.fromValues(room.posMin[0] + x, room.posMin[1] + 2), itemTypes[x - 1]);
+                    placeItem(map, vec2.fromValues(room.posMin[0] + x, room.posMin[1] + 3), ItemType.Chair);
                 }
             } else if (dx > dy && (dy & 1) == 1 && rng.random() < 0.66667) {
                 let y = Math.floor(room.posMin[1] + dy / 2);
@@ -1878,25 +1873,25 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
                 const torchType = randomlyLitTorch(level, rng);
                 const itemTypes = [torchType, furnitureType];
                 rng.shuffleArray(itemTypes);
-                tryPlaceItem(map, room.posMin[0] + 1, y, itemTypes[0]);
-                tryPlaceItem(map, room.posMax[0] - 2, y, itemTypes[1]);
+                tryPlaceItem(map, vec2.fromValues(room.posMin[0] + 1, y), itemTypes[0]);
+                tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 2, y), itemTypes[1]);
             } else if (dy > dx && (dx & 1) == 1 && rng.random() < 0.66667) {
                 let x = Math.floor(room.posMin[0] + dx / 2);
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
                 const torchType = randomlyLitTorch(level, rng);
                 const itemTypes = [torchType, furnitureType];
                 rng.shuffleArray(itemTypes);
-                tryPlaceItem(map, x, room.posMin[1] + 1, itemTypes[0]);
-                tryPlaceItem(map, x, room.posMax[1] - 2, itemTypes[1]);
+                tryPlaceItem(map, vec2.fromValues(x, room.posMin[1] + 1), itemTypes[0]);
+                tryPlaceItem(map, vec2.fromValues(x, room.posMax[1] - 2), itemTypes[1]);
             } else if (dx > 3 && dy > 3) {
                 const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
                 const torchType = randomlyLitTorch(level, rng);
                 const itemTypes = [torchType, furnitureType, furnitureType, furnitureType];
                 rng.shuffleArray(itemTypes);
-                tryPlaceItem(map, room.posMin[0], room.posMin[1], itemTypes[0]);
-                tryPlaceItem(map, room.posMax[0] - 1, room.posMin[1], itemTypes[1]);
-                tryPlaceItem(map, room.posMin[0], room.posMax[1] - 1, itemTypes[2]);
-                tryPlaceItem(map, room.posMax[0] - 1, room.posMax[1] - 1, itemTypes[3]);
+                tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMin[1]), itemTypes[0]);
+                tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMin[1]), itemTypes[1]);
+                tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMax[1] - 1), itemTypes[2]);
+                tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1), itemTypes[3]);
             }
         }
     }
@@ -1910,20 +1905,21 @@ function randomlyLitTorch(level: number, rng: RNG): ItemType {
     return (rng.random() < 0.5) ? ItemType.TorchUnlit : ItemType.TorchLit;
 }
 
-function tryPlaceItem(map: GameMap, x: number, y: number, itemType: ItemType) {
-    if (doorAdjacent(map.cells, x, y)) {
+function tryPlaceItem(map: GameMap, pos:vec2, itemType: ItemType) {
+    if (doorAdjacent(map.cells, pos)) {
         return;
     }
 
     if ((itemType == ItemType.TorchUnlit || itemType == ItemType.TorchLit) &&
-        windowAdjacent(map.cells, x, y)) {
+        windowAdjacent(map.cells, pos)) {
         return;
     }
 
-    placeItem(map, x, y, itemType);
+    placeItem(map, pos, itemType);
 }
 
-function doorAdjacent(map: CellGrid, x: number, y: number): boolean {
+function doorAdjacent(map: CellGrid, pos: vec2): boolean {
+    let [x, y] = pos;
     if (map.at(x - 1, y).type >= TerrainType.PortcullisNS) {
         return true;
     }
@@ -1943,7 +1939,8 @@ function doorAdjacent(map: CellGrid, x: number, y: number): boolean {
     return false;
 }
 
-function windowAdjacent(map: CellGrid, x: number, y: number): boolean {
+function windowAdjacent(map: CellGrid, pos: vec2): boolean {
+    let [x, y] = pos;
     if (isWindowTerrainType(map.at(x - 1, y).type)) {
         return true;
     }
@@ -1963,9 +1960,9 @@ function windowAdjacent(map: CellGrid, x: number, y: number): boolean {
     return false;
 }
 
-function placeItem(map: GameMap, x: number, y: number, type: ItemType) {
+function placeItem(map: GameMap, pos: vec2, type: ItemType) {
     map.items.push({
-        pos: vec2.fromValues(x, y),
+        pos: vec2.clone(pos),
         type: type,
     });
 }
@@ -2047,11 +2044,11 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
             continue;
         }
 
-        if (isItemAtPos(map, pos[0], pos[1])) {
+        if (isItemAtPos(map, pos)) {
             continue;
         }
 
-        placeItem(map, pos[0], pos[1], ItemType.Coin);
+        placeItem(map, pos, ItemType.Coin);
         return true;
     }
 
@@ -2074,7 +2071,7 @@ function placeExteriorBushes(map: GameMap, rng: RNG) {
         }
 
         if ((x & 1) == 0 && rng.random() < 0.8) {
-            placeItem(map, x, sy - 1, ItemType.Bush);
+            placeItem(map, vec2.fromValues(x, sy - 1), ItemType.Bush);
         }
     }
 
@@ -2101,10 +2098,10 @@ function placeExteriorBushes(map: GameMap, rng: RNG) {
 
         if (((sy - y) & 1) != 0) {
             if (rng.random() < 0.8) {
-                placeItem(map, 0, y, ItemType.Bush);
+                placeItem(map, vec2.fromValues(0, y), ItemType.Bush);
             }
             if (rng.random() < 0.8) {
-                placeItem(map, sx - 1, y, ItemType.Bush);
+                placeItem(map, vec2.fromValues(sx - 1, y), ItemType.Bush);
             }
         }
     }
@@ -2120,14 +2117,14 @@ function placeFrontPillars(map: GameMap) {
     }
 }
 
-function isItemAtPos(map: GameMap, x: number, y: number): boolean {
+function isItemAtPos(map: GameMap, pos: vec2): boolean {
     for (const item of map.items) {
-        if (item.pos[0] == x && item.pos[1] == y) {
+        if (item.pos.equals(pos)) {
             return true;
         }
     }
     for (const guard of map.guards) {
-        if (guard.pos[0] == x && guard.pos[1] == y) {
+        if (guard.pos.equals(pos)) {
             return true;
         }
     }
@@ -2212,7 +2209,7 @@ function cacheCellInfo(map: GameMap) {
     }
 
     for (const item of map.items) {
-        let cell = map.cells.at(item.pos[0], item.pos[1]);
+        let cell = map.cells.atVec(item.pos);
         let itemType = item.type;
         cell.moveCost = Math.max(cell.moveCost, guardMoveCostForItemType(itemType));
         if (itemType == ItemType.DoorNS || itemType == ItemType.DoorEW) {
