@@ -395,6 +395,7 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
             [tileSet.itemTiles[ItemType.Coin]]);
         animation.removeOnFinish = true;
         loot.animation = animation;
+        state.particles.push(loot);
     }
 }
 
@@ -433,10 +434,12 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             }
         }
         preTurn(state);
+        //TODO: This needs to be cleaned up
         const guard = player.pickTarget;
         if(guard instanceof Guard && guard.adjacentTo(player.pos)) {
             player.pickTimeout--;
             if(player.pickTimeout===0  && guard.hasPurse) {
+                //TODO: Add a particle animation hear to show the purse being removed
                 guard.hasPurse = false;
                 player.loot += 1;
                 state.lootStolen += 1;
@@ -577,6 +580,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                 [tileSet.itemTiles[ItemType.Coin]]);
             animation.removeOnFinish = true;
             loot.animation = animation;
+            state.particles.push(loot);
         }
     }
 
@@ -1294,9 +1298,20 @@ function renderGuards(state: State, renderer: Renderer) {
         }
         else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
         // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+    }
 }
 
-
+function renderParticles(state: State, renderer: Renderer) {
+    for(let p of state.particles) {
+        if(p.animation) {
+            const a = p.animation
+            const offset = a instanceof SpriteAnimation ? a.offset : vec2.create();
+            const x = p.pos[0] + offset[0];
+            const y = p.pos[1] + offset[1];
+            const tileInfo = a.currentTile();
+            renderer.addGlyph(x, y, x+1, y+1, tileInfo);
+        }
+    }
 }
 
 function renderIconOverlays(state: State, renderer: Renderer) {
@@ -1488,6 +1503,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             maxLootStolen: 0,
         },
         lightStates:[],
+        particles:[],
         stats: stats,
         tLast: undefined,
         dt: 0,
@@ -1704,6 +1720,13 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         }
         return true;
     });
+    state.particles = state.particles.filter( (p) => {
+        p.animation?.update(dt);
+        if(p.animation instanceof SpriteAnimation) {
+            return !(p.animation.removeOnFinish && p.animation.time===0)
+        }
+        return true;
+    });
     if(state.helpActive) {
         const hs = state.helpScreen;
         hs.update(state);
@@ -1744,6 +1767,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderGuards(state, renderer);
     if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.Dead) {
         renderPlayer(state, renderer);
+        renderParticles(state, renderer);
     }
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);

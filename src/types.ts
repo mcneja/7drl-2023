@@ -5,6 +5,7 @@ import { Howls, SubtitledHowls, ActiveHowlPool } from './audio';
 import { Popups } from './popups';
 import { TouchController, GamepadManager, KeyboardController } from './controllers';
 import { TextWindow } from './ui';
+import { Animator } from './animation';
 import { ScoreServer } from './firebase';
 
 export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry}
@@ -65,6 +66,11 @@ type GameStats = {
     maxLootStolen: number;
 }
 
+interface Particle {
+    pos:vec2;
+    animation?: Animator;
+}
+
 type State = {
     scoreServer: ScoreServer;
     gameStats: GameStats;
@@ -80,6 +86,7 @@ type State = {
     helpScreen: TextWindow;
     textWindows: {[key in GameMode]?: TextWindow };
     helpActive: boolean;
+    particles: Array<Particle>;
     player: Player;
     topStatusMessage: string;
     topStatusMessageSticky: boolean;

@@ -406,11 +406,14 @@ class GameMap {
 
     collectLootAt(pos:vec2): Array<Item> {
         let coins:Array<Item> = [];
-        for(let item of this.items) {
+        this.items = this.items.filter( (item) => {
             if (item.type == ItemType.Coin && item.pos.equals(pos)) {
                 coins.push(item);
+                return false;
+            } else {
+                return true;
             }
-        }
+        })
         return coins;
     }
     
