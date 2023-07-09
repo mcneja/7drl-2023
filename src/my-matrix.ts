@@ -8,6 +8,9 @@ type mat4 =
      number, number, number, number];
 
 class vec2 extends Array<number> {
+    constructor(...args: any) {
+        super(...args);
+    }
     static fromValues(x:number, y:number):vec2 {
         return new vec2(x, y);
     }
