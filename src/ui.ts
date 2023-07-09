@@ -175,7 +175,7 @@ class TextWindow {
             1,
             -1);    
     }
-    pixelCoords(textCoords: vec2): vec2 {
+    pixelCoords(textCoords: [number, number]): [number, number] {
         return [
             (textCoords[0] - this.offsetX) * this.pixelsPerCharX,
             (textCoords[1] - this.offsetY) * this.pixelsPerCharY
