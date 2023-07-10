@@ -351,7 +351,7 @@ class Guard {
     
         let playerIsLit = map.cells.at(person.pos[0], person.pos[1]).lit>0;
     
-        let d2 = vec2.squaredLength(d);
+        let d2 = vec2.squaredLen(d);
         if (d2 >= this.sightCutoff(playerIsLit)) {
             return false;
         }

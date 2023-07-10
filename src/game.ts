@@ -1389,7 +1389,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
                 if (vec2.dot(guard.dir, dpos) < 0) {
                     continue;
                 }
-                if (vec2.squaredLength(dpos) >= guard.sightCutoff(cell.lit>0)) {
+                if (vec2.squaredLen(dpos) >= guard.sightCutoff(cell.lit>0)) {
                     continue;
                 }
                 if (!lineOfSight(state.gameMap, guard.pos, pos)) {

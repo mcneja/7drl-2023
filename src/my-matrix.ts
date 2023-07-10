@@ -11,7 +11,7 @@ class vec2 extends Array<number> {
     constructor(...args: any) {
         super(...args);
     }
-    static fromValues(x:number, y:number):vec2 {
+    static fromValues(x:number, y:number): vec2 {
         return new vec2(x, y);
     }
     static create(): vec2 {
@@ -80,81 +80,64 @@ class vec2 extends Array<number> {
         this[0] = 0;
         this[1] = 0;
     }
-}
-
-namespace vec2 {
-    export function copy(result: vec2, v: vec2) {
+    static copy(result: vec2, v: vec2) {
         result[0] = v[0];
         result[1] = v[1];
     }
-
-    export function set(result: vec2, x0: number, x1: number) {
+    static set(result: vec2, x0: number, x1: number) {
         result[0] = x0;
         result[1] = x1;
     }
-
-    export function add(result: vec2, a: vec2, b: vec2) {
+    static add(result: vec2, a: vec2, b: vec2) {
         result[0] = a[0] + b[0];
         result[1] = a[1] + b[1];
     }
-
-    export function subtract(result: vec2, a: vec2, b: vec2) {
+    static subtract(result: vec2, a: vec2, b: vec2) {
         result[0] = a[0] - b[0];
         result[1] = a[1] - b[1];
     }
-
-    export function multiply(result: vec2, a: vec2, b: vec2) {
+    static multiply(result: vec2, a: vec2, b: vec2) {
         result[0] = a[0] * b[0];
         result[1] = a[1] * b[1];
     }
-
-    export function scale(result: vec2, a: vec2, scale: number) {
+    static scale(result: vec2, a: vec2, scale: number) {
         result[0] = a[0] * scale;
         result[1] = a[1] * scale;
     }
-
-    export function scaleAndAdd(result: vec2, a: vec2, b: vec2, scale: number) {
+    static scaleAndAdd(result: vec2, a: vec2, b: vec2, scale: number) {
         result[0] = a[0] + b[0] * scale;
         result[1] = a[1] + b[1] * scale;
     }
-
-    export function distance(a: vec2, b: vec2): number {
+    static distance(a: vec2, b: vec2): number {
         const x = a[0] - b[0];
         const y = a[1] - b[1];
         return Math.hypot(x, y);
     }
-
-    export function squaredDistance(a: vec2, b: vec2): number {
+    static squaredDistance(a: vec2, b: vec2): number {
         const x = a[0] - b[0];
         const y = a[1] - b[1];
         return x * x + y * y;
     }
-
-    export function length(a: vec2): number {
+    static len(a: vec2): number {
         return Math.hypot(a[0], a[1]);
     }
-
-    export function squaredLength(a: vec2): number {
+    static squaredLen(a: vec2): number {
         const x = a[0];
         const y = a[1];
         return x * x + y * y;
     }
-
-    export function negate(result: vec2, a: vec2) {
+    static negate(result: vec2, a: vec2) {
         result[0] = -a[0];
         result[1] = -a[1];
     }
-
-    export function dot(a: vec2, b: vec2): number {
+    static dot(a: vec2, b: vec2): number {
         return a[0] * b[0] + a[1] * b[1];
     }
-
-    export function lerp(result: vec2, a: vec2, b: vec2, t: number) {
+    static lerp(result: vec2, a: vec2, b: vec2, t: number) {
         result[0] = a[0] + t * (b[0] - a[0]);
         result[1] = a[1] + t * (b[1] - a[1]);
     }
-
-    export function zero(result: vec2) {
+    static zero(result: vec2) {
         result[0] = 0;
         result[1] = 0;
     }
