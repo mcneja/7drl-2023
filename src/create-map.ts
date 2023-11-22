@@ -1113,6 +1113,14 @@ type PatrolNode = {
 
 function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
 
+    // Keep adjacencies that connect interior rooms via a door; shuffle them
+
+    const adjacenciesShuffled = adjacencies.filter((adj) =>
+        adj.door &&
+        rooms[adj.room_left].roomType !== RoomType.Exterior &&
+        rooms[adj.room_right].roomType !== RoomType.Exterior);
+    shuffleArray(adjacenciesShuffled);
+
     // Build a set of nodes for joining into routes. Initially there will be one per room.
     // More may be added if rooms participate in more than one route, or if they are
     // visited multiple times in the route.
@@ -1128,22 +1136,12 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
         nodes.push(node);
     }
 
-    // Remove adjacencies that don't connect interior rooms via a door; shuffle the remainder
-
-    const adjacenciesShuffled = [...adjacencies];
-    filterInPlace(adjacenciesShuffled, (adj) =>
-        adj.door &&
-        rooms[adj.room_left].roomType !== RoomType.Exterior &&
-        rooms[adj.room_right].roomType !== RoomType.Exterior);
-    shuffleArray(adjacenciesShuffled);
-
     // Join rooms onto the start or end (or both) of patrol routes
 
     for (const adj of adjacenciesShuffled) {
-        const iNode0 = adj.room_left;
-        const iNode1 = adj.room_right;
-        const node0 = nodes[iNode0];
-        const node1 = nodes[iNode1];
+        let node0 = nodes[adj.room_left];
+        let node1 = nodes[adj.room_right];
+
         if (node0.nodeNext == null && node1.nodePrev == null) {
             node0.nodeNext = node1;
             node1.nodePrev = node0;
@@ -1178,6 +1176,10 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
 
         splitPatrolRoute(node, pieceLength);
     }
+
+    // Convert patrol routes into directed graphs by doubling the nodes
+
+    convertOneWayRoutesToReversibleRoutes(nodes);
 
     // Join orphan rooms by generating new nodes in the existing paths
 
@@ -1257,33 +1259,25 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
             const nodeNext = node.nodeNext;
             const nodePrev = node.nodePrev;
 
+            if (nodeNext == null) {
+                continue;
+            }
+
+            if (nodePrev == null) {
+                continue;
+            }
+
             const iRoom = node.roomIndex;
-            const iRoomNext = nodeNext ? nodeNext.roomIndex : -1;
-            const iRoomPrev = nodePrev ? nodePrev.roomIndex : -1;
+            const iRoomNext = nodeNext.roomIndex;
+            const iRoomPrev = nodePrev.roomIndex;
 
             const posStart = vec2.create();
             const posEnd = vec2.create();
 
-            if (iRoomPrev === -1) {
-                const positions = activityStationPositions(gameMap, rooms[iRoom]);
-                if (positions.length > 0) {
-                    vec2.copy(posStart, positions[randomInRange(positions.length)]);
-                } else {
-                    posBesideDoor(posStart, rooms, adjacencies, iRoom, iRoomNext, gameMap);
-                }
-                posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
-
-                patrolPositions.push(vec2.clone(posStart));
-                patrolPositions.push(vec2.clone(posStart));
-            } else if (iRoomNext === -1) {
+            if (iRoomNext !== iRoomPrev) {
                 posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
-                const positions = activityStationPositions(gameMap, rooms[iRoom]);
-                if (positions.length > 0) {
-                    vec2.copy(posEnd, positions[randomInRange(positions.length)]);
-                } else {
-                    posBesideDoor(posEnd, rooms, adjacencies, iRoom, iRoomPrev, gameMap);
-                }
-            } else if (iRoomNext === iRoomPrev) {
+                posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
+            } else {
                 // Have to get ourselves from the door to an activity station and then back to the door.
                 posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
                 const positions = activityStationPositions(gameMap, rooms[iRoom]);
@@ -1303,20 +1297,11 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
 
                 vec2.copy(posStart, posEnd);
                 posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
-            } else {
-                posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
-                posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
             }
 
             const path = pathBetweenPoints(gameMap, posStart, posEnd);
             for (const pos of path) {
                 patrolPositions.push(pos);
-            }
-
-            if (iRoomNext === -1) {
-                patrolPositions.push(vec2.clone(posEnd));
-                patrolPositions.push(vec2.clone(posEnd));
-                patrolPositions.push(vec2.clone(posEnd));
             }
         }
 
@@ -1350,6 +1335,56 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
     }
    
     return patrolRoutes;
+}
+
+function convertOneWayRoutesToReversibleRoutes(nodes: Array<PatrolNode>) {
+    const nodesOriginal = [...nodes];
+
+    for (const node of nodesOriginal) {
+        node.visited = false;
+    }
+
+    for (const nodeOriginal of nodesOriginal) {
+        if (nodeOriginal.visited) {
+            continue;
+        }
+
+        visitRoute(nodeOriginal);
+
+        if (isLoopingPatrolRoute(nodeOriginal)) {
+            continue;
+        }
+
+        const nodeForward = startingNode(nodeOriginal);
+
+        // The start and end nodes do not get duplicated, but
+        // all nodes in between are duplicated and strung
+        // together from the end back to the start.
+
+        let nodeForwardNext = nodeForward.nodeNext;
+        let nodeReverseNext = nodeForward;
+
+        while (nodeForwardNext !== null && nodeForwardNext.nodeNext !== null) {
+            const nodeReverse = {
+                roomIndex: nodeForwardNext.roomIndex,
+                nodeNext: nodeReverseNext,
+                nodePrev: null,
+                visited: true,
+            };
+
+            nodes.push(nodeReverse);
+
+            nodeReverseNext.nodePrev = nodeReverse;
+
+            nodeForwardNext = nodeForwardNext.nodeNext;
+            nodeReverseNext = nodeReverse;
+        }
+
+        if (nodeForwardNext !== null) {
+            nodeReverseNext.nodePrev = nodeForwardNext;
+            nodeForwardNext.nodeNext = nodeReverseNext;
+        }
+    }
 }
 
 function shiftedPathCopy(patrolPath: Array<vec2>, offset: number): Array<vec2> {
@@ -2233,22 +2268,4 @@ function neighboringWalls(map: CellGrid, x: number, y: number): number {
     }
 
     return wallBits
-}
-
-function filterInPlace<T>(array: Array<T>, condition: (value: T) => boolean) {
-    let i = 0, j = 0;
-
-    while (i < array.length) {
-        const val = array[i];
-        if (condition(val)) {
-            if (i != j) {
-                array[j] = val;
-            }
-            ++j;
-        }
-        ++i;
-    };
-
-    array.length = j;
-    return array;
 }
