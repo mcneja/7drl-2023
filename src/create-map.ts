@@ -1106,19 +1106,12 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
 
 type PatrolNode = {
     roomIndex: number;
-    nodeIndexNext: number;
-    nodeIndexPrev: number;
+    nodeNext: PatrolNode | null;
+    nodePrev: PatrolNode | null;
     visited: boolean;
 }
 
 function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, adjacencies: Array<Adjacency>): Array<Array<vec2>> {
-    const roomIncluded = Array(rooms.length).fill(false);
-    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-        const roomType = rooms[iRoom].roomType;
-        if (roomType !== RoomType.Exterior) {
-            roomIncluded[iRoom] = true;
-        }
-    }
 
     // Build a set of nodes for joining into routes. Initially there will be one per room.
     // More may be added if rooms participate in more than one route, or if they are
@@ -1126,113 +1119,105 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
 
     const nodes: Array<PatrolNode> = [];
     for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-        nodes.push({
+        const node = {
             roomIndex: iRoom,
-            nodeIndexNext: -1,
-            nodeIndexPrev: -1,
+            nodeNext: null,
+            nodePrev: null,
             visited: false,
-        });
+        };
+        nodes.push(node);
     }
 
-    // Shuffle the room adjacencies
+    // Remove adjacencies that don't connect interior rooms via a door; shuffle the remainder
 
     const adjacenciesShuffled = [...adjacencies];
+    filterInPlace(adjacenciesShuffled, (adj) =>
+        adj.door &&
+        rooms[adj.room_left].roomType !== RoomType.Exterior &&
+        rooms[adj.room_right].roomType !== RoomType.Exterior);
     shuffleArray(adjacenciesShuffled);
 
     // Join rooms onto the start or end (or both) of patrol routes
 
     for (const adj of adjacenciesShuffled) {
-        if (!adj.door) {
-            continue;
-        }
-        const iRoom0 = adj.room_left;
-        const iRoom1 = adj.room_right;
-        if (!roomIncluded[iRoom0] || !roomIncluded[iRoom1]) {
-            continue;
-        }
-        const node0 = nodes[iRoom0];
-        const node1 = nodes[iRoom1];
-        if (node0.nodeIndexNext == -1 && node1.nodeIndexPrev == -1) {
-            node0.nodeIndexNext = iRoom1;
-            node1.nodeIndexPrev = iRoom0;
-        } else if (node1.nodeIndexNext == -1 && node0.nodeIndexPrev == -1) {
-            node1.nodeIndexNext = iRoom0;
-            node0.nodeIndexPrev = iRoom1;
-        } else if (node0.nodeIndexNext == -1 && node1.nodeIndexNext == -1) {
-            flipReverse(nodes, iRoom1);
-            node0.nodeIndexNext = iRoom1;
-            node1.nodeIndexPrev = iRoom0;
-        } else if (node0.nodeIndexPrev == -1 && node1.nodeIndexPrev == -1) {
-            flipForward(nodes, iRoom0);
-            node0.nodeIndexNext = iRoom1;
-            node1.nodeIndexPrev = iRoom0;
+        const iNode0 = adj.room_left;
+        const iNode1 = adj.room_right;
+        const node0 = nodes[iNode0];
+        const node1 = nodes[iNode1];
+        if (node0.nodeNext == null && node1.nodePrev == null) {
+            node0.nodeNext = node1;
+            node1.nodePrev = node0;
+        } else if (node1.nodeNext == null && node0.nodePrev == null) {
+            node1.nodeNext = node0;
+            node0.nodePrev = node1;
+        } else if (node0.nodeNext == null && node1.nodeNext == null) {
+            flipReverse(node1);
+            node0.nodeNext = node1;
+            node1.nodePrev = node0;
+        } else if (node0.nodePrev == null && node1.nodePrev == null) {
+            flipForward(node0);
+            node0.nodeNext = node1;
+            node1.nodePrev = node0;
         }
     }
 
     // Split long routes into separate pieces
 
-    for (let iNode = 0; iNode < nodes.length; ++iNode) {
-        if (nodes[iNode].visited) {
+    for (const node of nodes) {
+        if (node.visited) {
             continue;
         }
 
-        visitRoute(nodes, iNode);
+        visitRoute(node);
 
-        if (isLoopingPatrolRoute(nodes, iNode)) {
+        if (isLoopingPatrolRoute(node)) {
             continue;
         }
 
         const pieceLength = Math.max(3, 10 - level);
 
-        splitPatrolRoute(nodes, iNode, pieceLength);
+        splitPatrolRoute(node, pieceLength);
     }
 
     // Join orphan rooms by generating new nodes in the existing paths
 
     for (const adj of adjacenciesShuffled) {
-        if (!adj.door) {
-            continue;
-        }
-        if (!roomIncluded[adj.room_left] || !roomIncluded[adj.room_right]) {
-            continue;
-        }
-
         const iNode0 = adj.room_left;
         const iNode1 = adj.room_right;
 
         const node0 = nodes[iNode0];
         const node1 = nodes[iNode1];
 
-        if (node0.nodeIndexNext == -1 && node0.nodeIndexPrev == -1 && node1.nodeIndexNext != -1 && node1.nodeIndexPrev != -1) {
-            // Old: node1 <-> node3
-            // New: node1 <-> node0 <-> node2 <-> node3
-            const iNode2 = nodes.length;
-            const iNode3 = node1.nodeIndexNext;
-            nodes.push({
+        if (node0.nodeNext == null && node0.nodePrev == null && node1.nodeNext != null && node1.nodePrev != null) {
+            // Old: node1 --> node3
+            // New: node1 --> node0 --> node2 --> node3 (where node2 is the same room as node1)
+            const node3 = node1.nodeNext;
+            const node2 = {
                 roomIndex: node1.roomIndex,
-                nodeIndexNext: node1.nodeIndexNext,
-                nodeIndexPrev: iNode0,
+                nodeNext: node3,
+                nodePrev: node0,
                 visited: false,
-            });
-            node1.nodeIndexNext = iNode0;
-            node0.nodeIndexPrev = iNode1;
-            node0.nodeIndexNext = iNode2;
-            nodes[iNode3].nodeIndexPrev = iNode2;
-        } else if (node0.nodeIndexNext != -1 && node0.nodeIndexPrev != -1 && node1.nodeIndexNext == -1 && node1.nodeIndexPrev == -1) {
+            };
+            nodes.push(node2);
+            node1.nodeNext = node0;
+            node0.nodePrev = node1;
+            node0.nodeNext = node2;
+            node3.nodePrev = node2;
+        } else if (node0.nodeNext != null && node0.nodePrev != null && node1.nodeNext == null && node1.nodePrev == null) {
             // Old: node0 <-> node3
             // New: node0 <-> node1 <-> node2 <-> node3
-            const iNode2 = nodes.length;
-            const iNode3 = node0.nodeIndexNext;
-            nodes.push({
+            const node3 = node0.nodeNext;
+            const node2 = {
                 roomIndex: node0.roomIndex,
-                nodeIndexNext: node0.nodeIndexNext,
-                nodeIndexPrev: iNode1,
+                nodeNext: node0.nodeNext,
+                nodePrev: node1,
                 visited: false,
-            });
-            node0.nodeIndexNext = iNode1;
-            node1.nodeIndexNext = iNode2;
-            node1.nodeIndexPrev = iNode0;
-            nodes[iNode3].nodeIndexPrev = iNode2;
+            };
+            nodes.push(node2);
+            node0.nodeNext = node1;
+            node1.nodeNext = node2;
+            node1.nodePrev = node0;
+            node3.nodePrev = node2;
         }
     }
 
@@ -1244,32 +1229,33 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
     // outgoing door, and if there is no outgoing door,
     // the path ends next to the incoming door.
 
-    const nodeHandled = Array(nodes.length).fill(false);
+    for (const node of nodes) {
+        node.visited = false;
+    }
+
     const patrolRoutes: Array<Array<vec2>> = [];
 
-    for (let iNodeIter = 0; iNodeIter < nodes.length; ++iNodeIter) {
-        const nodeIter = nodes[iNodeIter];
-        if (nodeHandled[iNodeIter]) {
+    for (const nodeIter of nodes) {
+        if (nodeIter.visited) {
             continue;
         }
 
-        if (nodeIter.nodeIndexNext == -1 && nodeIter.nodeIndexPrev == -1) {
-            nodeHandled[iNodeIter] = true;
+        if (nodeIter.nodeNext == null && nodeIter.nodePrev == null) {
+            nodeIter.visited = true;
             continue;
         }
 
-        const iNodeStart = startingNodeIndex(nodes, iNodeIter);
+        const nodeStart = startingNode(nodeIter);
 
         const patrolPositions: Array<vec2> = [];
-        for (let iNode = iNodeStart; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
-            if (nodeHandled[iNode]) {
+        for (let node: PatrolNode | null = nodeStart; node != null; node = node.nodeNext) {
+            if (node.visited) {
                 break;
             }
-            nodeHandled[iNode] = true;
+            node.visited = true;
 
-            const node = nodes[iNode];
-            const nodeNext = (node.nodeIndexNext == -1) ? null : nodes[node.nodeIndexNext];
-            const nodePrev = (node.nodeIndexPrev == -1) ? null : nodes[node.nodeIndexPrev];
+            const nodeNext = node.nodeNext;
+            const nodePrev = node.nodePrev;
 
             const iRoom = node.roomIndex;
             const iRoomNext = nodeNext ? nodeNext.roomIndex : -1;
@@ -1377,94 +1363,94 @@ function shiftedPathCopy(patrolPath: Array<vec2>, offset: number): Array<vec2> {
     return patrolPathNew;
 }
 
-function flipReverse(nodes: Array<PatrolNode>, iNode: number) {
-    let iNodeVisited = -1;
-    while (iNode != -1) {
-        const iRoomToVisit = nodes[iNode].nodeIndexPrev;
-        nodes[iNode].nodeIndexNext = iRoomToVisit;
-        nodes[iNode].nodeIndexPrev = iNodeVisited;
-        iNodeVisited = iNode;
-        iNode = iRoomToVisit;
+function flipReverse(node: PatrolNode | null) {
+    let nodeVisited = null;
+    while (node != null) {
+        const nodeToVisit = node.nodePrev;
+        node.nodeNext = nodeToVisit;
+        node.nodePrev = nodeVisited;
+        nodeVisited = node;
+        node = nodeToVisit;
     }
 }
 
-function flipForward(nodes: Array<PatrolNode>, iNode: number) {
-    let iNodeVisited = -1;
-    while (iNode != -1) {
-        const iRoomToVisit = nodes[iNode].nodeIndexNext;
-        nodes[iNode].nodeIndexPrev = iRoomToVisit;
-        nodes[iNode].nodeIndexNext = iNodeVisited;
-        iNodeVisited = iNode;
-        iNode = iRoomToVisit;
+function flipForward(node: PatrolNode | null) {
+    let nodeVisited = null;
+    while (node != null) {
+        const nodeToVisit = node.nodeNext;
+        node.nodePrev = nodeToVisit;
+        node.nodeNext = nodeVisited;
+        nodeVisited = node;
+        node = nodeToVisit;
     }
 }
 
-function startingNodeIndex(nodes: Array<PatrolNode>, iNode: number) {
-    let iNodeStart = iNode;
-    while (nodes[iNodeStart].nodeIndexPrev != -1) {
-        iNodeStart = nodes[iNodeStart].nodeIndexPrev;
-        if (iNodeStart == iNode) {
+function startingNode(node: PatrolNode): PatrolNode {
+    let nodeStart = node;
+    while (nodeStart.nodePrev != null) {
+        nodeStart = nodeStart.nodePrev;
+        if (nodeStart == node) {
             break;
         }
     }
-    return iNodeStart;
+    return nodeStart;
 }
 
-function isLoopingPatrolRoute(nodes: Array<PatrolNode>, iNodeStart: number) {
-    for (let iNode = nodes[iNodeStart].nodeIndexNext; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
-        if (iNode == iNodeStart) {
+function isLoopingPatrolRoute(nodeStart: PatrolNode): boolean {
+    for (let node = nodeStart.nodeNext; node != null; node = node.nodeNext) {
+        if (node == nodeStart) {
             return true;
         }
     }
     return false;
 }
 
-function patrolRouteLength(nodes: Array<PatrolNode>, iNodeAny: number) {
+function patrolRouteLength(nodeAny: PatrolNode): number {
     let c = 0;
-    let iNodeStart = startingNodeIndex(nodes, iNodeAny);
-    for (let iNode = iNodeStart; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
+    let nodeStart = startingNode(nodeAny);
+    for (let node: PatrolNode | null = nodeStart; node != null; node = node.nodeNext) {
         ++c;
-        if (nodes[iNode].nodeIndexNext == iNodeStart) {
+        if (node.nodeNext == nodeStart) {
             break;
         }
     }
     return c;
 }
 
-function visitRoute(nodes: Array<PatrolNode>, iNodeAny: number) {
-    let iNodeStart = startingNodeIndex(nodes, iNodeAny);
-    for (let iNode = iNodeStart; iNode != -1; iNode = nodes[iNode].nodeIndexNext) {
-        nodes[iNode].visited = true;
-        if (nodes[iNode].nodeIndexNext == iNodeStart) {
+function visitRoute(nodeAny: PatrolNode) {
+    let nodeStart = startingNode(nodeAny);
+    for (let node: PatrolNode | null = nodeStart; node != null; node = node.nodeNext) {
+        node.visited = true;
+        if (node.nodeNext == nodeStart) {
             break;
         }
     }
 }
 
-function splitPatrolRoute(nodes: Array<PatrolNode>, iNodeAny: number, pieceLength: number) {
-    const iNodeStart = startingNodeIndex(nodes, iNodeAny);
-    let iNode = iNodeStart;
+function splitPatrolRoute(nodeAny: PatrolNode, pieceLength: number) {
+    const nodeStart = startingNode(nodeAny);
+    let node = nodeStart;
     let cNode = 0;
     while (true) {
-        const iNodeNext = nodes[iNode].nodeIndexNext;
-        if (iNodeNext == -1) {
+        const nodeNext = node.nodeNext;
+        if (nodeNext == null) {
             break;
         }
 
-        if (patrolRouteLength(nodes, iNode) < 2 * pieceLength) {
+        if (patrolRouteLength(node) < 2 * pieceLength) {
             break;
         }
 
         ++cNode;
         if (cNode >= pieceLength) {
             cNode = 0;
-            nodes[iNode].nodeIndexNext = -1;
-            nodes[iNodeNext].nodeIndexPrev = -1;
+            node.nodeNext = null;
+            nodeNext.nodePrev = null;
         }
 
-        iNode = iNodeNext;
+        node = nodeNext;
 
-        if (iNode == iNodeStart) {
+        if (node == nodeStart) {
             break;
         }
     }
@@ -2247,4 +2233,22 @@ function neighboringWalls(map: CellGrid, x: number, y: number): number {
     }
 
     return wallBits
+}
+
+function filterInPlace<T>(array: Array<T>, condition: (value: T) => boolean) {
+    let i = 0, j = 0;
+
+    while (i < array.length) {
+        const val = array[i];
+        if (condition(val)) {
+            if (i != j) {
+                array[j] = val;
+            }
+            ++j;
+        }
+        ++i;
+    };
+
+    array.length = j;
+    return array;
 }
