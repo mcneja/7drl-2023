@@ -397,18 +397,21 @@ export class SubtitledHowlGroup {
         this.mute = false;
         shuffleArray(this.sounds);
     }
-    play(volume:number):SubtitledSound|null {
-        if(this.mute) return null;
+    play(volume:number): SubtitledSound {
         const subSound = this.next();
-        subSound.sound.volume(volume);
-        const id = subSound.sound.play()
-        if(this.soundPool!==null) this.soundPool.queue(subSound.sound, id);
+        if (!this.mute) {
+            subSound.sound.volume(volume);
+            const id = subSound.sound.play();
+            if (this.soundPool !== null) {
+                this.soundPool.queue(subSound.sound, id);
+            }
+        }
         return subSound;
     }
     next(): SubtitledSound {
         const subtitledSound = this.sounds[this.soundNum];
         ++this.soundNum;
-        if (this.soundNum==this.sounds.length) {
+        if (this.soundNum === this.sounds.length) {
             this.soundNum = 0;
             shuffleArray(this.sounds);
         }
@@ -450,7 +453,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet, howlPool);
     subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);
     subtitledSounds.guardSeeThief = new SubtitledHowlGroup(guardSeeThiefSet), howlPool;
-    subtitledSounds.guardFinishLookingSet = new SubtitledHowlGroup(guardFinishLookingSet, howlPool);
+    subtitledSounds.guardFinishLooking = new SubtitledHowlGroup(guardFinishLookingSet, howlPool);
     subtitledSounds.guardChase = new SubtitledHowlGroup(guardChaseSet, howlPool);
     subtitledSounds.guardEndChase = new SubtitledHowlGroup(guardEndChaseSet, howlPool);
     subtitledSounds.guardHearGuard = new SubtitledHowlGroup(guardHearGuardSet, howlPool);
