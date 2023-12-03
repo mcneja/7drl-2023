@@ -657,139 +657,6 @@ function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement
     });
 }
 
-const altTileIndexForTerrainType: Array<[number, number]> = [
-    [1, 4], // TerrainType.GroundNormal,
-    [7, 3], // TerrainType.GroundGrass,
-    [7, 7], // TerrainType.GroundWater,
-    [1, 4], // TerrainType.GroundMarble,
-    [1, 4], // TerrainType.GroundWood,
-    [1, 4], // TerrainType.GroundWoodCreaky,
-    [0, 0], // TerrainType.Wall0000,
-    [3, 2], // TerrainType.Wall0001,
-    [3, 3], // TerrainType.Wall0010,
-    [3, 5], // TerrainType.Wall0011,
-    [3, 1], // TerrainType.Wall0100,
-    [2, 3], // TerrainType.Wall0101,
-    [2, 1], // TerrainType.Wall0110,
-    [2, 5], // TerrainType.Wall0111,
-    [3, 0], // TerrainType.Wall1000,
-    [2, 3], // TerrainType.Wall1001,
-    [2, 2], // TerrainType.Wall1010,
-    [2, 4], // TerrainType.Wall1011,
-    [3, 4], // TerrainType.Wall1100,
-    [2, 7], // TerrainType.Wall1101,
-    [2, 8], // TerrainType.Wall1110,
-    [0, 0], // TerrainType.Wall1111,
-    [0, 4], // TerrainType.OneWayWindowE,
-    [0, 3], // TerrainType.OneWayWindowW,
-    [0, 2], // TerrainType.OneWayWindowN,
-    [1, 2], // TerrainType.OneWayWindowS,
-    [1, 0], // TerrainType.PortcullisNS,
-    [1, 1], // TerrainType.PortcullisEW,
-    [0, 5], // TerrainType.DoorNS,
-    [0, 6], // TerrainType.DoorEW,
-    [0, 5], // TerrainType.GardenDoorNS,
-    [0, 6], // TerrainType.GardenDoorEW,
-];
-
-const tileIndexForTerrainType: Array<number> = [
-    112, // TerrainType.GroundNormal,
-    116, // TerrainType.GroundGrass,
-    118, // TerrainType.GroundWater,
-    120, // TerrainType.GroundMarble,
-    122, // TerrainType.GroundWood,
-    122, // TerrainType.GroundWoodCreaky,
-    64, // TerrainType.Wall0000,
-    65, // TerrainType.Wall0001,
-    65, // TerrainType.Wall0010,
-    65, // TerrainType.Wall0011,
-    66, // TerrainType.Wall0100,
-    67, // TerrainType.Wall0101,
-    70, // TerrainType.Wall0110,
-    73, // TerrainType.Wall0111,
-    66, // TerrainType.Wall1000,
-    68, // TerrainType.Wall1001,
-    69, // TerrainType.Wall1010,
-    72, // TerrainType.Wall1011,
-    66, // TerrainType.Wall1100,
-    74, // TerrainType.Wall1101,
-    71, // TerrainType.Wall1110,
-    75, // TerrainType.Wall1111,
-    52, // TerrainType.OneWayWindowE,
-    53, // TerrainType.OneWayWindowW,
-    54, // TerrainType.OneWayWindowN,
-    55, // TerrainType.OneWayWindowS,
-    50, // TerrainType.PortcullisNS,
-    50, // TerrainType.PortcullisEW,
-    77, // TerrainType.DoorNS,
-    76, // TerrainType.DoorEW,
-    77, // TerrainType.GardenDoorNS,
-    76, // TerrainType.GardenDoorEW,
-];
-
-const colorForTerrainType: Array<number> = [
-    colorPreset.lightGray, // TerrainType.GroundNormal,
-    colorPreset.darkGreen, // TerrainType.GroundGrass,
-    colorPreset.lightBlue, // TerrainType.GroundWater,
-    colorPreset.darkCyan, // TerrainType.GroundMarble,
-    colorPreset.darkBrown, // TerrainType.GroundWood,
-    0xff004070, // TerrainType.GroundWoodCreaky,
-    colorPreset.lightGray, // TerrainType.Wall0000,
-    colorPreset.lightGray, // TerrainType.Wall0001,
-    colorPreset.lightGray, // TerrainType.Wall0010,
-    colorPreset.lightGray, // TerrainType.Wall0011,
-    colorPreset.lightGray, // TerrainType.Wall0100,
-    colorPreset.lightGray, // TerrainType.Wall0101,
-    colorPreset.lightGray, // TerrainType.Wall0110,
-    colorPreset.lightGray, // TerrainType.Wall0111,
-    colorPreset.lightGray, // TerrainType.Wall1000,
-    colorPreset.lightGray, // TerrainType.Wall1001,
-    colorPreset.lightGray, // TerrainType.Wall1010,
-    colorPreset.lightGray, // TerrainType.Wall1011,
-    colorPreset.lightGray, // TerrainType.Wall1100,
-    colorPreset.lightGray, // TerrainType.Wall1101,
-    colorPreset.lightGray, // TerrainType.Wall1110,
-    colorPreset.lightGray, // TerrainType.Wall1111,
-    colorPreset.lightGray, // TerrainType.OneWayWindowE,
-    colorPreset.lightGray, // TerrainType.OneWayWindowW,
-    colorPreset.lightGray, // TerrainType.OneWayWindowN,
-    colorPreset.lightGray, // TerrainType.OneWayWindowS,
-    colorPreset.lightGray, // TerrainType.PortcullisNS,
-    colorPreset.lightGray, // TerrainType.PortcullisEW,
-    colorPreset.lightGray, // TerrainType.DoorNS,
-    colorPreset.lightGray, // TerrainType.DoorEW,
-    colorPreset.darkGreen, // TerrainType.GardenDoorNS,
-    colorPreset.darkGreen, // TerrainType.GardenDoorEW,
-];
-
-const tileIndexForItemType: Array<number> = [
-    100, // ItemType.Chair,
-    98, // ItemType.Table,
-    96, // ItemType.Bush,
-    110, // ItemType.Coin,
-    89, // ItemType.DoorNS,
-    87, // ItemType.DoorEW,
-    50, // ItemType.PortcullisNS,
-    50, // ItemType.PortcullisEW,
-    80, // ItemType.TorchUnlit,
-    80, // ItemType.TorchLit,
-];
-
-const colorForItemType: Array<number> = [
-    colorPreset.darkBrown, // ItemType.Chair,
-    colorPreset.darkBrown, // ItemType.Table,
-    colorPreset.darkGreen, // ItemType.Bush,
-    colorPreset.lightYellow, // ItemType.Coin,
-    colorPreset.darkBrown, // ItemType.DoorNS,
-    colorPreset.darkBrown, // ItemType.DoorEW,
-    colorPreset.lightGray, // ItemType.PortcullisNS,
-    colorPreset.lightGray, // ItemType.PortcullisEW,
-    colorPreset.darkGray, // ItemType.TorchUnlit,
-    colorPreset.lightYellow, // ItemType.TorchLit,
-]
-
-const unlitColor: number = colorPreset.lightBlue;
-
 function renderWorld(state: State, renderer: Renderer) {
     const mappedItems:{[id:number]:Array<Item>} = {}; //Sweep over the items and allocate them to a map
     for(let item of state.gameMap.items) {
@@ -812,37 +679,47 @@ function renderWorld(state: State, renderer: Renderer) {
             const lit = alwaysLit || cell.lit;
 
             //Draw tile
-            if([TerrainType.PortcullisEW].includes(terrainType)
-                && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lit);
-            } else {
-                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[terrainType], lit);
+            let tileInfo = renderer.tileSet.terrainTiles[terrainType];
+            let tileIndex = tileInfo.textureIndex;
+            if (terrainType === TerrainType.PortcullisEW &&
+                state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                tileIndex = renderer.tileSet.terrainTiles[TerrainType.PortcullisNS].textureIndex;
             }
+            const color = lit ? tileInfo.color : tileInfo.unlitColor;
+            renderer.addGlyph(x, y, x+1, y+1, tileIndex, color);
+
             //Draw border for water
             if(terrainType===TerrainType.GroundWater) {
                 const ledge = renderer.tileSet.ledgeTiles;
                 let ctr = 0;
                 for(let adj of [[0,1],[0,-1],[-1,0],[1,0]]) {
                     const cell = state.gameMap.cells.at(x+adj[0],y+adj[1]);
-                    if(cell.type!==TerrainType.GroundWater) {
-                        renderer.addGlyph(x, y, x+1, y+1, ledge[ctr], lit);
+                    if (cell.type !== TerrainType.GroundWater) {
+                        renderer.addGlyph(x, y, x+1, y+1, ledge[ctr].textureIndex, color);
                     }
-                    ctr++;
+                    ++ctr;
                 }
             }
 
             const ind = state.gameMap.cells.index(x, y);
-            if(!(ind in mappedItems)) continue;
-            for(let item of mappedItems[ind]) {
+            if (!(ind in mappedItems)) {
+                continue;
+            }
+
+            for (let item of mappedItems[ind]) {
                 const alwaysLit = (item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) || item.type == ItemType.Coin;
                 const lit = alwaysLit || cell.lit;
 
-                if([TerrainType.PortcullisEW].includes(terrainType)
-                    && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                        renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lit);    
-                } else {
-                    renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[item.type], lit);    
+                let itemType = item.type;
+                if (terrainType === TerrainType.PortcullisEW &&
+                    state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                    itemType = ItemType.PortcullisNS;
                 }
+
+                let tileInfo = renderer.tileSet.itemTiles[itemType];
+                const color = lit ? tileInfo.color : tileInfo.unlitColor;
+
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);    
             }
         }
     }
@@ -861,51 +738,49 @@ function renderPlayer(state: State, renderer: Renderer) {
     //     !lit ? colorPreset.lightBlue :
     //     colorPreset.lightGray;
 
-    const p = renderer.tileSet.playerTiles;
+    const tileInfoIndex =
+        player.damagedLastTurn ? 1 :
+        player.noisy ? 3 :
+        hidden ? 2 :
+        !lit ? 4 :
+        0;
 
-    let tileInfo:TileInfo = renderer.tileSet.unlitTile;
-    tileInfo =
-        player.damagedLastTurn ? p[1] :
-        player.noisy ? p[3] :
-        hidden ? p[2] :
-        !lit ? p[4] :
-        p[0];
+    const tileInfo = renderer.tileSet.playerTiles[tileInfoIndex];
+    const color = lit ? tileInfo.color : tileInfo.unlitColor;
 
-    renderer.addGlyph(x, y, x+1, y+1, tileInfo);
+    renderer.addGlyph(x, y, x+1, y+1, tileInfo.textureIndex, color);
 }
 
 function renderGuards(state: State, renderer: Renderer) {
     for (const guard of state.gameMap.guards) {
-        let tileIndex = 0 + tileIndexOffsetForDir(guard.dir);
-
         const cell = state.gameMap.cells.at(guard.pos[0], guard.pos[1]);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
         }
 
-        let lit = true;
-        if(!visible) tileIndex+=4;
-        else if(guard.mode == GuardMode.Patrol && !guard.speaking && !cell.lit) lit=false;
-        else tileIndex+=8;
+        const lit = cell.lit || guard.speaking;// || guard.mode !== GuardMode.Patrol;
+        const tileIndex = tileIndexOffsetForDir(guard.dir) + (visible ? 0 : 4);
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
+        const color = lit ? tileInfo.color : tileInfo.unlitColor;
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
         const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
         const x = guard.pos[0] + offX;
         const y = guard.pos[1];
-        if(guard.hasTorch) {
-            let g0 = guard.pos[0]+guard.dir[0]*0.375+guard.dir[1]*0.375;
-            let g1 = guard.pos[1];
+        if (guard.hasTorch) {
+            let g0 = x + guard.dir[0]*0.375 + guard.dir[1]*0.375;
+            let g1 = y;
+            const torchTileInfo = renderer.tileSet.itemTiles[ItemType.TorchCarry];
             if(guard.dir[1]>0) {
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, torchTileInfo.color);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);
             } else {
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, true);    
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, renderer.tileSet.itemTiles[ItemType.TorchCarry], true);
+                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);    
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, torchTileInfo.color);
             }
+        } else {
+            renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo.textureIndex, color);
         }
-        else renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
-        // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
 }
 
 
@@ -927,7 +802,9 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         const x = guard.pos[0];
         const y = guard.pos[1] + 0.625;
 
-        renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.guardStateTiles[guardState], true);
+        const textureIndex = renderer.tileSet.guardStateIconTextureIndex[guardState];
+
+        renderer.addGlyph(x, y, x+1, y+1, textureIndex);
     }
 
     // Render an icon over the player if the player is being noisy
@@ -935,7 +812,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     if (state.player.noisy) {
         const x = state.player.pos[0];
         const y = state.player.pos[1] - 0.5;
-        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, true);
+        renderer.addGlyph(x, y, x+1, y+1, 104, 0x80ffffff);
     }
 }
 
@@ -991,7 +868,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:3, color:0xffffffff}, true);
+                renderer.addGlyph(x, y, x+1, y+1, 3, 0xffffffff);
             }
         }
     }
@@ -1004,7 +881,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, true);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, 92, 0xff80ff80);
         }
     }
 }
@@ -1448,10 +1325,7 @@ function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
     const colorBackground = 0xf0101010;
 
     // Draw a stretched box to make a darkened background for the text.
-    renderer.addGlyph(
-        -2, -1, maxLineLength + 2, lines.length + 1,
-        {textureIndex:219, color:colorBackground}
-    );
+    renderer.addGlyph(-2, -1, maxLineLength + 2, lines.length + 1, 219, colorBackground);
 
     for (let i = 0; i < lines.length; ++i) {
         const row = lines.length - (1 + i);
@@ -1462,10 +1336,7 @@ function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
                 continue;
             }
             const glyphIndex = lines[i].charCodeAt(j);
-            renderer.addGlyph(
-                col, row, col + 1, row + 1,
-                {textureIndex:glyphIndex, color:colorText}
-            );
+            renderer.addGlyph(col, row, col + 1, row + 1, glyphIndex, colorText);
         }
     }
 
@@ -1489,7 +1360,7 @@ function renderHelp(renderer: Renderer, screenSize: vec2, state: State) {
             -1);
 
         function putGlyph(x: number, y: number, glyph: number) {
-            renderer.addGlyph(x, y + 0.125, x+1, y+1.125, {textureIndex: glyph, color: colorPreset.white});
+            renderer.addGlyph(x, y + 0.125, x+1, y+1.125, glyph, colorPreset.white);
         }
 
         renderer.start(matScreenFromTextArea, 1);
@@ -1531,7 +1402,7 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: strin
 
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
     const barBackgroundColor = 0xff101010;
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, 219, barBackgroundColor);
 
     const messageX = Math.floor((statusBarTileSizeX - message.length) / 2 + 0.5);
     putString(renderer, messageX, message, colorPreset.lightGray);
@@ -1542,7 +1413,7 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: strin
 function putString(renderer: Renderer, x: number, s: string, color: number) {
     for (let i = 0; i < s.length; ++i) {
         const glyphIndex = s.charCodeAt(i);
-        renderer.addGlyph(x + i, 0, x + i + 1, 1, {textureIndex:glyphIndex, color:color});
+        renderer.addGlyph(x + i, 0, x + i + 1, 1, glyphIndex, color);
     }
 }
 
@@ -1565,7 +1436,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
     const barBackgroundColor = 0xff101010;
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, 219, barBackgroundColor);
 
     const healthX = 1;
 
@@ -1574,7 +1445,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     for (let i = 0; i < maxPlayerHealth; ++i) {
         const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
         const glyphHeart = 3;
-        renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
+        renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, glyphHeart, color);
     }
 
     // Underwater indicator
@@ -1587,7 +1458,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
         for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
             const glyphBubble = 9;
-            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
+            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, glyphBubble, colorPreset.lightCyan);
         }
     }
 
@@ -1652,10 +1523,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
     const colorBackground = 0xf0101010;
 
     // Draw a stretched box to make a darkened background for the text.
-    renderer.addGlyph(
-        -2, -1, maxLineLength + 2, lines.length + 1,
-        {textureIndex:219, color:colorBackground}
-    );
+    renderer.addGlyph(-2, -1, maxLineLength + 2, lines.length + 1, 219, colorBackground);
 
     for (let i = 0; i < lines.length; ++i) {
         const row = lines.length - (1 + i);
@@ -1666,10 +1534,7 @@ function renderTextLines(renderer: Renderer, screenSize: vec2, lines: Array<stri
                 continue;
             }
             const glyphIndex = lines[i].charCodeAt(j);
-            renderer.addGlyph(
-                col, row, col + 1, row + 1,
-                {textureIndex:glyphIndex, color:colorText}
-            );
+            renderer.addGlyph(col, row, col + 1, row + 1, glyphIndex, colorText);
         }
     }
 

@@ -10,7 +10,7 @@ class Renderer {
     getScreenSize(screenSize: vec2) {}
     beginFrame = (screenSize:vec2) => {}
     start(matScreenFromWorld: mat4, textureIndex: number) {}
-    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) {}
+    addGlyph(x0: number, y0: number, x1: number, y1: number, tileIndex: number, color: number = 0xffffffff) {}
     flush() {}
     fontTileSet: FontTileSet;
     tileSet: TileSet;
@@ -107,7 +107,7 @@ class Renderer {
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
         }
 
-        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:boolean=true) => {
+        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileIndex: number, color: number = 0xffffffff) => {
             if (numQuads >= maxQuads) {
                 this.flush();
             }
@@ -115,11 +115,8 @@ class Renderer {
             x1 = x0+(x1-x0)*tileRatios[0];
             y1 = y0+(y1-y0)*tileRatios[1];
 
-            const color = lit? tileInfo.color? tileInfo.color:0xffffffff
-                    : tileInfo.unlitColor? tileInfo.unlitColor:0xffffffff;
-
             const i = numQuads * wordsPerQuad;
-            const srcBase = tileInfo.textureIndex << 16;
+            const srcBase = tileIndex << 16;
 
             vertexDataAsFloat32[i+0] = x0;
             vertexDataAsFloat32[i+1] = y0;
