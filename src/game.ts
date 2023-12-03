@@ -5,11 +5,9 @@ import { GuardMode, guardActAll, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
-import { Popups, PopupType } from './popups';
+import { Popups } from './popups';
 
 import * as colorPreset from './color-preset';
-import { type } from 'os';
-import { stat } from 'fs';
 
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
@@ -759,7 +757,7 @@ function renderGuards(state: State, renderer: Renderer) {
             continue;
         }
 
-        const lit = cell.lit || guard.speaking;// || guard.mode !== GuardMode.Patrol;
+        const lit = cell.lit || guard.speaking || guard.mode !== GuardMode.Patrol;
         const tileIndex = tileIndexOffsetForDir(guard.dir) + (visible ? 0 : 4);
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         const color = lit ? tileInfo.color : tileInfo.unlitColor;
