@@ -43,6 +43,10 @@ class Guard {
     patrolPath: Array<vec2>;
     patrolPathIndex: number;
 
+    // Animation
+    dpos: vec2;
+    attacking: boolean;
+
     constructor(patrolPath: Array<vec2>, pathIndexStart: number, map: GameMap) {
         const posStart = patrolPath[pathIndexStart];
         this.pos = vec2.clone(posStart);
@@ -59,21 +63,32 @@ class Guard {
         this.modeTimeout = 0;
         this.patrolPath = patrolPath;
         this.patrolPathIndex = pathIndexStart;
+        this.dpos = [0, 0];
+        this.attacking = false;
 
         this.updateDirInitial();
     }
 
     overheadIcon(): number {
-        if (isRelaxedGuardMode(this.mode)) {
-            return GuardStates.Relaxed;
+        if (this.mode === GuardMode.ChaseVisibleTarget) {
+            return GuardStates.Chasing;
+        }
+
+        if (!isRelaxedGuardMode(this.mode)) {
+            return GuardStates.Alerted;
         }
     
-        return (this.mode == GuardMode.ChaseVisibleTarget) ? GuardStates.Chasing : GuardStates.Alerted;
+        return GuardStates.Relaxed;
     }
 
-    act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
+    act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>, uAnimateTurn: number) {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
+
+        let posPrevAnimated = vec2.create();
+        this.getPosAnimated(posPrevAnimated, uAnimateTurn);
+
+        let attacking = false;
     
         // See if senses will kick us into a new mode
 
@@ -134,6 +149,7 @@ class Guard {
                         popups.add(PopupType.Damage, this.pos);
                     }
                     player.applyDamage(1);
+                    attacking = true;
                 }
             } else {
                 this.moveTowardPosition(this.goal, map, player);
@@ -211,6 +227,16 @@ class Guard {
             }
         }
     
+        // Fill in attacking flag and movement delta
+
+        this.attacking = attacking;
+
+        if (attacking) {
+            vec2.subtract(this.dpos, player.pos, posPrevAnimated);
+        } else {
+            vec2.subtract(this.dpos, posPrevAnimated, this.pos);
+        }
+
         // Clear heard-thief flag
     
         this.heardThief = false;
@@ -394,6 +420,13 @@ class Guard {
 
         return undefined;
     }
+
+    getPosAnimated(pos: vec2, uAnimateTurn: number) {
+        if (this.attacking) {
+            uAnimateTurn = Math.min(uAnimateTurn, 1.0 - uAnimateTurn);
+        }
+        vec2.scaleAndAdd(pos, this.pos, this.dpos, uAnimateTurn);
+    }
 }
 
 function isRelaxedGuardMode(guardMode: GuardMode): boolean {
@@ -407,7 +440,7 @@ type Shout = {
     pos_target: vec2; // where are they reporting the player is?
 }
 
-function guardActAll(map: GameMap, popups: Popups, player: Player) {
+function guardActAll(map: GameMap, popups: Popups, player: Player, uAnimateTurn: number) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
@@ -422,7 +455,7 @@ function guardActAll(map: GameMap, popups: Popups, player: Player) {
 
     const shouts: Array<Shout> = [];
     for (const guard of map.guards) {
-        guard.act(map, popups, player, shouts);
+        guard.act(map, popups, player, shouts, uAnimateTurn);
         guard.hasMoved = true;
     }
 
