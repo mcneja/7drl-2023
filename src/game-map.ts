@@ -242,6 +242,7 @@ const maxPlayerHealth: number = 5;
 class Player {
     pos: vec2;
     dir: vec2;
+    dpos: vec2;
     health: number;
     loot: number;
     noisy: boolean; // did the player make noise last turn?
@@ -251,6 +252,7 @@ class Player {
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);
         this.dir = vec2.fromValues(0, -1);
+        this.dpos = [0, 0];
         this.health = maxPlayerHealth;
         this.loot = 0;
         this.noisy = false;
@@ -279,6 +281,12 @@ class Player {
         }
 
         return false;
+    }
+
+    getPosAnimated(pos: vec2, uAnimateTurn: number) {
+        uAnimateTurn = Math.max(0, uAnimateTurn * 2 - 1);
+        uAnimateTurn *= uAnimateTurn;
+        vec2.scaleAndAdd(pos, this.pos, this.dpos, uAnimateTurn);
     }
 }
 

@@ -41,6 +41,7 @@ enum GameMode {
 type State = {
     tLast: number | undefined;
     leapToggleActive: boolean;
+    uAnimateTurn : number;
     gameMode: GameMode;
     helpActive: boolean;
     helpPageIndex: number;
@@ -277,6 +278,7 @@ function advanceToNextLevel(state: State) {
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = 0;
+    vec2.zero(state.player.dpos);
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
@@ -309,6 +311,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     const guardOnGate = gate!==undefined ? state.gameMap.guards
             .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
 
+    const posPlayerAnimatedPrev = vec2.create();
+    player.getPosAnimated(posPlayerAnimatedPrev, state.uAnimateTurn);
 
     // Can't move if you're dead.
 
@@ -321,6 +325,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     if ((dx === 0 && dy === 0) || distDesired <= 0) {
         preTurn(state);
         advanceTime(state);
+        vec2.subtract(player.dpos, posPlayerAnimatedPrev, player.pos);
         return;
     }
 
@@ -338,7 +343,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         }
         //Bump into gate
         const typeBump = state.gameMap.cells.at(...posBump).type;
-        const typePlayer = state.gameMap.cells.at(...player.pos).type;
         if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
             state.sounds['gate'].play(0.3);    
         }
@@ -374,6 +378,10 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             state.sounds.coin.play(1.0);
         }
     }
+
+    // Update dpos
+
+    vec2.subtract(player.dpos, posPlayerAnimatedPrev, player.pos);
 
     // Generate movement noises.
 
@@ -559,8 +567,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
-
-    guardActAll(state.gameMap, state.popups, state.player);
+    guardActAll(state.gameMap, state.popups, state.player, state.uAnimateTurn);
 
     state.gameMap.computeLighting();
     state.gameMap.recomputeVisibility(state.player.pos);
@@ -575,6 +582,8 @@ function advanceTime(state: State) {
             state.gameMode = GameMode.Dead;
         }
     }
+
+    state.uAnimateTurn = 1.0;
 }
 
 function postTurn(state: State) {
@@ -725,9 +734,11 @@ function renderWorld(state: State, renderer: Renderer) {
 
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
-    const x = player.pos[0];
-    const y = player.pos[1];
-    const lit = state.gameMap.cells.at(x, y).lit;
+    const posPlayerAnimated = vec2.create();
+    player.getPosAnimated(posPlayerAnimated, state.uAnimateTurn);
+    const x = posPlayerAnimated[0];
+    const y = posPlayerAnimated[1];
+    const lit = state.gameMap.cells.at(player.pos[0], player.pos[1]).lit;
     const hidden = player.hidden(state.gameMap);
     // const color =
     //     player.damagedLastTurn ? 0xff0000ff :
@@ -757,17 +768,20 @@ function renderGuards(state: State, renderer: Renderer) {
             continue;
         }
 
+        let posGuardAnimated = vec2.create();
+        guard.getPosAnimated(posGuardAnimated, state.uAnimateTurn);
+
         const lit = cell.lit || guard.speaking || guard.mode !== GuardMode.Patrol;
         const tileIndex = tileIndexOffsetForDir(guard.dir) + (visible ? 0 : 4);
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
         const color = lit ? tileInfo.color : tileInfo.unlitColor;
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
         const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
-        const x = guard.pos[0] + offX;
-        const y = guard.pos[1];
+        const x = posGuardAnimated[0] + offX;
+        const y = posGuardAnimated[1];
         if (guard.hasTorch) {
-            let g0 = x + guard.dir[0]*0.375 + guard.dir[1]*0.375;
-            let g1 = y;
+            const g0 = x + guard.dir[0]*0.375 + guard.dir[1]*0.375;
+            const g1 = y;
             const torchTileInfo = renderer.tileSet.itemTiles[ItemType.TorchCarry];
             if(guard.dir[1]>0) {
                 renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, torchTileInfo.color);
@@ -777,11 +791,9 @@ function renderGuards(state: State, renderer: Renderer) {
                 renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, torchTileInfo.color);
             }
         } else {
-            renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo.textureIndex, color);
+            renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);
         }
-}
-
-
+    }
 }
 
 function renderIconOverlays(state: State, renderer: Renderer) {
@@ -797,8 +809,11 @@ function renderIconOverlays(state: State, renderer: Renderer) {
             continue;
         }
 
-        const x = guard.pos[0];
-        const y = guard.pos[1] + 0.625;
+        let posGuardAnimated = vec2.create();
+        guard.getPosAnimated(posGuardAnimated, state.uAnimateTurn);
+
+        const x = posGuardAnimated[0];
+        const y = posGuardAnimated[1] + 0.625;
 
         const textureIndex = renderer.tileSet.guardStateIconTextureIndex[guardState];
 
@@ -919,6 +934,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     return {
         tLast: undefined,
         leapToggleActive: false,
+        uAnimateTurn: 0,
         gameMode: GameMode.Mansion,
         helpActive: false,
         helpPageIndex: 0,
@@ -950,6 +966,7 @@ function restartGame(state: State) {
 
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
+    state.uAnimateTurn = 0;
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -965,6 +982,7 @@ function restartGame(state: State) {
 function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
+    state.uAnimateTurn = 0;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
@@ -998,6 +1016,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 }
 
 function updateState(state: State, screenSize: vec2, dt: number) {
+    state.uAnimateTurn = Math.max(0, state.uAnimateTurn - 4.0 * dt);
     updateCamera(state, screenSize, dt);
 }
 
