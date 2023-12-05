@@ -1,6 +1,4 @@
 import * as colorPreset from './color-preset';
-import { TerrainType } from './game-map';
-import { vec2 } from './my-matrix';
 
 const imageTileset34 = require('url:./tiles34.png')
 const imageTileset31Color = require('url:./tiles31color.png')
