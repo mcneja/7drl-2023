@@ -42,6 +42,7 @@ type State = {
     tLast: number | undefined;
     leapToggleActive: boolean;
     uAnimateTurn : number;
+    uAnimatePlayer : number;
     gameMode: GameMode;
     helpActive: boolean;
     helpPageIndex: number;
@@ -312,7 +313,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
 
     const posPlayerAnimatedPrev = vec2.create();
-    player.getPosAnimated(posPlayerAnimatedPrev, state.uAnimateTurn);
+    player.getPosAnimated(posPlayerAnimatedPrev, state.uAnimatePlayer);
 
     // Can't move if you're dead.
 
@@ -355,6 +356,10 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
                     break;
             }
         }
+
+        vec2.subtract(player.dpos, posBump, posPlayerAnimatedPrev);
+        state.player.bump = true;
+        state.uAnimatePlayer = 1.0;
 
         return;
     }
@@ -565,6 +570,7 @@ function preTurn(state: State) {
     state.popups.clear();
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
+    state.player.bump = false;
 }
 
 function advanceTime(state: State) {
@@ -594,6 +600,7 @@ function advanceTime(state: State) {
     }
 
     state.uAnimateTurn = 1.0;
+    state.uAnimatePlayer = 1.0;
 }
 
 function postTurn(state: State) {
@@ -745,7 +752,7 @@ function renderWorld(state: State, renderer: Renderer) {
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const posPlayerAnimated = vec2.create();
-    player.getPosAnimated(posPlayerAnimated, state.uAnimateTurn);
+    player.getPosAnimated(posPlayerAnimated, state.uAnimatePlayer);
     const x = posPlayerAnimated[0];
     const y = posPlayerAnimated[1];
     const lit = state.gameMap.cells.at(player.pos[0], player.pos[1]).lit;
@@ -945,6 +952,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         tLast: undefined,
         leapToggleActive: false,
         uAnimateTurn: 0,
+        uAnimatePlayer: 0,
         gameMode: GameMode.Mansion,
         helpActive: false,
         helpPageIndex: 0,
@@ -977,6 +985,7 @@ function restartGame(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.uAnimateTurn = 0;
+    state.uAnimatePlayer = 0;
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -993,6 +1002,7 @@ function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
 
     state.uAnimateTurn = 0;
+    state.uAnimatePlayer = 0;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
@@ -1027,6 +1037,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 
 function updateState(state: State, screenSize: vec2, dt: number) {
     state.uAnimateTurn = Math.max(0, state.uAnimateTurn - 4.0 * dt);
+    state.uAnimatePlayer = Math.max(0, state.uAnimatePlayer - 4.0 * dt);
     updateCamera(state, screenSize, dt);
 }
 
