@@ -248,6 +248,7 @@ class Player {
     noisy: boolean; // did the player make noise last turn?
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
+    bump: boolean; // used for animating bumping into things
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);
@@ -258,6 +259,7 @@ class Player {
         this.noisy = false;
         this.damagedLastTurn = false;
         this.turnsRemainingUnderwater = 0;
+        this.bump = false;
     }
 
     applyDamage(d: number) {
@@ -285,6 +287,9 @@ class Player {
 
     getPosAnimated(pos: vec2, uAnimateTurn: number) {
         uAnimateTurn = Math.max(0, uAnimateTurn * 2 - 1);
+        if (this.bump) {
+            uAnimateTurn = Math.min(uAnimateTurn, 1.0 - uAnimateTurn);
+        }
         uAnimateTurn *= uAnimateTurn;
         vec2.scaleAndAdd(pos, this.pos, this.dpos, uAnimateTurn);
     }
