@@ -789,9 +789,12 @@ function renderGuards(state: State, renderer: Renderer) {
         guard.getPosAnimated(posGuardAnimated, state.uAnimateTurn);
 
         const lit = cell.lit || guard.speaking || guard.mode !== GuardMode.Patrol;
-        const tileIndex = tileIndexOffsetForDir(guard.dir) + (visible ? 0 : 4);
+        const tileIndex = tileIndexOffsetForDir(guard.dir);
         const tileInfo = renderer.tileSet.npcTiles[tileIndex];
-        const color = lit ? tileInfo.color : tileInfo.unlitColor;
+        let color = lit ? tileInfo.color : tileInfo.unlitColor;
+        if (!visible) {
+            color &= ~0x80000000;
+        }
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
         const offX = (gate!==undefined && gate.pos[0]==guard.pos[0] && gate.pos[1]==guard.pos[1])? 0.25 : 0;
         const x = posGuardAnimated[0] + offX;
@@ -800,12 +803,16 @@ function renderGuards(state: State, renderer: Renderer) {
             const g0 = x + guard.dir[0]*0.375 + guard.dir[1]*0.375;
             const g1 = y;
             const torchTileInfo = renderer.tileSet.itemTiles[ItemType.TorchCarry];
+            let colorTorch = lit ? torchTileInfo.color : torchTileInfo.unlitColor;
+            if (!visible) {
+                colorTorch &= ~0x80000000;
+            }
             if(guard.dir[1]>0) {
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, torchTileInfo.color);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, colorTorch);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);
             } else {
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);    
-                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, torchTileInfo.color);
+                renderer.addGlyph(g0, g1, g0 + 1, g1 + 1, torchTileInfo.textureIndex, colorTorch);
             }
         } else {
             renderer.addGlyph(x, y, x + 1, y + 1, tileInfo.textureIndex, color);

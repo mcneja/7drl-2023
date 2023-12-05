@@ -132,10 +132,6 @@ const sinCityTileSet:TileSet = {
         {textureIndex: r([2, 5]), color: colorPreset.white,    unlitColor: colorPreset.white},//guardN:
         {textureIndex: r([4, 5]), color: colorPreset.white,    unlitColor: colorPreset.white},//guardW:
         {textureIndex: r([1, 5]), color: colorPreset.white,    unlitColor: colorPreset.white},//guardS:
-        {textureIndex: r([3, 5]), color: colorPreset.darkGray, unlitColor: colorPreset.white },//guardEnoLoS:
-        {textureIndex: r([2, 5]), color: colorPreset.darkGray, unlitColor: colorPreset.white},//guardNnoLoS:
-        {textureIndex: r([4, 5]), color: colorPreset.darkGray, unlitColor: colorPreset.white},//guardWnoLoS:
-        {textureIndex: r([1, 5]), color: colorPreset.darkGray, unlitColor: colorPreset.white},//guardSnoLoS:
     ],
     playerTiles: [
         {textureIndex: r([0,5]), color: colorPreset.white,     unlitColor: colorPreset.white }, //playerNormal
@@ -215,10 +211,6 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([2, 5]), color: colorPreset.white, unlitColor: colorPreset.white },//guardN:
         {textureIndex: r([4, 5]), color: colorPreset.white, unlitColor: colorPreset.white },//guardW:
         {textureIndex: r([1, 5]), color: colorPreset.white, unlitColor: colorPreset.white },//guardS:
-        {textureIndex: r([3, 5]), color: 0x54ffffff,        unlitColor: 0x54ffffff },//guardEnoLoS:
-        {textureIndex: r([2, 5]), color: 0x54ffffff,        unlitColor: 0x54ffffff },//guardNnoLoS:
-        {textureIndex: r([4, 5]), color: 0x54ffffff,        unlitColor: 0x54ffffff },//guardWnoLoS:
-        {textureIndex: r([1, 5]), color: 0x54ffffff,        unlitColor: 0x54ffffff },//guardSnoLoS:
     ],
     playerTiles: [
         {textureIndex: r([2,5+2]), color: colorPreset.white,    unlitColor: colorPreset.white }, //playerNormal
@@ -299,10 +291,6 @@ const canvasTilesetThreeQuarter:TileSet = {
         {textureIndex: r([10, 4]), color: colorPreset.white,    unlitColor: colorPreset.white },//guardN:
         {textureIndex: r([11, 4]), color: colorPreset.white,    unlitColor: colorPreset.white },//guardW:
         {textureIndex: r([12, 4]), color: colorPreset.white,    unlitColor: colorPreset.white },//guardS:
-        {textureIndex: r([9, 4]),  color: colorPreset.darkGray, unlitColor: colorPreset.darkGray },//guardEnoLoS:
-        {textureIndex: r([10, 4]), color: colorPreset.darkGray, unlitColor: colorPreset.darkGray },//guardNnoLoS:
-        {textureIndex: r([11, 4]), color: colorPreset.darkGray, unlitColor: colorPreset.darkGray },//guardWnoLoS:
-        {textureIndex: r([12, 4]), color: colorPreset.darkGray, unlitColor: colorPreset.darkGray },//guardSnoLoS:
     ],
     playerTiles: [
         {textureIndex: r([0,4]), color: colorPreset.darkGray,  unlitColor: colorPreset.darkGray }, //playerNormal
@@ -395,10 +383,6 @@ var BasicTileset:TileSet = {
         {textureIndex:34, color: colorPreset.lightMagenta, unlitColor: colorPreset.lightMagenta },//guardN
         {textureIndex:35, color: colorPreset.lightMagenta, unlitColor: colorPreset.lightMagenta },//guardW
         {textureIndex:36, color: colorPreset.lightMagenta, unlitColor: colorPreset.lightMagenta },//guardS
-        {textureIndex:33, color: colorPreset.darkGray, unlitColor: colorPreset.darkGray },//guardEnoLoS
-        {textureIndex:34, color: colorPreset.darkGray, unlitColor: colorPreset.darkGray},//guardNnoLoS
-        {textureIndex:35, color: colorPreset.darkGray, unlitColor: colorPreset.darkGray},//guardWnoLoS
-        {textureIndex:36, color: colorPreset.darkGray, unlitColor: colorPreset.darkGray},//guardSnoLoS
     ],
     ledgeTiles: [
         {textureIndex: r([12,4]), color: 0xFF736847, unlitColor: 0xFF483428},
