@@ -312,9 +312,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     const guardOnGate = gate!==undefined ? state.gameMap.guards
             .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
 
-    const posPlayerAnimatedPrev = vec2.create();
-    player.getPosAnimated(posPlayerAnimatedPrev, state.uAnimatePlayer);
-
     // Can't move if you're dead.
 
     if (player.health <= 0) {
@@ -326,29 +323,38 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     if ((dx === 0 && dy === 0) || distDesired <= 0) {
         preTurn(state);
         advanceTime(state);
-        vec2.subtract(player.dpos, posPlayerAnimatedPrev, player.pos);
+        vec2.zero(player.dpos);
         return;
     }
 
     let dist = playerMoveDistAllowed(state, dx, dy, distDesired);
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
+
+        // Bump into items
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
-        //Bump into torch
-        if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
-            preTurn(state);
-            if(item.type== ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
-            else state.sounds["douse"].play(0.05);
-            item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
-            advanceTime(state);
-        }
-        //Bump into gate
-        const typeBump = state.gameMap.cells.at(...posBump).type;
-        if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
-            state.sounds['gate'].play(0.3);    
+        if (item !== undefined) {
+            switch (item.type) {
+                case ItemType.TorchUnlit:
+                    preTurn(state);
+                    state.sounds["ignite"].play(0.08);
+                    item.type = ItemType.TorchLit;
+                    advanceTime(state);
+                    break;
+                case ItemType.TorchLit:
+                    preTurn(state);
+                    state.sounds["douse"].play(0.05);
+                    item.type = ItemType.TorchUnlit;
+                    advanceTime(state);
+                    break;
+                case ItemType.PortcullisEW:
+                case ItemType.PortcullisNS:
+                    state.sounds['gate'].play(0.3);
+                    break;
+            }
         }
 
-        vec2.subtract(player.dpos, posBump, posPlayerAnimatedPrev);
+        vec2.subtract(player.dpos, posBump, player.pos);
         state.player.bump = true;
         state.uAnimatePlayer = 1.0;
 
@@ -358,6 +364,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     // Execute the move. Collect loot along the way; advance to next level when moving off the edge.
 
     preTurn(state);
+
+    const posPlayerPrev = vec2.clone(player.pos);
 
     const oldTerrain = state.gameMap.cells.at(...player.pos).type;
 
@@ -387,7 +395,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     // Update dpos
 
-    vec2.subtract(player.dpos, posPlayerAnimatedPrev, player.pos);
+    vec2.subtract(player.dpos, posPlayerPrev, player.pos);
 
     // Generate movement noises.
 
