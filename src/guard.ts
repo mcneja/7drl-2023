@@ -85,9 +85,6 @@ class Guard {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
 
-        let posPrevAnimated = vec2.create();
-        this.getPosAnimated(posPrevAnimated, uAnimateTurn);
-
         let attacking = false;
     
         // See if senses will kick us into a new mode
@@ -232,9 +229,9 @@ class Guard {
         this.attacking = attacking;
 
         if (attacking) {
-            vec2.subtract(this.dpos, player.pos, posPrevAnimated);
+            vec2.subtract(this.dpos, player.pos, posPrev);
         } else {
-            vec2.subtract(this.dpos, posPrevAnimated, this.pos);
+            vec2.subtract(this.dpos, posPrev, this.pos);
         }
 
         // Clear heard-thief flag

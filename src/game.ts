@@ -312,9 +312,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     const guardOnGate = gate!==undefined ? state.gameMap.guards
             .find((guard)=>guard.pos[0]==gate.pos[0] && guard.pos[1]==gate.pos[1]): undefined;
 
-    const posPlayerAnimatedPrev = vec2.create();
-    player.getPosAnimated(posPlayerAnimatedPrev, state.uAnimatePlayer);
-
     // Can't move if you're dead.
 
     if (player.health <= 0) {
@@ -326,7 +323,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     if ((dx === 0 && dy === 0) || distDesired <= 0) {
         preTurn(state);
         advanceTime(state);
-        vec2.subtract(player.dpos, posPlayerAnimatedPrev, player.pos);
+        vec2.zero(player.dpos);
         return;
     }
 
@@ -357,7 +354,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             }
         }
 
-        vec2.subtract(player.dpos, posBump, posPlayerAnimatedPrev);
+        vec2.subtract(player.dpos, posBump, player.pos);
         state.player.bump = true;
         state.uAnimatePlayer = 1.0;
 
@@ -367,6 +364,8 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     // Execute the move. Collect loot along the way; advance to next level when moving off the edge.
 
     preTurn(state);
+
+    const posPlayerPrev = vec2.clone(player.pos);
 
     const oldTerrain = state.gameMap.cells.at(...player.pos).type;
 
@@ -396,7 +395,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     // Update dpos
 
-    vec2.subtract(player.dpos, posPlayerAnimatedPrev, player.pos);
+    vec2.subtract(player.dpos, posPlayerPrev, player.pos);
 
     // Generate movement noises.
 
