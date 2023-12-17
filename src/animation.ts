@@ -1,4 +1,3 @@
-import { setMaxIdleHTTPParsers } from 'http';
 import { vec2 } from './my-matrix';
 import { TileInfo } from './tilesets';
 import { Item, ItemType } from './game-map';
