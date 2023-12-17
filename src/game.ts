@@ -327,21 +327,30 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     let dist = playerMoveDistAllowed(state, dx, dy, distDesired);
     if (dist <= 0) {
         const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
+
+        // Bump into items
         const item = state.gameMap.items.find((item) => item.pos[0] === posBump[0] && item.pos[1] === posBump[1]);
-        //Bump into torch
-        if (item !== undefined && (item.type === ItemType.TorchUnlit || item.type === ItemType.TorchLit)) {
-            preTurn(state);
-            if(item.type== ItemType.TorchUnlit) state.sounds["ignite"].play(0.08);
-            else state.sounds["douse"].play(0.05);
-            item.type = (item.type === ItemType.TorchUnlit) ? ItemType.TorchLit : ItemType.TorchUnlit;
-            advanceTime(state);
+        if (item !== undefined) {
+            switch (item.type) {
+                case ItemType.TorchUnlit:
+                    preTurn(state);
+                    state.sounds["ignite"].play(0.08);
+                    item.type = ItemType.TorchLit;
+                    advanceTime(state);
+                    break;
+                case ItemType.TorchLit:
+                    preTurn(state);
+                    state.sounds["douse"].play(0.05);
+                    item.type = ItemType.TorchUnlit;
+                    advanceTime(state);
+                    break;
+                case ItemType.PortcullisEW:
+                case ItemType.PortcullisNS:
+                    state.sounds['gate'].play(0.3);
+                    break;
+            }
         }
-        //Bump into gate
-        const typeBump = state.gameMap.cells.at(...posBump).type;
-        const typePlayer = state.gameMap.cells.at(...player.pos).type;
-        if(typeBump>=TerrainType.PortcullisNS && typeBump<=TerrainType.PortcullisEW) {
-            state.sounds['gate'].play(0.3);    
-        }
+
         return;
     }
 
