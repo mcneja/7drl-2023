@@ -54,13 +54,8 @@ class Popups {
 
         const popup = this.popups[0];
         const soundName = soundNameForPopupType(popup.popupType);
-        if(subtitledSounds[soundName]!==undefined) {
-            const subtitledSound = subtitledSounds[soundName].play(0.6);
-            return subtitledSound!==null? subtitledSound.subtitle: '';
-        } else {
-            console.log('Unknown sound', soundName);
-            return '';
-        }
+        const subtitledSound = subtitledSounds[soundName].play(0.6);
+        return subtitledSound.subtitle;
     }
 }
 
