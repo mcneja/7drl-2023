@@ -762,15 +762,66 @@ class GameMap {
         return cost;
     }
 
-    computeDistancesToPatrolPath(patrolPositions: Array<vec2>): Float64Grid {
-        const goal: Array<DistPos> = [];
+    posNextBest(distanceField: Float64Grid, posFrom: vec2): vec2 {
+        let costBest = Infinity;
+        let posBest = vec2.clone(posFrom);
     
-        for (const pos of patrolPositions) {
-            const cost = this.cells.atVec(pos).moveCost;
-            goal.push({ priority: cost, pos: vec2.clone(pos) });
+        const posMin = vec2.fromValues(Math.max(0, posFrom[0] - 1), Math.max(0, posFrom[1] - 1));
+        const posMax = vec2.fromValues(Math.min(this.cells.sizeX, posFrom[0] + 2), Math.min(this.cells.sizeY, posFrom[1] + 2));
+    
+        for (let x = posMin[0]; x < posMax[0]; ++x) {
+            for (let y = posMin[1]; y < posMax[1]; ++y) {
+                const cost = distanceField.get(x, y);
+                if (cost == Infinity) {
+                    continue;
+                }
+    
+                let pos = vec2.fromValues(x, y);
+                if (this.guardMoveCost(posFrom, pos) == Infinity) {
+                    continue;
+                }
+    
+                if (this.cells.atVec(pos).type == TerrainType.GroundWater) {
+                    continue;
+                }
+    
+                if (this.isGuardAtVec(pos)) {
+                    continue;
+                }
+    
+                if (cost < costBest) {
+                    costBest = cost;
+                    posBest = pos;
+                }
+            }
         }
     
-        return this.computeDistanceField(goal);
+        return posBest;
+    }
+    
+    patrolPathIndexForResume(patrolPositions: Array<vec2>, patrolIndexCur: number, pos: vec2): number {
+        const distanceToPos = this.computeDistancesToPosition(pos);
+
+        let patrolIndexBest = patrolIndexCur;
+
+        // Advance along the patrol path until it's headed the same direction the
+        // distance field is.
+    
+        for (let dPatrolIndex = 0; dPatrolIndex < patrolPositions.length; ++dPatrolIndex) {
+            const posPatrol = patrolPositions[patrolIndexBest];
+            const posGuardPrev = this.posNextBest(distanceToPos, posPatrol);
+            const posPatrolPrev = patrolPositions[(patrolIndexBest + patrolPositions.length - 1) % patrolPositions.length];
+            const dirGuard = vec2.create();
+            vec2.subtract(dirGuard, posPatrol, posGuardPrev);
+            const dirPatrol = vec2.create();
+            vec2.subtract(dirPatrol, posPatrol, posPatrolPrev);
+            if (vec2.dot(dirGuard, dirPatrol) > 0) {
+                break;
+            }
+            patrolIndexBest = (patrolIndexBest + 1) % patrolPositions.length;
+        }
+
+        return patrolIndexBest;
     }
 
     computeDistancesToPosition(pos_goal: vec2): Float64Grid {

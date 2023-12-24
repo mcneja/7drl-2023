@@ -155,7 +155,7 @@ class Guard {
         case GuardMode.Listen:
             this.modeTimeout -= 1;
             if (this.modeTimeout == 0) {
-                this.mode = GuardMode.Patrol;
+                this.enterPatrolMode(map);
             }
             break;
 
@@ -188,7 +188,7 @@ class Guard {
             }
 
             if (this.modeTimeout == 0) {
-                this.mode = GuardMode.Patrol;
+                this.enterPatrolMode(map);
             }
             break;
 
@@ -203,55 +203,55 @@ class Guard {
                     this.modeTimeout = 3;    
                 } else {
                     this.modeTimeout = 0;
-                    this.mode = GuardMode.Patrol;
+                    this.enterPatrolMode(map);
                 }
             } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
                 this.modeTimeout -= 1;
                 if (this.modeTimeout === 0) {
-                    this.mode = GuardMode.Patrol;
+                    this.enterPatrolMode(map);
                 }
             }
             break;
 
-            case GuardMode.WakeGuard:
-                --this.modeTimeout;
-                updateDir(this.dir, this.pos, this.goal);
-                const g = map.guards.find(
-                    (g) => g.pos.equals(this.goal)
-                    && g.mode === GuardMode.Unconscious
-                )
-                if(g !== undefined)  {
-                    if (this.modeTimeout <= 0) {
-                        g.modeTimeout = 0;
-                        this.mode = GuardMode.Patrol;
-                    }
-                } else {
-                    this.modeTimeout = 0;
-                    this.mode = GuardMode.Patrol;
-                }
-                break;
-    
-            case GuardMode.RelightTorch:
-                if (this.cardinallyAdjacentTo(this.goal)) {
-                    updateDir(this.dir, this.pos, this.goal);
-                    this.mode = GuardMode.PostRelightTorch;
-                    this.modeTimeout = 3;
-                } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
-                    this.modeTimeout -= 1;
-                    if (this.modeTimeout === 0) {
-                        this.mode = GuardMode.Patrol;
-                    }
-                }
-                break;
-
-            case GuardMode.PostRelightTorch:
-                --this.modeTimeout;
-                updateDir(this.dir, this.pos, this.goal);
+        case GuardMode.WakeGuard:
+            --this.modeTimeout;
+            updateDir(this.dir, this.pos, this.goal);
+            const g = map.guards.find(
+                (g) => g.pos.equals(this.goal)
+                && g.mode === GuardMode.Unconscious
+            )
+            if(g !== undefined)  {
                 if (this.modeTimeout <= 0) {
-                    relightTorchAt(map, this.goal, player);
-                    this.mode = GuardMode.Patrol;
+                    g.modeTimeout = 0;
+                    this.enterPatrolMode(map);
                 }
-                break;
+            } else {
+                this.modeTimeout = 0;
+                this.enterPatrolMode(map);
+            }
+            break;
+
+        case GuardMode.RelightTorch:
+            if (this.cardinallyAdjacentTo(this.goal)) {
+                updateDir(this.dir, this.pos, this.goal);
+                this.mode = GuardMode.PostRelightTorch;
+                this.modeTimeout = 3;
+            } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
+                this.modeTimeout -= 1;
+                if (this.modeTimeout === 0) {
+                    this.enterPatrolMode(map);
+                }
+            }
+            break;
+
+        case GuardMode.PostRelightTorch:
+            --this.modeTimeout;
+            updateDir(this.dir, this.pos, this.goal);
+            if (this.modeTimeout <= 0) {
+                relightTorchAt(map, this.goal, player);
+                this.enterPatrolMode(map);
+            }
+            break;
         }
 
         // If the guard's moved and has a torch, recompute the level's lighting so the guard can spot
@@ -379,19 +379,17 @@ class Guard {
         return litTarget ? this.cutoffLit() : this.cutoffUnlit();
     }
 
+    enterPatrolMode(map: GameMap) {
+        this.patrolPathIndex = map.patrolPathIndexForResume(this.patrolPath, this.patrolPathIndex, this.pos);
+        this.mode = GuardMode.Patrol;
+    }
+
     patrolStep(map: GameMap, player: Player) {
-        let moveResult;
-
-        const onPatrolPath = this.patrolPath[this.patrolPathIndex].equals(this.pos);
-
-        if (onPatrolPath) {
+        if (this.patrolPath[this.patrolPathIndex].equals(this.pos)) {
             this.patrolPathIndex = (this.patrolPathIndex + 1) % this.patrolPath.length;
-
-            moveResult = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
-        } else {
-            moveResult = this.moveTowardPatrolPath(map, player);
-            this.findPatrolPathIndex();
         }
+
+        const moveResult = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
 
         if (moveResult === MoveResult.BumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
@@ -409,7 +407,7 @@ class Guard {
 
     moveTowardPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
         const distanceField = map.computeDistancesToPosition(posGoal);
-        const posNext = posNextBest(map, distanceField, this.pos);
+        const posNext = map.posNextBest(distanceField, this.pos);
 
         if (posNext.equals(this.pos)) {
             return MoveResult.StoodStill;
@@ -431,7 +429,7 @@ class Guard {
 
     moveTowardAdjacentToPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
         const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
-        const posNext = posNextBest(map, distanceField, this.pos);
+        const posNext = map.posNextBest(distanceField, this.pos);
 
         if (posNext.equals(this.pos)) {
             return MoveResult.StoodStill;
@@ -450,49 +448,6 @@ class Guard {
 
         vec2.copy(this.pos, posNext);
         return MoveResult.Moved;
-    }
-
-    moveTowardPatrolPath(map: GameMap, player: Player): MoveResult {
-        const distanceField = map.computeDistancesToPatrolPath(this.patrolPath);
-        const posNext = posNextBest(map, distanceField, this.pos);
-
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
-        updateDir(this.dir, this.pos, posNext);
-
-        if (player.pos.equals(posNext)) {
-            return MoveResult.BumpedPlayer;
-        }
-
-        const start = vec2.create();
-        vec2.subtract(start, this.pos, posNext) 
-        const end = vec2.create();
-        this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
-
-        vec2.copy(this.pos, posNext);
-        return MoveResult.Moved;
-    }
-
-    findPatrolPathIndex(): boolean {
-        // Search forward from guard's current path index
-        for (let iPatrolPos = this.patrolPathIndex; iPatrolPos < this.patrolPath.length; ++iPatrolPos) {
-            const posPath = this.patrolPath[iPatrolPos];
-            if (posPath.equals(this.pos)) {
-                this.patrolPathIndex = iPatrolPos;
-                return true;
-            }
-        }
-        // Search backward from guard's current path index
-        for (let iPatrolPos = this.patrolPathIndex - 1; iPatrolPos >= 0; --iPatrolPos) {
-            const posPath = this.patrolPath[iPatrolPos];
-            if (posPath.equals(this.pos)) {
-                this.patrolPathIndex = iPatrolPos;
-                return true;
-            }
-        }
-        return false;
     }
 
     tryGetPosLookAt(map: GameMap): vec2 | undefined {
@@ -620,43 +575,6 @@ function alertNearbyGuards(map: GameMap, shout: Shout) {
             vec2.copy(guard.heardGuardPos, shout.pos_shouter);
         }
     }
-}
-
-function posNextBest(map: GameMap, distanceField: Float64Grid, posFrom: vec2): vec2 {
-    let costBest = Infinity;
-    let posBest = vec2.clone(posFrom);
-
-    const posMin = vec2.fromValues(Math.max(0, posFrom[0] - 1), Math.max(0, posFrom[1] - 1));
-    const posMax = vec2.fromValues(Math.min(map.cells.sizeX, posFrom[0] + 2), Math.min(map.cells.sizeY, posFrom[1] + 2));
-
-    for (let x = posMin[0]; x < posMax[0]; ++x) {
-        for (let y = posMin[1]; y < posMax[1]; ++y) {
-            const cost = distanceField.get(x, y);
-            if (cost == Infinity) {
-                continue;
-            }
-
-            let pos = vec2.fromValues(x, y);
-            if (map.guardMoveCost(posFrom, pos) == Infinity) {
-                continue;
-            }
-
-            if (map.cells.at(pos[0], pos[1]).type == TerrainType.GroundWater) {
-                continue;
-            }
-
-            if (map.isGuardAt(pos[0], pos[1])) {
-                continue;
-            }
-
-            if (cost < costBest) {
-                costBest = cost;
-                posBest = pos;
-            }
-        }
-    }
-
-    return posBest;
 }
 
 function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
