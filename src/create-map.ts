@@ -1217,7 +1217,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
             const node3 = node0.nodeNext;
             const node2 = {
                 roomIndex: node0.roomIndex,
-                nodeNext: node0.nodeNext,
+                nodeNext: node3,
                 nodePrev: node1,
                 visited: false,
             };
