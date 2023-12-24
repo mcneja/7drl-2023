@@ -696,10 +696,6 @@ class GameMap {
                     continue;
                 }
     
-                if (this.cells.at(pos[0], pos[1]).type == TerrainType.GroundWater) {
-                    continue;
-                }
-    
                 if (this.isGuardAt(pos[0], pos[1])) {
                     continue;
                 }
