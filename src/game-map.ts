@@ -12,6 +12,7 @@ export {
     TerrainType,
     GuardStates,
     guardMoveCostForItemType,
+    isWindowTerrainType,
     maxPlayerHealth,
 };
 
@@ -595,7 +596,7 @@ class GameMap {
         let lightId = 0;
         for (const item of this.items) {
             if (item.type == ItemType.TorchLit) {
-                this.castLight(item.pos, 180, lightId, occupied);
+                this.castLight(item.pos, 45, lightId, occupied);
                 lightId++;
             }
             if (item.type == ItemType.TorchUnlit) {
@@ -604,7 +605,7 @@ class GameMap {
         }
         for (const guard of this.guards) {
             if (guard.hasTorch) {
-                this.castLight(guard.pos, 60, lightId, occupied);
+                this.castLight(guard.pos, 15, lightId, occupied);
                 lightId++;
             }
         }
@@ -650,14 +651,17 @@ class GameMap {
         }
 
         // End recursion if the target square is too far away.
-        const dx = 2 * (targetX - lightX);
-        const dy = 2 * (targetY - lightY);    
-
-        const dist2 = dx**2 + dy**2;
-        if (dist2 > radiusSquared) {
+        let dx = (targetX - lightX);
+        let dy = (targetY - lightY);
+    
+        if (dx**2 + dy**2 > radiusSquared) {
             return;
         }
 
+        dx *= 2;
+        dy *= 2;
+
+        // The cell is lit
         const cell = this.cells.at(targetX, targetY);
 
         // A solid target square blocks all further light through it.
@@ -883,6 +887,10 @@ class GameMap {
     
         return coordsVisited;
     }
+}
+
+function isWindowTerrainType(terrainType: TerrainType): boolean {
+    return terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS;
 }
 
 type PriorityQueueElement = {

@@ -1,6 +1,6 @@
 export { createGameMap, createGameMapRoughPlans };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { RNG } from './random';
@@ -1588,10 +1588,6 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
     }
 
     return positions;
-}
-
-function isWindowTerrainType(terrainType: TerrainType): boolean {
-    return terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS;
 }
 
 function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2> {
