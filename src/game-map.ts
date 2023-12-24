@@ -754,8 +754,8 @@ class GameMap {
     
         if (posOld[0] != posNew[0] &&
             posOld[1] != posNew[1] &&
-            (this.cells.atVec(posOld).moveCost === Infinity ||
-             this.cells.atVec(posNew).moveCost === Infinity)) {
+            (this.cells.at(posOld[0], posNew[1]).moveCost === Infinity ||
+             this.cells.at(posNew[0], posOld[1]).moveCost === Infinity)) {
             return Infinity;
         }
     
