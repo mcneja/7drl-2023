@@ -1645,10 +1645,6 @@ function posNextBest(gameMap: GameMap, distanceField: Float64Grid, posFrom: vec2
                 continue;
             }
 
-            if (gameMap.cells.at(pos[0], pos[1]).type == TerrainType.GroundWater) {
-                continue;
-            }
-
             if (cost < costBest) {
                 costBest = cost;
                 posBest = pos;
@@ -2216,7 +2212,7 @@ function cacheCellInfo(map: GameMap) {
             const isWall = cellType >= TerrainType.Wall0000 && cellType <= TerrainType.Wall1111;
             const isWindow = isWindowTerrainType(cellType);
             const isWater = cellType == TerrainType.GroundWater;
-            cell.moveCost = (isWall || isWindow) ? Infinity : isWater ? 4096 : 0;
+            cell.moveCost = (isWall || isWindow || isWater) ? Infinity : 0;
             cell.blocksPlayerMove = isWall;
             cell.blocksPlayerSight = isWall;
             cell.blocksSight = isWall;

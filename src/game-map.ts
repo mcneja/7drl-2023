@@ -781,10 +781,6 @@ class GameMap {
                     continue;
                 }
     
-                if (this.cells.atVec(pos).type == TerrainType.GroundWater) {
-                    continue;
-                }
-    
                 if (this.isGuardAtVec(pos)) {
                     continue;
                 }
