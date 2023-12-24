@@ -53,8 +53,6 @@ class Guard {
     // Patrol
     patrolPath: Array<vec2>;
     patrolPathIndex: number;
-    patrolReverse: boolean;
-    patrolLoops: boolean;
 
     constructor(patrolPath: Array<vec2>, pathIndexStart: number, map: GameMap) {
         const posStart = patrolPath[pathIndexStart];
@@ -74,8 +72,6 @@ class Guard {
         this.modeTimeout = 0;
         this.patrolPath = patrolPath;
         this.patrolPathIndex = pathIndexStart;
-        this.patrolReverse = false;
-        this.patrolLoops = patrolPathLoops(patrolPath);
 
         this.updateDirInitial();
     }
@@ -389,29 +385,7 @@ class Guard {
         const onPatrolPath = this.patrolPath[this.patrolPathIndex].equals(this.pos);
 
         if (onPatrolPath) {
-            if (this.patrolReverse) {
-                if (this.patrolPathIndex === 0) {
-                    if (this.patrolLoops) {
-                        this.patrolPathIndex = this.patrolPath.length - 1;
-                    } else {
-                        this.patrolReverse = false;
-                        this.patrolPathIndex = 1;
-                    }
-                } else {
-                    --this.patrolPathIndex;
-                }
-            } else {
-                if (this.patrolPathIndex >= this.patrolPath.length - 1) {
-                    if (this.patrolLoops) {
-                        this.patrolPathIndex = 0;
-                    } else {
-                        this.patrolReverse = true;
-                        this.patrolPathIndex = this.patrolPath.length - 2;
-                    }
-                } else {
-                    ++this.patrolPathIndex;
-                }
-            }
+            this.patrolPathIndex = (this.patrolPathIndex + 1) % this.patrolPath.length;
 
             moveResult = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
         } else {
@@ -424,36 +398,11 @@ class Guard {
             vec2.copy(this.goal, player.pos);
             updateDir(this.dir, this.pos, this.goal);
         }
-
-        // TODO: Plot the back-and-forth paths explicitly, as well as the delays
-        // at the ends. When standing still, look for a window, torch, or table
-        // to face.
     }
 
     updateDirInitial()
     {
-        let patrolPathIndexNext;
-        if (this.patrolReverse) {
-            if (this.patrolPathIndex === 0) {
-                if (this.patrolLoops) {
-                    patrolPathIndexNext = this.patrolPath.length - 1;
-                } else {
-                    patrolPathIndexNext = 1;
-                }
-            } else {
-                patrolPathIndexNext = this.patrolPathIndex - 1;
-            }
-        } else {
-            if (this.patrolPathIndex >= this.patrolPath.length - 1) {
-                if (this.patrolLoops) {
-                    patrolPathIndexNext = 0;
-                } else {
-                    patrolPathIndexNext = this.patrolPath.length - 2;
-                }
-            } else {
-                patrolPathIndexNext = this.patrolPathIndex + 1;
-            }
-        }
+        const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
 
         updateDir(this.dir, this.pos, this.patrolPath[patrolPathIndexNext]);
     }
@@ -675,7 +624,7 @@ function alertNearbyGuards(map: GameMap, shout: Shout) {
 
 function posNextBest(map: GameMap, distanceField: Float64Grid, posFrom: vec2): vec2 {
     let costBest = Infinity;
-    let posBest = posFrom;
+    let posBest = vec2.clone(posFrom);
 
     const posMin = vec2.fromValues(Math.max(0, posFrom[0] - 1), Math.max(0, posFrom[1] - 1));
     const posMax = vec2.fromValues(Math.min(map.cells.sizeX, posFrom[0] + 2), Math.min(map.cells.sizeY, posFrom[1] + 2));
@@ -850,10 +799,4 @@ function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
     }
 
     return true;
-}
-
-function patrolPathLoops(patrolPath: Array<vec2>): boolean {
-    const dx = patrolPath[0][0] - patrolPath[patrolPath.length - 1][0];
-    const dy = patrolPath[0][1] - patrolPath[patrolPath.length - 1][1];
-    return (dx != 0 || dy != 0) && Math.abs(dx) < 2 && Math.abs(dy) < 2;
 }
