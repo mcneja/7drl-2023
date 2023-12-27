@@ -79,12 +79,15 @@ class Guard {
     overheadIcon(): number {
         if (this.mode === GuardMode.Unconscious) {
             return GuardStates.Unconscious;
+        } else if (this.mode === GuardMode.ChaseVisibleTarget) {
+            return GuardStates.Chasing;
+        } else if (!isRelaxedGuardMode(this.mode)) {
+            return GuardStates.Alerted;
+        } else if (this.angry) {
+            return GuardStates.Angry;
+        } else {
+            return GuardStates.Relaxed;
         }
-        if (isRelaxedGuardMode(this.mode)) {
-            return this.angry? GuardStates.Angry : GuardStates.Relaxed;
-        }
-    
-        return (this.mode == GuardMode.ChaseVisibleTarget) ? GuardStates.Chasing : GuardStates.Alerted;
     }
 
     act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
@@ -93,53 +96,38 @@ class Guard {
     
         // See if senses will kick us into a new mode
 
-        if(this.mode===GuardMode.Unconscious) {
-            this.modeTimeout--;
-            if(this.modeTimeout === 5) {
-                const popup = PopupType.GuardStirring;
-                popups.add(popup, this.pos);
-            }
-            if(this.modeTimeout<=0) {
-                this.mode = GuardMode.Patrol;
-                this.modeTimeout = 0;
-                this.angry = true;
-                shouts.push({pos_shouter: this.pos, pos_target: this.pos, target:this});
-                const popup = PopupType.GuardAwakesWarning;
-                popups.add(popup, this.pos);
-            }
-            return;
-        }
-
-        if (!isRelaxedGuardMode(this.mode)) {
-            if (this.seesActor(map, player)) {
-                vec2.copy(this.goal, player.pos);
-                this.mode = GuardMode.ChaseVisibleTarget;
-            } else if (this.mode === GuardMode.ChaseVisibleTarget) {
-                vec2.copy(this.goal, player.pos);
-                this.mode = GuardMode.MoveToLastSighting;
-                this.modeTimeout = 3;
-            }
-        }
-
-        if (this.mode !== GuardMode.ChaseVisibleTarget) {
-            if (this.heardGuard) {
-                this.mode = GuardMode.MoveToGuardShout;
-                this.modeTimeout = 2 + randomInRange(4);
-                vec2.copy(this.goal, this.heardGuardPos);
-            }
-    
-            if (this.heardThief) {
-                if (this.adjacentTo(player.pos)) {
+        if (this.mode !== GuardMode.Unconscious) {
+            if (!isRelaxedGuardMode(this.mode)) {
+                if (this.seesActor(map, player)) {
+                    vec2.copy(this.goal, player.pos);
                     this.mode = GuardMode.ChaseVisibleTarget;
+                } else if (this.mode === GuardMode.ChaseVisibleTarget) {
                     vec2.copy(this.goal, player.pos);
-                } else if (isRelaxedGuardMode(this.mode)) {
-                    this.mode = GuardMode.Listen;
+                    this.mode = GuardMode.MoveToLastSighting;
+                    this.modeTimeout = 3;
+                }
+            }
+
+            if (this.mode !== GuardMode.ChaseVisibleTarget) {
+                if (this.heardGuard) {
+                    this.mode = GuardMode.MoveToGuardShout;
                     this.modeTimeout = 2 + randomInRange(4);
-                    updateDir(this.dir, this.pos, player.pos);
-                } else if (this.mode!==GuardMode.MoveToDownedGuard) {
-                    this.mode = GuardMode.MoveToLastSound;
-                    this.modeTimeout = 2 + randomInRange(4);
-                    vec2.copy(this.goal, player.pos);
+                    vec2.copy(this.goal, this.heardGuardPos);
+                }
+        
+                if (this.heardThief) {
+                    if (this.adjacentTo(player.pos)) {
+                        this.mode = GuardMode.ChaseVisibleTarget;
+                        vec2.copy(this.goal, player.pos);
+                    } else if (isRelaxedGuardMode(this.mode)) {
+                        this.mode = GuardMode.Listen;
+                        this.modeTimeout = 2 + randomInRange(4);
+                        updateDir(this.dir, this.pos, player.pos);
+                    } else if (this.mode!==GuardMode.MoveToDownedGuard) {
+                        this.mode = GuardMode.MoveToLastSound;
+                        this.modeTimeout = 2 + randomInRange(4);
+                        vec2.copy(this.goal, player.pos);
+                    }
                 }
             }
         }
@@ -216,11 +204,8 @@ class Guard {
         case GuardMode.WakeGuard:
             --this.modeTimeout;
             updateDir(this.dir, this.pos, this.goal);
-            const g = map.guards.find(
-                (g) => g.pos.equals(this.goal)
-                && g.mode === GuardMode.Unconscious
-            )
-            if(g !== undefined)  {
+            const g = map.guards.find((g) => g.pos.equals(this.goal) && g.mode === GuardMode.Unconscious);
+            if (g !== undefined)  {
                 if (this.modeTimeout <= 0) {
                     g.modeTimeout = 0;
                     this.enterPatrolMode(map);
@@ -252,6 +237,20 @@ class Guard {
                 this.enterPatrolMode(map);
             }
             break;
+
+        case GuardMode.Unconscious:
+            this.modeTimeout -= 1;
+            if (this.modeTimeout === 5) {
+                const popup = PopupType.GuardStirring;
+                popups.add(popup, this.pos);
+            } else if (this.modeTimeout <= 0) {
+                this.enterPatrolMode(map);
+                this.modeTimeout = 0;
+                this.angry = true;
+                shouts.push({pos_shouter: this.pos, pos_target: this.pos, target:this});
+                popups.add(PopupType.GuardAwakesWarning, this.pos);
+            }
+            break;
         }
 
         // If the guard's moved and has a torch, recompute the level's lighting so the guard can spot
@@ -262,53 +261,60 @@ class Guard {
         }
 
         // Update state based on target visibility from new position
-//        let seen:Guard|Player|null = null;
-        if (this.seesActor(map, player)) {
-            if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
-                this.mode = GuardMode.Look;
-                this.modeTimeout = 2 + randomInRange(4);
-            } else {
-                vec2.copy(this.goal, player.pos);
-                updateDir(this.dir, this.pos, this.goal);
-                this.mode = GuardMode.ChaseVisibleTarget;
-            }
-        } else if(this.mode == GuardMode.ChaseVisibleTarget) {
-                vec2.copy(this.goal, player.pos);
-                this.mode = GuardMode.MoveToLastSighting;
-                this.modeTimeout = 3;
-        }
-        let guardSeen:Guard|null = null;  
-        if (isRelaxedGuardMode(this.mode) && 
-                this.mode!== GuardMode.MoveToDownedGuard && 
-                this.mode!== GuardMode.WakeGuard) {
-            for(let guard of map.guards) {
-                if (this !==guard && 
-                    guard.mode===GuardMode.Unconscious && 
-                    this.seesActor(map, guard)) {
-                    vec2.copy(this.goal, guard.pos);
-                    this.mode = GuardMode.MoveToDownedGuard;
-                    this.angry = true;
+
+        if (this.mode !== GuardMode.Unconscious) {
+
+            // See the player, or deal with losing sight of the player
+
+            if (this.seesActor(map, player)) {
+                if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
+                    this.mode = GuardMode.Look;
+                    this.modeTimeout = 2 + randomInRange(4);
+                } else {
+                    vec2.copy(this.goal, player.pos);
+                    updateDir(this.dir, this.pos, this.goal);
+                    this.mode = GuardMode.ChaseVisibleTarget;
+                }
+            } else if(this.mode == GuardMode.ChaseVisibleTarget) {
+                    vec2.copy(this.goal, player.pos);
+                    this.mode = GuardMode.MoveToLastSighting;
                     this.modeTimeout = 3;
-                    guardSeen = guard;
-                    shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
-                    break;
-                }
-            }    
-        }
-        if (guardSeen === null && this.mode === GuardMode.Patrol) {
-            const torch = torchNeedingRelighting(map, this.pos);
-            if (torch !== undefined) {
-                vec2.copy(this.goal, torch.pos);
-                this.mode = GuardMode.RelightTorch;
-                this.modeTimeout = 3;
-            } else if (posPrev.equals(this.pos)) {
-                const posLookAt = this.tryGetPosLookAt(map);
-                if (posLookAt !== undefined) {
-                    updateDir(this.dir, this.pos, posLookAt);
+            }
+
+            // If we see a downed guard, move to revive him.
+
+            if (isRelaxedGuardMode(this.mode)) {
+                for(let guard of map.guards) {
+                    if (this !== guard && 
+                        guard.mode === GuardMode.Unconscious && 
+                        this.seesActor(map, guard)) {
+                        vec2.copy(this.goal, guard.pos);
+                        this.mode = GuardMode.MoveToDownedGuard;
+                        this.angry = true;
+                        this.modeTimeout = 3;
+                        shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
+                        break;
+                    }
+                }    
+            }
+
+            // If we see an extinguished torch, move to light it.
+
+            if (this.mode === GuardMode.Patrol) {
+                const torch = torchNeedingRelighting(map, this.pos);
+                if (torch !== undefined) {
+                    vec2.copy(this.goal, torch.pos);
+                    this.mode = GuardMode.RelightTorch;
+                    this.modeTimeout = 3;
+                } else if (posPrev.equals(this.pos)) {
+                    const posLookAt = this.tryGetPosLookAt(map);
+                    if (posLookAt !== undefined) {
+                        updateDir(this.dir, this.pos, posLookAt);
+                    }
                 }
             }
         }
-    
+
         // Clear heard-thief flag
     
         this.heardThief = false;
@@ -323,7 +329,6 @@ class Guard {
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
         }
-    
     }
 
     cardinallyAdjacentTo(pos: vec2): boolean {
