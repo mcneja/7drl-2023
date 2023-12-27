@@ -1809,11 +1809,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
 
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
             for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
-                if (cellType == TerrainType.GroundWood && level > 3 && rng.random() < 0.02) {
-                    map.cells.at(x, y).type = TerrainType.GroundWoodCreaky;
-                } else {
-                    map.cells.at(x, y).type = cellType;
-                }
+                map.cells.at(x, y).type = cellType;
             }
         }
 
@@ -1905,6 +1901,39 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
                 tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMin[1]), itemTypes[1]);
                 tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMax[1] - 1), itemTypes[2]);
                 tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1), itemTypes[3]);
+            }
+        }
+
+        // Place creaky floor tiles
+
+        if (cellType == TerrainType.GroundWood && level > 3) {
+            for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+                for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+                    if (map.cells.at(x, y).type != TerrainType.GroundWood) {
+                        continue;
+                    }
+                    if (doorAdjacent(map.cells, vec2.fromValues(x, y))) {
+                        continue;
+                    }
+                    if (rng.random() >= 0.02) {
+                        continue;
+                    }
+                    const canLeapHorz =
+                        x > room.posMin[0] &&
+                        x < room.posMax[0] - 1 &&
+                        map.cells.at(x - 1, y).type == TerrainType.GroundWood &&
+                        map.cells.at(x + 1, y).type == TerrainType.GroundWood;
+                    const canLeapVert =
+                        y > room.posMin[1] &&
+                        y < room.posMax[1] - 1 &&
+                        map.cells.at(x, y - 1).type == TerrainType.GroundWood &&
+                        map.cells.at(x, y + 1).type == TerrainType.GroundWood;
+                    if (!(canLeapHorz || canLeapVert)) {
+                        continue;
+                    }
+
+                    map.cells.at(x, y).type = TerrainType.GroundWoodCreaky;
+                }
             }
         }
     }
