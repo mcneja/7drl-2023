@@ -601,14 +601,15 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     const volScale:number = 0.5+Math.random()/2;
     //console.log(volScale);
-    const pCell = state.gameMap.cells.atVec(player.pos)
+    const pCell = state.gameMap.cells.atVec(player.pos);
     const changedTile = oldTerrain !== pCell.type;
 
     // Hide sound effect
     if(pCell.hidesPlayer) {
         state.sounds['hide'].play(0.2);
-        return
+        return;
     }
+
     //Terrain sound effects
     switch(pCell.type) {
         case TerrainType.GroundWoodCreaky:
@@ -632,13 +633,19 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         default:
             if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
             break;
-        }    
+    }    
 }
 
 function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): [number, Guard|undefined] {
     const player = state.player;
 
     let posPrev = vec2.clone(player.pos);
+
+    // Disallow leaping from water
+
+    if (state.gameMap.cells.atVec(player.pos).type === TerrainType.GroundWater) {
+        maxDist = Math.min(maxDist, 1);
+    }
 
     let distAllowed = 0;
 
@@ -659,7 +666,7 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
                 else state.sounds['footstepTile'].play(0.1);
             }
             // If jumping but there's a door in the way, we allow a move into the door
-            if(d==1 && /*isOpenableDoor(player, state.gameMap.cells.atVec(pos))*/ [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.atVec(pos).type)) {
+            if (d==1 && [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.atVec(pos).type)) {
                 distAllowed = d;
             }
             break;
