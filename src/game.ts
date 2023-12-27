@@ -22,6 +22,11 @@ export const gameConfig = {
     totalGameLoot: 100
 }
 
+enum NoiseType {
+    Creak,
+    Splash,
+}
+
 const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
 const fontTileSet = getFontTileSet('font'); 
 
@@ -594,7 +599,9 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
 
     let cellType = state.gameMap.cells.atVec(player.pos).type;
     if (cellType == TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, 17, state.popups, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
+    } else if (cellType == TerrainType.GroundWater && origDist === 2) {
+        makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
     }
 
     advanceTime(state);
@@ -777,22 +784,34 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
     }
 }
 
-function makeNoise(map: GameMap, player: Player, radius: number, popups: Popups, sounds: Howls) {
+function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: number, sounds: Howls) {
     player.noisy = true;
 
-    sounds.footstepCreaky.play(0.6);
-
-    let gDist = radius*radius;
-    let closestGuard = null;
-    for (const guard of map.guardsInEarshot(player.pos, radius)) {
-        const dist = player.pos.squaredDistance(guard.pos);
-        if(dist<=gDist && isRelaxedGuardMode(guard.mode)) closestGuard = guard;
-        guard.heardThief = true;
+    switch (noiseType) {
+        case NoiseType.Creak:
+            sounds.footstepCreaky.play(0.6);
+            break;
+        case NoiseType.Splash:
+            // TODO: splash sound effect
+            // sounds.leapSplash.play(0.6);
+            break;
     }
-    if(closestGuard!=null) {
+
+    let closestGuardDist = Infinity;
+    let closestGuard = null;
+
+    for (const guard of map.guardsInEarshot(player.pos, radius)) {
+        guard.heardThief = true;
+
+        const dist = player.pos.squaredDistance(guard.pos);
+        if (dist < closestGuardDist && isRelaxedGuardMode(guard.mode)) {
+            closestGuardDist = dist;
+            closestGuard = guard;
+        }
+    }
+
+    if (closestGuard !== null) {
         closestGuard.mode = GuardMode.MoveToLastSound; //Moving to a more alert state ensures guard will move to the noise
-//        closestGuard.modeTimeout = 4 + randomInRange(4);
-//        vec2.copy(closestGuard.goal, player.pos);
     }
 }
 
