@@ -24,8 +24,8 @@ enum GuardMode {
     MoveToGuardShout,
     MoveToDownedGuard,
     WakeGuard,
-    RelightTorch,
-    PostRelightTorch,
+    MoveToTorch,
+    LightTorch,
     Unconscious,
 }
 
@@ -158,9 +158,12 @@ class Guard {
                     const middle = vec2.create();
                     vec2.subtract(middle, player.pos, this.pos);
                     vec2.scale(middle, middle, 0.5);
-                    this.animation = new SpriteAnimation([{pt0:startend, pt1:middle, duration:0.1, fn:tween.easeInQuad},
-                                                        {pt0:middle, pt1:startend, duration:0.1, fn:tween.easeOutQuad},
-                                                        ], []);
+                    this.animation = new SpriteAnimation(
+                        [
+                            {pt0:startend, pt1:middle, duration:0.1, fn:tween.easeInQuad},
+                            {pt0:middle, pt1:startend, duration:0.1, fn:tween.easeOutQuad},
+                        ],
+                        []);
                     player.applyDamage(1);
                 }
             } else {
@@ -216,20 +219,25 @@ class Guard {
             }
             break;
 
-        case GuardMode.RelightTorch:
-            if (this.cardinallyAdjacentTo(this.goal)) {
-                updateDir(this.dir, this.pos, this.goal);
-                this.mode = GuardMode.PostRelightTorch;
-                this.modeTimeout = 3;
-            } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
-                this.modeTimeout -= 1;
-                if (this.modeTimeout === 0) {
-                    this.enterPatrolMode(map);
+        case GuardMode.MoveToTorch:
+            {
+                const moveResult = this.moveTowardAdjacentToPosition(this.goal, map, player);
+                if (this.cardinallyAdjacentTo(this.goal)) {
+                    updateDir(this.dir, this.pos, this.goal);
+                    this.mode = GuardMode.LightTorch;
+                    this.modeTimeout = 5;
+                } else if (moveResult === MoveResult.Moved) {
+                    this.modeTimeout = 3;
+                } else {
+                    this.modeTimeout -= 1;
+                    if (this.modeTimeout <= 0) {
+                        this.enterPatrolMode(map);
+                    }
                 }
             }
             break;
 
-        case GuardMode.PostRelightTorch:
+        case GuardMode.LightTorch:
             --this.modeTimeout;
             updateDir(this.dir, this.pos, this.goal);
             if (this.modeTimeout <= 0) {
@@ -284,17 +292,25 @@ class Guard {
             // If we see a downed guard, move to revive him.
 
             if (isRelaxedGuardMode(this.mode)) {
-                for(let guard of map.guards) {
-                    if (this !== guard && 
-                        guard.mode === GuardMode.Unconscious && 
-                        this.seesActor(map, guard)) {
-                        vec2.copy(this.goal, guard.pos);
-                        this.mode = GuardMode.MoveToDownedGuard;
-                        this.angry = true;
-                        this.modeTimeout = 3;
-                        shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
-                        break;
+                for (let guard of map.guards) {
+                    if (guard === this) {
+                        continue;
                     }
+
+                    if (guard.mode !== GuardMode.Unconscious) {
+                        continue;
+                    }
+
+                    if (!this.seesActor(map, guard)) {
+                        continue;
+                    }
+
+                    vec2.copy(this.goal, guard.pos);
+                    this.mode = GuardMode.MoveToDownedGuard;
+                    this.angry = true;
+                    this.modeTimeout = 3;
+                    shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
+                    break;
                 }    
             }
 
@@ -304,7 +320,7 @@ class Guard {
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
-                    this.mode = GuardMode.RelightTorch;
+                    this.mode = GuardMode.MoveToTorch;
                     this.modeTimeout = 3;
                 } else if (posPrev.equals(this.pos)) {
                     const posLookAt = this.tryGetPosLookAt(map);
@@ -474,8 +490,8 @@ class Guard {
 
 function isRelaxedGuardMode(guardMode: GuardMode): boolean {
     return guardMode === GuardMode.Patrol ||
-        guardMode === GuardMode.RelightTorch ||
-        guardMode === GuardMode.PostRelightTorch;
+           guardMode === GuardMode.MoveToTorch ||
+           guardMode === GuardMode.LightTorch;
 }
 
 type Shout = {
