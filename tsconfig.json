@@ -2,8 +2,8 @@
     "compilerOptions": {
         "outDir": "./dist",
         "target": "es6",
-        "module": "es6",
-        "moduleResolution": "nodenext",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
         "strict": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
