@@ -6,7 +6,7 @@ import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
 import { State } from './types';
-import { playerMoveTo } from './game';
+import { playerMoveTo, playerKnockOut } from './game';
 
 enum MoveResult {
     StoodStill,
@@ -43,6 +43,7 @@ class Guard {
     hearingGuard: boolean = false;
     heardGuard: boolean = false;
     heardGuardPos: vec2;
+    turnsAdjacentToPlayer: number = 0;
 
     animation: SpriteAnimation|null = null;
 
@@ -334,6 +335,16 @@ class Guard {
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
         }
+
+        // Update counter of number of turns unaware of and adjacent to player
+
+        if (this.mode === GuardMode.ChaseVisibleTarget) {
+            this.turnsAdjacentToPlayer = 0;
+        } else if (!this.cardinallyAdjacentTo(player.pos) && player.pickTarget !== this) {
+            this.turnsAdjacentToPlayer = 0;
+        } else {
+            ++this.turnsAdjacentToPlayer;
+        }
     }
 
     cardinallyAdjacentTo(pos: vec2): boolean {
@@ -508,7 +519,9 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
     let ontoGate = false;
 
     // Update each guard for this turn.
+
     const shouts: Array<Shout> = [];
+
     if (player.pickTarget !== null) {
         const guard = player.pickTarget;
         const oldPos = vec2.clone(guard.pos);
@@ -517,10 +530,20 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = true;
         if (!oldPos.equals(guard.pos)) {
             playerMoveTo(state, map, player, oldPos);
+        } else {
+            guard.mode = GuardMode.Unconscious;
+            guard.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+            if (guard.hasPurse) {
+                guard.hasPurse = false;
+                player.loot += 1;
+                state.lootStolen += 1;
+                state.sounds.coin.play(1.0);            
+            }
+            playerKnockOut(state, player, guard);
         }
     }
 
-    const otherGuards = map.guards.filter((guard)=>guard!==player.pickTarget);
+    const otherGuards = map.guards.filter((guard)=>guard !== player.pickTarget);
     for (const guard of otherGuards) {
         const oldPos = vec2.clone(guard.pos);
         guard.act(map, popups, player, shouts);
@@ -534,9 +557,9 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         alertNearbyGuards(map, shout);
     }
 
-    if (player.pickTarget !== null && !isRelaxedGuardMode(player.pickTarget.mode)) {
-        player.pickTarget = null;
-    }
+    // Clear the pickTarget
+
+    player.pickTarget = null;
 
     if (ontoGate) {
         state.sounds['gate'].play(0.2);

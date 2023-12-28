@@ -294,7 +294,6 @@ class Player {
     turnsRemainingUnderwater: number;
     animation: Animator|null = null;
     pickTarget: Guard|null = null;
-    pickTimeout: number = 0;
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);

@@ -404,6 +404,17 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
     }
 }
 
+export function playerKnockOut(state: State, player: Player, guard: Guard) {
+    const pos0 = vec2.create();
+    const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
+    state.sounds.hitGuard.play(0.25);
+    player.animation = new SpriteAnimation(
+        [
+            {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
+            {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
+        ],
+        [tileSet.playerTiles[0]]);
+}
 
 function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
 
@@ -439,18 +450,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             }
         }
         preTurn(state);
-        //TODO: This needs to be cleaned up
-        const guard = player.pickTarget;
-        if (guard !== null && player.pickTimeout > 0 && guard.adjacentTo(player.pos)) {
-            --player.pickTimeout;
-            if (player.pickTimeout <= 0 && guard.hasPurse) {
-                //TODO: Add a particle animation hear to show the purse being removed
-                guard.hasPurse = false;
-                player.loot += 1;
-                state.lootStolen += 1;
-                state.sounds.coin.play(1.0);        
-            }        
-        }
         advanceTime(state);
         return;
     }
@@ -504,26 +503,6 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
             []);
     } else if (player.pickTarget !== guard) {
         player.pickTarget = guard;
-        player.pickTimeout = 1;
-    } else { //KO a guard
-        guard.mode = GuardMode.Unconscious;
-        guard.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
-        if (guard.hasPurse) {
-            guard.hasPurse = false;
-            player.loot += 1;
-            state.lootStolen += 1;
-            state.sounds.coin.play(1.0);            
-        }
-        player.pickTarget = null;
-        const pos0 = vec2.create();
-        const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
-        state.sounds.hitGuard.play(0.25);
-        player.animation = new SpriteAnimation(
-            [
-                {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
-            ],
-            [tileSet.playerTiles[0]]);
     }
 
     // Execute the move. Collect loot along the way; advance to next level when moving off the edge.
@@ -829,13 +808,35 @@ function advanceTime(state: State) {
 
     guardActAll(state, state.gameMap, state.popups, state.player);
 
-    if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
+    if (state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
         //TODO: Play a disappointed sound if the first time this happens on the level
         state.ghostBonus = 0;
     }
     const p = state.player.pos;
     state.gameMap.computeLighting(state.gameMap.cells.atVec(p));
     state.gameMap.recomputeVisibility(p);
+
+    // Loot anyone who has been adjacent to player and unaware of them for at least two turns
+    for (const guard of state.gameMap.guards) {
+        if (!guard.hasPurse) {
+            continue;
+        }
+        if (guard.turnsAdjacentToPlayer < 2) {
+            continue;
+        }
+        if (guard.mode === GuardMode.ChaseVisibleTarget) {
+            continue;
+        }
+        if (!guard.adjacentTo(state.player.pos)) {
+            continue;
+        }
+
+        //TODO: Add a particle animation hear to show the purse being removed
+        guard.hasPurse = false;
+        state.player.loot += 1;
+        state.lootStolen += 1;
+        state.sounds.coin.play(1.0);        
+    }
 
     postTurn(state);
 
