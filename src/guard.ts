@@ -31,45 +31,34 @@ enum GuardMode {
 
 class Guard {
     pos: vec2;
-    dir: vec2;
-    mode: GuardMode;
-    angry: boolean;
-    hasTorch: boolean;
-    hasPurse: boolean;
+    dir: vec2 = vec2.fromValues(1, 0);
+    mode: GuardMode = GuardMode.Patrol;
+    angry: boolean = false;
+    hasTorch: boolean = false;
+    hasPurse: boolean = false;
     torchAnimation: LightSourceAnimation|null = null;
-    speaking: boolean;
-    hasMoved: boolean;
-    heardThief: boolean;
-    hearingGuard: boolean;
-    heardGuard: boolean;
+    speaking: boolean = false;
+    hasMoved: boolean = false;
+    heardThief: boolean = false;
+    hearingGuard: boolean = false;
+    heardGuard: boolean = false;
     heardGuardPos: vec2;
 
     animation: SpriteAnimation|null = null;
 
     // Chase
     goal: vec2;
-    modeTimeout: number;
+    modeTimeout: number = 0;
 
     // Patrol
     patrolPath: Array<vec2>;
     patrolPathIndex: number;
 
-    constructor(patrolPath: Array<vec2>, pathIndexStart: number, map: GameMap) {
+    constructor(patrolPath: Array<vec2>, pathIndexStart: number) {
         const posStart = patrolPath[pathIndexStart];
         this.pos = vec2.clone(posStart);
-        this.dir = vec2.fromValues(1, 0);
-        this.mode = GuardMode.Patrol;
-        this.angry = false;
-        this.hasTorch = false;
-        this.hasPurse = false;
-        this.speaking = false;
-        this.hasMoved = false;
-        this.heardThief = false;
-        this.hearingGuard = false;
-        this.heardGuard = false;
         this.heardGuardPos = vec2.clone(posStart);
         this.goal = vec2.clone(posStart);
-        this.modeTimeout = 0;
         this.patrolPath = patrolPath;
         this.patrolPathIndex = pathIndexStart;
 
