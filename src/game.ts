@@ -367,7 +367,7 @@ function advanceToWin(state: State) {
 }
 
 export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: vec2) {
-    if(player.pos.equals(pos)) {
+    if (player.pos.equals(pos)) {
         return;
     }
 
@@ -389,7 +389,7 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
     //TODO: This leads to duplicate pickups if player is quick. Need to remove the collected loot from items collection
     // and add it to a particle collection for animation
     const lootCollected = state.gameMap.collectLootAt(player.pos);
-    if(lootCollected.length>0) {
+    if (lootCollected.length>0) {
         state.sounds.coin.play(1.0);
     }
     for (let loot of lootCollected) {
@@ -424,7 +424,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         return;
     }
 
-    //Move camera with player by releasing any panning motion
+    // Move camera with player by releasing any panning motion
     state.camera.panning = false;
     state.touchController.clearMotion();
 
@@ -441,9 +441,9 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         preTurn(state);
         //TODO: This needs to be cleaned up
         const guard = player.pickTarget;
-        if(guard instanceof Guard && guard.adjacentTo(player.pos)) {
-            player.pickTimeout--;
-            if(player.pickTimeout===0  && guard.hasPurse) {
+        if (guard !== null && player.pickTimeout > 0 && guard.adjacentTo(player.pos)) {
+            --player.pickTimeout;
+            if (player.pickTimeout <= 0 && guard.hasPurse) {
                 //TODO: Add a particle animation hear to show the purse being removed
                 guard.hasPurse = false;
                 player.loot += 1;
@@ -456,82 +456,74 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     }
 
     let [dist, guard] = playerMoveDistAllowed(state, dx, dy, distDesired);
-    if(guard !== undefined) {
-        if(guard.mode !== GuardMode.Unconscious) {
-            if(player.pickTarget!==guard) {
-                // preTurn(state);
-                if(player.pickTarget!==guard) {
-                    player.pickTimeout = 2;
-                    player.pickTarget = guard;
-                }
-                player.pickTimeout--;
-                if(player.pickTimeout===0  && guard.hasPurse) {
-                    guard.hasPurse = false;
-                    player.loot += 1;
-                    state.lootStolen += 1;
-                    state.sounds.coin.play(1.0);        
-                }    
-                // advanceTime(state);
-                // return;
-            } else { //KO a guard
-                guard.mode = GuardMode.Unconscious;
-                guard.modeTimeout = 40 - 2*state.level + randomInRange(20);    
-                if(guard.hasPurse) {
-                    guard.hasPurse = false;
-                    player.loot += 1;
-                    state.lootStolen += 1;
-                    state.sounds.coin.play(1.0);            
-                }
-                player.pickTarget = null;
-                const pos0 = vec2.create();
-                const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
-                state.sounds.hitGuard.play(0.25);
-                player.animation = new SpriteAnimation([
-                    {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
-                    {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
-                ],[tileSet.playerTiles[0]]);
-                }
-        } else {
-            const gpos0 = vec2.clone(guard.pos).subtract(player.pos);
-            const gpos1 = vec2.create();
-            guard.pos = vec2.clone(player.pos);
-            if(state.gameMap.cells.atVec(guard.pos).type===TerrainType.GroundWater) {
-                guard.modeTimeout = 0;
-            }
-            guard.animation = new SpriteAnimation([
-                {pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}
-            ],[]);
-        }
-    } else {
+    if (guard === undefined) {
         player.pickTarget = null;
-    }
-    if (dist <= 0 && guard===undefined) {
-        const posBump = vec2.fromValues(player.pos[0] + dx * (dist + 1), player.pos[1] + dy * (dist + 1));
 
-        // Bump into items
-        const item = state.gameMap.items.find((item) => item.pos.equals(posBump));
-        if (item !== undefined) {
-            switch (item.type) {
-                case ItemType.TorchUnlit:
-                    preTurn(state);
-                    state.sounds["ignite"].play(0.08);
-                    item.type = ItemType.TorchLit;
-                    advanceTime(state);
-                    break;
-                case ItemType.TorchLit:
-                    preTurn(state);
-                    state.sounds["douse"].play(0.05);
-                    item.type = ItemType.TorchUnlit;
-                    advanceTime(state);
-                    break;
-                case ItemType.PortcullisEW:
-                case ItemType.PortcullisNS:
-                    state.sounds['gate'].play(0.3);
-                    break;
+        if (dist <= 0) {
+            const posBump = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
+
+            // Bump into items
+            const item = state.gameMap.items.find((item) => item.pos.equals(posBump));
+            if (item === undefined) {
+                state.sounds['footstepTile'].play(0.1);
+            } else {
+                switch (item.type) {
+                    case ItemType.TorchUnlit:
+                        preTurn(state);
+                        state.sounds["ignite"].play(0.08);
+                        item.type = ItemType.TorchLit;
+                        advanceTime(state);
+                        break;
+                    case ItemType.TorchLit:
+                        preTurn(state);
+                        state.sounds["douse"].play(0.05);
+                        item.type = ItemType.TorchUnlit;
+                        advanceTime(state);
+                        break;
+                    case ItemType.PortcullisEW:
+                    case ItemType.PortcullisNS:
+                        state.sounds['gate'].play(0.3);
+                        break;
+                    default:
+                        state.sounds['footstepTile'].play(0.1);
+                        break;
+                }
             }
+    
+            return;
         }
-
-        return;
+    } else if (guard.mode === GuardMode.Unconscious) {
+        const gpos0 = vec2.clone(guard.pos).subtract(player.pos);
+        const gpos1 = vec2.create();
+        guard.pos = vec2.clone(player.pos);
+        if(state.gameMap.cells.atVec(guard.pos).type===TerrainType.GroundWater) {
+            guard.modeTimeout = 0;
+        }
+        guard.animation = new SpriteAnimation(
+            [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}],
+            []);
+    } else if (player.pickTarget !== guard) {
+        player.pickTarget = guard;
+        player.pickTimeout = 1;
+    } else { //KO a guard
+        guard.mode = GuardMode.Unconscious;
+        guard.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+        if (guard.hasPurse) {
+            guard.hasPurse = false;
+            player.loot += 1;
+            state.lootStolen += 1;
+            state.sounds.coin.play(1.0);            
+        }
+        player.pickTarget = null;
+        const pos0 = vec2.create();
+        const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
+        state.sounds.hitGuard.play(0.25);
+        player.animation = new SpriteAnimation(
+            [
+                {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
+            ],
+            [tileSet.playerTiles[0]]);
     }
 
     // Execute the move. Collect loot along the way; advance to next level when moving off the edge.
@@ -545,7 +537,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         const x = player.pos[0] + dx;
         const y = player.pos[1] + dy;
 
-        if(origDist==1 && dist==1) {
+        if (origDist==1 && dist==1) {
             for(let x1=Math.max(x-1,0);x1<=Math.min(x+1,state.gameMap.cells.sizeX-1);++x1) {
                 for(let y1=Math.max(y-1,0);y1<=Math.min(y+1,state.gameMap.cells.sizeY-1);++y1) {
                     state.gameMap.cells.at(x1,y1).identified = true;
@@ -669,8 +661,9 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
             if (isOneWayWindowTerrainType(state.gameMap.cells.atVec(pos).type)) {
                 state.topStatusMessage = 'Window cannot be accessed from outside';
                 state.topStatusMessageSticky = false;
-                if(state.level===0) state.sounds['tooHigh'].play(0.3);
-                else state.sounds['footstepTile'].play(0.1);
+                if (state.level === 0) {
+                    setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
+                }
             }
             // If jumping but there's a door in the way, we allow a move into the door
             if (d==1 && [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.atVec(pos).type)) {
@@ -694,38 +687,36 @@ function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: nu
         const x = player.pos[0] + dx * distAllowed;
         const y = player.pos[1] + dy * distAllowed;
         const guard = state.gameMap.guards.find((guard) => guard.pos.equalsValues(x, y));
-        if(guard!==undefined) {
-            if(isRelaxedGuardMode(guard.mode) && guard.mode!==GuardMode.Unconscious) {
-                targetGuard = guard; //Guard we can tail
+        if (guard !== undefined) {
+            if (isRelaxedGuardMode(guard.mode)) {
+                targetGuard = guard; // Guard we can tail
                 distAllowed--;
                 continue;
-            } else if(guard.mode===GuardMode.Unconscious && distAllowed===1) {
-                targetGuard = guard; //Guard we can swap position with
+            } else if (guard.mode === GuardMode.Unconscious && distAllowed === 1) {
+                targetGuard = guard; // Guard we can swap position with
             } else {
-                targetGuard = undefined; //Disallow move onto guard, shorten step
+                targetGuard = undefined; // Disallow move onto guard, shorten step
                 distAllowed--;
                 continue;
             }
         }
         if (x >= 0 && x < state.gameMap.cells.sizeX &&
             y >= 0 && y < state.gameMap.cells.sizeY) {
-            if (state.gameMap.items.find((item) => item.pos.equalsValues(x, y) &&
-                    isLeapableMoveObstacle(item.type)) !== undefined ||
-                    isLeapableTerrainType(state.gameMap.cells.at(x, y).type)) {
+            const terrainType = state.gameMap.cells.at(x, y).type;
+            if (isLeapableTerrainType(terrainType) ||
+                state.gameMap.items.find((item) => item.pos.equalsValues(x, y) && isLeapableMoveObstacle(item.type)) !== undefined) {
                 --distAllowed;
                 targetGuard = undefined;
                 state.topStatusMessage = 'Shift+move to leap';
                 state.topStatusMessageSticky = false;
-                if(state.level===0) {
-                    if([TerrainType.PortcullisEW, TerrainType.PortcullisNS].includes(state.gameMap.cells.at(x, y).type)) {
+                if (state.level === 0) {
+                    const terrainType = state.gameMap.cells.at(x, y).type;
+                    if (terrainType === TerrainType.PortcullisEW || terrainType === TerrainType.PortcullisNS) {
                         setTimeout(()=>state.sounds['jump'].play(0.3),1000);
-                    } else {
-                        if([TerrainType.OneWayWindowE, TerrainType.OneWayWindowW, TerrainType.OneWayWindowN, TerrainType.OneWayWindowS].includes(state.gameMap.cells.at(x, y).type)) {
-                            state.sounds['jump'].play(0.3);
-                        }
+                    } else if (isOneWayWindowTerrainType(terrainType)) {
+                        setTimeout(()=>state.sounds['jump'].play(0.3),250);
                     }
-                } 
-                else state.sounds['footstepTile'].play(0.1);    
+                }
                 continue;
             }
         }

@@ -293,7 +293,7 @@ class Player {
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
     animation: Animator|null = null;
-    pickTarget: ItemType|Guard|null = null;
+    pickTarget: Guard|null = null;
     pickTimeout: number = 0;
 
     constructor(pos: vec2) {
@@ -302,14 +302,14 @@ class Player {
         this.health = maxPlayerHealth;
         this.loot = 0;
         this.noisy = false;
-        this.damagedLastTurn = false;
-        this.turnsRemainingUnderwater = 0;
         this.canHit = true;
         this.canHitFromLeap = true;
         this.canPickLock = true;
         this.canPickPocket = true;
         this.hasMansionKey = false;
         this.hasChestKey = false;
+        this.damagedLastTurn = false;
+        this.turnsRemainingUnderwater = 0;
     }
 
     applyDamage(d: number) {

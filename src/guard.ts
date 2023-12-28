@@ -264,7 +264,7 @@ class Guard {
         // If the guard's moved and has a torch, recompute the level's lighting so the guard can spot
         // the player using the new lighting
 
-        if (this.hasTorch && (this.pos[0] != posPrev[0] || this.pos[1] != posPrev[1])) {
+        if (this.hasTorch && !posPrev.equals(this.pos)) {
             map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
         }
 
@@ -283,10 +283,10 @@ class Guard {
                     updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
-            } else if(this.mode == GuardMode.ChaseVisibleTarget) {
-                    vec2.copy(this.goal, player.pos);
-                    this.mode = GuardMode.MoveToLastSighting;
-                    this.modeTimeout = 3;
+            } else if (this.mode == GuardMode.ChaseVisibleTarget) {
+                vec2.copy(this.goal, player.pos);
+                this.mode = GuardMode.MoveToLastSighting;
+                this.modeTimeout = 3;
             }
 
             // If we see a downed guard, move to revive him.
@@ -365,9 +365,9 @@ class Guard {
         if (vec2.dot(this.dir, d) < 0) {
             return false;
         }
-    
-        let playerIsLit = map.cells.at(person.pos[0], person.pos[1]).lit>0;
-    
+
+        let playerIsLit = map.cells.atVec(person.pos).lit>0;
+
         let d2 = vec2.squaredLen(d);
         if (d2 >= this.sightCutoff(playerIsLit)) {
             return false;
@@ -516,17 +516,17 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = false;
     }
 
-    let ontoGate:boolean = false;
+    let ontoGate = false;
 
     // Update each guard for this turn.
     const shouts: Array<Shout> = [];
-    if(player.pickTarget instanceof Guard) {
+    if (player.pickTarget !== null) {
         const guard = player.pickTarget;
         const oldPos = vec2.clone(guard.pos);
         guard.act(map, popups, player, shouts);
-        ontoGate = ontoGate || guardOnGate(guard, map) && !oldPos.equals(guard.pos);
+        ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
         guard.hasMoved = true;
-        if(!oldPos.equals(guard.pos)) {
+        if (!oldPos.equals(guard.pos)) {
             playerMoveTo(state, map, player, oldPos);
         }
     }
@@ -536,7 +536,7 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         const oldPos = vec2.clone(guard.pos);
         guard.act(map, popups, player, shouts);
         guard.hasMoved = true;
-        ontoGate = ontoGate || guardOnGate(guard, map) && !oldPos.equals(guard.pos);
+        ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
     }
 
     // Process shouts
@@ -545,12 +545,13 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         alertNearbyGuards(map, shout);
     }
 
-    if(player.pickTarget instanceof Guard && !isRelaxedGuardMode(player.pickTarget.mode)) {
+    if (player.pickTarget !== null && !isRelaxedGuardMode(player.pickTarget.mode)) {
         player.pickTarget = null;
     }
 
-    if(ontoGate) state.sounds['gate'].play(0.2);
-
+    if (ontoGate) {
+        state.sounds['gate'].play(0.2);
+    }
 }
 
 function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): PopupType | undefined {
@@ -590,7 +591,7 @@ function alertNearbyGuards(map: GameMap, shout: Shout) {
     for (const guard of map.guardsInEarshot(shout.pos_shouter, 25)) {
         if (guard.pos[0] != shout.pos_shouter[0] || guard.pos[1] != shout.pos_shouter[1]) {
             guard.hearingGuard = true;
-            if(shout.target instanceof Guard) {
+            if (shout.target instanceof Guard) {
                 guard.angry = true;
             }
             vec2.copy(guard.heardGuardPos, shout.pos_shouter);
