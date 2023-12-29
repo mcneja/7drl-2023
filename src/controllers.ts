@@ -369,7 +369,19 @@ class GamepadManager {
     }
 }
 
-type TouchTargets = {[id:string]: {id:number, active:boolean, view:Rect, game:Rect, tileInfo:TileInfo|null, trigger:'press'|'release', show:'always'|'press', touchXY:[number, number]}};
+type TouchTargets = {
+    [id:string]: 
+    {
+        id:number, 
+        active:boolean, 
+        view:Rect, 
+        game:Rect, 
+        tileInfo:TileInfo|null, 
+        trigger:'press'|'release', 
+        show:'always'|'press', 
+        touchXY:[number, number]
+    }
+};
 
 class TouchController extends Controller {
     canvas: HTMLCanvasElement;
@@ -378,6 +390,7 @@ class TouchController extends Controller {
     coreTouchTargets: TouchTargets;
     touchTargets: TouchTargets;
     mouseActive: boolean = false;
+    targetOnTouchDown: string|null = null;
     constructor(canvas: HTMLCanvasElement, asGamepad:boolean) {
         super();
         this.canvas = canvas;
@@ -445,6 +458,7 @@ class TouchController extends Controller {
         this.lastMotion.y0 = 0;
         this.lastMotion.x = 0;
         this.lastMotion.y = 0;
+        this.targetOnTouchDown = null;
     }
     updateCoreTouchTarget(id:string, game:Rect, view:Rect, tileInfo:TileInfo) {
         const b0 = this.coreTouchTargets[id];
@@ -475,13 +489,15 @@ class TouchController extends Controller {
         this.lastMotion.y0 = this.canvas.clientHeight-ev.clientY;
         this.lastMotion.x = ev.clientX;
         this.lastMotion.y = this.canvas.clientHeight-ev.clientY;
+        this.targetOnTouchDown = null;
         for(let bname in this.touchTargets) {
             let b = this.touchTargets[bname]
             const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
             if(touching) {
                 b.touchXY = [ev.clientX, ev.clientY];
                 b.id = -2;
-                this.set(bname);
+                this.set(bname, true);
+                this.targetOnTouchDown = bname;
             }
         }
         if(this.preventDefault) ev.preventDefault();
@@ -506,7 +522,7 @@ class TouchController extends Controller {
                     this.set(bname, false, false);
                     b.id = -1;
                 }    
-            } else if(b.trigger=='release') {
+            } else if(b.trigger=='release' && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
                 const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY];
@@ -520,21 +536,22 @@ class TouchController extends Controller {
     // mouseup handler
     process_mouseup(ev:MouseEvent) {
 //        this.mouseActive = true;
-        this.clearMotion();
         for(const bname in this.touchTargets) {
             const b = this.touchTargets[bname];
             if(this.controlStates[bname]) {
                 b.id = -1;
-                this.set(bname, false);
+                this.set(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
                 this.controlTimes[bname] = 0;
             }
         }
+        this.clearMotion();
         if(this.preventDefault) ev.preventDefault();
     }
     //touchstart handler
     process_touchstart(ev: TouchEvent) {
         lastController = this;
         this.mouseActive = false;
+        this.targetOnTouchDown = null;
         for(let t of ev.changedTouches) { 
             this.lastMotion.id = t.identifier;
             this.lastMotion.active = false;
@@ -548,7 +565,8 @@ class TouchController extends Controller {
                 if(touching) {
                     b.touchXY = [t.clientX, t.clientY];
                     b.id = t.identifier;
-                    this.set(bname);
+                    this.targetOnTouchDown = bname;
+                    this.set(bname, true);
                 }
             }
         }   
@@ -575,8 +593,7 @@ class TouchController extends Controller {
                         this.set(bname, false, false);
                     }
                 }
-                //Uncomment to enable sliding from outside to activate a button
-                else if(b.id==-1 && b.trigger=='release') {
+                else if(b.id==-1 && b.trigger=='release'  && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
                     const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
@@ -592,16 +609,16 @@ class TouchController extends Controller {
     process_touchend(ev:TouchEvent) {
         this.mouseActive = false;
         for(let t of ev.changedTouches) { 
-            if(this.lastMotion.id == t.identifier) {
-                this.clearMotion();
-            }
             for(const bname in this.touchTargets) {
                 const b = this.touchTargets[bname];
                 if(b.id==t.identifier) {
                     b.id = -1;
-                    this.set(bname, false);
+                    this.set(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
                     this.controlTimes[bname] = 0;
                 }
+            }
+            if(this.lastMotion.id == t.identifier) {
+                this.clearMotion();
             }
         }
         if(this.preventDefault) ev.preventDefault();

@@ -995,7 +995,7 @@ function renderTouchButtons(renderer:Renderer, screenSize:vec2, touchController:
     for(const bkey in touchController.coreTouchTargets) {
         if(!(bkey in touchController.controlStates)) continue;
         const b = touchController.coreTouchTargets[bkey];
-        const lit = touchController.controlStates[bkey]? 1:0;
+        const lit = touchController.controlStates[bkey] && touchController.targetOnTouchDown===bkey? 1:0;
         if(b.tileInfo===null) continue;
         if(b.show=='always' || b.show=='press' && b.id!=-1) {
             renderer.addGlyph(b.game[0],b.game[1],b.game[0]+b.game[2],b.game[1]+b.game[3],
@@ -1686,8 +1686,9 @@ function createPosTranslator(screenSize:vec2, worldSize: vec2, cameraPos:vec2, z
 
 function updateTouchButtons(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
     //TODO: Move most of the game-specific logic from touchcontroller class into here
-    //TODO: Also disable when buttons activation and visibility when camera is panning
     if(lastController !== touchController) return;
+    const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
+
     const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const sw = screenSize[0];
@@ -1696,7 +1697,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     //TODO: Need to maintain the heirarchy of menus somewhere
     //TODO: Block the panning if on the HomeScreen, StatsScreen etc.
     //TODO: Update the size of buttons etc in menus
-    if(touchController.lastMotion.id!=-1 && touchController.lastMotion.active) {
+    if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
         const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
         const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
         state.camera.panning = true;
@@ -1822,12 +1823,8 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             b.tileInfo
         )
     }
-    if(state.helpActive) {
-        const hs = state.helpScreen;
-        touchController.activateTouchTargets(hs.getTouchData());
-    } else {
-        const tw = state.textWindows[state.gameMode];
-        touchController.activateTouchTargets(tw?.getTouchData());    
+    if(menu) {
+        touchController.activateTouchTargets(menu.getTouchData());
     }
 }
 
