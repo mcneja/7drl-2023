@@ -444,7 +444,7 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
         if (guard !== null && player.pickTimeout > 0 && guard.adjacentTo(player.pos)) {
             --player.pickTimeout;
             if (player.pickTimeout <= 0 && guard.hasPurse) {
-                //TODO: Add a particle animation hear to show the purse being removed
+                //TODO: Add a particle animation here to show the purse being removed
                 guard.hasPurse = false;
                 player.loot += 1;
                 state.lootStolen += 1;
@@ -1500,11 +1500,6 @@ export function restartGame(state: State) {
     state.gameMap = gameMap;
     state.activeSoundPool.empty();
     state.popups.clear();
-
-    const displayMode = window.localStorage.getItem('displayMode')?? 'Windowed';
-    if(displayMode=='fullscreen') {
-        document.documentElement.requestFullscreen();
-    }
 }
 
 function resetState(state: State) {
