@@ -904,6 +904,11 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     vec2.copy(player.pos, posNew);
 
+    // Identify creaky floor under player
+
+    const cellNew = state.gameMap.cells.atVec(posNew);
+    cellNew.identified = true;
+
     // Animate player moving
 
     const start = vec2.clone(posOld).subtract(posNew);
@@ -916,7 +921,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // Generate movement AI noises
 
-    const cellNew = state.gameMap.cells.atVec(posNew);
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
