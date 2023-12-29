@@ -691,6 +691,9 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         guard.animation = new SpriteAnimation(
             [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}],
             []);
+    } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
+        bumpFail(state, dx, dy);
+        return;
     } else {
         if (!isRelaxedGuardMode(guard.mode)) {
             player.pickTarget = null;
