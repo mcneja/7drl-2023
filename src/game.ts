@@ -1685,7 +1685,7 @@ function createPosTranslator(screenSize:vec2, worldSize: vec2, cameraPos:vec2, z
 }
 
 function updateTouchButtons(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
-    //TODO: Move most of the game-specific logic from touchcontroller class into here
+    //TODO: Perhaps should move more of the game-specific logic from touchcontroller class into here
     if(lastController !== touchController) return;
     const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
 
@@ -1694,9 +1694,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
-    //TODO: Need to maintain the heirarchy of menus somewhere
-    //TODO: Block the panning if on the HomeScreen, StatsScreen etc.
-    //TODO: Update the size of buttons etc in menus
     if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
         const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
         const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
@@ -1735,8 +1732,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['menu']},
             'zoomIn':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['zoomIn']},
             'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['zoomOut']},
-            // 'heal':     {game:new Rect(x+w-bw+offHealNext,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['heal']},
-            // 'startLevel':{game:new Rect(x+w-bw+offHealNext,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['nextLevel']},
             'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['fullscreen']},
             'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
             'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
