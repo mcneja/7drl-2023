@@ -344,7 +344,6 @@ class OptionsScreen extends TextWindow {
     pages = [
 `                  Options
 
-[F|fullscreen]      $fullscreenMode$
 [T|gamepadStyleTouch]      Touch controls as $touchMode$
 [Ctrl+R|forceRestart] Reset data
 
@@ -356,26 +355,12 @@ class OptionsScreen extends TextWindow {
             touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
             window.localStorage.setItem(touchMode, touchMode);
         }
-        const displayMode = window.localStorage.getItem('displayMode') ?? 'fullscreen';
-        this.state['fullscreenMode'] = displayMode=='fullscreen' ? 'Fullscreen':'Windowed';
         this.state['touchMode'] = touchMode;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
-        } else if(activated('fullscreen') || action=='fullscreen') {
-            if(this.state['fullscreenMode']=='Windowed') {
-                if(!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen();
-                }
-                window.localStorage.setItem('displayMode','fullscreen');
-            } else {
-                if(document.fullscreenElement) {
-                    document.exitFullscreen();
-                }
-                window.localStorage.setItem('displayMode','windowed');
-            }
         } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
             let touchMode = window.localStorage.getItem('touchMode');
             if(touchMode=='Gamepad') {
@@ -843,10 +828,6 @@ Special thanks to Mendi Carroll
         if (activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
             this.activePage = 0;
             state.helpActive = false;
-            const displayMode = window.localStorage.getItem('displayMode')??'windowed';
-            if(displayMode=='fullscreen' && !document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-            }
         } else if (activated('zoomIn') || action=='zoomIn') {
             state.zoomLevel = Math.max(1, state.zoomLevel - 1);
             state.camera.snapped = false;
@@ -856,10 +837,8 @@ Special thanks to Mendi Carroll
         } else if (activated('fullscreen') || action=='fullscreen') {
             if(document.fullscreenElement) {
                 document.exitFullscreen();
-                window.localStorage.setItem('displayMode','windowed');
             } else {
                 document.documentElement.requestFullscreen();
-                window.localStorage.setItem('displayMode','fullscreen');
             }
         } else if (activated('forceRestart')|| action=='forceRestart') {
             state.rng = new RNG();
