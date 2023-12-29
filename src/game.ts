@@ -691,17 +691,21 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         guard.animation = new SpriteAnimation(
             [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}],
             []);
-    } else if (guard.hasPurse && isRelaxedGuardMode(guard.mode)) {
-        // If we have already targeted this guard, pick their pocket; otherwise target them
-        if (player.pickTarget === guard) {
-            //TODO: Add a particle animation here to show the purse being removed
+    } else {
+        if (!isRelaxedGuardMode(guard.mode)) {
             player.pickTarget = null;
-            guard.hasPurse = false;
-            player.loot += 1;
-            state.lootStolen += 1;
-            state.sounds.coin.play(1.0);        
-        } else {
-            player.pickTarget = guard;
+        } else if (guard.hasPurse) {
+            // If we have already targeted this guard, pick their pocket; otherwise target them
+            if (player.pickTarget === guard) {
+                //TODO: Add a particle animation here to show the purse being removed
+                player.pickTarget = null;
+                guard.hasPurse = false;
+                player.loot += 1;
+                state.lootStolen += 1;
+                state.sounds.coin.play(1.0);        
+            } else {
+                player.pickTarget = guard;
+            }
         }
 
         // If the guard is stationary, pass time in place
@@ -710,9 +714,6 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
             advanceTime(state);
             return;
         }
-    } else if (!guard.moving()) {
-        bumpFail(state, dx, dy);
-        return;
     }
 
     // Execute the move
@@ -867,12 +868,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // Handle a guard at the endpoint
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
-    if (guard === undefined) {
-        player.pickTarget = null;
-    } else if (!guard.moving()) {
-        bumpFail(state, dx, dy);
-        return;
-    } else if (!guard.hasPurse) {
+    if (guard === undefined || !guard.hasPurse) {
         player.pickTarget = null;
     } else {
         player.pickTarget = guard;
