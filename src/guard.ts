@@ -6,7 +6,6 @@ import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
 import { State } from './types';
-import { playerMoveTo } from './game';
 
 enum MoveResult {
     StoodStill,
@@ -78,6 +77,34 @@ class Guard {
             return GuardStates.Relaxed;
         }
     }
+
+    moving(): boolean {
+        switch (this.mode) {
+            case GuardMode.Patrol:
+                if (this.patrolPath[this.patrolPathIndex].equals(this.pos)) {
+                    const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
+                    return !this.patrolPath[this.patrolPathIndex].equals(this.patrolPath[patrolPathIndexNext]);
+                }
+                return true;
+
+            case GuardMode.Look:
+            case GuardMode.Listen:
+            case GuardMode.ChaseVisibleTarget:
+            case GuardMode.WakeGuard:
+            case GuardMode.LightTorch:
+            case GuardMode.Unconscious:
+                return false;
+
+            case GuardMode.MoveToLastSighting:
+            case GuardMode.MoveToLastSound:
+            case GuardMode.MoveToGuardShout:
+                return !this.pos.equals(this.goal);
+    
+            case GuardMode.MoveToDownedGuard:
+            case GuardMode.MoveToTorch:
+                return !this.cardinallyAdjacentTo(this.goal);
+            }
+        }
 
     act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
         const modePrev = this.mode;
@@ -508,20 +535,10 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
     let ontoGate = false;
 
     // Update each guard for this turn.
-    const shouts: Array<Shout> = [];
-    if (player.pickTarget !== null) {
-        const guard = player.pickTarget;
-        const oldPos = vec2.clone(guard.pos);
-        guard.act(map, popups, player, shouts);
-        ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
-        guard.hasMoved = true;
-        if (!oldPos.equals(guard.pos)) {
-            playerMoveTo(state, map, player, oldPos);
-        }
-    }
 
-    const otherGuards = map.guards.filter((guard)=>guard!==player.pickTarget);
-    for (const guard of otherGuards) {
+    const shouts: Array<Shout> = [];
+
+    for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
         guard.act(map, popups, player, shouts);
         guard.hasMoved = true;
@@ -534,7 +551,10 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         alertNearbyGuards(map, shout);
     }
 
-    if (player.pickTarget !== null && !isRelaxedGuardMode(player.pickTarget.mode)) {
+    // Clear pickTarget if the guard is no longer relaxed and adjacent to the player
+
+    if (player.pickTarget !== null &&
+        (!isRelaxedGuardMode(player.pickTarget.mode) || !player.pickTarget.cardinallyAdjacentTo(player.pos))) {
         player.pickTarget = null;
     }
 

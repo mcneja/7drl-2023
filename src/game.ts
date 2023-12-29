@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
-import { BooleanGrid, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid } from './game-map';
+import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
 import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
@@ -172,28 +172,40 @@ function updateControllerState(state:State) {
             state.camera.panning = false;
             state.camera.snapped = false;
         }
-        if (activated('left')||activated('heal')) {
-            const moveSpeed = (state.leapToggleActive || controller.controlStates['jump']) ? 2 : 1;
-            tryMovePlayer(state, -1, 0, moveSpeed);
+        if (activated('left') || activated('heal')) {
+            if (state.leapToggleActive || controller.controlStates['jump']) {
+                tryPlayerLeap(state, -1, 0);
+            } else {
+                tryPlayerStep(state, -1, 0);
+            }
         } else if (activated('right')) {
-            const moveSpeed = (state.leapToggleActive || controller.controlStates['jump']) ? 2 : 1;
-            tryMovePlayer(state, 1, 0, moveSpeed);
+            if (state.leapToggleActive || controller.controlStates['jump']) {
+                tryPlayerLeap(state, 1, 0);
+            } else {
+                tryPlayerStep(state, 1, 0);
+            }
         } else if (activated('down')) {
-            const moveSpeed = (state.leapToggleActive || controller.controlStates['jump']) ? 2 : 1;
-            tryMovePlayer(state, 0, -1, moveSpeed);
+            if (state.leapToggleActive || controller.controlStates['jump']) {
+                tryPlayerLeap(state, 0, -1);
+            } else {
+                tryPlayerStep(state, 0, -1);
+            }
         } else if (activated('up')) {
-            const moveSpeed = (state.leapToggleActive || controller.controlStates['jump']) ? 2 : 1;
-            tryMovePlayer(state, 0, 1, moveSpeed);
+            if (state.leapToggleActive || controller.controlStates['jump']) {
+                tryPlayerLeap(state, 0, 1);
+            } else {
+                tryPlayerStep(state, 0, 1);
+            }
         } else if (activated('jumpLeft')) {
-            tryMovePlayer(state, -1, 0, 2);
+            tryPlayerLeap(state, -1, 0);
         } else if (activated('jumpRight')) {
-            tryMovePlayer(state, 1, 0, 2);
+            tryPlayerLeap(state, 1, 0);
         } else if (activated('jumpDown')) {
-            tryMovePlayer(state, 0, -1, 2);
+            tryPlayerLeap(state, 0, -1);
         } else if (activated('jumpUp')) {
-            tryMovePlayer(state, 0, 1, 2);
+            tryPlayerLeap(state, 0, 1);
         } else if (activated('wait')) {
-            tryMovePlayer(state, 0, 0, 0);
+            tryPlayerWait(state);
         } else if (activated('exitLevel')) {
             if (state.level >= gameConfig.numGameMaps - 1) {
                 advanceToWin(state);
@@ -366,37 +378,17 @@ function advanceToWin(state: State) {
     state.topStatusMessageSticky = false;
 }
 
-export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: vec2) {
-    if (player.pos.equals(pos)) {
-        return;
-    }
-
-    const pt0 = vec2.fromValues(player.pos[0]-pos[0], player.pos[1]-pos[1]);
-    const pt1 = vec2.create();
-    player.animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.2, fn:tween.easeOutQuad}],
-        [tileSet.playerTiles[0]]);
-    player.pos = vec2.clone(pos);
-
-    const x = player.pos[0];
-    const y = player.pos[1];
-
-    for(let x1=Math.max(x-1,0);x1<=Math.min(x+1, gameMap.cells.sizeX-1);++x1) {
-        for(let y1=Math.max(y-1,0);y1<=Math.min(y+1, gameMap.cells.sizeY-1);++y1) {
-            gameMap.cells.at(x1,y1).identified = true;
-        }
-    }
-
-    //TODO: This leads to duplicate pickups if player is quick. Need to remove the collected loot from items collection
-    // and add it to a particle collection for animation
-    const lootCollected = state.gameMap.collectLootAt(player.pos);
-    if (lootCollected.length>0) {
+function collectLoot(state: State, pos: vec2, posFlyToward: vec2) {
+    const lootCollected = state.gameMap.collectLootAt(pos);
+    if (lootCollected.length > 0) {
         state.sounds.coin.play(1.0);
     }
-    for (let loot of lootCollected) {
-        player.loot++;
-        state.lootStolen++;
-        const pt2 = vec2.fromValues(pt0[0]/2, pt0[0]/2)
-        const animation = new SpriteAnimation([{pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeOutQuad}], 
+    for (const loot of lootCollected) {
+        ++state.player.loot;
+        ++state.lootStolen;
+        const pt0 = vec2.create();
+        const pt1 = vec2.fromValues((posFlyToward[0]-loot.pos[0])/2, (posFlyToward[1]-loot.pos[1])/2);
+        const animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad}], 
             [tileSet.itemTiles[ItemType.Coin]]);
         animation.removeOnFinish = true;
         loot.animation = animation;
@@ -404,20 +396,152 @@ export function playerMoveTo(state:State, gameMap: GameMap, player:Player, pos: 
     }
 }
 
+function canStepToPos(state: State, pos: vec2): boolean {
 
-function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number) {
+    // Cannot step off map if level is unfinished
 
-    //Logic:
-    //Try to move a player in cardinal direction dx, dy (1,0), (0,1) etc, up to distance distDesired
-    //if distDesired==0 => stand still
-    //if distDesired>=2 => jump to the destination space if possible, 
-    //    else jump to nearest space to destination (some spaces block leap, others prevent entry and leap)
-    //    else rest
-    //if distDesired==1 => move to the space if it can be entered, 
-    //    else bump the space
+    if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
+        pos[1] < 0 || pos[1] >= state.gameMap.cells.sizeY) {
+        if (!state.finishedLevel) {
+            return false;
+        }
+    }
 
+    // Cannot step onto walls or windows
+
+    const cellNew = state.gameMap.cells.atVec(pos);
+    if (cellNew.blocksPlayerMove) {
+        return false;
+    }
+
+    if (isOneWayWindowTerrainType(cellNew.type)) {
+        return false;
+    }
+
+    // Cannot step onto torches or portcullises
+
+    for (const item of state.gameMap.items.filter((item) => item.pos.equals(pos))) {
+        switch (item.type) {
+        case ItemType.TorchUnlit:
+        case ItemType.TorchLit:
+        case ItemType.PortcullisEW:
+        case ItemType.PortcullisNS:
+            return false;
+        }
+    }
+
+    // Cannot step onto guards
+
+    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos))) {
+        return false;
+    }
+
+    return true;
+}
+
+function canLeapToPos(state: State, pos: vec2): boolean {
+
+    // Cannot leap off map if level is unfinished
+
+    if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
+        pos[1] < 0 || pos[1] >= state.gameMap.cells.sizeY) {
+        if (!state.finishedLevel) {
+            return false;
+        }
+    }
+
+    // Cannot leap onto a wall, window, portcullis, or door
+
+    const cellNew = state.gameMap.cells.atVec(pos);
+    if (cellNew.blocksPlayerMove) {
+        return false;
+    }
+
+    if (isOneWayWindowTerrainType(cellNew.type)) {
+        return false;
+    }
+
+    if (cellNew.type === TerrainType.PortcullisNS || cellNew.type === TerrainType.PortcullisEW) {
+        return false;
+    }
+
+    if ((cellNew.type === TerrainType.DoorNS || cellNew.type === TerrainType.DoorEW) &&
+        state.gameMap.items.find((item)=>item.pos.equals(pos) && (item.type === ItemType.DoorNS || item.type === ItemType.DoorEW))) {
+        return false;
+    }
+
+    // Cannot leap onto a blocking item
+
+    if (state.gameMap.items.find((item)=>item.pos.equals(pos) && isLeapableMoveObstacle(item.type))) {
+        return false;
+    }
+
+    // Cannot leap onto a stationary guard
+
+    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos) && !guard.moving())) {
+        return false;
+    }
+
+    return true;
+}
+
+function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
+    // Hide sound effect
+
+    if (cellNew.hidesPlayer) {
+        state.sounds['hide'].play(0.2);
+        return;
+    }
+
+    // Terrain sound effects
+
+    const volScale = 0.5 + Math.random()/2;
+    const changedTile = cellOld.type !== cellNew.type;
+
+    switch (cellNew.type) {
+    case TerrainType.GroundWoodCreaky:
+        state.sounds["footstepCreaky"].play(0.15*volScale);
+        break;
+    case TerrainType.GroundWood:
+        if (changedTile || Math.random() > 0.9) state.sounds["footstepWood"].play(0.15*volScale);
+        break;
+    case TerrainType.GroundNormal:
+        if (changedTile || Math.random() > 0.5) state.sounds["footstepGravel"].play(0.03*volScale);
+        break;
+    case TerrainType.GroundGrass:
+        if (changedTile || Math.random() > 0.75) state.sounds["footstepGrass"].play(0.05*volScale);
+        break;
+    case TerrainType.GroundWater:
+        if (changedTile || Math.random() > 0.6) state.sounds["footstepWater"].play(0.02*volScale);
+        break;
+    case TerrainType.GroundMarble:
+        if (changedTile || Math.random() > 0.8) state.sounds["footstepTile"].play(0.05*volScale);
+        break;
+    default:
+        if (changedTile || Math.random() > 0.8) state.sounds["footstepTile"].play(0.02*volScale);
+        break;
+    }    
+}
+
+function bumpAnim(state: State, dx: number, dy: number) {
+    const pos0 = vec2.create();
+    const pos1 = vec2.fromValues(dx/4, dy/4);
+
+    state.player.animation = new SpriteAnimation(
+        [
+            {pt0:pos0, pt1:pos1, duration:0.05, fn:tween.linear},
+            {pt0:pos1, pt1:pos0, duration:0.05, fn:tween.linear}
+        ],
+        [tileSet.playerTiles[0]]);
+}
+
+function bumpFail(state: State, dx: number, dy: number) {
+    state.sounds['footstepTile'].play(0.1);
+    bumpAnim(state, dx, dy);
+}
+
+function tryPlayerWait(state: State) {
     const player = state.player;
-    const origPos = vec2.clone(player.pos);
 
     // Can't move if you're dead.
     if (player.health <= 0) {
@@ -428,335 +552,394 @@ function tryMovePlayer(state: State, dx: number, dy: number, distDesired: number
     state.camera.panning = false;
     state.touchController.clearMotion();
 
-    // If just passing time, do that.
+    preTurn(state);
 
-    if ((dx === 0 && dy === 0) || distDesired <= 0) {
-        const x = player.pos[0];
-        const y = player.pos[1];
-        for(let x1=Math.max(x-1,0);x1<=Math.min(x+1,state.gameMap.cells.sizeX-1);++x1) {
-            for(let y1=Math.max(y-1,0);y1<=Math.min(y+1,state.gameMap.cells.sizeY-1);++y1) {
-                state.gameMap.cells.at(x1,y1).identified = true;
-            }
-        }
-        preTurn(state);
-        //TODO: This needs to be cleaned up
-        const guard = player.pickTarget;
-        if (guard !== null && player.pickTimeout > 0 && guard.adjacentTo(player.pos)) {
-            --player.pickTimeout;
-            if (player.pickTimeout <= 0 && guard.hasPurse) {
-                //TODO: Add a particle animation hear to show the purse being removed
-                guard.hasPurse = false;
-                player.loot += 1;
-                state.lootStolen += 1;
-                state.sounds.coin.play(1.0);        
-            }        
-        }
-        advanceTime(state);
+    state.gameMap.identifyAdjacentCells(player.pos);
+
+    player.pickTarget = null;
+
+    advanceTime(state);
+}
+
+function tryPlayerStep(state: State, dx: number, dy: number) {
+
+    // Can't move if you're dead
+
+    const player = state.player;
+    if (player.health <= 0) {
         return;
     }
 
-    let [dist, guard] = playerMoveDistAllowed(state, dx, dy, distDesired);
-    if (guard === undefined) {
-        player.pickTarget = null;
+    // Move camera with player by releasing any panning motion
 
-        if (dist <= 0) {
-            const posBump = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
+    state.camera.panning = false;
+    state.touchController.clearMotion();
 
-            // Bump into items
-            const item = state.gameMap.items.find((item) => item.pos.equals(posBump));
-            if (item === undefined) {
-                state.sounds['footstepTile'].play(0.1);
-            } else {
-                switch (item.type) {
-                    case ItemType.TorchUnlit:
-                        preTurn(state);
-                        state.sounds["ignite"].play(0.08);
-                        item.type = ItemType.TorchLit;
-                        advanceTime(state);
-                        break;
-                    case ItemType.TorchLit:
-                        preTurn(state);
-                        state.sounds["douse"].play(0.05);
-                        item.type = ItemType.TorchUnlit;
-                        advanceTime(state);
-                        break;
-                    case ItemType.PortcullisEW:
-                    case ItemType.PortcullisNS:
-                        state.sounds['gate'].play(0.3);
-                        break;
-                    default:
-                        state.sounds['footstepTile'].play(0.1);
-                        break;
-                }
+    // Get the player's current position and new position
+
+    const posOld = vec2.clone(player.pos);
+    const posNew = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
+
+    // Trying to move off the map?
+
+    if (posNew[0] < 0 || posNew[0] >= state.gameMap.cells.sizeX ||
+        posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
+
+        if (!state.finishedLevel) {
+            bumpFail(state, dx, dy);
+        } else if (state.level >= gameConfig.numGameMaps - 1) {
+            preTurn(state);
+            advanceToWin(state);
+        } else {
+            preTurn(state);
+            advanceToBetweenMansions(state);
+        }
+        return;
+    }
+
+    // Trying to move into solid terrain?
+
+    const cellNew = state.gameMap.cells.atVec(posNew);
+    if (cellNew.blocksPlayerMove) {
+        bumpFail(state, dx, dy);
+        return;
+    }
+
+    // Trying to go through the wrong way through a one-way window?
+
+    if ((cellNew.type == TerrainType.OneWayWindowE && posNew[0] <= posOld[0]) ||
+        (cellNew.type == TerrainType.OneWayWindowW && posNew[0] >= posOld[0]) ||
+        (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
+        (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
+
+        state.topStatusMessage = 'Window cannot be accessed from outside';
+        state.topStatusMessageSticky = false;
+
+        if (state.level === 0) {
+            setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
+        }
+
+        bumpFail(state, dx, dy);
+        return;
+    }
+
+    // Trying to move into a one-way window instead of leaping through?
+
+    if (isOneWayWindowTerrainType(cellNew.type)) {
+        state.topStatusMessage = 'Shift+move to leap';
+        state.topStatusMessageSticky = false;
+
+        if (state.level === 0) {
+            setTimeout(()=>state.sounds['jump'].play(0.3), 250);
+        }
+
+        bumpFail(state, dx, dy);
+        return;
+    }
+
+    // Trying to move into an item that blocks movement?
+
+    for (const item of state.gameMap.items.filter((item) => item.pos.equals(posNew))) {
+        switch (item.type) {
+        case ItemType.TorchUnlit:
+            preTurn(state);
+            state.sounds["ignite"].play(0.08);
+            item.type = ItemType.TorchLit;
+            player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
+            return;
+
+        case ItemType.TorchLit:
+            preTurn(state);
+            state.sounds["douse"].play(0.05);
+            item.type = ItemType.TorchUnlit;
+            player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
+            return;
+
+        case ItemType.PortcullisEW:
+        case ItemType.PortcullisNS:
+            state.topStatusMessage = 'Shift+move to leap';
+            state.topStatusMessageSticky = false;
+            state.sounds['gate'].play(0.3);
+            if (state.level === 0) {
+                setTimeout(()=>state.sounds['jump'].play(0.3), 1000);
             }
-    
+            bumpAnim(state, dx, dy);
             return;
         }
+    }
+
+    // Trying to move onto a guard?
+
+    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
+    if (guard === undefined) {
+        player.pickTarget = null;
     } else if (guard.mode === GuardMode.Unconscious) {
-        const gpos0 = vec2.clone(guard.pos).subtract(player.pos);
-        const gpos1 = vec2.create();
-        guard.pos = vec2.clone(player.pos);
-        if(state.gameMap.cells.atVec(guard.pos).type===TerrainType.GroundWater) {
+        player.pickTarget = null;
+        // Exchange places with the unconscious guard by moving him to posOld
+        vec2.copy(guard.pos, posOld);
+        // If guard ends up in water he wakes up immediately
+        if (state.gameMap.cells.atVec(guard.pos).type === TerrainType.GroundWater) {
             guard.modeTimeout = 0;
         }
+        // Animate guard sliding
+        const gpos0 = vec2.clone(posNew).subtract(posOld);
+        const gpos1 = vec2.create();
         guard.animation = new SpriteAnimation(
             [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}],
             []);
-    } else if (player.pickTarget !== guard) {
-        player.pickTarget = guard;
-        player.pickTimeout = 1;
-    } else { //KO a guard
-        guard.mode = GuardMode.Unconscious;
-        guard.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
-        if (guard.hasPurse) {
+    } else if (guard.hasPurse && isRelaxedGuardMode(guard.mode)) {
+        // If we have already targeted this guard, pick their pocket; otherwise target them
+        if (player.pickTarget === guard) {
+            //TODO: Add a particle animation here to show the purse being removed
+            player.pickTarget = null;
             guard.hasPurse = false;
             player.loot += 1;
             state.lootStolen += 1;
-            state.sounds.coin.play(1.0);            
-        }
-        player.pickTarget = null;
-        const pos0 = vec2.create();
-        const pos1 = vec2.fromValues((guard.pos[0]-player.pos[0])/2, (guard.pos[1]-player.pos[1])/2);
-        state.sounds.hitGuard.play(0.25);
-        player.animation = new SpriteAnimation(
-            [
-                {pt0:pos0, pt1:pos1, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:pos1, pt1:pos0, duration:0.1, fn:tween.easeInQuad}
-            ],
-            [tileSet.playerTiles[0]]);
-    }
-
-    // Execute the move. Collect loot along the way; advance to next level when moving off the edge.
-
-    preTurn(state);
-
-    const oldTerrain = state.gameMap.cells.atVec(player.pos).type;
-
-    const origDist = dist;
-    for (; dist > 0; --dist) {
-        const x = player.pos[0] + dx;
-        const y = player.pos[1] + dy;
-
-        if (origDist==1 && dist==1) {
-            for(let x1=Math.max(x-1,0);x1<=Math.min(x+1,state.gameMap.cells.sizeX-1);++x1) {
-                for(let y1=Math.max(y-1,0);y1<=Math.min(y+1,state.gameMap.cells.sizeY-1);++y1) {
-                    state.gameMap.cells.at(x1,y1).identified = true;
-                }
-            }
+            state.sounds.coin.play(1.0);        
+        } else {
+            player.pickTarget = guard;
         }
 
-        if (x < 0 || x >= state.gameMap.cells.sizeX ||
-            y < 0 || y >= state.gameMap.cells.sizeY) {
-            if (state.level >= gameConfig.numGameMaps - 1) {
-                advanceToWin(state);
-            } else {
-                advanceToBetweenMansions(state);
-            }
+        // If the guard is stationary, pass time in place
+        if (!guard.moving()) {
+            preTurn(state);
+            advanceTime(state);
             return;
         }
-
-        player.pos[0] = x;
-        player.pos[1] = y;
-        const start = vec2.clone(origPos).subtract(player.pos);
-        const end = vec2.create();
-        if(guard !== undefined && guard.mode===GuardMode.Unconscious) {
-            const gp = vec2.fromValues(0.5*(guard.pos[0]-player.pos[0]),0.5*(guard.pos[1]-player.pos[1]));
-            player.animation = new SpriteAnimation([
-                {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
-                {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},            
-            ],[tileSet.playerTiles[0]]);
-        } else {
-            player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}],[tileSet.playerTiles[0]]);
-        }
-
-        //TODO: There's potential for double collection here that needs to be fixed
-        const lootCollected = state.gameMap.collectLootAt(player.pos);
-        if(lootCollected.length>0) {
-            state.sounds.coin.play(1.0);
-        }
-        for (let loot of lootCollected) {
-            player.loot++;
-            state.lootStolen++;
-            const pt0 = vec2.create();
-            const pt1 = vec2.fromValues((origPos[0]-loot.pos[0])/2, (origPos[1]-loot.pos[1])/2);
-            const animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad}], 
-                [tileSet.itemTiles[ItemType.Coin]]);
-            animation.removeOnFinish = true;
-            loot.animation = animation;
-            state.particles.push(loot);
-        }
-    }
-
-    // Generate movement noises.
-
-    let cellType = state.gameMap.cells.atVec(player.pos).type;
-    if (cellType == TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
-    } else if (cellType == TerrainType.GroundWater && origDist === 2) {
-        makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
-    }
-
-    advanceTime(state);
-
-    const volScale:number = 0.5+Math.random()/2;
-    //console.log(volScale);
-    const pCell = state.gameMap.cells.atVec(player.pos);
-    const changedTile = oldTerrain !== pCell.type;
-
-    // Hide sound effect
-    if(pCell.hidesPlayer) {
-        state.sounds['hide'].play(0.2);
+    } else if (!guard.moving()) {
+        bumpFail(state, dx, dy);
         return;
     }
 
-    //Terrain sound effects
-    switch(pCell.type) {
-        case TerrainType.GroundWoodCreaky:
-            state.sounds["footstepCreaky"].play(0.15*volScale);
-            break;
-        case TerrainType.GroundWood:
-            if(changedTile || Math.random()>0.9) state.sounds["footstepWood"].play(0.15*volScale);
-            break;
-        case TerrainType.GroundNormal:
-            if(changedTile || Math.random()>0.5) state.sounds["footstepGravel"].play(0.03*volScale);
-            break;
-        case TerrainType.GroundGrass:
-            if(changedTile || Math.random()>0.75) state.sounds["footstepGrass"].play(0.05*volScale);
-            break;
-        case TerrainType.GroundWater:
-            if(changedTile || Math.random()>0.6) state.sounds["footstepWater"].play(0.02*volScale);
-            break;
-        case TerrainType.GroundMarble:
-            if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.05*volScale);
-            break;
-        default:
-            if(changedTile || Math.random()>0.8) state.sounds["footstepTile"].play(0.02*volScale);
-            break;
-    }    
+    // Execute the move
+
+    preTurn(state);
+
+    vec2.copy(player.pos, posNew);
+
+    // Identify creaky floors nearby
+
+    state.gameMap.identifyAdjacentCells(player.pos);
+
+    // Animate player moving
+
+    const start = vec2.clone(posOld).subtract(posNew);
+    const end = vec2.create();
+
+    let tweenSeq;
+
+    if (guard !== undefined && guard.mode === GuardMode.Unconscious) {
+        const gp = vec2.fromValues(0.5*(posOld[0]-posNew[0]),0.5*(posOld[1]-posNew[1]));
+        tweenSeq = [
+            {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
+            {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+        ];
+    } else {
+        tweenSeq = [{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}];
+    }
+
+    player.animation = new SpriteAnimation(tweenSeq, [tileSet.playerTiles[0]]);
+
+    // Collect loot
+
+    collectLoot(state, player.pos, posOld);
+
+    // Generate movement AI noises
+
+    if (cellNew.type === TerrainType.GroundWoodCreaky) {
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
+    }
+
+    // Let guards take a turn
+
+    advanceTime(state);
+
+    // Play sound for terrain type changes
+
+    playMoveSound(state, state.gameMap.cells.atVec(posOld), cellNew);
 }
 
-function playerMoveDistAllowed(state: State, dx: number, dy: number, maxDist: number): [number, Guard|undefined] {
+function tryPlayerLeap(state: State, dx: number, dy: number) {
+
+    // Can't move if you're dead
+
     const player = state.player;
-
-    let posPrev = vec2.clone(player.pos);
-
-    // Disallow leaping from water
-
-    if (state.gameMap.cells.atVec(player.pos).type === TerrainType.GroundWater) {
-        maxDist = Math.min(maxDist, 1);
+    if (player.health <= 0) {
+        return;
     }
 
-    let distAllowed = 0;
+    // Move camera with player by releasing any panning motion
 
-    for (let d = 1; d <= maxDist; ++d) {
-        const pos = vec2.fromValues(player.pos[0] + dx * d, player.pos[1] + dy * d);
+    state.camera.panning = false;
+    state.touchController.clearMotion();
 
-        if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
-            pos[1] < 0 || pos[1] >= state.gameMap.cells.sizeY) {
-            if (state.finishedLevel) {
-                distAllowed = d;
-            }
-            break;
-        } else if (blocked(state.gameMap, posPrev, pos, maxDist)) {
-            if (isOneWayWindowTerrainType(state.gameMap.cells.atVec(pos).type)) {
-                state.topStatusMessage = 'Window cannot be accessed from outside';
-                state.topStatusMessageSticky = false;
-                if (state.level === 0) {
-                    setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
-                }
-            }
-            // If jumping but there's a door in the way, we allow a move into the door
-            if (d==1 && [TerrainType.DoorEW,TerrainType.DoorNS].includes(state.gameMap.cells.atVec(pos).type)) {
-                distAllowed = d;
-            }
-            break;
+    // Get the player's current position and new position, and the middle position between them
+
+    const posOld = vec2.clone(player.pos);
+    const posMid = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
+    const posNew = vec2.fromValues(player.pos[0] + 2*dx, player.pos[1] + 2*dy);
+
+    // If the midpoint is an unaware guard, knock them unconscious
+
+    const guardMid = state.gameMap.guards.find((guard) =>
+        guard.pos.equals(posMid) &&
+        guard.mode !== GuardMode.Unconscious &&
+        guard.mode !== GuardMode.ChaseVisibleTarget);
+
+    if (guardMid) {
+        preTurn(state);
+
+        guardMid.mode = GuardMode.Unconscious;
+        guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+        if (guardMid.hasPurse) {
+            guardMid.hasPurse = false;
+            player.loot += 1;
+            state.lootStolen += 1;
+            state.sounds.coin.play(1.0);
+        }
+        player.pickTarget = null;
+        state.sounds.hitGuard.play(0.25);
+    
+        advanceTime(state);
+
+        bumpAnim(state, dx, dy);
+        return;
+    }
+
+    // If player is in water, downgrade to a step
+
+    if (state.gameMap.cells.atVec(posOld).type === TerrainType.GroundWater) {
+        tryPlayerStep(state, dx, dy);
+        return;
+    }
+
+    // If the midpoint is off the map, downgrade to a step
+
+    if (posMid[0] < 0 ||
+        posMid[1] < 0 ||
+        posMid[0] >= state.gameMap.cells.sizeX ||
+        posMid[1] >= state.gameMap.cells.sizeY) {
+        tryPlayerStep(state, dx, dy);
+        return;
+    }
+
+    // If the midpoint is a wall, downgrade to a step
+
+    const cellMid = state.gameMap.cells.atVec(posMid);
+    if (cellMid.blocksPlayerMove) {
+        tryPlayerStep(state, dx, dy);
+        return;
+    }
+
+    // If the midpoint is a door, downgrade to a step
+
+    if ((cellMid.type === TerrainType.DoorNS || cellMid.type === TerrainType.DoorEW) &&
+        state.gameMap.items.find((item)=>item.pos.equals(posMid) && (item.type === ItemType.DoorNS || item.type === ItemType.DoorEW))) {
+        tryPlayerStep(state, dx, dy);
+        return;
+    }
+
+    // If the midpoint is a one-way window but is the wrong way, downgrade to a step
+
+    if ((cellMid.type == TerrainType.OneWayWindowE && posNew[0] <= posOld[0]) ||
+        (cellMid.type == TerrainType.OneWayWindowW && posNew[0] >= posOld[0]) ||
+        (cellMid.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
+        (cellMid.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
+        tryPlayerStep(state, dx, dy);
+        return;
+    }
+
+    // If the leap destination is blocked, try a step if it can succeeed; else fail
+
+    if (!canLeapToPos(state, posNew)) {
+        if (canStepToPos(state, posMid)) {
+            tryPlayerStep(state, dx, dy);
         } else {
-            distAllowed = d;
+            bumpFail(state, dx, dy);
         }
-
-        posPrev = pos;
+        return;
     }
 
-    // Shrink the distance allowed based on what is in the destination spaces
-    // Runs in a loop 
-    // If the move would end on a guard, check if we can KO and shorten the step
-    // If the move would end on an adjacent KO'd guard, shorten the step
-    // If the move would end on a door, torch, portcullis, or window, shorten the step
-    let targetGuard:Guard|undefined = undefined;
-    while (distAllowed > 0) {
-        const x = player.pos[0] + dx * distAllowed;
-        const y = player.pos[1] + dy * distAllowed;
-        const guard = state.gameMap.guards.find((guard) => guard.pos.equalsValues(x, y));
-        if (guard !== undefined) {
-            if (isRelaxedGuardMode(guard.mode)) {
-                targetGuard = guard; // Guard we can tail
-                distAllowed--;
-                continue;
-            } else if (guard.mode === GuardMode.Unconscious && distAllowed === 1) {
-                targetGuard = guard; // Guard we can swap position with
-            } else {
-                targetGuard = undefined; // Disallow move onto guard, shorten step
-                distAllowed--;
-                continue;
-            }
-        }
-        if (x >= 0 && x < state.gameMap.cells.sizeX &&
-            y >= 0 && y < state.gameMap.cells.sizeY) {
-            const terrainType = state.gameMap.cells.at(x, y).type;
-            if (isLeapableTerrainType(terrainType) ||
-                state.gameMap.items.find((item) => item.pos.equalsValues(x, y) && isLeapableMoveObstacle(item.type)) !== undefined) {
-                --distAllowed;
-                targetGuard = undefined;
-                state.topStatusMessage = 'Shift+move to leap';
-                state.topStatusMessageSticky = false;
-                if (state.level === 0) {
-                    const terrainType = state.gameMap.cells.at(x, y).type;
-                    if (terrainType === TerrainType.PortcullisEW || terrainType === TerrainType.PortcullisNS) {
-                        setTimeout(()=>state.sounds['jump'].play(0.3),1000);
-                    } else if (isOneWayWindowTerrainType(terrainType)) {
-                        setTimeout(()=>state.sounds['jump'].play(0.3),250);
-                    }
-                }
-                continue;
-            }
-        }
-        break;
+    // Handle a guard at the endpoint
+
+    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
+    if (guard === undefined) {
+        player.pickTarget = null;
+    } else if (!guard.moving()) {
+        bumpFail(state, dx, dy);
+        return;
+    } else if (!guard.hasPurse) {
+        player.pickTarget = null;
+    } else {
+        player.pickTarget = guard;
     }
 
-    return [distAllowed, targetGuard];
+    // Execute the leap
+
+    preTurn(state);
+
+    // Collect any loot from posMid
+
+    collectLoot(state, posMid, posOld);
+
+    // End level if moving off the map
+
+    if (posNew[0] < 0 ||
+        posNew[1] < 0 ||
+        posNew[0] >= state.gameMap.cells.sizeX ||
+        posNew[1] >= state.gameMap.cells.sizeY) {
+        if (state.level >= gameConfig.numGameMaps - 1) {
+            advanceToWin(state);
+        } else {
+            advanceToBetweenMansions(state);
+        }
+        return;
+    }
+
+    // Update player position
+
+    vec2.copy(player.pos, posNew);
+
+    // Animate player moving
+
+    const start = vec2.clone(posOld).subtract(posNew);
+    const end = vec2.create();
+    player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}], [tileSet.playerTiles[0]]);
+
+    // Collect any loot from posNew
+
+    collectLoot(state, posNew, posOld);
+
+    // Generate movement AI noises
+
+    const cellNew = state.gameMap.cells.atVec(posNew);
+    if (cellNew.type === TerrainType.GroundWoodCreaky) {
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
+    } else if (cellNew.type === TerrainType.GroundWater) {
+        makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
+    }
+
+    // Let guards take a turn
+
+    advanceTime(state);
+
+    // Play sound for terrain type changes
+
+    playMoveSound(state, state.gameMap.cells.atVec(posOld), cellNew);
+
+    if (cellMid.type === TerrainType.PortcullisNS || cellMid.type === TerrainType.PortcullisEW) {
+        state.sounds['gate'].play(0.3);
+    }
 }
 
 function isLeapableMoveObstacle(itemType: ItemType): boolean {
     switch (itemType) {
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
-        // case ItemType.Chair:
-        // case ItemType.Table:
-        // case ItemType.Bush:
-        // case ItemType.PortcullisEW:
-        // case ItemType.PortcullisNS:
-            return true;
-        default:
-            return false;
-    }
-}
-
-function isLeapableTerrainType(terrainType: TerrainType): boolean {
-    switch (terrainType) {
-        case TerrainType.OneWayWindowE:
-        case TerrainType.OneWayWindowW:
-        case TerrainType.OneWayWindowN:
-        case TerrainType.OneWayWindowS:
-        case TerrainType.PortcullisNS:
-        case TerrainType.PortcullisEW:
-        // case TerrainType.GardenDoorEW:
-        // case TerrainType.GardenDoorNS:
-        // case TerrainType.GroundGrass:
-        // case TerrainType.GroundMarble:
-        // case TerrainType.GroundNormal:
-        // case TerrainType.GroundWood:
-        // case TerrainType.GroundWoodCreaky:
-        // case TerrainType.GroundWater:
             return true;
         default:
             return false;
@@ -891,60 +1074,6 @@ export function tryHealPlayer(state: State) {
     state.gameStats.lootSpent += state.healCost;
     state.player.health += 1;
     state.healCost *= 2;
-}
-
-function blocked(map: GameMap, posOld: vec2, posNew: vec2, dist: number): boolean {
-    if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= map.cells.sizeX || posNew[1] >= map.cells.sizeY) {
-        return true;
-    }
-
-    if (posOld.equals(posNew)) {
-        return false;
-    }
-
-    const cell = map.cells.atVec(posNew);
-    const tileType = cell.type;
-
-    if (cell.blocksPlayerMove) {
-        return true;
-    }
-
-    //Jump onto or through doors is blocked
-    if(dist>1) {
-        if (posNew[0]==posOld[0]) {
-            if ((tileType == TerrainType.DoorNS || tileType == TerrainType.DoorEW) && Math.abs(posNew[1]-posOld[1])==1) {
-                if(map.items.find((item)=>item.pos.equals(posNew) && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
-                    return true;
-                }    
-            }
-        }
-    
-        if (posNew[1]==posOld[1]) {
-            if ((tileType == TerrainType.DoorNS || tileType == TerrainType.DoorEW) && Math.abs(posNew[0]-posOld[0])==1) {
-                if(map.items.find((item)=>item.pos.equals(posNew) && (item.type==ItemType.DoorNS || item.type==ItemType.DoorEW))) {
-                    return true;
-                }    
-            }
-        }    
-    }
-
-    if (tileType == TerrainType.OneWayWindowE && posNew[0] <= posOld[0]) {
-        return true;
-    }
-
-    if (tileType == TerrainType.OneWayWindowW && posNew[0] >= posOld[0]) {
-        return true;
-    }
-
-    if (tileType == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) {
-        return true;
-    }
-
-    if (tileType == TerrainType.OneWayWindowS && posNew[1] >= posOld[1]) {
-        return true;
-    }
-
-    return false;
 }
 
 function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
@@ -1185,7 +1314,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
             gtile = renderer.tileSet.guardStateTiles[guardState]
         } else {
             // Render the shadowing indicator if player is shadowing a guard
-            if (guard===player.pickTarget) {
+            if (guard === player.pickTarget) {
                 gtile = {textureIndex:0xf1, color:0xffffffff};
             } else {
                 continue;

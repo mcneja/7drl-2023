@@ -294,7 +294,6 @@ class Player {
     turnsRemainingUnderwater: number;
     animation: Animator|null = null;
     pickTarget: Guard|null = null;
-    pickTimeout: number = 0;
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);
@@ -429,6 +428,19 @@ class GameMap {
             }
         });
         return gold;
+    }
+
+    identifyAdjacentCells(pos: vec2) {
+        const xMin = Math.max(pos[0] - 1, 0);
+        const yMin = Math.max(pos[1] - 1, 0);
+        const xMax = Math.min(pos[0] + 2, this.cells.sizeX);
+        const yMax = Math.min(pos[1] + 2, this.cells.sizeY);
+
+        for (let x = xMin; x < xMax; ++x) {
+            for (let y = yMin; y < yMax; ++y) {
+                this.cells.at(x, y).identified = true;
+            }
+        }
     }
 
     allSeen(): boolean {
