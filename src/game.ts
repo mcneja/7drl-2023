@@ -988,7 +988,7 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
     }
 
     if (closestGuard !== null) {
-        closestGuard.mode = GuardMode.MoveToLastSound; //Moving to a more alert state ensures guard will move to the noise
+        closestGuard.heardThiefClosest = true;
     }
 }
 

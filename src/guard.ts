@@ -39,6 +39,7 @@ class Guard {
     speaking: boolean = false;
     hasMoved: boolean = false;
     heardThief: boolean = false;
+    heardThiefClosest: boolean = false;
     hearingGuard: boolean = false;
     heardGuard: boolean = false;
     heardGuardPos: vec2;
@@ -131,21 +132,6 @@ class Guard {
                     this.mode = GuardMode.MoveToGuardShout;
                     this.modeTimeout = 2 + randomInRange(4);
                     vec2.copy(this.goal, this.heardGuardPos);
-                }
-        
-                if (this.heardThief) {
-                    if (this.adjacentTo(player.pos)) {
-                        this.mode = GuardMode.ChaseVisibleTarget;
-                        vec2.copy(this.goal, player.pos);
-                    } else if (isRelaxedGuardMode(this.mode)) {
-                        this.mode = GuardMode.Listen;
-                        this.modeTimeout = 2 + randomInRange(4);
-                        updateDir(this.dir, this.pos, player.pos);
-                    } else if (this.mode!==GuardMode.MoveToDownedGuard) {
-                        this.mode = GuardMode.MoveToLastSound;
-                        this.modeTimeout = 2 + randomInRange(4);
-                        vec2.copy(this.goal, player.pos);
-                    }
                 }
             }
         }
@@ -307,6 +293,23 @@ class Guard {
                 this.modeTimeout = 3;
             }
 
+            // Hear the thief
+
+            if (this.heardThief) {
+                if (this.adjacentTo(player.pos)) {
+                    this.mode = GuardMode.ChaseVisibleTarget;
+                    vec2.copy(this.goal, player.pos);
+                    updateDir(this.dir, this.pos, this.goal);
+                } else if (isRelaxedGuardMode(this.mode) && !this.heardThiefClosest) {
+                    this.mode = GuardMode.Listen;
+                    this.modeTimeout = 2 + randomInRange(4);
+                } else if (this.mode !== GuardMode.MoveToDownedGuard) {
+                    this.mode = GuardMode.MoveToLastSound;
+                    this.modeTimeout = 2 + randomInRange(4);
+                    vec2.copy(this.goal, player.pos);
+                }
+            }
+
             // If we see a downed guard, move to revive him.
 
             if (isRelaxedGuardMode(this.mode)) {
@@ -344,9 +347,10 @@ class Guard {
             }
         }
 
-        // Clear heard-thief flag
+        // Clear heard-thief flags
     
         this.heardThief = false;
+        this.heardThiefClosest = false;
     
         // Say something to indicate state changes
 
