@@ -143,29 +143,6 @@ class Guard {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
     
-        // See if senses will kick us into a new mode
-
-        if (this.mode !== GuardMode.Unconscious) {
-            if (!isRelaxedGuardMode(this.mode)) {
-                if (this.seesActor(map, player)) {
-                    vec2.copy(this.goal, player.pos);
-                    this.mode = GuardMode.ChaseVisibleTarget;
-                } else if (this.mode === GuardMode.ChaseVisibleTarget) {
-                    vec2.copy(this.goal, player.pos);
-                    this.mode = GuardMode.MoveToLastSighting;
-                    this.modeTimeout = 3;
-                }
-            }
-
-            if (this.mode !== GuardMode.ChaseVisibleTarget) {
-                if (this.heardGuard && this.mode !== GuardMode.MoveToLastSighting) {
-                    this.mode = GuardMode.MoveToGuardShout;
-                    this.modeTimeout = 2 + randomInRange(4);
-                    vec2.copy(this.goal, this.heardGuardPos);
-                }
-            }
-        }
-    
         // Pass time in the current mode
     
         switch (this.mode) {
@@ -182,6 +159,7 @@ class Guard {
             break;
 
         case GuardMode.ChaseVisibleTarget:
+            vec2.copy(this.goal, player.pos);
             if (this.adjacentTo(player.pos)) {
                 updateDir(this.dir, this.pos, this.goal);
                 if (modePrev == GuardMode.ChaseVisibleTarget) {
@@ -302,23 +280,21 @@ class Guard {
             map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
         }
 
-        // Update state based on target visibility from new position
+        // Change states based on sensory input
 
         if (this.mode !== GuardMode.Unconscious) {
 
-            // See the player, or deal with losing sight of the player
+            // See the thief, or lose sight of the thief
 
             if (this.seesActor(map, player)) {
                 if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.Look;
                     this.modeTimeout = 2 + randomInRange(4);
                 } else {
-                    vec2.copy(this.goal, player.pos);
-                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.ChaseVisibleTarget;
+                    updateDir(this.dir, this.pos, player.pos);
                 }
-            } else if (this.mode == GuardMode.ChaseVisibleTarget) {
-                vec2.copy(this.goal, player.pos);
+            } else if (this.mode === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
             }
@@ -338,6 +314,19 @@ class Guard {
                     this.modeTimeout = 2 + randomInRange(4);
                     vec2.copy(this.goal, player.pos);
                 }
+            }
+
+            // Hear another guard shouting
+
+            if (this.heardGuard &&
+                this.mode !== GuardMode.Look &&
+                this.mode !== GuardMode.ChaseVisibleTarget &&
+                this.mode !== GuardMode.MoveToLastSighting &&
+                this.mode !== GuardMode.MoveToLastSound) {
+
+                this.mode = GuardMode.MoveToGuardShout;
+                this.modeTimeout = 2 + randomInRange(4);
+                vec2.copy(this.goal, this.heardGuardPos);
             }
 
             // If we see a downed guard, move to revive him.
