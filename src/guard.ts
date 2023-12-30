@@ -338,11 +338,6 @@ class Guard {
                     vec2.copy(this.goal, torch.pos);
                     this.mode = GuardMode.MoveToTorch;
                     this.modeTimeout = 3;
-                } else if (posPrev.equals(this.pos)) {
-                    const posLookAt = this.tryGetPosLookAt(map);
-                    if (posLookAt !== undefined) {
-                        updateDir(this.dir, this.pos, posLookAt);
-                    }
                 }
             }
         }
@@ -432,6 +427,11 @@ class Guard {
             this.mode = GuardMode.ChaseVisibleTarget;
             vec2.copy(this.goal, player.pos);
             updateDir(this.dir, this.pos, this.goal);
+        } else if (moveResult === MoveResult.StoodStill) {
+            const posLookAt = this.tryGetPosLookAt(map);
+            if (posLookAt !== undefined) {
+                updateDir(this.dir, this.pos, posLookAt);
+            }
         }
     }
 
