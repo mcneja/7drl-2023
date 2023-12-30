@@ -623,7 +623,7 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
     } else if (-dotForward > Math.abs(dotLeft)) {
         // dirTarget is in rear quarter; reverse direction
         // (Excluding diagonals from rear quarter)
-        vec2.negate(dir, dirLeft);
+        vec2.negate(dir, dir);
     } else if (dotLeft >= 0) {
         // dirTarget is in left quarter; turn left
         vec2.copy(dir, dirLeft);
