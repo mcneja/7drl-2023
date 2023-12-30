@@ -466,12 +466,14 @@ class GameMap {
     markAllSeen() {
         for (const cell of this.cells.values) {
             cell.seen = true;
+            cell.identified = true;
         }
     }
     
     markAllUnseen() {
         for (const cell of this.cells.values) {
             cell.seen = false;
+            cell.identified = false;
         }
     }
 
