@@ -79,17 +79,47 @@ class Guard {
         }
     }
 
-    moving(pos: vec2): boolean {
+    movingWithPlayerPosition(pos: vec2): boolean {
+        switch (this.mode) {
+        case GuardMode.Patrol:
+            const posPatrolCur = this.patrolPath[this.patrolPathIndex];
+            if (posPatrolCur.equals(this.pos)) {
+                const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
+                const posPatrolNext = this.patrolPath[patrolPathIndexNext];
+                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
+            }
+            return true;
+
+        case GuardMode.Look:
+        case GuardMode.Listen:
+        case GuardMode.ChaseVisibleTarget:
+        case GuardMode.WakeGuard:
+        case GuardMode.LightTorch:
+        case GuardMode.Unconscious:
+            return false;
+
+        case GuardMode.MoveToLastSighting:
+        case GuardMode.MoveToLastSound:
+        case GuardMode.MoveToGuardShout:
+            return !this.pos.equals(this.goal);
+
+        case GuardMode.MoveToDownedGuard:
+        case GuardMode.MoveToTorch:
+            return !this.cardinallyAdjacentTo(this.goal);
+        }
+    }
+
+    moving(): boolean {
         switch (this.mode) {
             case GuardMode.Patrol:
                 const posPatrolCur = this.patrolPath[this.patrolPathIndex];
                 if (posPatrolCur.equals(this.pos)) {
                     const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
                     const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                    return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
+                    return !posPatrolNext.equals(posPatrolCur);
                 }
                 return true;
-
+    
             case GuardMode.Look:
             case GuardMode.Listen:
             case GuardMode.ChaseVisibleTarget:
@@ -97,7 +127,7 @@ class Guard {
             case GuardMode.LightTorch:
             case GuardMode.Unconscious:
                 return false;
-
+    
             case GuardMode.MoveToLastSighting:
             case GuardMode.MoveToLastSound:
             case GuardMode.MoveToGuardShout:
@@ -106,8 +136,8 @@ class Guard {
             case GuardMode.MoveToDownedGuard:
             case GuardMode.MoveToTorch:
                 return !this.cardinallyAdjacentTo(this.goal);
-            }
         }
+    }
 
     act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
         const modePrev = this.mode;
@@ -527,6 +557,14 @@ function guardOnGate(guard: Guard, map: GameMap):boolean {
     return gate!==undefined && guard.pos.equals(gate.pos);
 }
 
+function falseBeforeTrue(val0: boolean, val1: boolean): number {
+    if (val0) {
+        return val1 ? 0 : 1;
+    } else {
+        return val1 ? -1 : 0;
+    }
+}
+
 function guardActAll(state: State, map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
@@ -538,11 +576,14 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = false;
     }
 
-    let ontoGate = false;
+    // Sort guards so the non-moving ones update first.
+
+    map.guards.sort((guard0, guard1) => falseBeforeTrue(guard0.moving(), guard1.moving()));
 
     // Update each guard for this turn.
 
     const shouts: Array<Shout> = [];
+    let ontoGate = false;
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
