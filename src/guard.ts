@@ -78,12 +78,14 @@ class Guard {
         }
     }
 
-    moving(): boolean {
+    moving(pos: vec2): boolean {
         switch (this.mode) {
             case GuardMode.Patrol:
-                if (this.patrolPath[this.patrolPathIndex].equals(this.pos)) {
+                const posPatrolCur = this.patrolPath[this.patrolPathIndex];
+                if (posPatrolCur.equals(this.pos)) {
                     const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
-                    return !this.patrolPath[this.patrolPathIndex].equals(this.patrolPath[patrolPathIndexNext]);
+                    const posPatrolNext = this.patrolPath[patrolPathIndexNext];
+                    return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
                 }
                 return true;
 
