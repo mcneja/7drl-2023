@@ -325,7 +325,7 @@ class Guard {
 
             // Hear the thief
 
-            if (this.heardThief) {
+            if (this.heardThief && this.mode !== GuardMode.ChaseVisibleTarget) {
                 if (this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.ChaseVisibleTarget;
                     vec2.copy(this.goal, player.pos);
