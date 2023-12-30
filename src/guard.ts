@@ -409,7 +409,9 @@ class Guard {
     seesActor(map: GameMap, person: Player|Guard): boolean {
         const d = vec2.create();
         vec2.subtract(d, person.pos, this.pos);
-        if (vec2.dot(this.dir, d) < 0) {
+
+        // Check view frustum except when in GuardMode.ChaseVisibleTarget
+        if (this.mode !== GuardMode.ChaseVisibleTarget && vec2.dot(this.dir, d) < 0) {
             return false;
         }
 
