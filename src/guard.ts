@@ -617,23 +617,18 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
     let dotForward = vec2.dot(dir, dirTarget);
     let dotLeft = vec2.dot(dirLeft, dirTarget);
 
-    if (Math.abs(dotForward) >= Math.abs(dotLeft)) {
-        if (dotForward >= 0) {
-            // leave dir unchanged
-        } else {
-            vec2.negate(dir, dir);
-        }
-    } else if (Math.abs(dotLeft) > Math.abs(dotForward)) {
-        if (dotLeft >= 0) {
-            vec2.copy(dir, dirLeft);
-        } else {
-            vec2.negate(dir, dirLeft);
-        }
-    } else if (dotForward > 0) {
-        // leave dir unchanged
+    if (dotForward >= Math.abs(dotLeft)) {
+        // dirTarget is in front quarter; leave dir unchanged
+        // (Including diagonals in front quarter)
+    } else if (-dotForward > Math.abs(dotLeft)) {
+        // dirTarget is in rear quarter; reverse direction
+        // (Excluding diagonals from rear quarter)
+        vec2.negate(dir, dirLeft);
     } else if (dotLeft >= 0) {
+        // dirTarget is in left quarter; turn left
         vec2.copy(dir, dirLeft);
     } else {
+        // dirTarget is in right quarter; turn right
         vec2.negate(dir, dirLeft);
     }
 }
