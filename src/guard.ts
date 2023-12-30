@@ -557,14 +557,6 @@ function guardOnGate(guard: Guard, map: GameMap):boolean {
     return gate!==undefined && guard.pos.equals(gate.pos);
 }
 
-function falseBeforeTrue(val0: boolean, val1: boolean): number {
-    if (val0) {
-        return val1 ? 0 : 1;
-    } else {
-        return val1 ? -1 : 0;
-    }
-}
-
 function guardActAll(state: State, map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
@@ -576,9 +568,24 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = false;
     }
 
-    // Sort guards so the non-moving ones update first.
+    // Sort guards so the non-moving ones update first, and guards closer to the player after that.
 
-    map.guards.sort((guard0, guard1) => falseBeforeTrue(guard0.moving(), guard1.moving()));
+    const guardOrdering = (guard0: Guard, guard1: Guard) => {
+        const guard0Moving = guard0.moving();
+        const guard1Moving = guard1.moving();
+        if (guard0Moving && !guard1Moving) {
+            return 1;
+        }
+        if (guard1Moving && !guard0Moving) {
+            return -1;
+        }
+
+        const distGuard0 = Math.abs(guard0.pos[0] - player.pos[0]) + Math.abs(guard0.pos[1] - player.pos[1]);
+        const distGuard1 = Math.abs(guard1.pos[0] - player.pos[0]) + Math.abs(guard1.pos[1] - player.pos[1]);
+        return distGuard0 - distGuard1;
+    };
+
+    map.guards.sort(guardOrdering);
 
     // Update each guard for this turn.
 
