@@ -128,7 +128,7 @@ class Guard {
             }
 
             if (this.mode !== GuardMode.ChaseVisibleTarget) {
-                if (this.heardGuard) {
+                if (this.heardGuard && this.mode !== GuardMode.MoveToLastSighting) {
                     this.mode = GuardMode.MoveToGuardShout;
                     this.modeTimeout = 2 + randomInRange(4);
                     vec2.copy(this.goal, this.heardGuardPos);
