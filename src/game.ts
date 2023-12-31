@@ -540,6 +540,56 @@ function bumpFail(state: State, dx: number, dy: number) {
     bumpAnim(state, dx, dy);
 }
 
+function pushOrSwapGuard(state: State, guard: Guard) {
+    const posGuardOld = vec2.clone(guard.pos);
+    const posPlayer = vec2.clone(state.player.pos);
+
+    // Try to push the guard away from the player. If that doesn't work,
+    //  exchange places with the player.
+
+    const posGuardNew = vec2.create();
+    vec2.subtract(posGuardNew, posGuardOld, posPlayer);
+    vec2.add(posGuardNew, posGuardNew, posGuardOld);
+
+    let pulledGuard = false;
+
+    if (posGuardNew[0] < 0 ||
+        posGuardNew[1] < 0 ||
+        posGuardNew[0] >= state.gameMap.cells.sizeX ||
+        posGuardNew[1] >= state.gameMap.cells.sizeY ||
+        state.gameMap.cells.atVec(posGuardNew).moveCost === Infinity ||
+        state.gameMap.guards.find((guard)=>guard.pos.equals(posGuardNew))) {
+        vec2.copy(posGuardNew, posPlayer);
+        pulledGuard = true;
+    }
+
+    // Update guard position
+    vec2.copy(guard.pos, posGuardNew);
+
+    // If guard ends up in water he wakes up immediately
+    if (state.gameMap.cells.atVec(guard.pos).type === TerrainType.GroundWater) {
+        guard.modeTimeout = 0;
+    }
+
+    // Animate guard sliding
+    const gpos0 = vec2.clone(posGuardOld).subtract(guard.pos);
+    const gpos1 = vec2.create();
+
+    let tweenSeq;
+
+    if (pulledGuard) {
+        tweenSeq = [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}];
+    } else {
+        const gp = vec2.fromValues(0.5*(posGuardOld[0]-guard.pos[0]),0.5*(posGuardOld[1]-guard.pos[1]));
+        tweenSeq = [
+            {pt0:gpos0, pt1:gp, duration:0.2, fn:tween.easeInQuad},
+            {pt0:gp, pt1:gpos1, duration:0.1, fn:tween.easeOutQuad},
+        ];
+    }
+
+    guard.animation = new SpriteAnimation(tweenSeq, []);
+}
+
 function tryPlayerWait(state: State) {
     const player = state.player;
 
@@ -679,18 +729,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         player.pickTarget = null;
     } else if (guard.mode === GuardMode.Unconscious) {
         player.pickTarget = null;
-        // Exchange places with the unconscious guard by moving him to posOld
-        vec2.copy(guard.pos, posOld);
-        // If guard ends up in water he wakes up immediately
-        if (state.gameMap.cells.atVec(guard.pos).type === TerrainType.GroundWater) {
-            guard.modeTimeout = 0;
-        }
-        // Animate guard sliding
-        const gpos0 = vec2.clone(posNew).subtract(posOld);
-        const gpos1 = vec2.create();
-        guard.animation = new SpriteAnimation(
-            [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}],
-            []);
+        pushOrSwapGuard(state, guard);
     } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
         bumpFail(state, dx, dy);
         return;
