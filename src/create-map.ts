@@ -1313,7 +1313,9 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
             }
         }
 
-        patrolRoutes.push(patrolPositions);
+        const shift = rng.randomInRange(patrolPositions.length);
+        console.log('Shift path of length', patrolPositions.length,'by',shift);
+        patrolRoutes.push(shiftedPathCopy(patrolPositions, shift));
     }
 
     // Past level 5, start including patrols around the outside of the mansion.
@@ -2195,7 +2197,7 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
     // Generate guards
 
     for (const patrolPath of patrolRoutes) {
-        let pathIndexStart = rng.randomInRange(patrolPath.length);
+        let pathIndexStart = 0;
         const guard = new Guard(patrolPath, pathIndexStart);
         if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
