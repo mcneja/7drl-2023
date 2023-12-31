@@ -1013,15 +1013,16 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
+    state.gameMap.computeLighting(state.gameMap.cells.atVec(state.player.pos));
+
     guardActAll(state, state.gameMap, state.popups, state.player);
 
     if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
         //TODO: Play a disappointed sound if the first time this happens on the level
         state.ghostBonus = 0;
     }
-    const p = state.player.pos;
-    state.gameMap.computeLighting(state.gameMap.cells.atVec(p));
-    state.gameMap.recomputeVisibility(p);
+
+    state.gameMap.recomputeVisibility(state.player.pos);
 
     postTurn(state);
 
