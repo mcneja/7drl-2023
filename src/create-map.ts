@@ -2195,7 +2195,7 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
     // Generate guards
 
     for (const patrolPath of patrolRoutes) {
-        let pathIndexStart = 0;
+        let pathIndexStart = rng.randomInRange(patrolPath.length);
         const guard = new Guard(patrolPath, pathIndexStart);
         if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
