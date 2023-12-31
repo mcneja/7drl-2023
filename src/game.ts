@@ -232,7 +232,7 @@ function updateControllerState(state:State) {
                 ++state.level;
                 resetState(state);
             }
-        } else if (activated('resetLevel')) {
+        } else if (activated('resetState')) {
             resetState(state);
         } else if (activated('prevLevel')) {
             if (state.level > 0) {
