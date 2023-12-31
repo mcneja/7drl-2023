@@ -211,7 +211,6 @@ class Guard {
                     (g) => g.pos.equals(this.goal)
                     && g.mode === GuardMode.Unconscious
                 ))  {
-                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.WakeGuard;
                     this.modeTimeout = 3;    
                 } else {
@@ -245,7 +244,6 @@ class Guard {
             {
                 const moveResult = this.moveTowardAdjacentToPosition(this.goal, map, player);
                 if (this.cardinallyAdjacentTo(this.goal)) {
-                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.LightTorch;
                     this.modeTimeout = 5;
                 } else if (moveResult === MoveResult.Moved) {
@@ -671,8 +669,8 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
 
     const dirLeft = vec2.fromValues(-dir[1], dir[0]);
 
-    let dotForward = vec2.dot(dir, dirTarget);
-    let dotLeft = vec2.dot(dirLeft, dirTarget);
+    const dotForward = vec2.dot(dir, dirTarget);
+    const dotLeft = vec2.dot(dirLeft, dirTarget);
 
     if (dotForward >= Math.abs(dotLeft)) {
         // dirTarget is in front quarter; leave dir unchanged
