@@ -365,8 +365,13 @@ class Guard {
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
-                    this.mode = GuardMode.MoveToTorch;
-                    this.modeTimeout = 3;
+                    if (this.cardinallyAdjacentTo(this.goal)) {
+                        this.mode = GuardMode.LightTorch;
+                        this.modeTimeout = 5;
+                    } else {
+                        this.mode = GuardMode.MoveToTorch;
+                        this.modeTimeout = 3;
+                    }
                 }
             }
         }
