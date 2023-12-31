@@ -142,7 +142,17 @@ class Guard {
     act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
-    
+
+        // Immediately upgrade to chasing if we see the player while investigating;
+        // this lets us start moving toward the player on this turn rather than
+        // wait for next turn.
+
+        if (this.mode !== GuardMode.Unconscious &&
+            !isRelaxedGuardMode(this.mode) &&
+            this.seesActor(map, player)) {
+            this.mode = GuardMode.ChaseVisibleTarget;
+        }
+
         // Pass time in the current mode
     
         switch (this.mode) {
