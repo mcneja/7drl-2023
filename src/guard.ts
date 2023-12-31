@@ -455,7 +455,7 @@ class Guard {
 
         if (moveResult === MoveResult.BumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
-            updateDir(this.dir, this.pos, this.goal);
+            updateDir(this.dir, this.pos, player.pos);
         } else if (moveResult === MoveResult.StoodStill) {
             const posLookAt = this.tryGetPosLookAt(map);
             if (posLookAt !== undefined) {
@@ -475,14 +475,14 @@ class Guard {
         const distanceField = map.computeDistancesToPosition(posGoal);
         const posNext = map.posNextBest(distanceField, this.pos);
 
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
         updateDir(this.dir, this.pos, posNext);
 
         if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
+        }
+
+        if (posNext.equals(this.pos)) {
+            return MoveResult.StoodStill;
         }
 
         const start = vec2.create();
@@ -497,14 +497,14 @@ class Guard {
         const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
         const posNext = map.posNextBest(distanceField, this.pos);
 
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
         updateDir(this.dir, this.pos, posNext);
 
         if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
+        }
+
+        if (posNext.equals(this.pos)) {
+            return MoveResult.StoodStill;
         }
 
         const start = vec2.create();
