@@ -410,16 +410,22 @@ class Guard {
         if (d2 >= this.sightCutoff(playerIsLit)) {
             return false;
         }
-    
-        if (!person.hidden(map) && lineOfSight(map, this.pos, person.pos)) {
-            return true;
+
+        if (person.hidden(map)) {
+            if (isRelaxedGuardMode(this.mode) && !this.angry) {
+                return false;
+            }
+
+            if (Math.abs(d[0]) >= 2 || Math.abs(d[1]) >= 2) {
+                return false;
+            }
         }
     
-        if ((!isRelaxedGuardMode(this.mode) || this.angry) && Math.abs(d[0]) < 2 && Math.abs(d[1]) < 2) {
-            return true;
+        if (!lineOfSight(map, this.pos, person.pos)) {
+            return false;
         }
-    
-        return false;
+
+        return true;
     }
 
     hidden() {
