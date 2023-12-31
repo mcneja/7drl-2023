@@ -292,7 +292,6 @@ class Guard {
                     this.modeTimeout = 2 + randomInRange(4);
                 } else {
                     this.mode = GuardMode.ChaseVisibleTarget;
-                    updateDir(this.dir, this.pos, player.pos);
                 }
             } else if (this.mode === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
@@ -304,8 +303,6 @@ class Guard {
             if (this.heardThief && this.mode !== GuardMode.ChaseVisibleTarget) {
                 if (this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.ChaseVisibleTarget;
-                    vec2.copy(this.goal, player.pos);
-                    updateDir(this.dir, this.pos, this.goal);
                 } else if (isRelaxedGuardMode(this.mode) && !this.heardThiefClosest) {
                     this.mode = GuardMode.Listen;
                     this.modeTimeout = 2 + randomInRange(4);
@@ -458,7 +455,6 @@ class Guard {
 
         if (moveResult === MoveResult.BumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
-            vec2.copy(this.goal, player.pos);
             updateDir(this.dir, this.pos, this.goal);
         } else if (moveResult === MoveResult.StoodStill) {
             const posLookAt = this.tryGetPosLookAt(map);
