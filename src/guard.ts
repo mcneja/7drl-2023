@@ -731,6 +731,9 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
             y += y_inc;
             error -= ax;
         } else {
+            if (error === 0 && map.cells.at(x, y + y_inc).blocksSight) {
+                return false;
+            }
             x += x_inc;
             error += ay;
         }
@@ -770,6 +773,12 @@ function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
             y += y_inc;
             error -= ax;
         } else {
+            if (error === 0) {
+                const cell = map.cells.at(x, y + y_inc);
+                if (cell.blocksSight || isWindowTerrainType(cell.type)) {
+                    return false;
+                }
+            }
             x += x_inc;
             error += ay;
         }
