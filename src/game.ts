@@ -381,21 +381,19 @@ function advanceToWin(state: State) {
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2) {
     const lootCollected = state.gameMap.collectLootAt(pos);
     if (lootCollected.length > 0) {
-        setTimeout(()=>state.sounds.coin.play(1.0), 0.25);
+        state.sounds.coin.play(1.0);
     }
     for (const loot of lootCollected) {
         ++state.player.loot;
         ++state.lootStolen;
         const pt0 = vec2.create();
         const pt2 = vec2.fromValues((posFlyToward[0]-loot.pos[0]), (posFlyToward[1]-loot.pos[1]));
-        const pt1 = pt2.add(vec2.fromValues(0,0.5));
+        const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5));
         const animation = new SpriteAnimation([
-                {pt0:pt0, pt1:pt0, duration:0.25, fn:tween.easeInQuad},
                 {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
                 {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
             ], 
             [
-                tileSet.itemTiles[ItemType.Coin], 
                 tileSet.itemTiles[ItemType.Coin], 
                 tileSet.itemTiles[ItemType.Coin]
             ]
