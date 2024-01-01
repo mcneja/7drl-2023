@@ -6,7 +6,8 @@ import {State, GameMode} from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
-import { getFontTileSet } from './tilesets';
+import { getFontTileSet, getTileSet } from './tilesets';
+import { ItemType, TerrainType } from './game-map';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen };
 
@@ -402,7 +403,7 @@ class DailyHubScreen extends TextWindow {
             Win streak:         $dailyWinStreak$
 
 
-1/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+1/2    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
 //Daily rankings
 `                  Daily Challenge Results
 
@@ -415,7 +416,7 @@ $scoreTable$
     [PgUp|scrollUp] Scroll up  [PgDn|scrollDown] Scroll down
     [-|priorDay] Prior day     [+|nextDay] Next day   [0|today]  Current day
 
-2/2 [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+2/2 [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
     ];
     scoreTablePos:number = 0;
     scoreTableCount: number = 8;
@@ -588,13 +589,13 @@ class StatsScreen extends TextWindow {
             Total mansions looted:   $totalLootSweeps$
             Best winning score:      $bestScore$
 
-1/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+1/2    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
 //Achievements
 `                     Achievements
 
 $achievements$
 
-2/2    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Back to menu`,
+2/2    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
     ];
     update(state:State) {
         if(this.activePage==0) {
@@ -680,7 +681,7 @@ Loot spent:    $lootSpent$
 
 Final loot:    $loot$
 
-[R|restartGame]: Start new game
+[R|restart]: Start new game
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
@@ -756,6 +757,9 @@ Score:         $loot$
     };
 }
 
+const mp = getTileSet().touchButtons['left'].textureIndex;
+const mn = getTileSet().touchButtons['right'].textureIndex;
+
 class HelpScreen extends TextWindow {
     pages = [
 `Lurk Leap Loot
@@ -770,7 +774,7 @@ Mansion bonuses:
 
 [X|home] Exit to menu (abort game)
 
-1/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
+1/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
 `Keyboard controls
 
   Move: Arrows / WASD / HJKL
@@ -784,22 +788,22 @@ Mansion bonuses:
 Disable NumLock if using numpad
 Mouse, touch and gamepad also supported
 
-2/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
+2/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
 
 `Key 
 
-#114# Thief: You!
-#081# Guard: Avoid them!
-#053# Loot: Collect for score, or spend to heal
-#050# Tree: Hiding place
-#052# Table: Hiding place
-#051# Stool: Not a hiding place
-#049# Torch: Guards want them lit
-#160# Window: One-way escape route
-#091# Creaky floorboard: Alerts guards if stepped on
+#${getTileSet().playerTiles[0].textureIndex}# Thief: You!
+#${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
+#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Collect for score, or spend to heal
+#${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
+#${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
+#${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Not a hiding place
+#${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards want them lit
+#${getTileSet().terrainTiles[TerrainType.OneWayWindowN].textureIndex}# Window: One-way escape route
+#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floorboard: Alerts guards if stepped on
 
 
-3/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
+3/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
 
 `Made for 2023 Seven-Day Roguelike Challenge
 
@@ -814,7 +818,7 @@ Special thanks to Mendi Carroll
 
 
 
-4/4    [#04#|menuPrev] Prev     [#05#|menuNext] Next     [Esc|menuClose] Close`,
+4/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
     ];
     update(state:State) {
         this.state['numGameMaps'] = game.gameConfig.numGameMaps;
