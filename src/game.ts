@@ -381,15 +381,25 @@ function advanceToWin(state: State) {
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2) {
     const lootCollected = state.gameMap.collectLootAt(pos);
     if (lootCollected.length > 0) {
-        state.sounds.coin.play(1.0);
+        setTimeout(()=>state.sounds.coin.play(1.0), 0.25);
     }
     for (const loot of lootCollected) {
         ++state.player.loot;
         ++state.lootStolen;
         const pt0 = vec2.create();
-        const pt1 = vec2.fromValues((posFlyToward[0]-loot.pos[0])/2, (posFlyToward[1]-loot.pos[1])/2);
-        const animation = new SpriteAnimation([{pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad}], 
-            [tileSet.itemTiles[ItemType.Coin]]);
+        const pt2 = vec2.fromValues((posFlyToward[0]-loot.pos[0]), (posFlyToward[1]-loot.pos[1]));
+        const pt1 = pt2.add(vec2.fromValues(0,0.5));
+        const animation = new SpriteAnimation([
+                {pt0:pt0, pt1:pt0, duration:0.25, fn:tween.easeInQuad},
+                {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
+            ], 
+            [
+                tileSet.itemTiles[ItemType.Coin], 
+                tileSet.itemTiles[ItemType.Coin], 
+                tileSet.itemTiles[ItemType.Coin]
+            ]
+        );
         animation.removeOnFinish = true;
         loot.animation = animation;
         state.particles.push(loot);
@@ -789,7 +799,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     // Collect loot
 
-    collectLoot(state, player.pos, posOld);
+    collectLoot(state, player.pos, posNew);
 
     // Generate movement AI noises
 
@@ -922,7 +932,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // Collect any loot from posMid
 
-    collectLoot(state, posMid, posOld);
+    collectLoot(state, posMid, posNew);
 
     // End level if moving off the map
 
@@ -955,7 +965,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // Collect any loot from posNew
 
-    collectLoot(state, posNew, posOld);
+    collectLoot(state, posNew, posNew);
 
     // Generate movement AI noises
 
@@ -1729,16 +1739,16 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         }    
     }
     state.gameMap.items = state.gameMap.items.filter( (i) => {
-        i.animation?.update(dt);
+        const done = i.animation?.update(dt);
         if(i.animation instanceof SpriteAnimation) {
-            return !(i.animation.removeOnFinish && i.animation.time===0)
+            return !(i.animation.removeOnFinish && done);
         }
         return true;
     });
     state.particles = state.particles.filter( (p) => {
-        p.animation?.update(dt);
+        const done = p.animation?.update(dt);
         if(p.animation instanceof SpriteAnimation) {
-            return !(p.animation.removeOnFinish && p.animation.time===0)
+            return !(p.animation.removeOnFinish && done);
         }
         return true;
     });

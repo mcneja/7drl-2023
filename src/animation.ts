@@ -82,6 +82,10 @@ class SpriteAnimation extends Animator {
         if(this.time == duration) {
             this.activePt++;
             this.time = 0;
+            this.activeFrame++;
+        }
+        if(this.activeFrame>=this.tileInfo.length) {
+            this.activeFrame = 0;
         }
         return this.activePt === this.tweenSeq.length;
     }
