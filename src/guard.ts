@@ -35,6 +35,7 @@ class Guard {
     angry: boolean = false;
     hasTorch: boolean = false;
     hasPurse: boolean = false;
+    hasVaultKey: boolean = false;
     torchAnimation: LightSourceAnimation|null = null;
     speaking: boolean = false;
     hasMoved: boolean = false;

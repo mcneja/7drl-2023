@@ -285,12 +285,7 @@ class Player {
     health: number;
     loot: number;
     noisy: boolean; // did the player make noise last turn?
-    canHit: boolean;
-    canHitFromLeap: boolean;
-    canPickLock: boolean;
-    canPickPocket: boolean;
-    hasMansionKey: boolean;
-    hasChestKey: boolean;
+    hasVaultKey: boolean;
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
     animation: Animator|null = null;
@@ -302,12 +297,7 @@ class Player {
         this.health = maxPlayerHealth;
         this.loot = 0;
         this.noisy = false;
-        this.canHit = true;
-        this.canHitFromLeap = true;
-        this.canPickLock = true;
-        this.canPickPocket = true;
-        this.hasMansionKey = false;
-        this.hasChestKey = false;
+        this.hasVaultKey = false;
         this.damagedLastTurn = false;
         this.turnsRemainingUnderwater = 0;
     }

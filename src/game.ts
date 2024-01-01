@@ -730,6 +730,17 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
             }
             bumpAnim(state, dx, dy);
             return;
+
+        case ItemType.LockedDoorEW:
+        case ItemType.LockedDoorNS:
+            if (!player.hasVaultKey) {
+                state.topStatusMessage = 'Locked!';
+                state.topStatusMessageSticky = false;
+
+                bumpFail(state, dx, dy);
+                return;
+            }
+            break;
         }
     }
 
@@ -747,15 +758,21 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     } else {
         if (!isRelaxedGuardMode(guard.mode)) {
             player.pickTarget = null;
-        } else if (guard.hasPurse) {
+        } else if (guard.hasPurse || guard.hasVaultKey) {
             // If we have already targeted this guard, pick their pocket; otherwise target them
             if (player.pickTarget === guard) {
                 //TODO: Add a particle animation here to show the purse being removed
                 player.pickTarget = null;
-                guard.hasPurse = false;
-                player.loot += 1;
-                state.lootStolen += 1;
-                state.sounds.coin.play(1.0);        
+                if (guard.hasPurse) {
+                    guard.hasPurse = false;
+                    player.loot += 1;
+                    state.lootStolen += 1;
+                }
+                if (guard.hasVaultKey) {
+                    guard.hasVaultKey = false;
+                    player.hasVaultKey = true;
+                }
+                state.sounds.coin.play(1.0);
             } else {
                 player.pickTarget = guard;
             }
@@ -849,10 +866,16 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
         guardMid.mode = GuardMode.Unconscious;
         guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
-        if (guardMid.hasPurse) {
-            guardMid.hasPurse = false;
-            player.loot += 1;
-            state.lootStolen += 1;
+        if (guardMid.hasPurse || guardMid.hasVaultKey) {
+            if (guardMid.hasPurse) {
+                guardMid.hasPurse = false;
+                player.loot += 1;
+                state.lootStolen += 1;
+            }
+            if (guardMid.hasVaultKey) {
+                guardMid.hasVaultKey = false;
+                player.hasVaultKey = true;
+            }
             state.sounds.coin.play(1.0);
         }
         player.pickTarget = null;
@@ -921,7 +944,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // Handle a guard at the endpoint
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
-    if (guard === undefined || !guard.hasPurse) {
+    if (guard === undefined || !(guard.hasPurse || guard.hasVaultKey)) {
         player.pickTarget = null;
     } else {
         player.pickTarget = guard;
@@ -1309,7 +1332,7 @@ function renderGuards(state: State, renderer: Renderer) {
         const x = guard.pos[0] + offset[0] + offX;
         const y = guard.pos[1] + offset[1];
     
-        if(guard.hasTorch || guard.hasPurse) {
+        if(guard.hasTorch || guard.hasPurse || guard.hasVaultKey) {
             let t0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
             let t1 = y-0.125;
             const tti = guard.torchAnimation?.currentTile() ?? renderer.tileSet.itemTiles[ItemType.TorchCarry];
@@ -1319,15 +1342,15 @@ function renderGuards(state: State, renderer: Renderer) {
             if(guard.dir[1]>0) {
                 if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
-                if(guard.hasPurse) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
             } else if(guard.dir[1]<0) {
-                if(guard.hasPurse) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
                 if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
             } else {
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
                 if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
-                if(guard.hasPurse) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
             }
         }
         else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
@@ -2219,7 +2242,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     let turnsLeft = (6-ptsLeft)*scale + scale - 1 - state.turns;
 
 
-    const turnsLeftText = ptsLeft>0 ? ' Timer ' + turnsLeft + " (+" + ptsLeft + ")" : ' Turns '+state.turns + " (--)";
+    const turnsLeftText = ptsLeft>0 ? 'Timer ' + turnsLeft + " (+" + ptsLeft + ")" : 'Turns ' + state.turns + " (--)";
     const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped - ' + turnsLeftText;
 
     const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
@@ -2230,6 +2253,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     let lootMsg = 'Loot ' + state.player.loot;
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
+
+    // Key possession
+
+    if (state.player.hasVaultKey) {
+        const keyX = lootX - 4;
+        putString(renderer, keyX, 'Key', colorPreset.lightCyan);
+    }
 
     // Leap toggle indicator
 
