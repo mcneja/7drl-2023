@@ -153,7 +153,6 @@ enum TerrainType {
 
 type ActorCheckFunc = (actor:Guard|Player)=>boolean;
 type ActorFunc = (actor:Guard|Player)=>void;
-type ActorPosFunc = (actor:Guard|Player, pos:vec2)=>void;
 
 type Cell = {
     type: TerrainType;

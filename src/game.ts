@@ -1208,8 +1208,6 @@ function renderWorld(state: State, renderer: Renderer) {
             if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit && !cell.identified) {
                 terrainType = TerrainType.GroundWood;
             }
-            const alwaysLit = (terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW) ? 1:0;
-            const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, state.seeAll || cell.seen);
             const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
 
             //Draw tile
@@ -1236,8 +1234,6 @@ function renderWorld(state: State, renderer: Renderer) {
             const ind = state.gameMap.cells.index(x, y);
             if(!(ind in mappedItems)) continue;
             for(let item of mappedItems[ind]) {
-                const alwaysLit = (isDoorItemType(item.type) || item.type == ItemType.Coin)? 1 : 0;
-                const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, state.seeAll || cell.seen);
                 const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
     
                 if([TerrainType.PortcullisEW].includes(terrainType)
