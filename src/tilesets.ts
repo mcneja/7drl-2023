@@ -198,10 +198,10 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([15,0]),    color: 0xFF736847,           unlitColor: 0xFF483428}, //right
     ],
     waterAnimation: [
-        {textureIndex: 0x60, color: 0xffffff, unlitColor: colorPreset.midGray}, 
-        {textureIndex: 0x61, color: 0xffffff, unlitColor: colorPreset.midGray}, 
-        {textureIndex: 0x62, color: 0xffffff, unlitColor: colorPreset.midGray}, 
-        {textureIndex: 0x63, color: 0xffffff, unlitColor: colorPreset.midGray},
+        {textureIndex: 0x60, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
+        {textureIndex: 0x61, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
+        {textureIndex: 0x62, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
+        {textureIndex: 0x63, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray},
     ],
     candleAnimation: [
         {textureIndex: 0xe0, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray},
