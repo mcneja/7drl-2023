@@ -6,6 +6,7 @@ import {State, GameMode} from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
+import { getFontTileSet } from './tilesets';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen };
 
@@ -208,11 +209,12 @@ class TextWindow {
         const uiSelectColor = 0xffd020b0;
         const buttonDisabled = 0xff707070;
     
+        const bg = getFontTileSet().background;
         // Draw a stretched box to make a darkened background for the text.
         renderer.start(matScreenFromTextArea, 0);
         renderer.addGlyph(
             -2, -1, maxLineLength + 2, lines.length + 1,
-            {textureIndex:219, color:colorBackground}
+            bg
         );
         renderer.flush();
 
@@ -225,13 +227,13 @@ class TextWindow {
                 const color = this.actionSequence[this.highlightedAction]===a? uiSelectColor : buttonColor;
                 renderer.addGlyph(
                     r[0], r[1], r[0]+r[2], r[1]+r[3],
-                    {textureIndex:219, color:color}
+                    {textureIndex: bg.textureIndex, color:color}
                 );    
             } else {
                 if(this.actionSequence[this.highlightedAction]===a) {
                         renderer.addGlyph(
                             r[0], r[1], r[0]+r[2], r[1]+r[3],
-                            {textureIndex:219, color:buttonDisabled}
+                            {textureIndex: bg.textureIndex, color:buttonDisabled}
                         );            
                 }
             }

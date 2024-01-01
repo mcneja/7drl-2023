@@ -27,8 +27,8 @@ enum NoiseType {
     Splash,
 }
 
-const tileSet = getTileSet('31color'); //'34view'|'basic'|'sincity'|'31color'
-const fontTileSet = getFontTileSet('font'); 
+const tileSet = getTileSet();
+const fontTileSet = getFontTileSet(); 
 
 window.onload = loadResourcesThenRun;
 
@@ -1318,7 +1318,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         } else {
             // Render the shadowing indicator if player is shadowing a guard
             if (guard === player.pickTarget) {
-                gtile = {textureIndex:0xf1, color:0xffffffff};
+                gtile = tileSet.namedTiles['pickTarget'];
             } else {
                 continue;
             }
@@ -1335,7 +1335,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     if (player.noisy) {
         const x = player.pos[0];
         const y = player.pos[1] - 0.5;
-        renderer.addGlyph(x, y, x+1, y+1, {textureIndex: 104, color: 0x80ffffff}, 1);
+        renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['noise'], 1);
     }
 
 }
@@ -1392,7 +1392,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                renderer.addGlyph(x, y, x+1, y+1, {textureIndex:3, color:0xffffffff}, 1);
+                renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['crossHatch'], 1);
             }
         }
     }
@@ -1405,7 +1405,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, {textureIndex:92, color:0xff80ff80}, 1);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, tileSet.namedTiles['patrolRoute'], 1);
         }
     }
 }
@@ -1547,45 +1547,37 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 function setCellAnimations(gameMap: GameMap, state: State) {
     for(let c of gameMap.cells.values) {
         if(c.type===TerrainType.GroundWater) {
-            c.animation = new FrameAnimator([
-                {textureIndex: 0x6b}, 
-                {textureIndex: 0x6c}, 
-                {textureIndex: 0x6d}, 
-                {textureIndex: 0x6e}], 1.5);
+            c.animation = new FrameAnimator(tileSet.waterAnimation, .5);
         }
     }
 }
 
 function setLights(gameMap: GameMap, state: State) {
     let id = 0;
-    const candleSeq:Array<[TileInfo, number]> = [
-        [{textureIndex: 0x77}, 0.5],
-        [{textureIndex: 0x78}, 0.5],
-        [{textureIndex: 0x79}, 0.5],
-    ]
-    const candleDim = {textureIndex: 0x7a}
-    const candleOff = {textureIndex: 0x30}
-    for(let i of gameMap.items) {
-        if(i.type === ItemType.TorchLit) {
-            i.animation = new LightSourceAnimation(LightState.idle, id, state.lightStates, i, candleSeq, candleDim, candleOff);
-            id++;    
-        } else if(i.type === ItemType.TorchUnlit) {
-            i.animation = new LightSourceAnimation(LightState.off, id, state.lightStates, i, candleSeq, candleDim, candleOff);
-            id++;
-        }
+    if(tileSet.candleAnimation.length>=3) {
+        const candleSeq:[TileInfo, number][] = tileSet.candleAnimation.slice(0,3).map((t)=>[t,0.5]);
+        const candleDim = tileSet.candleAnimation.at(-2)!;
+        const candleOff = tileSet.candleAnimation.at(-1)!;
+        for(let i of gameMap.items) {
+            if(i.type === ItemType.TorchLit) {
+                i.animation = new LightSourceAnimation(LightState.idle, id, state.lightStates, i, candleSeq, candleDim, candleOff);
+                id++;    
+            } else if(i.type === ItemType.TorchUnlit) {
+                i.animation = new LightSourceAnimation(LightState.off, id, state.lightStates, i, candleSeq, candleDim, candleOff);
+                id++;
+            }
+        }    
     }
-    const torchSeq:Array<[TileInfo, number]> = [
-        [{textureIndex: 0x3c}, 0.5],
-        [{textureIndex: 0x3d}, 0.5],
-        [{textureIndex: 0x3e}, 0.5],
-    ]
-    const torchDim = {textureIndex: 0x3f}
-    const torchOff = {textureIndex: 0x3f}
-    for(let g of gameMap.guards) {
-        if(g.hasTorch) {
-            g.torchAnimation = new LightSourceAnimation(LightState.idle, id, state.lightStates, null, torchSeq, torchDim, torchOff);
-            id++;
-        }
+    if(tileSet.torchAnimation.length>=3) {
+        const torchSeq:[TileInfo, number][] = tileSet.torchAnimation.slice(0,3).map((t)=>[t,0.5]);
+        const torchDim = tileSet.torchAnimation.at(-2)!;
+        const torchOff = tileSet.torchAnimation.at(-1)!;
+        for(let g of gameMap.guards) {
+            if(g.hasTorch) {
+                g.torchAnimation = new LightSourceAnimation(LightState.idle, id, state.lightStates, null, torchSeq, torchDim, torchOff);
+                id++;
+            }
+        }    
     }
 
 }
@@ -2108,8 +2100,7 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: strin
     renderer.start(matScreenFromWorld, 0);
 
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
-    const barBackgroundColor = 0xff101010;
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, fontTileSet.background);
 
     if(state.dailyRun) {
         putString(renderer, 0, 'Daily run', colorPreset.lightYellow);    
@@ -2146,16 +2137,15 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     renderer.start(matScreenFromWorld, 0);
 
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
-    const barBackgroundColor = 0xff101010;
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex:219, color:barBackgroundColor});
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, fontTileSet.background);
 
     const healthX = 1;
 
     putString(renderer, healthX, "Health", colorPreset.darkRed);
 
+    const glyphHeart = fontTileSet.heart.textureIndex;
     for (let i = 0; i < maxPlayerHealth; ++i) {
         const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
-        const glyphHeart = 3;
         renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
     }
 
@@ -2167,8 +2157,8 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
         putString(renderer, breathX, "Air", colorPreset.lightCyan);
 
+        const glyphBubble = fontTileSet.air.textureIndex;
         for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
-            const glyphBubble = 9;
             renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
         }
     }
