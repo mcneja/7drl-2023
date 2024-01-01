@@ -1,9 +1,6 @@
 import * as colorPreset from './color-preset';
 
-const imageTileset34 = require('url:./tiles34.png')
 const imageTileset31Color = require('url:./tiles31color.png')
-const imageTilesetSinCity = require('url:./tiles-sincity.png')
-const imageTilesetBasic = require('url:./tiles.png')
 const imageTilesetFont = require('url:./font.png')
 
 
