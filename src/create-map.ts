@@ -1313,7 +1313,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
             }
         }
 
-        patrolRoutes.push(patrolPositions);
+        patrolRoutes.push(shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length)));
     }
 
     // Past level 5, start including patrols around the outside of the mansion.

@@ -232,7 +232,7 @@ function updateControllerState(state:State) {
                 ++state.level;
                 resetState(state);
             }
-        } else if (activated('resetLevel')) {
+        } else if (activated('resetState')) {
             resetState(state);
         } else if (activated('prevLevel')) {
             if (state.level > 0) {
@@ -478,7 +478,7 @@ function canLeapToPos(state: State, pos: vec2): boolean {
 
     // Cannot leap onto a stationary guard
 
-    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos) && !guard.moving(state.player.pos))) {
+    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos) && !guard.movingWithPlayerPosition(state.player.pos))) {
         return false;
     }
 
@@ -538,6 +538,56 @@ function bumpAnim(state: State, dx: number, dy: number) {
 function bumpFail(state: State, dx: number, dy: number) {
     state.sounds['footstepTile'].play(0.1);
     bumpAnim(state, dx, dy);
+}
+
+function pushOrSwapGuard(state: State, guard: Guard) {
+    const posGuardOld = vec2.clone(guard.pos);
+    const posPlayer = vec2.clone(state.player.pos);
+
+    // Try to push the guard away from the player. If that doesn't work,
+    //  exchange places with the player.
+
+    const posGuardNew = vec2.create();
+    vec2.subtract(posGuardNew, posGuardOld, posPlayer);
+    vec2.add(posGuardNew, posGuardNew, posGuardOld);
+
+    let pulledGuard = false;
+
+    if (posGuardNew[0] < 0 ||
+        posGuardNew[1] < 0 ||
+        posGuardNew[0] >= state.gameMap.cells.sizeX ||
+        posGuardNew[1] >= state.gameMap.cells.sizeY ||
+        state.gameMap.cells.atVec(posGuardNew).moveCost === Infinity ||
+        state.gameMap.guards.find((guard)=>guard.pos.equals(posGuardNew))) {
+        vec2.copy(posGuardNew, posPlayer);
+        pulledGuard = true;
+    }
+
+    // Update guard position
+    vec2.copy(guard.pos, posGuardNew);
+
+    // If guard ends up in water he wakes up immediately
+    if (state.gameMap.cells.atVec(guard.pos).type === TerrainType.GroundWater) {
+        guard.modeTimeout = 0;
+    }
+
+    // Animate guard sliding
+    const gpos0 = vec2.clone(posGuardOld).subtract(guard.pos);
+    const gpos1 = vec2.create();
+
+    let tweenSeq;
+
+    if (pulledGuard) {
+        tweenSeq = [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}];
+    } else {
+        const gp = vec2.fromValues(0.5*(posGuardOld[0]-guard.pos[0]),0.5*(posGuardOld[1]-guard.pos[1]));
+        tweenSeq = [
+            {pt0:gpos0, pt1:gp, duration:0.2, fn:tween.easeInQuad},
+            {pt0:gp, pt1:gpos1, duration:0.1, fn:tween.easeOutQuad},
+        ];
+    }
+
+    guard.animation = new SpriteAnimation(tweenSeq, []);
 }
 
 function tryPlayerWait(state: State) {
@@ -679,18 +729,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         player.pickTarget = null;
     } else if (guard.mode === GuardMode.Unconscious) {
         player.pickTarget = null;
-        // Exchange places with the unconscious guard by moving him to posOld
-        vec2.copy(guard.pos, posOld);
-        // If guard ends up in water he wakes up immediately
-        if (state.gameMap.cells.atVec(guard.pos).type === TerrainType.GroundWater) {
-            guard.modeTimeout = 0;
-        }
-        // Animate guard sliding
-        const gpos0 = vec2.clone(posNew).subtract(posOld);
-        const gpos1 = vec2.create();
-        guard.animation = new SpriteAnimation(
-            [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}],
-            []);
+        pushOrSwapGuard(state, guard);
     } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
         bumpFail(state, dx, dy);
         return;
@@ -712,7 +751,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         }
 
         // If the guard is stationary, pass time in place
-        if (!guard.moving(player.pos)) {
+        if (!guard.movingWithPlayerPosition(player.pos)) {
             preTurn(state);
             advanceTime(state);
             return;
@@ -1013,15 +1052,16 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = 7;
     }
 
+    state.gameMap.computeLighting(state.gameMap.cells.atVec(state.player.pos));
+
     guardActAll(state, state.gameMap, state.popups, state.player);
 
     if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
         //TODO: Play a disappointed sound if the first time this happens on the level
         state.ghostBonus = 0;
     }
-    const p = state.player.pos;
-    state.gameMap.computeLighting(state.gameMap.cells.atVec(p));
-    state.gameMap.recomputeVisibility(p);
+
+    state.gameMap.recomputeVisibility(state.player.pos);
 
     postTurn(state);
 
@@ -1087,14 +1127,14 @@ function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement
     });
 }
 
-function lightAnimator(baseVal:number, lightStates:Array<number>, srcIds:Set<number>, seen:boolean=true) {
+function lightAnimator(baseVal:number, lightStates:Array<number>, srcIds:Set<number>, seen:boolean) {
     //Returns the exponent to apply to the light value for tiles hit with animated light
     if(srcIds.size==0) return baseVal;
     if(!seen) return 0;
     return baseVal**(1+[...srcIds].reduce((p,c)=>p+lightStates[c],0)/srcIds.size);
 }
 
-function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>):[number,number,number,number] {
+function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>, seeAll: boolean):[number,number,number,number] {
     const clu = cells.at(x-1,y-1);
     const cu =  cells.at(x,y-1);
     const cru = cells.at(x+1,y-1);
@@ -1104,15 +1144,15 @@ function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<numbe
     const cld = cells.at(x-1,y+1);
     const cd =  cells.at(x,y+1);
     const crd = cells.at(x+1,y+1);
-    const llu = lightAnimator(clu.lit, lightStates, clu.litSrc, clu.seen);
-    const lu =  lightAnimator(cu.lit,  lightStates, cu.litSrc, cu.seen);
-    const lru = lightAnimator(cru.lit, lightStates, cru.litSrc, cru.seen);
-    const ll =  lightAnimator(cl.lit,  lightStates, cl.litSrc, cl.seen);
-    const l =   lightAnimator(c.lit,   lightStates, c.litSrc, c.seen);
-    const lr =  lightAnimator(cr.lit,  lightStates, cr.litSrc, cr.seen);
-    const lld = lightAnimator(cld.lit, lightStates, cld.litSrc, cld.seen);
-    const ld =  lightAnimator(cd.lit,  lightStates, cd.litSrc, cd.seen);
-    const lrd = lightAnimator(crd.lit, lightStates, crd.litSrc, crd.seen);
+    const llu = lightAnimator(clu.lit, lightStates, clu.litSrc, seeAll || clu.seen);
+    const lu =  lightAnimator(cu.lit,  lightStates, cu.litSrc, seeAll || cu.seen);
+    const lru = lightAnimator(cru.lit, lightStates, cru.litSrc, seeAll || cru.seen);
+    const ll =  lightAnimator(cl.lit,  lightStates, cl.litSrc, seeAll || cl.seen);
+    const l =   lightAnimator(c.lit,   lightStates, c.litSrc, seeAll || c.seen);
+    const lr =  lightAnimator(cr.lit,  lightStates, cr.litSrc, seeAll || cr.seen);
+    const lld = lightAnimator(cld.lit, lightStates, cld.litSrc, seeAll || cld.seen);
+    const ld =  lightAnimator(cd.lit,  lightStates, cd.litSrc, seeAll || cd.seen);
+    const lrd = lightAnimator(crd.lit, lightStates, crd.litSrc, seeAll || crd.seen);
     
     return [
         (llu+lu+ll+l)/4, //top left vertex
@@ -1156,8 +1196,8 @@ function renderWorld(state: State, renderer: Renderer) {
                 terrainType = TerrainType.GroundWood;
             }
             const alwaysLit = (terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.DoorEW) ? 1:0;
-            const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, cell.seen);
-            const lv = litVertices(x, y, state.gameMap.cells, state.lightStates);
+            const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, state.seeAll || cell.seen);
+            const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
 
             //Draw tile
             if([TerrainType.PortcullisEW].includes(terrainType)
@@ -1185,8 +1225,8 @@ function renderWorld(state: State, renderer: Renderer) {
             for(let item of mappedItems[ind]) {
                 const alwaysLit = ((item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) 
                                 || item.type == ItemType.Coin)? 1 : 0;
-                const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, cell.seen);
-                const lv = litVertices(x, y, state.gameMap.cells, state.lightStates);
+                const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, state.seeAll || cell.seen);
+                const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
     
                 if([TerrainType.PortcullisEW].includes(terrainType)
                     && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
@@ -1216,7 +1256,7 @@ function renderPlayer(state: State, renderer: Renderer) {
     const x0 = player.pos[0];
     const y0 = player.pos[1];
     const cell = state.gameMap.cells.at(x0, y0)
-    const lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, cell.seen);
+    const lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, state.seeAll || cell.seen);
     const hidden = player.hidden(state.gameMap);
     // const color =
     //     player.damagedLastTurn ? 0xff0000ff :
@@ -1245,7 +1285,7 @@ function renderGuards(state: State, renderer: Renderer) {
         let tileIndex = 0 + tileIndexOffsetForDir(guard.dir);
 
         const cell = state.gameMap.cells.atVec(guard.pos);
-        let lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, cell.seen);
+        let lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, state.seeAll || cell.seen);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;

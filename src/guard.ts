@@ -1,6 +1,6 @@
 export { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode };
 
-import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
+import { Cell, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
@@ -79,17 +79,47 @@ class Guard {
         }
     }
 
-    moving(pos: vec2): boolean {
+    movingWithPlayerPosition(pos: vec2): boolean {
+        switch (this.mode) {
+        case GuardMode.Patrol:
+            const posPatrolCur = this.patrolPath[this.patrolPathIndex];
+            if (posPatrolCur.equals(this.pos)) {
+                const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
+                const posPatrolNext = this.patrolPath[patrolPathIndexNext];
+                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
+            }
+            return true;
+
+        case GuardMode.Look:
+        case GuardMode.Listen:
+        case GuardMode.ChaseVisibleTarget:
+        case GuardMode.WakeGuard:
+        case GuardMode.LightTorch:
+        case GuardMode.Unconscious:
+            return false;
+
+        case GuardMode.MoveToLastSighting:
+        case GuardMode.MoveToLastSound:
+        case GuardMode.MoveToGuardShout:
+            return !this.pos.equals(this.goal);
+
+        case GuardMode.MoveToDownedGuard:
+        case GuardMode.MoveToTorch:
+            return !this.cardinallyAdjacentTo(this.goal);
+        }
+    }
+
+    moving(): boolean {
         switch (this.mode) {
             case GuardMode.Patrol:
                 const posPatrolCur = this.patrolPath[this.patrolPathIndex];
                 if (posPatrolCur.equals(this.pos)) {
                     const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
                     const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                    return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
+                    return !posPatrolNext.equals(posPatrolCur);
                 }
                 return true;
-
+    
             case GuardMode.Look:
             case GuardMode.Listen:
             case GuardMode.ChaseVisibleTarget:
@@ -97,7 +127,7 @@ class Guard {
             case GuardMode.LightTorch:
             case GuardMode.Unconscious:
                 return false;
-
+    
             case GuardMode.MoveToLastSighting:
             case GuardMode.MoveToLastSound:
             case GuardMode.MoveToGuardShout:
@@ -106,36 +136,23 @@ class Guard {
             case GuardMode.MoveToDownedGuard:
             case GuardMode.MoveToTorch:
                 return !this.cardinallyAdjacentTo(this.goal);
-            }
         }
+    }
 
     act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
-    
-        // See if senses will kick us into a new mode
 
-        if (this.mode !== GuardMode.Unconscious) {
-            if (!isRelaxedGuardMode(this.mode)) {
-                if (this.seesActor(map, player)) {
-                    vec2.copy(this.goal, player.pos);
-                    this.mode = GuardMode.ChaseVisibleTarget;
-                } else if (this.mode === GuardMode.ChaseVisibleTarget) {
-                    vec2.copy(this.goal, player.pos);
-                    this.mode = GuardMode.MoveToLastSighting;
-                    this.modeTimeout = 3;
-                }
-            }
+        // Immediately upgrade to chasing if we see the player while investigating;
+        // this lets us start moving toward the player on this turn rather than
+        // wait for next turn.
 
-            if (this.mode !== GuardMode.ChaseVisibleTarget) {
-                if (this.heardGuard && this.mode !== GuardMode.MoveToLastSighting) {
-                    this.mode = GuardMode.MoveToGuardShout;
-                    this.modeTimeout = 2 + randomInRange(4);
-                    vec2.copy(this.goal, this.heardGuardPos);
-                }
-            }
+        if (this.mode !== GuardMode.Unconscious &&
+            !isRelaxedGuardMode(this.mode) &&
+            this.seesActor(map, player)) {
+            this.mode = GuardMode.ChaseVisibleTarget;
         }
-    
+
         // Pass time in the current mode
     
         switch (this.mode) {
@@ -152,6 +169,7 @@ class Guard {
             break;
 
         case GuardMode.ChaseVisibleTarget:
+            vec2.copy(this.goal, player.pos);
             if (this.adjacentTo(player.pos)) {
                 updateDir(this.dir, this.pos, this.goal);
                 if (modePrev == GuardMode.ChaseVisibleTarget) {
@@ -193,7 +211,6 @@ class Guard {
                     (g) => g.pos.equals(this.goal)
                     && g.mode === GuardMode.Unconscious
                 ))  {
-                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.WakeGuard;
                     this.modeTimeout = 3;    
                 } else {
@@ -227,7 +244,6 @@ class Guard {
             {
                 const moveResult = this.moveTowardAdjacentToPosition(this.goal, map, player);
                 if (this.cardinallyAdjacentTo(this.goal)) {
-                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.LightTorch;
                     this.modeTimeout = 5;
                 } else if (moveResult === MoveResult.Moved) {
@@ -272,34 +288,29 @@ class Guard {
             map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
         }
 
-        // Update state based on target visibility from new position
+        // Change states based on sensory input
 
         if (this.mode !== GuardMode.Unconscious) {
 
-            // See the player, or deal with losing sight of the player
+            // See the thief, or lose sight of the thief
 
             if (this.seesActor(map, player)) {
                 if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.Look;
                     this.modeTimeout = 2 + randomInRange(4);
                 } else {
-                    vec2.copy(this.goal, player.pos);
-                    updateDir(this.dir, this.pos, this.goal);
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
-            } else if (this.mode == GuardMode.ChaseVisibleTarget) {
-                vec2.copy(this.goal, player.pos);
+            } else if (this.mode === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
             }
 
             // Hear the thief
 
-            if (this.heardThief) {
+            if (this.heardThief && this.mode !== GuardMode.ChaseVisibleTarget) {
                 if (this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.ChaseVisibleTarget;
-                    vec2.copy(this.goal, player.pos);
-                    updateDir(this.dir, this.pos, this.goal);
                 } else if (isRelaxedGuardMode(this.mode) && !this.heardThiefClosest) {
                     this.mode = GuardMode.Listen;
                     this.modeTimeout = 2 + randomInRange(4);
@@ -308,6 +319,19 @@ class Guard {
                     this.modeTimeout = 2 + randomInRange(4);
                     vec2.copy(this.goal, player.pos);
                 }
+            }
+
+            // Hear another guard shouting
+
+            if (this.heardGuard &&
+                this.mode !== GuardMode.Look &&
+                this.mode !== GuardMode.ChaseVisibleTarget &&
+                this.mode !== GuardMode.MoveToLastSighting &&
+                this.mode !== GuardMode.MoveToLastSound) {
+
+                this.mode = GuardMode.MoveToGuardShout;
+                this.modeTimeout = 2 + randomInRange(4);
+                vec2.copy(this.goal, this.heardGuardPos);
             }
 
             // If we see a downed guard, move to revive him.
@@ -341,8 +365,13 @@ class Guard {
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
-                    this.mode = GuardMode.MoveToTorch;
-                    this.modeTimeout = 3;
+                    if (this.cardinallyAdjacentTo(this.goal)) {
+                        this.mode = GuardMode.LightTorch;
+                        this.modeTimeout = 5;
+                    } else {
+                        this.mode = GuardMode.MoveToTorch;
+                        this.modeTimeout = 3;
+                    }
                 }
             }
         }
@@ -379,7 +408,9 @@ class Guard {
     seesActor(map: GameMap, person: Player|Guard): boolean {
         const d = vec2.create();
         vec2.subtract(d, person.pos, this.pos);
-        if (vec2.dot(this.dir, d) < 0) {
+
+        // Check view frustum except when in GuardMode.ChaseVisibleTarget
+        if (this.mode !== GuardMode.ChaseVisibleTarget && vec2.dot(this.dir, d) < 0) {
             return false;
         }
 
@@ -389,16 +420,17 @@ class Guard {
         if (d2 >= this.sightCutoff(playerIsLit)) {
             return false;
         }
-    
-        if (!person.hidden(map) && lineOfSight(map, this.pos, person.pos)) {
-            return true;
+
+        // Once an enemy is searching, they can see into all of the adjacent squares regardless
+        // of whether anything would normally block line of sight. The one place where this
+        // feels weird is that they can see around corners.
+
+        if ((person.hidden(map) || !lineOfSight(map, this.pos, person.pos)) &&
+            ((isRelaxedGuardMode(this.mode) && !this.angry) || Math.abs(d[0]) >= 2 || Math.abs(d[1]) >= 2)) {
+            return false;
         }
-    
-        if ((!isRelaxedGuardMode(this.mode) || this.angry) && Math.abs(d[0]) < 2 && Math.abs(d[1]) < 2) {
-            return true;
-        }
-    
-        return false;
+
+        return true;
     }
 
     hidden() {
@@ -431,8 +463,7 @@ class Guard {
 
         if (moveResult === MoveResult.BumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
-            vec2.copy(this.goal, player.pos);
-            updateDir(this.dir, this.pos, this.goal);
+            updateDir(this.dir, this.pos, player.pos);
         } else if (moveResult === MoveResult.StoodStill) {
             const posLookAt = this.tryGetPosLookAt(map);
             if (posLookAt !== undefined) {
@@ -452,14 +483,14 @@ class Guard {
         const distanceField = map.computeDistancesToPosition(posGoal);
         const posNext = map.posNextBest(distanceField, this.pos);
 
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
         updateDir(this.dir, this.pos, posNext);
 
         if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
+        }
+
+        if (posNext.equals(this.pos)) {
+            return MoveResult.StoodStill;
         }
 
         const start = vec2.create();
@@ -474,14 +505,14 @@ class Guard {
         const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
         const posNext = map.posNextBest(distanceField, this.pos);
 
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
         updateDir(this.dir, this.pos, posNext);
 
         if (player.pos.equals(posNext)) {
             return MoveResult.BumpedPlayer;
+        }
+
+        if (posNext.equals(this.pos)) {
+            return MoveResult.StoodStill;
         }
 
         const start = vec2.create();
@@ -538,11 +569,29 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = false;
     }
 
-    let ontoGate = false;
+    // Sort guards so the non-moving ones update first, and guards closer to the player after that.
+
+    const guardOrdering = (guard0: Guard, guard1: Guard) => {
+        const guard0Moving = guard0.moving();
+        const guard1Moving = guard1.moving();
+        if (guard0Moving && !guard1Moving) {
+            return 1;
+        }
+        if (guard1Moving && !guard0Moving) {
+            return -1;
+        }
+
+        const distGuard0 = Math.abs(guard0.pos[0] - player.pos[0]) + Math.abs(guard0.pos[1] - player.pos[1]);
+        const distGuard1 = Math.abs(guard1.pos[0] - player.pos[0]) + Math.abs(guard1.pos[1] - player.pos[1]);
+        return distGuard0 - distGuard1;
+    };
+
+    map.guards.sort(guardOrdering);
 
     // Update each guard for this turn.
 
     const shouts: Array<Shout> = [];
+    let ontoGate = false;
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
@@ -620,8 +669,8 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
 
     const dirLeft = vec2.fromValues(-dir[1], dir[0]);
 
-    let dotForward = vec2.dot(dir, dirTarget);
-    let dotLeft = vec2.dot(dirLeft, dirTarget);
+    const dotForward = vec2.dot(dir, dirTarget);
+    const dotLeft = vec2.dot(dirLeft, dirTarget);
 
     if (dotForward >= Math.abs(dotLeft)) {
         // dirTarget is in front quarter; leave dir unchanged
@@ -688,7 +737,8 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     ay *= 2;
 
     while (n > 0) {
-        if (error > 0) {
+        if (error > 0 ||
+            (error === 0 && !map.cells.at(x, y + y_inc).blocksSight)) {
             y += y_inc;
             error -= ax;
         } else {
@@ -704,6 +754,18 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     }
 
     return true;
+}
+
+function blocksLineOfSightToTorch(cell: Cell): boolean {
+    if (cell.blocksSight) {
+        return true;
+    }
+
+    if (isWindowTerrainType(cell.type)) {
+        return true;
+    }
+
+    return false;
 }
 
 function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
@@ -727,7 +789,8 @@ function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
     ay *= 2;
 
     while (n > 0) {
-        if (error > 0) {
+        if (error > 0 ||
+            (error === 0 && !blocksLineOfSightToTorch(map.cells.at(x, y + y_inc)))) {
             y += y_inc;
             error -= ax;
         } else {
