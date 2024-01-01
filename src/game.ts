@@ -309,6 +309,7 @@ export function advanceToNextLevel(state: State) {
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
     state.player.noisy = false;
+    state.player.hasVaultKey = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = 0;
     state.popups.clear();
