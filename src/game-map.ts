@@ -13,6 +13,7 @@ export {
     GuardStates,
     guardMoveCostForItemType,
     isWindowTerrainType,
+    isDoorItemType,
     maxPlayerHealth,
 };
 
@@ -118,6 +119,7 @@ enum TerrainType {
     GroundMarble,
     GroundWood,
     GroundWoodCreaky,
+    GroundVault,
 
     //  NSEW
     Wall0000,
@@ -952,6 +954,10 @@ class GameMap {
 
 function isWindowTerrainType(terrainType: TerrainType): boolean {
     return terrainType >= TerrainType.OneWayWindowE && terrainType <= TerrainType.OneWayWindowS;
+}
+
+function isDoorItemType(itemType: ItemType): boolean {
+    return itemType >= ItemType.DoorNS && itemType <= ItemType.PortcullisEW;
 }
 
 type PriorityQueueElement = {

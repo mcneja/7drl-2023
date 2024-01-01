@@ -30,6 +30,7 @@ enum RoomType
     PublicRoom,
     PrivateCourtyard,
     PrivateRoom,
+    Vault,
 }
 
 type Room = {
@@ -427,7 +428,7 @@ function createExits(
 
     // Assign types to the rooms.
 
-    assignRoomTypes(roomIndex, adjacencies, rooms);
+    assignRoomTypes(roomIndex, adjacencies, rooms, level, rng);
 
     // Render doors and windows.
 
@@ -1003,7 +1004,7 @@ function frontDoorAdjacencyIndex(rooms: Array<Room>, adjacencies: Array<Adjacenc
     return 0;
 }
 
-function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, rooms: Array<Room>) {
+function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, rooms: Array<Room>, level: number, rng: RNG) {
 
     // Assign rooms depth based on distance from the bottom row of rooms.
 
@@ -1109,6 +1110,43 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
             break;
         }
     }
+
+    // Pick a dead-end room to be a Vault room
+
+    if (level > 4) {
+        const deadEndRooms = [];
+
+        for (const room of rooms) {
+            if (room.roomType === RoomType.Exterior) {
+                continue;
+            }
+
+            // Bug: should be able to convert courtyard rooms to treasure rooms, but the walls are getting
+            // plotted much earlier, between rooms that have been designated inside and outside. So we
+            // can't change an outside room (a courtyard) into an inside room (treasure) and get correct
+            // walls around it.
+
+            if (room.roomType === RoomType.PrivateCourtyard || room.roomType === RoomType.PublicCourtyard) {
+                continue;
+            }
+
+            let numDoors = 0;
+            for (const iAdj of room.edges) {
+                const adj = adjacencies[iAdj];
+                if (adj.door) {
+                    ++numDoors;
+                }
+            }
+
+            if (numDoors <= 1) {
+                deadEndRooms.push(room);
+            }
+        }
+
+        if (deadEndRooms.length > 0) {
+            deadEndRooms[rng.randomInRange(deadEndRooms.length)].roomType = RoomType.Vault;
+        }
+    }
 }
 
 type PatrolNode = {
@@ -1126,7 +1164,9 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
         rooms[adj.room_left].roomType !== RoomType.Exterior &&
-        rooms[adj.room_right].roomType !== RoomType.Exterior);
+        rooms[adj.room_right].roomType !== RoomType.Exterior &&
+        rooms[adj.room_left].roomType !== RoomType.Vault &&
+        rooms[adj.room_right].roomType !== RoomType.Vault);
     rng.shuffleArray(adjacenciesShuffled);
 
     // Build a set of nodes for joining into routes. Initially there will be one per room.
@@ -1723,12 +1763,17 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             walls.push(adjacencies[j]);
         }
 
-        if (!adj0.door && type0 != type1) {
+        if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
                 if ((adj0.length & 1) != 0) {
                     let k = Math.floor(adj0.length / 2);
 
                     for (const a of walls) {
+                        if (rooms[a.room_left].roomType === RoomType.Vault ||
+                            rooms[a.room_right].roomType === RoomType.Vault) {
+                            continue;
+                        }
+
                         const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
 
                         let dir = vec2.clone(a.dir);
@@ -1745,6 +1790,11 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
                 while (k < k_end) {
                     for (const a of walls) {
+                        if (rooms[a.room_left].roomType === RoomType.Vault ||
+                            rooms[a.room_right].roomType === RoomType.Vault) {
+                            continue;
+                        }
+
                         let dir = vec2.clone(a.dir);
                         if (isCourtyardRoomType(rooms[a.room_right].roomType)) {
                             dir = dir.negate();
@@ -1782,6 +1832,9 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             if (roomTypeLeft == RoomType.Exterior || roomTypeRight == RoomType.Exterior) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
                 placeItem(map, p, orientNS ? ItemType.PortcullisNS : ItemType.PortcullisEW);
+            } else if (roomTypeLeft === RoomType.Vault || roomTypeRight === RoomType.Vault) {
+                map.cells.atVec(p).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
+                placeItem(map, p, orientNS ? ItemType.LockedDoorNS : ItemType.LockedDoorEW);
             } else if (isCourtyardRoomType(roomTypeLeft) && isCourtyardRoomType(roomTypeRight)) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.GardenDoorNS : TerrainType.GardenDoorEW;
             } else if (roomTypeLeft != RoomType.PrivateRoom || roomTypeRight != RoomType.PrivateRoom || installMasterSuiteDoor) {
@@ -1805,6 +1858,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         case RoomType.PublicRoom: cellType = TerrainType.GroundWood; break;
         case RoomType.PrivateCourtyard: cellType = TerrainType.GroundGrass; break;
         case RoomType.PrivateRoom: cellType = TerrainType.GroundMarble; break;
+        case RoomType.Vault: cellType = TerrainType.GroundVault; break;
         }
 
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
@@ -2014,7 +2068,21 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>,
 
     let totalLootPlaced = 0;
 
-    // Dead-end rooms automatically get loot.
+    // Vault rooms automatically get loot.
+
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.Vault) {
+            continue;
+        }
+
+        for (let i = 0; i < 4; ++i) {
+            if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
+                ++totalLootPlaced;
+            }
+        }
+    }
+
+    // Other dead-end rooms automatically get loot.
 
     for (const room of rooms) {
         if (totalLootPlaced >= totalLootToPlace) {
@@ -2082,7 +2150,7 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 
         let cellType = map.cells.at(pos[0], pos[1]).type;
 
-        if (cellType != TerrainType.GroundWood && cellType != TerrainType.GroundMarble) {
+        if (cellType !== TerrainType.GroundWood && cellType !== TerrainType.GroundMarble && cellType !== TerrainType.GroundVault) {
             continue;
         }
 
@@ -2180,6 +2248,7 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     case RoomType.PublicRoom: return false;
     case RoomType.PrivateCourtyard: return true;
     case RoomType.PrivateRoom: return false;
+    case RoomType.Vault: return false;
     }
 }
 
@@ -2254,13 +2323,22 @@ function cacheCellInfo(map: GameMap) {
         let cell = map.cells.atVec(item.pos);
         let itemType = item.type;
         cell.moveCost = Math.max(cell.moveCost, guardMoveCostForItemType(itemType));
-        if (itemType == ItemType.DoorNS || itemType == ItemType.DoorEW) {
+        if (itemType === ItemType.DoorNS ||
+            itemType === ItemType.DoorEW ||
+            itemType === ItemType.LockedDoorNS ||
+            itemType === ItemType.LockedDoorEW) {
             cell.blocksPlayerSight = true;
         }
-        if (itemType == ItemType.DoorNS || itemType == ItemType.DoorEW || itemType == ItemType.PortcullisNS || itemType == ItemType.PortcullisEW || itemType == ItemType.Bush) {
+        if (itemType === ItemType.DoorNS ||
+            itemType === ItemType.DoorEW ||
+            itemType === ItemType.LockedDoorNS ||
+            itemType === ItemType.LockedDoorEW ||
+            itemType === ItemType.PortcullisNS ||
+            itemType === ItemType.PortcullisEW ||
+            itemType === ItemType.Bush) {
             cell.blocksSight = true;
         }
-        if (itemType == ItemType.Table || itemType == ItemType.Bush) {
+        if (itemType === ItemType.Table || itemType === ItemType.Bush) {
             cell.hidesPlayer = true;
         }
     }

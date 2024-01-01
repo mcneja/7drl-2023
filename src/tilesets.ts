@@ -113,6 +113,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([0,   4]),  color:colorPreset.yellowTint,  unlitColor:colorPreset.darkGray}, // TerrainType.GroundMarble,
         {textureIndex: r([7,   4]),  color:colorPreset.darkerYellowTint,  unlitColor:colorPreset.darkGray}, // TerrainType.GroundWood,
         {textureIndex: r([7,   5]),  color:colorPreset.darkerYellowTint,  unlitColor:colorPreset.darkGray}, // TerrainType.GroundWoodCreaky,
+        {textureIndex: r([5,   4]),  color:colorPreset.yellowTint,  unlitColor:colorPreset.darkGray}, // TerrainType.GroundVault,
         {textureIndex: r([0,   2]),  color:colorPreset.white,       unlitColor:colorPreset.midGray}, // TerrainType.Wall0000,
         {textureIndex: r([2,   2]),  color:colorPreset.white,       unlitColor:colorPreset.midGray}, // TerrainType.Wall0001,
         {textureIndex: r([4,   2]),  color:colorPreset.white,       unlitColor:colorPreset.midGray}, // TerrainType.Wall0010,

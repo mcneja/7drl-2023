@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap } from './create-map';
-import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid } from './game-map';
+import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
 import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
@@ -476,7 +476,7 @@ function canLeapToPos(state: State, pos: vec2): boolean {
     }
 
     if ((cellNew.type === TerrainType.DoorNS || cellNew.type === TerrainType.DoorEW) &&
-        state.gameMap.items.find((item)=>item.pos.equals(pos) && (item.type === ItemType.DoorNS || item.type === ItemType.DoorEW))) {
+        state.gameMap.items.find((item)=>item.pos.equals(pos) && isDoorItemType(item.type))) {
         return false;
     }
 
@@ -525,6 +525,9 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
         if (changedTile || Math.random() > 0.6) state.sounds["footstepWater"].play(0.02*volScale);
         break;
     case TerrainType.GroundMarble:
+        if (changedTile || Math.random() > 0.8) state.sounds["footstepTile"].play(0.05*volScale);
+        break;
+    case TerrainType.GroundVault:
         if (changedTile || Math.random() > 0.8) state.sounds["footstepTile"].play(0.05*volScale);
         break;
     default:
@@ -891,7 +894,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // If the midpoint is a door, downgrade to a step
 
     if ((cellMid.type === TerrainType.DoorNS || cellMid.type === TerrainType.DoorEW) &&
-        state.gameMap.items.find((item)=>item.pos.equals(posMid) && (item.type === ItemType.DoorNS || item.type === ItemType.DoorEW))) {
+        state.gameMap.items.find((item)=>item.pos.equals(posMid) && isDoorItemType(item.type))) {
         tryPlayerStep(state, dx, dy);
         return;
     }
@@ -1233,8 +1236,7 @@ function renderWorld(state: State, renderer: Renderer) {
             const ind = state.gameMap.cells.index(x, y);
             if(!(ind in mappedItems)) continue;
             for(let item of mappedItems[ind]) {
-                const alwaysLit = ((item.type >= ItemType.DoorNS && item.type <= ItemType.PortcullisEW) 
-                                || item.type == ItemType.Coin)? 1 : 0;
+                const alwaysLit = (isDoorItemType(item.type) || item.type == ItemType.Coin)? 1 : 0;
                 const lit = lightAnimator(Math.max(alwaysLit, cell.lit), state.lightStates, cell.litSrc, state.seeAll || cell.seen);
                 const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
     
