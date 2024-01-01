@@ -1,6 +1,6 @@
 export { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode };
 
-import { Float64Grid, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
+import { Cell, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
@@ -737,13 +737,11 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     ay *= 2;
 
     while (n > 0) {
-        if (error > 0) {
+        if (error > 0 ||
+            (error === 0 && !map.cells.at(x, y + y_inc).blocksSight)) {
             y += y_inc;
             error -= ax;
         } else {
-            if (error === 0 && map.cells.at(x, y + y_inc).blocksSight) {
-                return false;
-            }
             x += x_inc;
             error += ay;
         }
@@ -756,6 +754,18 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     }
 
     return true;
+}
+
+function blocksLineOfSightToTorch(cell: Cell): boolean {
+    if (cell.blocksSight) {
+        return true;
+    }
+
+    if (isWindowTerrainType(cell.type)) {
+        return true;
+    }
+
+    return false;
 }
 
 function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
@@ -779,16 +789,11 @@ function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
     ay *= 2;
 
     while (n > 0) {
-        if (error > 0) {
+        if (error > 0 ||
+            (error === 0 && !blocksLineOfSightToTorch(map.cells.at(x, y + y_inc)))) {
             y += y_inc;
             error -= ax;
         } else {
-            if (error === 0) {
-                const cell = map.cells.at(x, y + y_inc);
-                if (cell.blocksSight || isWindowTerrainType(cell.type)) {
-                    return false;
-                }
-            }
             x += x_inc;
             error += ay;
         }
