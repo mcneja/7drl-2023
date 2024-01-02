@@ -559,12 +559,12 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2) 
         guard.hasPurse = false;
         player.loot += 1;
         state.lootStolen += 1;
-        pickedItem = {pos:guard.pos, type:ItemType.Coin};
+        pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Coin};
     }
     if (guard.hasVaultKey) {
         guard.hasVaultKey = false;
         player.hasVaultKey = true;
-        pickedItem = {pos:guard.pos, type:ItemType.Key};
+        pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key};
     }
     if(pickedItem) {
         const pt0 = vec2.create();
