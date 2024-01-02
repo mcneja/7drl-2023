@@ -248,8 +248,10 @@ enum ItemType {
     PortcullisEW,
     TorchUnlit,
     TorchLit,
-    TorchCarry, //TODO: Next two don't belong here because they are carried by guards but solves a problem for now.
-    PurseCarry
+    TorchCarry, //TODO: Next four don't belong here because they are carried by guards but solves a problem for now.
+    PurseCarry,
+    Key,
+    KeyCarry, 
 }
 
 type Item = {
@@ -274,6 +276,8 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.TorchLit: return Infinity;
         case ItemType.TorchCarry: return 0;
         case ItemType.PurseCarry: return 0;
+        case ItemType.Key: return 0;
+        case ItemType.KeyCarry: return 0;
     }
 }
 

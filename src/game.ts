@@ -552,6 +552,41 @@ function bumpFail(state: State, dx: number, dy: number) {
     bumpAnim(state, dx, dy);
 }
 
+function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2) {
+    let pickedItem:Item|null = null;
+    player.pickTarget = null;
+    if (guard.hasPurse) {
+        guard.hasPurse = false;
+        player.loot += 1;
+        state.lootStolen += 1;
+        pickedItem = {pos:guard.pos, type:ItemType.Coin};
+    }
+    if (guard.hasVaultKey) {
+        guard.hasVaultKey = false;
+        player.hasVaultKey = true;
+        pickedItem = {pos:guard.pos, type:ItemType.Key};
+    }
+    if(pickedItem) {
+        const pt0 = vec2.create();
+        const pt2 = posNew.subtract(pickedItem.pos);
+        const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5));
+        const animation = new SpriteAnimation([
+                {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
+            ],
+            [
+                tileSet.itemTiles[pickedItem.type], 
+                tileSet.itemTiles[pickedItem.type]
+            ]
+        );
+        animation.removeOnFinish = true;
+        pickedItem.animation = animation;
+        state.particles.push(pickedItem);            
+
+        state.sounds.coin.play(1.0);                        
+    }
+}
+
 function pushOrSwapGuard(state: State, guard: Guard) {
     const posGuardOld = vec2.clone(guard.pos);
     const posPlayer = vec2.clone(state.player.pos);
@@ -748,6 +783,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     // Trying to move onto a guard?
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
+    let needGuardLootCollect = false;
     if (guard === undefined) {
         player.pickTarget = null;
     } else if (guard.mode === GuardMode.Unconscious) {
@@ -762,18 +798,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         } else if (guard.hasPurse || guard.hasVaultKey) {
             // If we have already targeted this guard, pick their pocket; otherwise target them
             if (player.pickTarget === guard) {
-                //TODO: Add a particle animation here to show the purse being removed
-                player.pickTarget = null;
-                if (guard.hasPurse) {
-                    guard.hasPurse = false;
-                    player.loot += 1;
-                    state.lootStolen += 1;
-                }
-                if (guard.hasVaultKey) {
-                    guard.hasVaultKey = false;
-                    player.hasVaultKey = true;
-                }
-                state.sounds.coin.play(1.0);
+                needGuardLootCollect = true;
             } else {
                 player.pickTarget = guard;
             }
@@ -781,10 +806,12 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
         // If the guard is stationary, pass time in place
         if (!guard.movingWithPlayerPosition(player.pos)) {
+            if(needGuardLootCollect) collectGuardLoot(state, player, guard, posOld);
             preTurn(state);
             advanceTime(state);
             return;
         }
+        if(needGuardLootCollect) collectGuardLoot(state, player, guard, posNew);
     }
 
     // Execute the move
@@ -868,16 +895,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         guardMid.mode = GuardMode.Unconscious;
         guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
         if (guardMid.hasPurse || guardMid.hasVaultKey) {
-            if (guardMid.hasPurse) {
-                guardMid.hasPurse = false;
-                player.loot += 1;
-                state.lootStolen += 1;
-            }
-            if (guardMid.hasVaultKey) {
-                guardMid.hasVaultKey = false;
-                player.hasVaultKey = true;
-            }
-            state.sounds.coin.play(1.0);
+            collectGuardLoot(state, player, guardMid, posOld);
         }
         player.pickTarget = null;
         state.sounds.hitGuard.play(0.25);
@@ -1339,7 +1357,7 @@ function renderGuards(state: State, renderer: Renderer) {
             const tti = guard.torchAnimation?.currentTile() ?? renderer.tileSet.itemTiles[ItemType.TorchCarry];
             let p0 = x-guard.dir[0]*0.250+(guard.dir[1]<0?0.375:0);
             let p1 = y-0.125;
-            const pti = renderer.tileSet.itemTiles[ItemType.PurseCarry];
+            const pti = guard.hasVaultKey?tileSet.itemTiles[ItemType.KeyCarry]:renderer.tileSet.itemTiles[ItemType.PurseCarry];
             if(guard.dir[1]>0) {
                 if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
                 renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
