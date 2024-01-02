@@ -1152,7 +1152,11 @@ function postTurn(state: State) {
         state.topStatusMessage = subtitle;
         state.topStatusMessageSticky = true;
     } else if (state.finishedLevel) {
-        state.topStatusMessage = 'Mansion fully mapped! Exit any side.'
+        if(state.lootAvailable>state.lootStolen) {
+            state.topStatusMessage = 'Mansion fully mapped! You may exit any side but loot remains.'
+        } else {
+            state.topStatusMessage = 'Mansion fully mapped and looted! Exit any side.'
+        }
         state.topStatusMessageSticky = true;
     }
 }
