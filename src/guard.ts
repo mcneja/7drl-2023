@@ -170,28 +170,7 @@ class Guard {
             break;
 
         case GuardMode.ChaseVisibleTarget:
-            vec2.copy(this.goal, player.pos);
-            if (this.adjacentTo(player.pos)) {
-                updateDir(this.dir, this.pos, this.goal);
-                if (modePrev == GuardMode.ChaseVisibleTarget) {
-                    if (!player.damagedLastTurn) {
-                        popups.add(PopupType.Damage, this.pos);
-                    }
-                    const startend = vec2.create();
-                    const middle = vec2.create();
-                    vec2.subtract(middle, player.pos, this.pos);
-                    vec2.scale(middle, middle, 0.5);
-                    this.animation = new SpriteAnimation(
-                        [
-                            {pt0:startend, pt1:middle, duration:0.1, fn:tween.easeInQuad},
-                            {pt0:middle, pt1:startend, duration:0.1, fn:tween.easeOutQuad},
-                        ],
-                        []);
-                    player.applyDamage(1);
-                }
-            } else {
-                this.moveTowardPosition(this.goal, map, player);
-            }
+            this.chaseStep(map, player, popups, modePrev === GuardMode.ChaseVisibleTarget);
             break;
 
         case GuardMode.MoveToLastSighting:
@@ -218,7 +197,7 @@ class Guard {
                     this.modeTimeout = 0;
                     this.enterPatrolMode(map);
                 }
-            } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
+            } else if (this.moveTowardCardinallyAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
                 this.modeTimeout -= 1;
                 if (this.modeTimeout === 0) {
                     this.enterPatrolMode(map);
@@ -243,7 +222,7 @@ class Guard {
 
         case GuardMode.MoveToTorch:
             {
-                const moveResult = this.moveTowardAdjacentToPosition(this.goal, map, player);
+                const moveResult = this.moveTowardCardinallyAdjacentToPosition(this.goal, map, player);
                 if (this.cardinallyAdjacentTo(this.goal)) {
                     this.mode = GuardMode.LightTorch;
                     this.modeTimeout = 5;
@@ -473,6 +452,32 @@ class Guard {
         }
     }
 
+    chaseStep(map: GameMap, player: Player, popups: Popups, previouslyChasing: boolean) {
+        vec2.copy(this.goal, player.pos);
+
+        const moveResult = this.moveTowardAdjacentToPosition(player.pos, map, player.pos);
+
+        if (this.adjacentTo(player.pos)) {
+            updateDir(this.dir, this.pos, player.pos);
+            if (moveResult === MoveResult.StoodStill && previouslyChasing) {
+                if (!player.damagedLastTurn) {
+                    popups.add(PopupType.Damage, this.pos);
+                }
+                const startend = vec2.create();
+                const middle = vec2.create();
+                vec2.subtract(middle, player.pos, this.pos);
+                vec2.scale(middle, middle, 0.5);
+                this.animation = new SpriteAnimation(
+                    [
+                        {pt0:startend, pt1:middle, duration:0.1, fn:tween.easeInQuad},
+                        {pt0:middle, pt1:startend, duration:0.1, fn:tween.easeOutQuad},
+                    ],
+                    []);
+                player.applyDamage(1);
+            }
+        }
+    }
+
     updateDirInitial()
     {
         const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
@@ -502,8 +507,27 @@ class Guard {
         return MoveResult.Moved;
     }
 
-    moveTowardAdjacentToPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
+    moveTowardAdjacentToPosition(posGoal: vec2, map: GameMap, posPlayer: vec2): MoveResult {
         const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
+        const move = map.posNextBest2(distanceField, posPlayer, this.pos, this.dir);
+
+        updateDir(this.dir, this.pos, move.pos);
+
+        const moveResult =
+            move.bumpedPlayer ? MoveResult.BumpedPlayer :
+            move.pos.equals(this.pos) ? MoveResult.StoodStill :
+            MoveResult.Moved;
+
+        const start = vec2.create();
+        vec2.subtract(start, this.pos, move.pos);
+        const end = vec2.create();
+        this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
+        vec2.copy(this.pos, move.pos);
+        return moveResult;
+    }
+
+    moveTowardCardinallyAdjacentToPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
+        const distanceField = map.computeDistancesToCardinallyAdjacentToPosition(posGoal);
         const posNext = map.posNextBest(distanceField, this.pos);
 
         updateDir(this.dir, this.pos, posNext);

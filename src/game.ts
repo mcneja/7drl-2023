@@ -794,8 +794,8 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         player.pickTarget = null;
         pushOrSwapGuard(state, guard);
     } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
-        bumpFail(state, dx, dy);
-        return;
+//        bumpFail(state, dx, dy);
+//        return;
     } else {
         if (!isRelaxedGuardMode(guard.mode)) {
             player.pickTarget = null;

@@ -29,6 +29,29 @@ const cardinalDirections: Array<vec2> = [
     vec2.fromValues(0, 1),
 ];
 
+const eightDirections: Array<vec2> = [
+    vec2.fromValues(-1, 0),
+    vec2.fromValues(1, 0),
+    vec2.fromValues(0, -1),
+    vec2.fromValues(0, 1),
+    vec2.fromValues(-1, -1),
+    vec2.fromValues(-1, 1),
+    vec2.fromValues(1, -1),
+    vec2.fromValues(1, 1),
+];
+
+const preferredPositions: Array<vec2> = [
+    vec2.fromValues(0, 0),
+    vec2.fromValues(0, -1),
+    vec2.fromValues(0, 1),
+    vec2.fromValues(-1, 0),
+    vec2.fromValues(1, 0),
+    vec2.fromValues(-1, -1),
+    vec2.fromValues(-1, 1),
+    vec2.fromValues(1, -1),
+    vec2.fromValues(1, 1),
+]
+
 // TODO: Figure out how to make a generic grid data structure
 
 class BooleanGrid {
@@ -749,7 +772,7 @@ class GameMap {
     }
 
     isGuardAtVec(pos: vec2): boolean {
-        return this.guards.find((guard) => guard.hasMoved && guard.pos.equals(pos)) != undefined;
+        return this.guards.find((guard) => guard.hasMoved && guard.pos.equals(pos)) !== undefined;
     }
 
     guardMoveCost(posOld: vec2, posNew: vec2): number {
@@ -803,6 +826,49 @@ class GameMap {
     
         return posBest;
     }
+
+    posNextBest2(distanceField: Float64Grid, posPlayer: vec2, posFrom: vec2, dirFrom: vec2): {pos: vec2, bumpedPlayer: boolean} {
+        let costBest = Infinity;
+        let posBest = vec2.clone(posFrom);
+        let costToPlayer = Infinity;
+
+        for (const dpos of preferredPositions) {
+            const x = posFrom[0] + dpos[0] * dirFrom[0] - dpos[1] * dirFrom[1];
+            const y = posFrom[1] + dpos[0] * dirFrom[1] + dpos[1] * dirFrom[0];
+
+            if (x < 0 || y < 0 || x >= this.cells.sizeX || y >= this.cells.sizeY) {
+                continue;
+            }
+
+            const cost = distanceField.get(x, y);
+            if (cost === Infinity) {
+                continue;
+            }
+
+            let pos = vec2.fromValues(x, y);
+            if (this.guardMoveCost(posFrom, pos) === Infinity) {
+                continue;
+            }
+
+            if (this.isGuardAtVec(pos)) {
+                continue;
+            }
+
+            if (pos.equals(posPlayer)) {
+                costToPlayer = cost;
+                continue;
+            }
+
+            if (cost < costBest) {
+                costBest = cost;
+                posBest = pos;
+            }
+        }
+
+        const bumpedPlayer = costToPlayer < costBest;
+
+        return {pos: posBest, bumpedPlayer: bumpedPlayer};
+    }
     
     patrolPathIndexForResume(patrolPositions: Array<vec2>, patrolIndexCur: number, pos: vec2): number {
         const distanceToPos = this.computeDistancesToPosition(pos);
@@ -838,7 +904,7 @@ class GameMap {
         return this.computeDistanceField([{ priority: 0, pos: vec2.clone(pos_goal) }]);
     }
 
-    computeDistancesToAdjacentToPosition(pos_goal: vec2): Float64Grid {
+    computeDistancesToCardinallyAdjacentToPosition(pos_goal: vec2): Float64Grid {
         const goal: Array<DistPos> = [];
         for (const dir of cardinalDirections) {
             const pos = vec2.clone(pos_goal).add(dir);
@@ -849,6 +915,22 @@ class GameMap {
             if (cell.moveCost !== Infinity) {
                 goal.push({ priority: cell.moveCost, pos: pos });
             }
+        }
+        return this.computeDistanceField(goal);
+    }
+
+    computeDistancesToAdjacentToPosition(posGoal: vec2): Float64Grid {
+        const goal: Array<DistPos> = [];
+        for (const dir of eightDirections) {
+            const pos = vec2.clone(posGoal).add(dir);
+            if (pos[0] < 0 || pos[1] < 0 || pos[0] >= this.cells.sizeX || pos[1] >= this.cells.sizeY) {
+                continue;
+            }
+            const cell = this.cells.atVec(pos);
+            if (cell.moveCost === Infinity) {
+                continue;
+            }
+            goal.push({ priority: 0, pos: pos });
         }
         return this.computeDistanceField(goal);
     }
