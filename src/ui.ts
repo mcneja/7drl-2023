@@ -792,7 +792,7 @@ Mouse, touch and gamepad also supported
 
 `Key 
 
-#${getTileSet().playerTiles[0].textureIndex}# Thief: You!
+#${getTileSet().playerTiles['normal'].textureIndex}# Thief: You!
 #${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
 #${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Collect for score, or spend to heal
 #${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place

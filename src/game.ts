@@ -544,7 +544,7 @@ function bumpAnim(state: State, dx: number, dy: number) {
             {pt0:pos0, pt1:pos1, duration:0.05, fn:tween.linear},
             {pt0:pos1, pt1:pos0, duration:0.05, fn:tween.linear}
         ],
-        [tileSet.playerTiles[0]]);
+        [tileSet.playerTiles['normal']]);
 }
 
 function bumpFail(state: State, dx: number, dy: number) {
@@ -828,6 +828,12 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
+    let mid = start.add(end).scale(0.5)
+    if(dx!==0) mid = mid.add(vec2.fromValues(0,0.125));
+    const tile = dx<0? tileSet.playerTiles['left']:
+        dx>0? tileSet.playerTiles['right']:
+        dy>0? tileSet.playerTiles['up']:
+        tileSet.playerTiles['down']
 
     let tweenSeq;
 
@@ -838,10 +844,14 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
             {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},
         ];
     } else {
-        tweenSeq = [{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}];
+        tweenSeq = [{pt0:start, pt1:mid, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad}
+        ];
+        tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     }
 
-    player.animation = new SpriteAnimation(tweenSeq, [tileSet.playerTiles[0]]);
+
+    player.animation = new SpriteAnimation(tweenSeq, [tile]);
 
     // Collect loot
 
@@ -1004,7 +1014,21 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    player.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeOutQuad}], [tileSet.playerTiles[0]]);
+    let mid = start.add(end).scale(0.5)
+    if(dx!==0) mid = mid.add(vec2.fromValues(0,0.5));
+    const tile = dx<0? tileSet.playerTiles['left']:
+                 dx>0? tileSet.playerTiles['right']:
+                 dy>0? tileSet.playerTiles['up']:
+                 tileSet.playerTiles['down'];
+
+    const tweenSeq = [
+        {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
+        {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad}
+    ]
+    tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
+
+    player.animation = new SpriteAnimation(tweenSeq, [tile]
+    );
 
     // Collect any loot from posNew
 
@@ -1322,11 +1346,11 @@ function renderPlayer(state: State, renderer: Renderer) {
     if(state.player.animation) {
         tileInfo = state.player.animation.currentTile();
     } else {
-        tileInfo = player.damagedLastTurn ? p[1] :
-        player.noisy ? p[3] :
-        hidden ? p[2] :
-        !lit ? p[4] :
-        p[0];
+        tileInfo = player.damagedLastTurn ? p['wounded'] :
+        player.noisy ? p['noisy'] :
+        hidden ? p['hidden'] :
+        !lit ? p['unlit'] :
+        p['normal'];
     }
 
     renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
