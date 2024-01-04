@@ -81,6 +81,7 @@ type State = {
     initialSeen: number;
     lightStates: Array<number>;
     dt: number;
+    idleTimer: number;
     leapToggleActive: boolean;
     gameMode: GameMode;
     helpScreen: TextWindow;

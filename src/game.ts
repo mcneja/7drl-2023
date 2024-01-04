@@ -645,6 +645,8 @@ function tryPlayerWait(state: State) {
         return;
     }
 
+    state.idleTimer = 5;
+
     // Move camera with player by releasing any panning motion
     state.camera.panning = false;
     state.touchController.clearMotion();
@@ -666,6 +668,8 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     if (player.health <= 0) {
         return;
     }
+
+    state.idleTimer = 5;
 
     // Move camera with player by releasing any panning motion
 
@@ -828,8 +832,8 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    let mid = start.add(end).scale(0.5)
-    if(dx!==0) mid = mid.add(vec2.fromValues(0,0.125));
+    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.125));
+    const hid = player.hidden(state.gameMap);
     const tile = dx<0? tileSet.playerTiles['left']:
         dx>0? tileSet.playerTiles['right']:
         dy>0? tileSet.playerTiles['up']:
@@ -844,14 +848,16 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
             {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},
         ];
     } else {
-        tweenSeq = [{pt0:start, pt1:mid, duration:0.1, fn:tween.easeOutQuad},
-                    {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad}
+        tweenSeq = [{pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
+                    {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad}
         ];
-        tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
+        if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     }
 
 
-    player.animation = new SpriteAnimation(tweenSeq, [tile]);
+    const tile2 = hid? tileSet.playerTiles['hidden']:tile;
+    player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles['left']]);
 
     // Collect loot
 
@@ -880,6 +886,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     if (player.health <= 0) {
         return;
     }
+
+    state.idleTimer = 5;
 
     // Move camera with player by releasing any panning motion
 
@@ -1014,8 +1022,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    let mid = start.add(end).scale(0.5)
-    if(dx!==0) mid = mid.add(vec2.fromValues(0,0.5));
+    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.5));
     const tile = dx<0? tileSet.playerTiles['left']:
                  dx>0? tileSet.playerTiles['right']:
                  dy>0? tileSet.playerTiles['up']:
@@ -1023,12 +1030,14 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const tweenSeq = [
         {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
-        {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad}
+        {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+        {pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad}
     ]
-    tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
+    const hid = player.hidden(state.gameMap);
+    if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
 
-    player.animation = new SpriteAnimation(tweenSeq, [tile]
-    );
+    const tile2 = hid? tileSet.playerTiles['hidden']:tile;
+    player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles['left']]);
 
     // Collect any loot from posNew
 
@@ -1611,6 +1620,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         stats: stats,
         tLast: undefined,
         dt: 0,
+        idleTimer: 0,
         initialSeen: 0,
         rng: rng,
         dailyRun: null,
@@ -1767,12 +1777,50 @@ function resetState(state: State) {
 }
 
 
+function updateIdle(state:State, dt:number) {
+    state.idleTimer -= dt;
+    if(state.idleTimer<=0 && state.player.health>0 && state.player.animation===null) {
+        state.idleTimer = 5;
+        const player = state.player;
+        const start = vec2.create();
+        const left = vec2.fromValues(-0.125, 0);
+        const right = vec2.fromValues(0.125, 0);
+        const up = vec2.fromValues(0,0.125);
+        const hid = player.hidden(state.gameMap);
+        const p = tileSet.playerTiles;
+        let tweenSeq, tiles;
+        if(hid || Math.random()>0.5) {
+            tweenSeq = [
+                {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
+                {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
+                {pt0:start, pt1:start, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
+                {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
+            ];
+            tiles = hid? [p['hidden']] : [p['normal']];
+        } else {
+            tweenSeq = [
+                {pt0:start, pt1:left, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:left, pt1:left, duration:0.5, fn:tween.easeOutQuad},
+                {pt0:left, pt1:start, duration:0.1, fn:tween.easeInQuad},
+                {pt0:start, pt1:right, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:right, pt1:right, duration:0.5, fn:tween.easeOutQuad},
+                {pt0:right, pt1:start, duration:0.1, fn:tween.easeInQuad},
+            ];
+            tiles = [p['left'], p['left'], p['normal'], p['right'], p['right'], p['normal']];        
+        }
+        player.animation = new SpriteAnimation(tweenSeq, tiles);
+    }
+
+}
+
 function updateAndRender(now: number, renderer: Renderer, state: State) {
     const t = now / 1000;
     const dt = (state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
     state.dt = dt;
     state.tLast = t;
 
+    updateIdle(state, dt);
 
     const screenSize = vec2.create();
     renderer.getScreenSize(screenSize);
