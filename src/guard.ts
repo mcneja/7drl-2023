@@ -738,11 +738,13 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     ay *= 2;
 
     while (n > 0) {
-        if (error > 0 ||
-            (error === 0 && !map.cells.at(x, y + y_inc).blocksSight)) {
+        if (error > 0) {
             y += y_inc;
             error -= ax;
         } else {
+            if (error === 0 && map.cells.at(x, y + y_inc).blocksSight) {
+                return false;
+            }
             x += x_inc;
             error += ay;
         }
@@ -790,11 +792,13 @@ function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
     ay *= 2;
 
     while (n > 0) {
-        if (error > 0 ||
-            (error === 0 && !blocksLineOfSightToTorch(map.cells.at(x, y + y_inc)))) {
+        if (error > 0) {
             y += y_inc;
             error -= ax;
         } else {
+            if (error === 0 && blocksLineOfSightToTorch(map.cells.at(x, y + y_inc))) {
+                return false;
+            }
             x += x_inc;
             error += ay;
         }
