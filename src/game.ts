@@ -794,8 +794,8 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         player.pickTarget = null;
         pushOrSwapGuard(state, guard);
     } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
-//        bumpFail(state, dx, dy);
-//        return;
+        bumpFail(state, dx, dy);
+        return;
     } else {
         if (!isRelaxedGuardMode(guard.mode)) {
             player.pickTarget = null;
@@ -820,7 +820,17 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     // Execute the move
 
+    executePlayerStep(state, posNew, guard !== undefined && guard.mode === GuardMode.Unconscious);
+}
+
+function executePlayerStep(state: State, posNew: vec2, pushingUnconsciousGuard: boolean) {
     preTurn(state);
+
+    const player = state.player;
+    const posOld = vec2.clone(player.pos);
+    const cellNew = state.gameMap.cells.atVec(posNew);
+    const dx = posNew[0] - player.pos[0];
+    const dy = posNew[1] - player.pos[1];
 
     vec2.copy(player.pos, posNew);
 
@@ -841,7 +851,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     let tweenSeq;
 
-    if (guard !== undefined && guard.mode === GuardMode.Unconscious) {
+    if (pushingUnconsciousGuard) {
         const gp = vec2.fromValues(0.5*(posOld[0]-posNew[0]),0.5*(posOld[1]-posNew[1]));
         tweenSeq = [
             {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
@@ -902,26 +912,27 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // If the midpoint is an unaware guard, knock them unconscious
 
-    const guardMid = state.gameMap.guards.find((guard) =>
-        guard.pos.equals(posMid) &&
-        guard.mode !== GuardMode.Unconscious &&
-        guard.mode !== GuardMode.ChaseVisibleTarget);
-
+    const guardMid = state.gameMap.guards.find((guard) => guard.pos.equals(posMid));
     if (guardMid) {
-        preTurn(state);
+        if (guardMid.mode === GuardMode.ChaseVisibleTarget) {
+            executePlayerStep(state, posMid, false);
+            return;
+        } else if (guardMid.mode !== GuardMode.Unconscious) {
+            preTurn(state);
 
-        guardMid.mode = GuardMode.Unconscious;
-        guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
-        if (guardMid.hasPurse || guardMid.hasVaultKey) {
-            collectGuardLoot(state, player, guardMid, posOld);
+            guardMid.mode = GuardMode.Unconscious;
+            guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+            if (guardMid.hasPurse || guardMid.hasVaultKey) {
+                collectGuardLoot(state, player, guardMid, posOld);
+            }
+            player.pickTarget = null;
+            state.sounds.hitGuard.play(0.25);
+        
+            advanceTime(state);
+
+            bumpAnim(state, dx, dy);
+            return;
         }
-        player.pickTarget = null;
-        state.sounds.hitGuard.play(0.25);
-    
-        advanceTime(state);
-
-        bumpAnim(state, dx, dy);
-        return;
     }
 
     // If player is in water, downgrade to a step
