@@ -161,19 +161,33 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     placeExteriorBushes(map, rng);
     placeFrontPillars(map);
-    const guardLoot = Math.min(Math.floor(level/3), plan.totalLoot);
-    const hasVault: boolean = rooms.find((room)=>room.roomType === RoomType.Vault) != undefined;
-    placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
+
+    // Convert walls to proper straight, corner, T-junction, cross tiles
 
     fixupWalls(map.cells);
+
+    // Cache info about how the cells in the map affect sound, lighting, and movement
+
     cacheCellInfo(map);
+
+    // Place patrol routes
 
     const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
 
-    placeGuards(level, map, patrolRoutes, guardLoot, hasVault, rng);
+    // Place loot
+
+    const guardLoot = Math.min(Math.floor(level/3), Math.min(patrolRoutes.length, plan.totalLoot));
+    placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
+
+    // Put guards on the patrol routes
+
+    const needKey = map.items.find((item) => item.type === ItemType.LockedDoorNS || item.type === ItemType.LockedDoorEW) !== undefined;
+
+    placeGuards(level, map, patrolRoutes, guardLoot, needKey, rng);
+
+    // Final setup
 
     markExteriorAsSeen(map);
-
     map.computeLighting();
     map.recomputeVisibility(map.playerStartPos);
 
@@ -1363,7 +1377,12 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
         patrolRoutes.push(shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length)));
     }
 
-    // Past level 5, start including patrols around the outside of the mansion.
+    // Shuffle the patrol routes generated so far, since they were created by iterating over the rooms in order.
+
+    rng.shuffleArray(patrolRoutes);
+
+    // Past level 5, start including patrols around the outside of the mansion. Keep these ones at the end
+    // so they won't get keys or purses.
 
     if (level > 5) {
         const patrolPositions: Array<vec2> = [];
@@ -1612,31 +1631,6 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
             const terrainType = gameMap.cells.at(room.posMax[0], y).type;
             if (terrainType == TerrainType.OneWayWindowE && gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0) {
                 positions.push(vec2.fromValues(room.posMax[0] - 1, y));
-            }
-        }
-    }
-    if (positions.length > 0) {
-        return positions;
-    }
-
-    // Search for any loot to stand next to
-    for (const item of gameMap.items) {
-        if (item.type == ItemType.Coin &&
-            item.pos[0] >= room.posMin[0] &&
-            item.pos[1] >= room.posMin[1] &&
-            item.pos[0] < room.posMax[0] &&
-            item.pos[1] < room.posMax[1]) {
-
-            for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-                const x = item.pos[0] + dir[0];
-                const y = item.pos[1] + dir[1];
-                if (x < room.posMin[0] || y < room.posMin[1] || x >= room.posMax[0] || y >= room.posMax[1]) {
-                    continue;
-                }
-                if (gameMap.cells.at(x, y).moveCost != 0) {
-                    continue;
-                }
-                positions.push(vec2.fromValues(x, y));
             }
         }
     }
@@ -2271,12 +2265,6 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         return;
     }
 
-    // Old math for desired number of guards
-
-//    let numGuards = (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
-
-    // Generate guards
-
     for (const patrolPath of patrolRoutes) {
         let pathIndexStart = 0;
         const guard = new Guard(patrolPath, pathIndexStart);
@@ -2292,6 +2280,7 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         }
         map.guards.push(guard);
     }
+
     console.assert(guardLoot===0);
 }
 
