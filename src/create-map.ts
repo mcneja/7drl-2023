@@ -176,12 +176,13 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     // Place loot
 
-    const guardLoot = Math.min(Math.floor(level/3), Math.min(patrolRoutes.length, plan.totalLoot));
+    const needKey = map.items.find((item) => item.type === ItemType.LockedDoorNS || item.type === ItemType.LockedDoorEW) !== undefined;
+    const guardsAvailableForLoot = patrolRoutes.length - (needKey ? 1 : 0);
+    const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
+
     placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
 
     // Put guards on the patrol routes
-
-    const needKey = map.items.find((item) => item.type === ItemType.LockedDoorNS || item.type === ItemType.LockedDoorEW) !== undefined;
 
     placeGuards(level, map, patrolRoutes, guardLoot, needKey, rng);
 
