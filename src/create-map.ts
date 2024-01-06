@@ -1957,6 +1957,13 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
                 tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMax[1] - 1), itemTypes[2]);
                 tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1), itemTypes[3]);
             }
+        } else if (room.roomType === RoomType.Vault) {
+            if (dx >= 5 && dy >= 5) {
+                map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
+                map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
+                map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
+                map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
+            }
         }
 
         // Place creaky floor tiles
