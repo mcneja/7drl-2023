@@ -120,13 +120,42 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     const [offsetX, offsetY] = offsetWalls(mirrorX, mirrorY, inside, rng);
 
+    // Make a set of rooms.
+
+    const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY);
+
+    // Compute a list of room adjacencies.
+
+    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, roomIndex);
+    storeAdjacenciesInRooms(adjacencies, rooms);
+
+    // Connect rooms together.
+
+    const posStart = connectRooms(rooms, adjacencies, rng);
+
+    // Assign types to the rooms.
+
+    assignRoomTypes(roomIndex, adjacencies, rooms, level, rng);
+
+    // Create the actual map
+
     const cells = plotWalls(inside, offsetX, offsetY);
 
     const map = new GameMap(cells);
 
-    const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, map, rng);
+    // Render doors and windows.
+
+    renderWalls(rooms, adjacencies, map, rng);
+
+    // Render floors.
+
+    renderRooms(level, rooms, map, rng);
+
+    // Set player start position
 
     vec2.copy(map.playerStartPos, posStart);
+
+    // Additional decorations
 
     placeExteriorBushes(map, rng);
     placeFrontPillars(map);
@@ -330,7 +359,7 @@ function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid):
         }
     }
 
-    // Draw walls. Really this should be done in createExits, where the
+    // Draw walls. Really this should be done in renderWalls, where the
     //  walls are getting decorated with doors and windows.
 
     for (let rx = 0; rx < cx; ++rx) {
@@ -372,18 +401,10 @@ function plotEWWall(map: CellGrid, x0: number, y0: number, x1: number) {
     }
 }
 
-function createExits(
-    level: number,
-    mirrorX: boolean,
-    mirrorY: boolean,
+function createRooms(
     inside: BooleanGrid,
     offsetX: Int32Grid,
-    offsetY: Int32Grid,
-    map: GameMap,
-    rng: RNG
-): [Array<Room>, Array<Adjacency>, vec2] {
-    // Make a set of rooms.
-
+    offsetY: Int32Grid): [Array<Room>, Int32Grid] {
     const roomsX = inside.sizeX;
     const roomsY = inside.sizeY;
 
@@ -418,28 +439,7 @@ function createExits(
         }
     }
 
-    // Compute a list of room adjacencies.
-
-    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, roomIndex);
-    storeAdjacenciesInRooms(adjacencies, rooms);
-
-    // Connect rooms together.
-
-    let posStart = connectRooms(rooms, adjacencies, rng);
-
-    // Assign types to the rooms.
-
-    assignRoomTypes(roomIndex, adjacencies, rooms, level, rng);
-
-    // Render doors and windows.
-
-    renderWalls(rooms, adjacencies, map, rng);
-
-    // Render floors.
-
-    renderRooms(level, rooms, map, rng);
-
-    return [rooms, adjacencies, posStart];
+    return [rooms, roomIndex];
 }
 
 function computeAdjacencies(
