@@ -139,9 +139,11 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     // Create the actual map
 
-    const cells = plotWalls(inside, offsetX, offsetY);
+    const map = createBlankGameMap(offsetX, offsetY);
 
-    const map = new GameMap(cells);
+    // Plot walls onto the map.
+
+    plotWalls(map.cells, inside, offsetX, offsetY);
 
     // Render doors and windows.
 
@@ -163,7 +165,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
     const hasVault: boolean = rooms.find((room)=>room.roomType === RoomType.Vault) != undefined;
     placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
 
-    fixupWalls(cells);
+    fixupWalls(map.cells);
     cacheCellInfo(map);
 
     const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
@@ -321,9 +323,9 @@ function offsetWalls(
     return [offsetX, offsetY];
 }
 
-function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid): CellGrid {
-    const cx = inside.sizeX;
-    const cy = inside.sizeY;
+function createBlankGameMap(offsetX: Int32Grid, offsetY: Int32Grid): GameMap {
+    const cx = offsetX.sizeX - 1;
+    const cy = offsetY.sizeY - 1;
 
     let mapSizeX = 0;
     let mapSizeY = 0;
@@ -339,7 +341,14 @@ function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid):
     mapSizeX += outerBorder + 1;
     mapSizeY += outerBorder + 1;
 
-    const map = new CellGrid(mapSizeX, mapSizeY);
+    const cells = new CellGrid(mapSizeX, mapSizeY);
+
+    return new GameMap(cells);
+}
+
+function plotWalls(cells: CellGrid, inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid) {
+    const cx = offsetX.sizeX - 1;
+    const cy = offsetY.sizeY - 1;
 
     // Super hacky: put down grass under all the rooms to plug holes.
 
@@ -352,8 +361,7 @@ function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid):
 
             for (let x = x0; x < x1; ++x) {
                 for (let y = y0; y < y1; ++y) {
-                    const cell = map.at(x, y);
-                    cell.type = TerrainType.GroundGrass;
+                    cells.at(x, y).type = TerrainType.GroundGrass;
                 }
             }
         }
@@ -372,21 +380,19 @@ function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid):
             const y1 = offsetY.get(rx, ry + 1);
 
             if (rx == 0 || isInside) {
-                plotNSWall(map, x0, y0, y1);
+                plotNSWall(cells, x0, y0, y1);
             }
             if (rx == cx - 1 || isInside) {
-                plotNSWall(map, x1, y0, y1);
+                plotNSWall(cells, x1, y0, y1);
             }
             if (ry == 0 || isInside) {
-                plotEWWall(map, x0, y0, x1);
+                plotEWWall(cells, x0, y0, x1);
             }
             if (ry == cy - 1 || isInside) {
-                plotEWWall(map, x0, y1, x1);
+                plotEWWall(cells, x0, y1, x1);
             }
         }
     }
-
-    return map;
 }
 
 function plotNSWall(map: CellGrid, x0: number, y0: number, y1: number) {
