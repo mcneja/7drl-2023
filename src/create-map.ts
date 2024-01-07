@@ -1702,22 +1702,6 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
 
 function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
-    // Render grass connecting courtyard rooms.
-
-    for (const adj of adjacencies) {
-        const type0 = rooms[adj.room_left].roomType;
-        const type1 = rooms[adj.room_right].roomType;
-
-        if (!isCourtyardRoomType(type0) || !isCourtyardRoomType(type1)) {
-            continue;
-        }
-
-        for (let j = 0; j < adj.length; ++j) {
-            const p = vec2.clone(adj.origin).scaleAndAdd(adj.dir, j);
-            map.cells.atVec(p).type = TerrainType.GroundGrass;
-        }
-    }
-
     // Render doors and windows for the rest of the walls.
 
     for (let i = 0; i < adjacencies.length; ++i) {
