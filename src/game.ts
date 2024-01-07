@@ -229,12 +229,14 @@ function updateControllerState(state:State) {
             restartGame(state);
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
+                scoreCurrentLevel(state);
                 setupLevel(state, state.level+1);
             }
         } else if (activated('resetState')) {
             resetState(state);
         } else if (activated('prevLevel')) {
             if (state.level > 0) {
+                scoreCurrentLevel(state);
                 setupLevel(state, state.level-1);
             }
         } else if (activated('guardSight')) {
@@ -273,6 +275,8 @@ function updateControllerState(state:State) {
 
 function scoreCurrentLevel(state: State) {
     if(!state.gameMapRoughPlans[state.level].played) {
+        const timeBonus = calculateTimeBonus(state);
+        state.player.loot += timeBonus + state.ghostBonus;
         const es = state.gameStats;
         es.lootStolen += state.lootStolen;
         es.maxLootStolen += state.lootAvailable;
@@ -286,7 +290,6 @@ function scoreCurrentLevel(state: State) {
 }
 
 export function setupLevel(state: State, level: number) {
-    scoreCurrentLevel(state);
     state.level = level;
     if (state.level >= gameConfig.numGameMaps) {
         restartGame(state);
@@ -332,8 +335,7 @@ export function calculateTimeBonus(state:State):number {
 
 
 function advanceToBetweenMansions(state: State) {
-    const timeBonus = calculateTimeBonus(state);
-    state.player.loot += timeBonus + state.ghostBonus;
+    scoreCurrentLevel(state);
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
     state.gameMode = GameMode.BetweenMansions;
@@ -350,6 +352,7 @@ function advanceToBetweenMansions(state: State) {
 }
 
 function advanceToWin(state: State) {
+    scoreCurrentLevel(state);
     state.activeSoundPool.empty();
     if (state.player.loot>95 && Math.random()>0.9) state.sounds['easterEgg'].play(0.5);
     else state.sounds['victorySong'].play(0.5);
