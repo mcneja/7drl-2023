@@ -141,10 +141,6 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     const map = createBlankGameMap(offsetX, offsetY);
 
-    // Plot walls onto the map.
-
-    plotWalls(map.cells, inside, offsetX, offsetY);
-
     // Render doors and windows.
 
     renderWalls(rooms, adjacencies, map, rng);
@@ -359,50 +355,6 @@ function createBlankGameMap(offsetX: Int32Grid, offsetY: Int32Grid): GameMap {
     const cells = new CellGrid(mapSizeX, mapSizeY);
 
     return new GameMap(cells);
-}
-
-function plotWalls(cells: CellGrid, inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid) {
-    const cx = offsetX.sizeX - 1;
-    const cy = offsetY.sizeY - 1;
-
-    // Draw walls. Really this should be done in renderWalls, where the
-    //  walls are getting decorated with doors and windows.
-
-    for (let rx = 0; rx < cx; ++rx) {
-        for (let ry = 0; ry < cy; ++ry) {
-            const isInside = inside.get(rx, ry);
-
-            const x0 = offsetX.get(rx, ry);
-            const x1 = offsetX.get(rx + 1, ry);
-            const y0 = offsetY.get(rx, ry);
-            const y1 = offsetY.get(rx, ry + 1);
-
-            if (rx == 0 || isInside) {
-                plotNSWall(cells, x0, y0, y1);
-            }
-            if (rx == cx - 1 || isInside) {
-                plotNSWall(cells, x1, y0, y1);
-            }
-            if (ry == 0 || isInside) {
-                plotEWWall(cells, x0, y0, x1);
-            }
-            if (ry == cy - 1 || isInside) {
-                plotEWWall(cells, x0, y1, x1);
-            }
-        }
-    }
-}
-
-function plotNSWall(map: CellGrid, x0: number, y0: number, y1: number) {
-    for (let y = y0; y <= y1; ++y) {
-        map.at(x0, y).type = TerrainType.Wall0000;
-    }
-}
-
-function plotEWWall(map: CellGrid, x0: number, y0: number, x1: number) {
-    for (let x = x0; x <= x1; ++x) {
-        map.at(x, y0).type = TerrainType.Wall0000;
-    }
 }
 
 function createRooms(
@@ -1702,13 +1654,27 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
 
 function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
-    // Render doors and windows for the rest of the walls.
+    // Plot walls around all the rooms, except between courtyard rooms.
+
+    for (const adj of adjacencies) {
+        const type0 = rooms[adj.room_left].roomType;
+        const type1 = rooms[adj.room_right].roomType;
+
+        if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
+            continue;
+        }
+
+        for (let i = -1; i < adj.length + 1; ++i) {
+            const pos = vec2.create();
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
+            map.cells.atVec(pos).type = TerrainType.Wall0000;
+        }
+    }
+
+    // Add windows and doors to the walls.
 
     for (let i = 0; i < adjacencies.length; ++i) {
         const adj0 = adjacencies[i];
-
-        const type0 = rooms[adj0.room_left].roomType;
-        const type1 = rooms[adj0.room_right].roomType;
 
         const j = adj0.next_matching;
 
@@ -1731,6 +1697,9 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
         if (j != i) {
             walls.push(adjacencies[j]);
         }
+
+        const type0 = rooms[adj0.room_left].roomType;
+        const type1 = rooms[adj0.room_right].roomType;
 
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
