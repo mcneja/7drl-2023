@@ -139,7 +139,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Assign types to the rooms.
 
-    assignRoomTypes(roomIndex, adjacencies, rooms, level, rng);
+    assignRoomTypes(adjacencies, rooms, level, rng);
 
     // Create the actual map
 
@@ -385,7 +385,7 @@ function createRooms(
             rooms.push({
                 roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : RoomType.PublicCourtyard,
                 group: group_index,
-                depth: 0,
+                depth: ry + 1,
                 posMin: vec2.fromValues(offsetX.get(rx, ry) + 1, offsetY.get(rx, ry) + 1),
                 posMax: vec2.fromValues(offsetX.get(rx + 1, ry), offsetY.get(rx, ry + 1)),
                 edges: [],
@@ -959,24 +959,23 @@ function frontDoorAdjacencyIndex(rooms: Array<Room>, adjacencies: Array<Adjacenc
     return 0;
 }
 
-function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, rooms: Array<Room>, level: number, rng: RNG) {
+function assignRoomTypes(adjacencies: Array<Adjacency>, rooms: Array<Room>, level: number, rng: RNG) {
 
     // Assign rooms depth based on distance from the bottom row of rooms.
 
+    // Assumes seed rooms already have a value of one, and rooms that need depth computed have
+    // a depth greater than one.
+
     let unvisited = rooms.length;
-
-    rooms[0].depth = 0;
-
-    for (let i = 1; i < rooms.length; ++i) {
-        rooms[i].depth = unvisited;
-    }
 
     const roomsToVisit: Array<number> = [];
 
-    for (let x = 0; x < roomIndex.sizeX; ++x) {
-        let iRoom = roomIndex.get(x, 0);
-        rooms[iRoom].depth = 1;
-        roomsToVisit.push(iRoom);
+    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+        if (rooms[iRoom].depth === 1) {
+            roomsToVisit.push(iRoom);
+        } else if (rooms[iRoom].depth > 1) {
+            rooms[iRoom].depth = unvisited;
+        }
     }
 
     // Visit rooms in breadth-first order, assigning them distances from the seed rooms.
@@ -994,7 +993,7 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
 
             const iRoomNeighbor = (adj.roomLeft == iRoom) ? adj.roomRight : adj.roomLeft;
 
-            if (rooms[iRoomNeighbor].depth == unvisited) {
+            if (rooms[iRoomNeighbor].depth === unvisited) {
                 rooms[iRoomNeighbor].depth = rooms[iRoom].depth + 1;
                 roomsToVisit.push(iRoomNeighbor);
             }
@@ -1010,7 +1009,7 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
         maxDepth = Math.max(maxDepth, room.depth);
     }
 
-    const targetNumMasterRooms = Math.floor((roomIndex.sizeX * roomIndex.sizeY) / 4);
+    const targetNumMasterRooms = Math.floor((rooms.length - 1) / 4);
 
     let numMasterRooms = 0;
 
