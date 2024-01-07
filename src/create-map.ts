@@ -139,7 +139,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     // Create the actual map
 
-    const map = createBlankGameMap(offsetX, offsetY);
+    const map = createBlankGameMap(rooms);
 
     // Render doors and windows.
 
@@ -334,19 +334,13 @@ function offsetWalls(
     return [offsetX, offsetY];
 }
 
-function createBlankGameMap(offsetX: Int32Grid, offsetY: Int32Grid): GameMap {
-    const cx = offsetX.sizeX - 1;
-    const cy = offsetY.sizeY - 1;
-
+function createBlankGameMap(rooms: Array<Room>): GameMap {
     let mapSizeX = 0;
     let mapSizeY = 0;
 
-    for (let y = 0; y < cy; ++y) {
-        mapSizeX = Math.max(mapSizeX, offsetX.get(cx, y));
-    }
-
-    for (let x = 0; x < cx; ++x) {
-        mapSizeY = Math.max(mapSizeY, offsetY.get(x, cy));
+    for (const room of rooms) {
+        mapSizeX = Math.max(mapSizeX, room.posMax[0]);
+        mapSizeY = Math.max(mapSizeY, room.posMax[1]);
     }
 
     mapSizeX += outerBorder + 1;
