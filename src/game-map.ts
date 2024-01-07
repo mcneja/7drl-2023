@@ -427,6 +427,12 @@ class GameMap {
                 return false;
             }
         });
+        for(let g of this.guards) {
+            if(g.hasPurse) {
+                ++gold;
+                g.hasPurse = false;
+            }
+        }
         return gold;
     }
 

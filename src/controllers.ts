@@ -131,7 +131,7 @@ const defaultKeyMap:KeyMap = {
     'Control+KeyR': ['forceRestart'],
     'Alt+KeyR': ['resetState'],
     'Alt+KeyA': ['seeAll'],
-    'Alt+KevC': ['collectLoot'],
+    'Alt+KeyC': ['collectLoot'],
     'Alt+KeyS': ['markSeen'],
     'Alt+KeyV': ['guardSight'],
     'Alt+KeyP': ['guardPatrols'],
