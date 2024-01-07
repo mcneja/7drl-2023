@@ -365,23 +365,6 @@ function plotWalls(cells: CellGrid, inside: BooleanGrid, offsetX: Int32Grid, off
     const cx = offsetX.sizeX - 1;
     const cy = offsetY.sizeY - 1;
 
-    // Super hacky: put down grass under all the rooms to plug holes.
-
-    for (let rx = 0; rx < cx; ++rx) {
-        for (let ry = 0; ry < cy; ++ry) {
-            const x0 = offsetX.get(rx, ry);
-            const x1 = offsetX.get(rx + 1, ry) + 1;
-            const y0 = offsetY.get(rx, ry);
-            const y1 = offsetY.get(rx, ry + 1) + 1;
-
-            for (let x = x0; x < x1; ++x) {
-                for (let y = y0; y < y1; ++y) {
-                    cells.at(x, y).type = TerrainType.GroundGrass;
-                }
-            }
-        }
-    }
-
     // Draw walls. Really this should be done in renderWalls, where the
     //  walls are getting decorated with doors and windows.
 
@@ -1863,22 +1846,14 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         case RoomType.Vault: cellType = TerrainType.GroundVault; break;
         }
 
-        for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
-            for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
-                map.cells.at(x, y).type = cellType;
-            }
-        }
+        setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
 
         let dx = room.posMax[0] - room.posMin[0];
         let dy = room.posMax[1] - room.posMin[1];
 
         if (isCourtyardRoomType(room.roomType)) {
             if (dx >= 5 && dy >= 5) {
-                for (let x = room.posMin[0] + 1; x < room.posMax[0] - 1; ++x) {
-                    for (let y = room.posMin[1] + 1; y < room.posMax[1] - 1; ++y) {
-                        map.cells.at(x, y).type = TerrainType.GroundWater;
-                    }
-                }
+                setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundWater);
             } else if (dx >= 2 && dy >= 2) {
                 const itemTypes = [ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
                 if (dx > 2 && dy > 2) {
@@ -1903,11 +1878,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         } else if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
             if (dx >= 5 && dy >= 5) {
                 if (room.roomType == RoomType.PrivateRoom) {
-                    for (let x = 2; x < dx-2; ++x) {
-                        for (let y = 2; y < dy-2; ++y) {
-                            map.cells.at(room.posMin[0] + x, room.posMin[1] + y).type = TerrainType.GroundWater;
-                        }
-                    }
+                    setRectTerrainType(map, room.posMin[0] + 2, room.posMin[1] + 2, room.posMax[0] - 2, room.posMax[1] - 2, TerrainType.GroundWater);
                 }
 
                 map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
@@ -2174,47 +2145,31 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
     return false;
 }
 
+function setRectTerrainType(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number, terrainType: TerrainType) {
+    for (let x = xMin; x < xMax; ++x) {
+        for (let y = yMin; y < yMax; ++y) {
+            map.cells.at(x, y).type = terrainType;
+        }
+    }
+}
+
 function placeExteriorBushes(map: GameMap, rng: RNG) {
-    let sx = map.cells.sizeX;
-    let sy = map.cells.sizeY;
+    const sx = map.cells.sizeX;
+    const sy = map.cells.sizeY;
+    const r = outerBorder;
+
+    setRectTerrainType(map, 0, 0, sx, r, TerrainType.GroundNormal);
+    setRectTerrainType(map, r - 1, r, r, sy - r, TerrainType.GroundNormal);
+    setRectTerrainType(map, sx - r, r, sx - r + 1, sy - r, TerrainType.GroundNormal);
+    setRectTerrainType(map, r - 1, sy - r, sx - r + 1, sy - r + 1, TerrainType.GroundNormal);
 
     for (let x = 0; x < sx; ++x) {
-        for (let y = sy - outerBorder + 1; y < sy; ++y) {
-            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
-                continue;
-            }
-
-            let cell = map.cells.at(x, y);
-            cell.type = TerrainType.GroundGrass;
-            cell.seen = true;
-        }
-
         if ((x & 1) == 0 && rng.random() < 0.8) {
             placeItem(map, vec2.fromValues(x, sy - 1), ItemType.Bush);
         }
     }
 
     for (let y = outerBorder; y < sy - outerBorder + 1; ++y) {
-        for (let x = 0; x < outerBorder-1; ++x) {
-            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
-                continue;
-            }
-
-            let cell = map.cells.at(x, y);
-            cell.type = TerrainType.GroundGrass;
-            cell.seen = true;
-        }
-
-        for (let x = (sx - outerBorder + 1); x < sx; ++x) {
-            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
-                continue;
-            }
-
-            let cell = map.cells.at(x, y);
-            cell.type = TerrainType.GroundGrass;
-            cell.seen = true;
-        }
-
         if (((sy - y) & 1) != 0) {
             if (rng.random() < 0.8) {
                 placeItem(map, vec2.fromValues(0, y), ItemType.Bush);
@@ -2285,25 +2240,23 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
     console.assert(guardLoot===0);
 }
 
-function markExteriorAsSeen(map: GameMap) {
-    let sx = map.cells.sizeX;
-    let sy = map.cells.sizeY;
-
-    for (let x = 0; x < sx; ++x) {
-        for (let y = 0; y < sy; ++y) {
-            if (map.cells.at(x, y).type == TerrainType.GroundNormal ||
-                (x > 0 && map.cells.at(x-1, y).type == TerrainType.GroundNormal) ||
-                (x > 0 && y > 0 && map.cells.at(x-1, y-1).type == TerrainType.GroundNormal) ||
-                (x > 0 && y+1 < sy && map.cells.at(x-1, y+1).type == TerrainType.GroundNormal) ||
-                (y > 0 && map.cells.at(x, y-1).type == TerrainType.GroundNormal) ||
-                (y+1 < sy && map.cells.at(x, y+1).type == TerrainType.GroundNormal) ||
-                (x+1 < sx && map.cells.at(x+1, y).type == TerrainType.GroundNormal) ||
-                (x+1 < sx && y > 0 && map.cells.at(x+1, y-1).type == TerrainType.GroundNormal) ||
-                (x+1 < sx && y+1 < sy && map.cells.at(x+1, y+1).type == TerrainType.GroundNormal)) {
-                map.cells.at(x, y).seen = true;
-            }
+function markRectAsSeen(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number) {
+    for (let x = xMin; x < xMax; ++x) {
+        for (let y = yMin; y < yMax; ++y) {
+            map.cells.at(x, y).seen = true;
         }
     }
+}
+
+function markExteriorAsSeen(map: GameMap) {
+    const sx = map.cells.sizeX;
+    const sy = map.cells.sizeY;
+    const r = outerBorder + 1;
+
+    markRectAsSeen(map, 0, 0, r, sy);
+    markRectAsSeen(map, sx - r, 0, sx, sy);
+    markRectAsSeen(map, r, 0, sx - r, r);
+    markRectAsSeen(map, r, sy - r, sx - r, sy);
 }
 
 function cacheCellInfo(map: GameMap) {
