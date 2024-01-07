@@ -46,9 +46,9 @@ type Adjacency = {
     origin: vec2,
     dir: vec2,
     length: number,
-    room_left: number,
-    room_right: number,
-    next_matching: number,
+    roomLeft: number,
+    roomRight: number,
+    nextMatching: number,
     door: boolean,
     doorOffset: number,
 }
@@ -120,29 +120,71 @@ function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap 
 
     const [offsetX, offsetY] = offsetWalls(mirrorX, mirrorY, inside, rng);
 
-    const cells = plotWalls(inside, offsetX, offsetY);
+    // Make a set of rooms.
 
-    const map = new GameMap(cells);
+    const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY);
 
-    const [rooms, adjacencies, posStart] = createExits(level, mirrorX, mirrorY, inside, offsetX, offsetY, map, rng);
+    // Compute a list of room adjacencies.
+
+    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, roomIndex);
+    storeAdjacenciesInRooms(adjacencies, rooms);
+
+    // Connect rooms together.
+
+    const posStart = connectRooms(rooms, adjacencies, rng);
+
+    // Assign types to the rooms.
+
+    assignRoomTypes(roomIndex, adjacencies, rooms, level, rng);
+
+    // Create the actual map
+
+    const map = createBlankGameMap(rooms);
+
+    // Render doors and windows.
+
+    renderWalls(rooms, adjacencies, map, rng);
+
+    // Render floors.
+
+    renderRooms(level, rooms, map, rng);
+
+    // Set player start position
 
     vec2.copy(map.playerStartPos, posStart);
 
+    // Additional decorations
+
     placeExteriorBushes(map, rng);
     placeFrontPillars(map);
-    const guardLoot = Math.min(Math.floor(level/3), plan.totalLoot);
-    const hasVault: boolean = rooms.find((room)=>room.roomType === RoomType.Vault) != undefined;
-    placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
 
-    fixupWalls(cells);
+    // Convert walls to proper straight, corner, T-junction, cross tiles
+
+    fixupWalls(map.cells);
+
+    // Cache info about how the cells in the map affect sound, lighting, and movement
+
     cacheCellInfo(map);
+
+    // Place patrol routes
 
     const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
 
-    placeGuards(level, map, patrolRoutes, guardLoot, hasVault, rng);
+    // Place loot
+
+    const needKey = map.items.find((item) => item.type === ItemType.LockedDoorNS || item.type === ItemType.LockedDoorEW) !== undefined;
+    const guardsAvailableForLoot = patrolRoutes.length - (needKey ? 1 : 0);
+    const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
+
+    placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
+
+    // Put guards on the patrol routes
+
+    placeGuards(level, map, patrolRoutes, guardLoot, needKey, rng);
+
+    // Final setup
 
     markExteriorAsSeen(map);
-
     map.computeLighting();
     map.recomputeVisibility(map.playerStartPos);
 
@@ -292,98 +334,27 @@ function offsetWalls(
     return [offsetX, offsetY];
 }
 
-function plotWalls(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid): CellGrid {
-    const cx = inside.sizeX;
-    const cy = inside.sizeY;
-
+function createBlankGameMap(rooms: Array<Room>): GameMap {
     let mapSizeX = 0;
     let mapSizeY = 0;
 
-    for (let y = 0; y < cy; ++y) {
-        mapSizeX = Math.max(mapSizeX, offsetX.get(cx, y));
-    }
-
-    for (let x = 0; x < cx; ++x) {
-        mapSizeY = Math.max(mapSizeY, offsetY.get(x, cy));
+    for (const room of rooms) {
+        mapSizeX = Math.max(mapSizeX, room.posMax[0]);
+        mapSizeY = Math.max(mapSizeY, room.posMax[1]);
     }
 
     mapSizeX += outerBorder + 1;
     mapSizeY += outerBorder + 1;
 
-    const map = new CellGrid(mapSizeX, mapSizeY);
+    const cells = new CellGrid(mapSizeX, mapSizeY);
 
-    // Super hacky: put down grass under all the rooms to plug holes.
-
-    for (let rx = 0; rx < cx; ++rx) {
-        for (let ry = 0; ry < cy; ++ry) {
-            const x0 = offsetX.get(rx, ry);
-            const x1 = offsetX.get(rx + 1, ry) + 1;
-            const y0 = offsetY.get(rx, ry);
-            const y1 = offsetY.get(rx, ry + 1) + 1;
-
-            for (let x = x0; x < x1; ++x) {
-                for (let y = y0; y < y1; ++y) {
-                    const cell = map.at(x, y);
-                    cell.type = TerrainType.GroundGrass;
-                }
-            }
-        }
-    }
-
-    // Draw walls. Really this should be done in createExits, where the
-    //  walls are getting decorated with doors and windows.
-
-    for (let rx = 0; rx < cx; ++rx) {
-        for (let ry = 0; ry < cy; ++ry) {
-            const isInside = inside.get(rx, ry);
-
-            const x0 = offsetX.get(rx, ry);
-            const x1 = offsetX.get(rx + 1, ry);
-            const y0 = offsetY.get(rx, ry);
-            const y1 = offsetY.get(rx, ry + 1);
-
-            if (rx == 0 || isInside) {
-                plotNSWall(map, x0, y0, y1);
-            }
-            if (rx == cx - 1 || isInside) {
-                plotNSWall(map, x1, y0, y1);
-            }
-            if (ry == 0 || isInside) {
-                plotEWWall(map, x0, y0, x1);
-            }
-            if (ry == cy - 1 || isInside) {
-                plotEWWall(map, x0, y1, x1);
-            }
-        }
-    }
-
-    return map;
+    return new GameMap(cells);
 }
 
-function plotNSWall(map: CellGrid, x0: number, y0: number, y1: number) {
-    for (let y = y0; y <= y1; ++y) {
-        map.at(x0, y).type = TerrainType.Wall0000;
-    }
-}
-
-function plotEWWall(map: CellGrid, x0: number, y0: number, x1: number) {
-    for (let x = x0; x <= x1; ++x) {
-        map.at(x, y0).type = TerrainType.Wall0000;
-    }
-}
-
-function createExits(
-    level: number,
-    mirrorX: boolean,
-    mirrorY: boolean,
+function createRooms(
     inside: BooleanGrid,
     offsetX: Int32Grid,
-    offsetY: Int32Grid,
-    map: GameMap,
-    rng: RNG
-): [Array<Room>, Array<Adjacency>, vec2] {
-    // Make a set of rooms.
-
+    offsetY: Int32Grid): [Array<Room>, Int32Grid] {
     const roomsX = inside.sizeX;
     const roomsY = inside.sizeY;
 
@@ -418,28 +389,7 @@ function createExits(
         }
     }
 
-    // Compute a list of room adjacencies.
-
-    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, roomIndex);
-    storeAdjacenciesInRooms(adjacencies, rooms);
-
-    // Connect rooms together.
-
-    let posStart = connectRooms(rooms, adjacencies, rng);
-
-    // Assign types to the rooms.
-
-    assignRoomTypes(roomIndex, adjacencies, rooms, level, rng);
-
-    // Render doors and windows.
-
-    renderWalls(rooms, adjacencies, map, rng);
-
-    // Render floors.
-
-    renderRooms(level, rooms, map, rng);
-
-    return [rooms, adjacencies, posStart];
+    return [rooms, roomIndex];
 }
 
 function computeAdjacencies(
@@ -475,9 +425,9 @@ function computeAdjacencies(
                     origin: vec2.fromValues(x0 + 1, y),
                     dir: vec2.fromValues(1, 0),
                     length: x1 - (x0 + 1),
-                    room_left: roomIndex.get(rx, ry),
-                    room_right: 0,
-                    next_matching: i,
+                    roomLeft: roomIndex.get(rx, ry),
+                    roomRight: 0,
+                    nextMatching: i,
                     door: false,
                     doorOffset: 0,
                 });
@@ -506,9 +456,9 @@ function computeAdjacencies(
                         origin: vec2.fromValues(x0_upper + 1, y),
                         dir: vec2.fromValues(1, 0),
                         length: x0_lower - (x0_upper + 1),
-                        room_left: roomIndex.get(rx, ry),
-                        room_right: roomIndex.get(rx - 1, ry - 1),
-                        next_matching: i,
+                        roomLeft: roomIndex.get(rx, ry),
+                        roomRight: roomIndex.get(rx - 1, ry - 1),
+                        nextMatching: i,
                         door: false,
                         doorOffset: 0,
                     });
@@ -522,9 +472,9 @@ function computeAdjacencies(
                         origin: vec2.fromValues(x0 + 1, y),
                         dir: vec2.fromValues(1, 0),
                         length: x1 - (x0 + 1),
-                        room_left: roomIndex.get(rx, ry),
-                        room_right: roomIndex.get(rx, ry - 1),
-                        next_matching: i,
+                        roomLeft: roomIndex.get(rx, ry),
+                        roomRight: roomIndex.get(rx, ry - 1),
+                        nextMatching: i,
                         door: false,
                         doorOffset: 0,
                     });
@@ -538,9 +488,9 @@ function computeAdjacencies(
                         origin: vec2.fromValues(x1_lower + 1, y),
                         dir: vec2.fromValues(1, 0),
                         length: x1_upper - (x1_lower + 1),
-                        room_left: roomIndex.get(rx, ry),
-                        room_right: roomIndex.get(rx + 1, ry - 1),
-                        next_matching: i,
+                        roomLeft: roomIndex.get(rx, ry),
+                        roomRight: roomIndex.get(rx + 1, ry - 1),
+                        nextMatching: i,
                         door: false,
                         doorOffset: 0,
                     });
@@ -567,9 +517,9 @@ function computeAdjacencies(
                     origin: vec2.fromValues(x0 + 1, y),
                     dir: vec2.fromValues(1, 0),
                     length: x1 - (x0 + 1),
-                    room_left: 0,
-                    room_right: roomIndex.get(rx, ry - 1),
-                    next_matching: i,
+                    roomLeft: 0,
+                    roomRight: roomIndex.get(rx, ry - 1),
+                    nextMatching: i,
                     door: false,
                     doorOffset: 0,
                 });
@@ -588,15 +538,15 @@ function computeAdjacencies(
                     let adj0 = row[i];
                     let adj1 = row[j];
 
-                    adjacencies[adj0].next_matching = adj1;
-                    adjacencies[adj1].next_matching = adj0;
+                    adjacencies[adj0].nextMatching = adj1;
+                    adjacencies[adj1].nextMatching = adj0;
 
                     // Flip edge a1 to point the opposite direction
                     {
                         let a1 = adjacencies[adj1];
                         vec2.scaleAndAdd(a1.origin, a1.origin, a1.dir, a1.length - 1);
                         vec2.negate(a1.dir, a1.dir);
-                        [a1.room_left, a1.room_right] = [a1.room_right, a1.room_left];
+                        [a1.roomLeft, a1.roomRight] = [a1.roomRight, a1.roomLeft];
                     }
 
                     i += 1;
@@ -617,8 +567,8 @@ function computeAdjacencies(
                 for (let i = 0; i < row0.length; ++i) {
                     let adj0 = row0[i];
                     let adj1 = row1[i];
-                    adjacencies[adj0].next_matching = adj1;
-                    adjacencies[adj1].next_matching = adj0;
+                    adjacencies[adj0].nextMatching = adj1;
+                    adjacencies[adj1].nextMatching = adj0;
                 }
 
                 ry0 += 1;
@@ -647,9 +597,9 @@ function computeAdjacencies(
                     origin: vec2.fromValues(x, y0 + 1),
                     dir: vec2.fromValues(0, 1),
                     length: y1 - (y0 + 1),
-                    room_left: 0,
-                    room_right: roomIndex.get(rx, ry),
-                    next_matching: i,
+                    roomLeft: 0,
+                    roomRight: roomIndex.get(rx, ry),
+                    nextMatching: i,
                     door: false,
                     doorOffset: 0,
                 });
@@ -678,9 +628,9 @@ function computeAdjacencies(
                         origin: vec2.fromValues(x, y0_right + 1),
                         dir: vec2.fromValues(0, 1),
                         length: y0_left - (y0_right + 1),
-                        room_left: roomIndex.get(rx - 1, ry - 1),
-                        room_right: roomIndex.get(rx, ry),
-                        next_matching: i,
+                        roomLeft: roomIndex.get(rx - 1, ry - 1),
+                        roomRight: roomIndex.get(rx, ry),
+                        nextMatching: i,
                         door: false,
                         doorOffset: 0,
                     });
@@ -694,9 +644,9 @@ function computeAdjacencies(
                         origin: vec2.fromValues(x, y0 + 1),
                         dir: vec2.fromValues(0, 1),
                         length: y1 - (y0 + 1),
-                        room_left: roomIndex.get(rx - 1, ry),
-                        room_right: roomIndex.get(rx, ry),
-                        next_matching: i,
+                        roomLeft: roomIndex.get(rx - 1, ry),
+                        roomRight: roomIndex.get(rx, ry),
+                        nextMatching: i,
                         door: false,
                         doorOffset: 0,
                     });
@@ -710,9 +660,9 @@ function computeAdjacencies(
                         origin: vec2.fromValues(x, y1_left + 1),
                         dir: vec2.fromValues(0, 1),
                         length: y1_right - (y1_left + 1),
-                        room_left: roomIndex.get(rx - 1, ry + 1),
-                        room_right: roomIndex.get(rx, ry),
-                        next_matching: i,
+                        roomLeft: roomIndex.get(rx - 1, ry + 1),
+                        roomRight: roomIndex.get(rx, ry),
+                        nextMatching: i,
                         door: false,
                         doorOffset: 0,
                     });
@@ -737,9 +687,9 @@ function computeAdjacencies(
                     origin: vec2.fromValues(x, y0 + 1),
                     dir: vec2.fromValues(0, 1),
                     length: y1 - (y0 + 1),
-                    room_left: roomIndex.get(rx - 1, ry),
-                    room_right: 0,
-                    next_matching: i,
+                    roomLeft: roomIndex.get(rx - 1, ry),
+                    roomRight: 0,
+                    nextMatching: i,
                     door: false,
                     doorOffset: 0,
                 });
@@ -758,15 +708,15 @@ function computeAdjacencies(
                     let adj0 = row[i];
                     let adj1 = row[(row.length - 1) - i];
 
-                    adjacencies[adj0].next_matching = adj1;
-                    adjacencies[adj1].next_matching = adj0;
+                    adjacencies[adj0].nextMatching = adj1;
+                    adjacencies[adj1].nextMatching = adj0;
 
                     {
                         // Flip edge a1 to point the opposite direction
                         let a1 = adjacencies[adj1];
                         vec2.scaleAndAdd(a1.origin, a1.origin, a1.dir, a1.length - 1);
                         vec2.negate(a1.dir, a1.dir);
-                        [a1.room_left, a1.room_right] = [a1.room_right, a1.room_left];
+                        [a1.roomLeft, a1.roomRight] = [a1.roomRight, a1.roomLeft];
                     }
                 }
             }
@@ -782,8 +732,8 @@ function computeAdjacencies(
                 for (let i = 0; i < row0.length; ++i) {
                     let adj0 = row0[i];
                     let adj1 = row1[i];
-                    adjacencies[adj0].next_matching = adj1;
-                    adjacencies[adj1].next_matching = adj0;
+                    adjacencies[adj0].nextMatching = adj1;
+                    adjacencies[adj1].nextMatching = adj0;
                 }
 
                 ry0 += 1;
@@ -798,8 +748,8 @@ function computeAdjacencies(
 function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>, rooms: Array<Room>) {
     for (let i = 0; i < adjacencies.length; ++i) {
         const adj = adjacencies[i];
-        let i0 = adj.room_left;
-        let i1 = adj.room_right;
+        let i0 = adj.roomLeft;
+        let i1 = adj.roomRight;
         rooms[i0].edges.push(i);
         rooms[i1].edges.push(i);
     }
@@ -814,8 +764,8 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
     // Connect all adjacent courtyard rooms together.
 
     for (const adj of adjacencies) {
-        let i0 = adj.room_left;
-        let i1 = adj.room_right;
+        let i0 = adj.roomLeft;
+        let i1 = adj.roomRight;
         if (rooms[i0].roomType != RoomType.PublicCourtyard || rooms[i1].roomType != RoomType.PublicCourtyard) {
             continue;
         }
@@ -835,8 +785,8 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         {
             let adj = adjacencies[edgeSet[0]];
 
-            let i0 = adj.room_left;
-            let i1 = adj.room_right;
+            let i0 = adj.roomLeft;
+            let i1 = adj.roomRight;
 
             if (rooms[i0].roomType != RoomType.PublicRoom || rooms[i1].roomType != RoomType.PublicRoom) {
                 continue;
@@ -856,8 +806,8 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
             for (let i = 1; i < edgeSet.length; ++i) {
                 let adj = adjacencies[edgeSet[i]];
 
-                let i0 = adj.room_left;
-                let i1 = adj.room_right;
+                let i0 = adj.roomLeft;
+                let i1 = adj.roomRight;
 
                 let group0 = rooms[i0].group;
                 let group1 = rooms[i1].group;
@@ -877,8 +827,8 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         {
             let adj = adjacencies[edgeSet[0]];
 
-            let i0 = adj.room_left;
-            let i1 = adj.room_right;
+            let i0 = adj.roomLeft;
+            let i1 = adj.roomRight;
 
             let room_type0 = rooms[i0].roomType;
             let room_type1 = rooms[i1].roomType;
@@ -905,8 +855,8 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
             for (let i = 1; i < edgeSet.length; ++i) {
                 let adj = adjacencies[edgeSet[i]];
 
-                let i0 = adj.room_left;
-                let i1 = adj.room_right;
+                let i0 = adj.roomLeft;
+                let i1 = adj.roomRight;
 
                 let group0 = rooms[i0].group;
                 let group1 = rooms[i1].group;
@@ -933,10 +883,10 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
 
         // Break symmetry if the door is off center.
 
-        let j = adjacencies[i].next_matching;
+        let j = adjacencies[i].nextMatching;
         if (j != i) {
-            adjacencies[j].next_matching = j;
-            adjacencies[i].next_matching = i;
+            adjacencies[j].nextMatching = j;
+            adjacencies[i].nextMatching = i;
         }
     }
 
@@ -948,7 +898,7 @@ function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Array<numbe
 
     for (let i = 0; i < adjacencies.length; ++i) {
         const adj = adjacencies[i];
-        let j = adj.next_matching;
+        let j = adj.nextMatching;
         if (j >= i) {
             if (j > i) {
                 edgeSets.push([i, j]);
@@ -982,16 +932,16 @@ function frontDoorAdjacencyIndex(rooms: Array<Room>, adjacencies: Array<Adjacenc
                 continue;
             }
 
-            if (adj.next_matching > i) {
+            if (adj.nextMatching > i) {
                 continue;
             }
 
-            if (adj.next_matching == i) {
-                if (rooms[adj.room_right].roomType != RoomType.Exterior) {
+            if (adj.nextMatching == i) {
+                if (rooms[adj.roomRight].roomType != RoomType.Exterior) {
                     continue;
                 }
             } else {
-                if (rooms[adj.room_left].roomType != RoomType.Exterior) {
+                if (rooms[adj.roomLeft].roomType != RoomType.Exterior) {
                     continue;
                 }
             }
@@ -1038,7 +988,7 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
                 continue;
             }
 
-            const iRoomNeighbor = (adj.room_left == iRoom) ? adj.room_right : adj.room_left;
+            const iRoomNeighbor = (adj.roomLeft == iRoom) ? adj.roomRight : adj.roomLeft;
 
             if (rooms[iRoomNeighbor].depth == unvisited) {
                 rooms[iRoomNeighbor].depth = rooms[iRoom].depth + 1;
@@ -1097,7 +1047,7 @@ function assignRoomTypes(roomIndex: Int32Grid, adjacencies: Array<Adjacency>, ro
             for (const iAdj of rooms[iRoom].edges) {
                 const adj = adjacencies[iAdj];
 
-                let iRoomOther = (adj.room_left != iRoom) ? adj.room_left : adj.room_right;
+                let iRoomOther = (adj.roomLeft != iRoom) ? adj.roomLeft : adj.roomRight;
 
                 if (rooms[iRoomOther].roomType == RoomType.PrivateCourtyard) {
                     rooms[iRoom].roomType = RoomType.PrivateCourtyard;
@@ -1164,10 +1114,10 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
-        rooms[adj.room_left].roomType !== RoomType.Exterior &&
-        rooms[adj.room_right].roomType !== RoomType.Exterior &&
-        rooms[adj.room_left].roomType !== RoomType.Vault &&
-        rooms[adj.room_right].roomType !== RoomType.Vault);
+        rooms[adj.roomLeft].roomType !== RoomType.Exterior &&
+        rooms[adj.roomRight].roomType !== RoomType.Exterior &&
+        rooms[adj.roomLeft].roomType !== RoomType.Vault &&
+        rooms[adj.roomRight].roomType !== RoomType.Vault);
     rng.shuffleArray(adjacenciesShuffled);
 
     // Build a set of nodes for joining into routes. Initially there will be one per room.
@@ -1188,8 +1138,8 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     // Join rooms onto the start or end (or both) of patrol routes
 
     for (const adj of adjacenciesShuffled) {
-        let node0 = nodes[adj.room_left];
-        let node1 = nodes[adj.room_right];
+        let node0 = nodes[adj.roomLeft];
+        let node1 = nodes[adj.roomRight];
 
         if (node0.nodeNext == null && node1.nodePrev == null) {
             node0.nodeNext = node1;
@@ -1233,8 +1183,8 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     // Join orphan rooms by generating new nodes in the existing paths
 
     for (const adj of adjacenciesShuffled) {
-        const iNode0 = adj.room_left;
-        const iNode1 = adj.room_right;
+        const iNode0 = adj.roomLeft;
+        const iNode1 = adj.roomRight;
 
         const node0 = nodes[iNode0];
         const node1 = nodes[iNode1];
@@ -1357,7 +1307,12 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
         patrolRoutes.push(shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length)));
     }
 
-    // Past level 5, start including patrols around the outside of the mansion.
+    // Shuffle the patrol routes generated so far, since they were created by iterating over the rooms in order.
+
+    rng.shuffleArray(patrolRoutes);
+
+    // Past level 5, start including patrols around the outside of the mansion. Keep these ones at the end
+    // so they won't get keys or purses.
 
     if (level > 5) {
         const patrolPositions: Array<vec2> = [];
@@ -1543,8 +1498,8 @@ function splitPatrolRoute(nodeAny: PatrolNode, pieceLength: number) {
 function posInDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom0: number, iRoom1: number) {
     for (const iAdj of rooms[iRoom0].edges) {
         const adj = adjacencies[iAdj];
-        if ((adj.room_left === iRoom0 && adj.room_right === iRoom1) ||
-            (adj.room_left === iRoom1 && adj.room_right === iRoom0)) {
+        if ((adj.roomLeft === iRoom0 && adj.roomRight === iRoom1) ||
+            (adj.roomLeft === iRoom1 && adj.roomRight === iRoom0)) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             return;
         }
@@ -1556,7 +1511,7 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
     // Try two squares into the room, if possible. If not, fall back to one square in, which will be clear.
     for (const iAdj of rooms[iRoom].edges) {
         const adj = adjacencies[iAdj];
-        if ((adj.room_left === iRoom && adj.room_right === iRoomNext)) {
+        if ((adj.roomLeft === iRoom && adj.roomRight === iRoomNext)) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             const dirCross = vec2.fromValues(-adj.dir[1], adj.dir[0]);
             vec2.scaleAndAdd(pos, pos, dirCross, 2);
@@ -1564,7 +1519,7 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
                 vec2.scaleAndAdd(pos, pos, dirCross, -1);
             }
             return;
-        } else if (adj.room_left === iRoomNext && adj.room_right === iRoom) {
+        } else if (adj.roomLeft === iRoomNext && adj.roomRight === iRoom) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             const dirCross = vec2.fromValues(adj.dir[1], -adj.dir[0]);
             vec2.scaleAndAdd(pos, pos, dirCross, 2);
@@ -1606,31 +1561,6 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
             const terrainType = gameMap.cells.at(room.posMax[0], y).type;
             if (terrainType == TerrainType.OneWayWindowE && gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0) {
                 positions.push(vec2.fromValues(room.posMax[0] - 1, y));
-            }
-        }
-    }
-    if (positions.length > 0) {
-        return positions;
-    }
-
-    // Search for any loot to stand next to
-    for (const item of gameMap.items) {
-        if (item.type == ItemType.Coin &&
-            item.pos[0] >= room.posMin[0] &&
-            item.pos[1] >= room.posMin[1] &&
-            item.pos[0] < room.posMax[0] &&
-            item.pos[1] < room.posMax[1]) {
-
-            for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-                const x = item.pos[0] + dir[0];
-                const y = item.pos[1] + dir[1];
-                if (x < room.posMin[0] || y < room.posMin[1] || x >= room.posMax[0] || y >= room.posMax[1]) {
-                    continue;
-                }
-                if (gameMap.cells.at(x, y).moveCost != 0) {
-                    continue;
-                }
-                positions.push(vec2.fromValues(x, y));
             }
         }
     }
@@ -1718,31 +1648,29 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
 
 function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
-    // Render grass connecting courtyard rooms.
+    // Plot walls around all the rooms, except between courtyard rooms.
 
     for (const adj of adjacencies) {
-        const type0 = rooms[adj.room_left].roomType;
-        const type1 = rooms[adj.room_right].roomType;
+        const type0 = rooms[adj.roomLeft].roomType;
+        const type1 = rooms[adj.roomRight].roomType;
 
-        if (!isCourtyardRoomType(type0) || !isCourtyardRoomType(type1)) {
+        if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
             continue;
         }
 
-        for (let j = 0; j < adj.length; ++j) {
-            const p = vec2.clone(adj.origin).scaleAndAdd(adj.dir, j);
-            map.cells.atVec(p).type = TerrainType.GroundGrass;
+        for (let i = -1; i < adj.length + 1; ++i) {
+            const pos = vec2.create();
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
+            map.cells.atVec(pos).type = TerrainType.Wall0000;
         }
     }
 
-    // Render doors and windows for the rest of the walls.
+    // Add windows and doors to the walls.
 
     for (let i = 0; i < adjacencies.length; ++i) {
         const adj0 = adjacencies[i];
 
-        const type0 = rooms[adj0.room_left].roomType;
-        const type1 = rooms[adj0.room_right].roomType;
-
-        const j = adj0.next_matching;
+        const j = adj0.nextMatching;
 
         if (j < i) {
             continue;
@@ -1764,21 +1692,24 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             walls.push(adjacencies[j]);
         }
 
+        const type0 = rooms[adj0.roomLeft].roomType;
+        const type1 = rooms[adj0.roomRight].roomType;
+
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
                 if ((adj0.length & 1) != 0) {
                     let k = Math.floor(adj0.length / 2);
 
                     for (const a of walls) {
-                        if (rooms[a.room_left].roomType === RoomType.Vault ||
-                            rooms[a.room_right].roomType === RoomType.Vault) {
+                        if (rooms[a.roomLeft].roomType === RoomType.Vault ||
+                            rooms[a.roomRight].roomType === RoomType.Vault) {
                             continue;
                         }
 
                         const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
 
                         let dir = vec2.clone(a.dir);
-                        if (rooms[a.room_right].roomType == RoomType.Exterior) {
+                        if (rooms[a.roomRight].roomType == RoomType.Exterior) {
                             vec2.negate(dir, dir);
                         }
 
@@ -1791,13 +1722,13 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
                 while (k < k_end) {
                     for (const a of walls) {
-                        if (rooms[a.room_left].roomType === RoomType.Vault ||
-                            rooms[a.room_right].roomType === RoomType.Vault) {
+                        if (rooms[a.roomLeft].roomType === RoomType.Vault ||
+                            rooms[a.roomRight].roomType === RoomType.Vault) {
                             continue;
                         }
 
                         let dir = vec2.clone(a.dir);
-                        if (isCourtyardRoomType(rooms[a.room_right].roomType)) {
+                        if (isCourtyardRoomType(rooms[a.roomRight].roomType)) {
                             dir = dir.negate();
                         }
 
@@ -1827,8 +1758,8 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
             let orientNS = (a.dir[0] == 0);
 
-            let roomTypeLeft = rooms[a.room_left].roomType;
-            let roomTypeRight = rooms[a.room_right].roomType;
+            let roomTypeLeft = rooms[a.roomLeft].roomType;
+            let roomTypeRight = rooms[a.roomRight].roomType;
 
             if (roomTypeLeft == RoomType.Exterior || roomTypeRight == RoomType.Exterior) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
@@ -1862,22 +1793,14 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         case RoomType.Vault: cellType = TerrainType.GroundVault; break;
         }
 
-        for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
-            for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
-                map.cells.at(x, y).type = cellType;
-            }
-        }
+        setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
 
         let dx = room.posMax[0] - room.posMin[0];
         let dy = room.posMax[1] - room.posMin[1];
 
         if (isCourtyardRoomType(room.roomType)) {
             if (dx >= 5 && dy >= 5) {
-                for (let x = room.posMin[0] + 1; x < room.posMax[0] - 1; ++x) {
-                    for (let y = room.posMin[1] + 1; y < room.posMax[1] - 1; ++y) {
-                        map.cells.at(x, y).type = TerrainType.GroundWater;
-                    }
-                }
+                setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundWater);
             } else if (dx >= 2 && dy >= 2) {
                 const itemTypes = [ItemType.Bush, ItemType.Bush, ItemType.Bush, ItemType.Bush];
                 if (dx > 2 && dy > 2) {
@@ -1902,11 +1825,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         } else if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
             if (dx >= 5 && dy >= 5) {
                 if (room.roomType == RoomType.PrivateRoom) {
-                    for (let x = 2; x < dx-2; ++x) {
-                        for (let y = 2; y < dy-2; ++y) {
-                            map.cells.at(room.posMin[0] + x, room.posMin[1] + y).type = TerrainType.GroundWater;
-                        }
-                    }
+                    setRectTerrainType(map, room.posMin[0] + 2, room.posMin[1] + 2, room.posMax[0] - 2, room.posMax[1] - 2, TerrainType.GroundWater);
                 }
 
                 map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
@@ -1956,6 +1875,13 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
                 tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMin[1]), itemTypes[1]);
                 tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMax[1] - 1), itemTypes[2]);
                 tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1), itemTypes[3]);
+            }
+        } else if (room.roomType === RoomType.Vault) {
+            if (dx >= 5 && dy >= 5) {
+                map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
+                map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
+                map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
+                map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
             }
         }
 
@@ -2166,47 +2092,31 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
     return false;
 }
 
+function setRectTerrainType(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number, terrainType: TerrainType) {
+    for (let x = xMin; x < xMax; ++x) {
+        for (let y = yMin; y < yMax; ++y) {
+            map.cells.at(x, y).type = terrainType;
+        }
+    }
+}
+
 function placeExteriorBushes(map: GameMap, rng: RNG) {
-    let sx = map.cells.sizeX;
-    let sy = map.cells.sizeY;
+    const sx = map.cells.sizeX;
+    const sy = map.cells.sizeY;
+    const r = outerBorder;
+
+    setRectTerrainType(map, 0, 0, sx, r, TerrainType.GroundNormal);
+    setRectTerrainType(map, r - 1, r, r, sy - r, TerrainType.GroundNormal);
+    setRectTerrainType(map, sx - r, r, sx - r + 1, sy - r, TerrainType.GroundNormal);
+    setRectTerrainType(map, r - 1, sy - r, sx - r + 1, sy - r + 1, TerrainType.GroundNormal);
 
     for (let x = 0; x < sx; ++x) {
-        for (let y = sy - outerBorder + 1; y < sy; ++y) {
-            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
-                continue;
-            }
-
-            let cell = map.cells.at(x, y);
-            cell.type = TerrainType.GroundGrass;
-            cell.seen = true;
-        }
-
         if ((x & 1) == 0 && rng.random() < 0.8) {
             placeItem(map, vec2.fromValues(x, sy - 1), ItemType.Bush);
         }
     }
 
     for (let y = outerBorder; y < sy - outerBorder + 1; ++y) {
-        for (let x = 0; x < outerBorder-1; ++x) {
-            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
-                continue;
-            }
-
-            let cell = map.cells.at(x, y);
-            cell.type = TerrainType.GroundGrass;
-            cell.seen = true;
-        }
-
-        for (let x = (sx - outerBorder + 1); x < sx; ++x) {
-            if (map.cells.at(x, y).type != TerrainType.GroundNormal) {
-                continue;
-            }
-
-            let cell = map.cells.at(x, y);
-            cell.type = TerrainType.GroundGrass;
-            cell.seen = true;
-        }
-
         if (((sy - y) & 1) != 0) {
             if (rng.random() < 0.8) {
                 placeItem(map, vec2.fromValues(0, y), ItemType.Bush);
@@ -2258,12 +2168,6 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         return;
     }
 
-    // Old math for desired number of guards
-
-//    let numGuards = (level == 1) ? 1 : Math.max(2, Math.floor((numRooms * Math.min(level + 18, 40)) / 100));
-
-    // Generate guards
-
     for (const patrolPath of patrolRoutes) {
         let pathIndexStart = 0;
         const guard = new Guard(patrolPath, pathIndexStart);
@@ -2279,28 +2183,27 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         }
         map.guards.push(guard);
     }
+
     console.assert(guardLoot===0);
 }
 
-function markExteriorAsSeen(map: GameMap) {
-    let sx = map.cells.sizeX;
-    let sy = map.cells.sizeY;
-
-    for (let x = 0; x < sx; ++x) {
-        for (let y = 0; y < sy; ++y) {
-            if (map.cells.at(x, y).type == TerrainType.GroundNormal ||
-                (x > 0 && map.cells.at(x-1, y).type == TerrainType.GroundNormal) ||
-                (x > 0 && y > 0 && map.cells.at(x-1, y-1).type == TerrainType.GroundNormal) ||
-                (x > 0 && y+1 < sy && map.cells.at(x-1, y+1).type == TerrainType.GroundNormal) ||
-                (y > 0 && map.cells.at(x, y-1).type == TerrainType.GroundNormal) ||
-                (y+1 < sy && map.cells.at(x, y+1).type == TerrainType.GroundNormal) ||
-                (x+1 < sx && map.cells.at(x+1, y).type == TerrainType.GroundNormal) ||
-                (x+1 < sx && y > 0 && map.cells.at(x+1, y-1).type == TerrainType.GroundNormal) ||
-                (x+1 < sx && y+1 < sy && map.cells.at(x+1, y+1).type == TerrainType.GroundNormal)) {
-                map.cells.at(x, y).seen = true;
-            }
+function markRectAsSeen(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number) {
+    for (let x = xMin; x < xMax; ++x) {
+        for (let y = yMin; y < yMax; ++y) {
+            map.cells.at(x, y).seen = true;
         }
     }
+}
+
+function markExteriorAsSeen(map: GameMap) {
+    const sx = map.cells.sizeX;
+    const sy = map.cells.sizeY;
+    const r = outerBorder + 1;
+
+    markRectAsSeen(map, 0, 0, r, sy);
+    markRectAsSeen(map, sx - r, 0, sx, sy);
+    markRectAsSeen(map, r, 0, sx - r, r);
+    markRectAsSeen(map, r, sy - r, sx - r, sy);
 }
 
 function cacheCellInfo(map: GameMap) {

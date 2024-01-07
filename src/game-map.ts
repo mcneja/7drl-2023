@@ -213,7 +213,7 @@ class CellGrid {
 
     emptyCell(): Cell {
         return {
-            type: TerrainType.GroundNormal,
+            type: TerrainType.GroundGrass,
             moveCost: Infinity,
             blocksPlayerMove: false,
             blocksPlayerSight: false,
