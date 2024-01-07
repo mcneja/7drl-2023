@@ -213,7 +213,11 @@ function updateControllerState(state:State) {
                 advanceToBetweenMansions(state);
             }
         } else if (activated('menu')) {
-            state.helpActive = true;
+            if(state.player.health>0) {
+                state.helpActive = true;
+            } else {
+                state.gameMode = GameMode.Dead;
+            }
         } else if (activated('jumpToggle')) {
             state.leapToggleActive = !state.leapToggleActive;
         } else if (activated('seeAll')) {
@@ -1171,8 +1175,9 @@ function advanceTime(state: State) {
                 setStat('lastDaily', state.stats.lastDaily);
                 //TODO: notify user if the game was finished after the deadline
                 if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level);
-            }       
-            state.gameMode = GameMode.Dead;
+            }
+            state.topStatusMessage = 'You were killed. Press Escape/Menu to see score.'
+            state.topStatusMessageSticky = true;
         }
     }
 }
@@ -1368,7 +1373,8 @@ function renderPlayer(state: State, renderer: Renderer) {
     if(state.player.animation) {
         tileInfo = state.player.animation.currentTile();
     } else {
-        tileInfo = player.damagedLastTurn ? p['wounded'] :
+        tileInfo = player.health<=0 ? p['dead'] :
+        player.damagedLastTurn ? p['wounded'] :
         player.noisy ? p['noisy'] :
         hidden ? p['hidden'] :
         !lit ? p['unlit'] :
