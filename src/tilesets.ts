@@ -190,6 +190,7 @@ const tileSet31Color:TileSet = {
         left:    {textureIndex: r([3, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
         down:    {textureIndex: r([1, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
         up:      {textureIndex: r([4, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
+        dead:    {textureIndex: r([5, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
     },
     guardStateTiles: [
         {textureIndex: r([0,11])}, //Relaxed
