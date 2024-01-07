@@ -1,4 +1,4 @@
-import * as seedrandom from "seedrandom";
+import seedrandom from "seedrandom";
 
 export { randomInRange, shuffleArray, seedRandom, RNG };
 
@@ -13,6 +13,9 @@ class RNG {
             this.seed = '';
             this.rng = seedrandom();    
         }
+    }
+    reset() {
+        this.rng = seedrandom(this.seed);
     }
     random() {
         return this.rng();

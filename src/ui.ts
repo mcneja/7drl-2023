@@ -662,7 +662,7 @@ Current loot:    $loot$
         } else if (activated('heal') || action=='heal') {
             game.tryHealPlayer(state);
         } else if (activated('startLevel') || action=='startLevel') {
-            game.advanceToNextLevel(state);
+            game.setupLevel(state, state.level);
         } else if (activated('menu') || action == 'menu') {
             state.helpActive = true;
         }

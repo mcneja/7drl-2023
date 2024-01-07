@@ -229,15 +229,13 @@ function updateControllerState(state:State) {
             restartGame(state);
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
-                ++state.level;
-                resetState(state);
+                setupLevel(state, state.level+1);
             }
         } else if (activated('resetState')) {
             resetState(state);
         } else if (activated('prevLevel')) {
             if (state.level > 0) {
-                --state.level;
-                resetState(state);
+                setupLevel(state, state.level-1);
             }
         } else if (activated('guardSight')) {
             state.seeGuardSight = !state.seeGuardSight;
@@ -273,15 +271,30 @@ function updateControllerState(state:State) {
 
 }
 
-export function advanceToNextLevel(state: State) {
-    state.level += 1;
+function scoreCurrentLevel(state: State) {
+    if(!state.gameMapRoughPlans[state.level].played) {
+        const es = state.gameStats;
+        es.lootStolen += state.lootStolen;
+        es.maxLootStolen += state.lootAvailable;
+        es.ghostBonuses += state.ghostBonus;
+        es.maxGhostBonuses += 5;
+        es.timeBonuses += calculateTimeBonus(state);
+        es.maxTimeBonuses += state.maxTimeBonus;
+        es.lootSpent += state.lootSpent;
+        state.gameMapRoughPlans[state.level].played = true;
+    }
+}
+
+export function setupLevel(state: State, level: number) {
+    scoreCurrentLevel(state);
+    state.level = level;
     if (state.level >= gameConfig.numGameMaps) {
         restartGame(state);
         return;
     }
 
     state.activeSoundPool.empty();
-    state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
+    state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
@@ -289,15 +302,6 @@ export function advanceToNextLevel(state: State) {
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
     state.healCost += 1;
-
-    const es = state.gameStats;
-    es.lootStolen += state.lootStolen;
-    es.maxLootStolen += state.lootAvailable;
-    es.ghostBonuses += state.ghostBonus;
-    es.maxGhostBonuses += 5;
-    es.timeBonuses += calculateTimeBonus(state);
-    es.maxTimeBonuses += state.maxTimeBonus;
-    es.lootSpent += state.lootSpent;
 
     state.turns = 0;
     state.lootStolen = 0;
@@ -315,7 +319,6 @@ export function advanceToNextLevel(state: State) {
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
-
     state.gameMode = GameMode.Mansion;
 }
 
@@ -325,6 +328,8 @@ export function calculateTimeBonus(state:State):number {
     const t = state.turns;
     return Math.max(5 - Math.max(Math.floor(t/s)-1,0),0);
 }
+
+
 
 function advanceToBetweenMansions(state: State) {
     const timeBonus = calculateTimeBonus(state);
@@ -1604,7 +1609,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const rng = new RNG();  
     const initialLevel = 0;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
-    const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel], rng);
+    const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
     const touchMode = window.localStorage.getItem('touchMode')?? 'Gamepad';
     const touchAsGamepad = touchMode==='Gamepad';
@@ -1733,7 +1738,7 @@ export function restartGame(state: State) {
         maxTimeBonuses: 0,
         maxLootStolen: 0,
     };
-    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
+    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -1758,7 +1763,7 @@ export function restartGame(state: State) {
 }
 
 function resetState(state: State) {
-    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level], state.rng);
+    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);

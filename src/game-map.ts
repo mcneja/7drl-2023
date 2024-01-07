@@ -20,6 +20,7 @@ export {
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
 import { Animator, SpriteAnimation, tween } from './animation';
+import { RNG, randomInRange } from './random';
 
 
 const cardinalDirections: Array<vec2> = [
@@ -110,6 +111,8 @@ type GameMapRoughPlan = {
     numRoomsX: number;
     numRoomsY: number;
     totalLoot: number;
+    played: boolean;
+    rng: RNG;
 }
 
 enum TerrainType {

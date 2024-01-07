@@ -57,15 +57,17 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
     // First establish the sizes of the levels
-
     for (let level = 0; level < numMaps; ++level) {
-        const size = makeLevelSize(level, rng);
+        const levelRNG = new RNG('lvl'+level+rng.random())
+        const size = makeLevelSize(level, levelRNG);
         // const sizeX = randomHouseWidth(level);
         // const sizeY = randomHouseDepth(level);
         gameMapRoughPlans.push({
             numRoomsX: size[0],
             numRoomsY: size[1],
-            totalLoot: 0
+            totalLoot: 0,
+            rng: levelRNG,
+            played: false,
         });
     }
 
@@ -112,7 +114,9 @@ function makeLevelSize(level:number, rng:RNG) : [number, number] {
 }
 
 
-function createGameMap(level: number, plan: GameMapRoughPlan, rng:RNG): GameMap {
+function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
+    const rng = plan.rng;
+    rng.reset();
     const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY, rng);
 
     const mirrorX: boolean = true;
