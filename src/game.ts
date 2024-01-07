@@ -1221,28 +1221,32 @@ function lightAnimator(baseVal:number, lightStates:Array<number>, srcIds:Set<num
     //Returns the exponent to apply to the light value for tiles hit with animated light
     if(srcIds.size==0) return baseVal;
     if(!seen) return 0;
-    return baseVal**(1+[...srcIds].reduce((p,c)=>p+lightStates[c],0)/srcIds.size);
+    let expo=0;
+    for(let l of [...srcIds]) {
+        expo+=lightStates[l];
+    } 
+    return baseVal**(1+expo/srcIds.size);
+}
+
+function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: boolean) {
+    for(let x=0; x<cells.sizeX; x++) {
+        for(let y=0;y<cells.sizeY; y++) {
+            const c = cells.at(x,y);            
+            cells.at(x,y).litAnim = lightAnimator(c.lit,   lightStates, c.litSrc, seeAll || c.seen);
+        }
+    }
 }
 
 function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>, seeAll: boolean):[number,number,number,number] {
-    const clu = cells.at(x-1,y-1);
-    const cu =  cells.at(x,y-1);
-    const cru = cells.at(x+1,y-1);
-    const cl =  cells.at(x-1,y);
-    const c =   cells.at(x,y);
-    const cr =  cells.at(x+1,y);
-    const cld = cells.at(x-1,y+1);
-    const cd =  cells.at(x,y+1);
-    const crd = cells.at(x+1,y+1);
-    const llu = lightAnimator(clu.lit, lightStates, clu.litSrc, seeAll || clu.seen);
-    const lu =  lightAnimator(cu.lit,  lightStates, cu.litSrc, seeAll || cu.seen);
-    const lru = lightAnimator(cru.lit, lightStates, cru.litSrc, seeAll || cru.seen);
-    const ll =  lightAnimator(cl.lit,  lightStates, cl.litSrc, seeAll || cl.seen);
-    const l =   lightAnimator(c.lit,   lightStates, c.litSrc, seeAll || c.seen);
-    const lr =  lightAnimator(cr.lit,  lightStates, cr.litSrc, seeAll || cr.seen);
-    const lld = lightAnimator(cld.lit, lightStates, cld.litSrc, seeAll || cld.seen);
-    const ld =  lightAnimator(cd.lit,  lightStates, cd.litSrc, seeAll || cd.seen);
-    const lrd = lightAnimator(crd.lit, lightStates, crd.litSrc, seeAll || crd.seen);
+    const llu = cells.at(x-1,y-1).litAnim;
+    const lu =  cells.at(x,y-1).litAnim;
+    const lru = cells.at(x+1,y-1).litAnim;
+    const ll =  cells.at(x-1,y).litAnim;
+    const l =   cells.at(x,y).litAnim;
+    const lr =  cells.at(x+1,y).litAnim;
+    const lld = cells.at(x-1,y+1).litAnim;
+    const ld =  cells.at(x,y+1).litAnim;
+    const lrd = cells.at(x+1,y+1).litAnim;
     
     return [
         (llu+lu+ll+l)/4, //top left vertex
@@ -1274,6 +1278,7 @@ function renderWorld(state: State, renderer: Renderer) {
         if(ind in mappedItems) mappedItems[ind].push(item);
         else mappedItems[ind] = [item];
     }
+    updateAnimatedLight(state.gameMap.cells, state.lightStates, state.seeAll);
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
