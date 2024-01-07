@@ -1330,14 +1330,18 @@ function renderWorld(state: State, renderer: Renderer) {
             if(!(ind in mappedItems)) continue;
             for(let item of mappedItems[ind]) {
                 const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
-    
                 if([TerrainType.PortcullisEW].includes(terrainType)
                     && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                        renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lv);    
+                    renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lv);    
                 } else {
+                    if([TerrainType.DoorEW, TerrainType.DoorNS].includes(terrainType)) {
+                        if(state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y) || state.player.pos[0]==x && state.player.pos[1]==y) {
+                            continue; //Don't draw the door if someone standing in it                        
+                        }
+                    }
                     const ti = item.animation? 
-                        item.animation.currentTile():
-                        renderer.tileSet.itemTiles[item.type];
+                    item.animation.currentTile():
+                    renderer.tileSet.itemTiles[item.type];
                     if (item.animation instanceof SpriteAnimation) {
                         const o = item.animation.offset;
                         renderer.addGlyph(x+o[0], y+o[1], x+o[0] + 1, y+o[1] + 1, ti, lv);
