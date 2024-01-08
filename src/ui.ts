@@ -2,7 +2,7 @@ import { Renderer } from './render';
 import { vec2, mat4 } from './my-matrix';
 //import { TileInfo} from './tilesets';
 import { Rect, TouchTargets, lastController, Controller, TouchController } from './controllers';
-import {State, GameMode} from './types';
+import {State, GameMode, GameStats} from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
@@ -10,6 +10,38 @@ import { getFontTileSet, getTileSet } from './tilesets';
 import { ItemType, TerrainType } from './game-map';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen };
+
+function scoreToClipboard(stats:GameStats) {
+    const lootStolen = stats.lootStolen;
+    const maxLootStolen = stats.maxLootStolen;
+    const ghostBonuses = stats.ghostBonuses;
+    const maxGhostBonuses = stats.maxGhostBonuses;
+    const timeBonuses = stats.timeBonuses;
+    const maxTimeBonuses = stats.maxTimeBonuses;
+    const lootSpent = stats.lootSpent;
+    const loot = stats.loot;
+    const turns = stats.turns;
+    const level = stats.level;
+    const win = stats.win;
+    const daily = stats.daily;
+
+    const runText = daily!==null? '📅 Daily run for '+daily:
+        '🎲 Random game';
+    const endText = win? 'Completed mission in '+turns+' turns.':
+        '💀 Died on level '+level+' after '+turns+' turns.';
+    const scoreText = win?  `Walked away with ${loot} 🪙`:
+        `Died with ${loot} 🪙`
+
+    navigator.clipboard.writeText(
+        `🏛️ Lurk Leap Loot 🏛️\n${runText}\n${endText}\n`+
+        `🪙 stolen:   ${lootStolen} / ${maxLootStolen}\n`+
+        `🥷 bonuses: ${ghostBonuses} / ${maxGhostBonuses}\n`+
+        `🕰️ bonuses:  ${timeBonuses} / ${maxTimeBonuses}\n`+
+        `🪙 spent:    ${lootSpent}\n\n`+
+        scoreText
+    )
+}
+
 
 class TextWindow {
     pages: Array<string> = [];
@@ -334,7 +366,7 @@ class InGameMenuScreen extends TextWindow {
 
             [Esc|menu]: Close menu
             [?|help]:   Help
-            [X|home]:   Exit to main menu`
+            [X|home]:   Exit to home screen`
     ];
     constructor() {
         super();
@@ -394,8 +426,9 @@ class DailyHubScreen extends TextWindow {
 
             Last game played:   $lastPlayed$ (UTC Time)
             Last score:         $lastScore$
-            Best winning score: $bestScore$
+            [C|copyScore] Copy last game to clipboard
 
+            Best winning score: $bestScore$
             Total daily runs:   $dailyPlays$
             Total daily wins:   $dailyWins$
             Perfect runs:       $dailyPerfect$
@@ -446,7 +479,7 @@ class DailyHubScreen extends TextWindow {
             this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
             this.state['playMode'] = '[P|homePlay] Play it again (score not recorded)';
         } else {
-            this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to submit: '+this.timeToMidnightUTC();
+            this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to play: '+this.timeToMidnightUTC();
             this.state['playMode'] ='[P|homePlay] Play daily game now';
         }
 
@@ -476,6 +509,21 @@ class DailyHubScreen extends TextWindow {
                 state.dailyRun = null;
             }
             game.restartGame(state);
+        } else if(activated('copyScore') || action=='copyScore') {
+            const stats:GameStats = game.getStat('lastDaily');
+            stats.daily = stats.daily??null;
+            stats.ghostBonuses = stats.ghostBonuses??0;
+            stats.maxGhostBonuses = stats.maxGhostBonuses??0;
+            stats.timeBonuses = stats.timeBonuses??0;
+            stats.maxTimeBonuses = stats.maxTimeBonuses??0;
+            stats.lootStolen = stats.lootStolen??0;
+            stats.maxLootStolen = stats.maxLootStolen??0;
+            stats.lootSpent = stats.lootSpent??0;
+            stats.turns = stats.turns??0;
+            stats.win = stats.win??false;
+            stats.level = stats.level??1;
+            stats.loot = stats.loot??0;
+            scoreToClipboard(stats);
         }
     };        
 }
@@ -584,7 +632,9 @@ Loot spent:    $lootSpent$
 
 Final loot:    $loot$
 
-[R|restart]: Start new game
+[R|restart]:   Start new game
+[C|copyScore]:   Copy score to clipboard
+$copyState$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
@@ -596,6 +646,7 @@ Final loot:    $loot$
         this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
         this.state['lootSpent'] = state.gameStats.lootSpent;
         this.state['loot'] = state.player.loot;
+        if(!('copyState' in this.state)) this.state['copyState'] = '';
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -612,6 +663,9 @@ Final loot:    $loot$
         } else if (activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
             // state.helpActive = true;
+        } else if(activated('copyScore') || action=='copyScore') {
+            scoreToClipboard(state.gameStats);
+            this.state['copyState'] = '       COPIED!';
         }
     }   
 };
@@ -628,7 +682,9 @@ Loot spent:    $lootSpent$
 
 Score:         $loot$
 
-[R|restartGame]: Start new game
+[R|restartGame]:   Start new game
+[C|copyScore]:   Copy score to clipboard
+$copyState$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
@@ -640,6 +696,7 @@ Score:         $loot$
         this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
         this.state['lootSpent'] = state.gameStats.lootSpent;
         this.state['loot'] = state.player.loot;
+        if(!('copyState' in this.state)) this.state['copyState'] = '';
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -656,6 +713,9 @@ Score:         $loot$
         } else if (activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
             // state.helpActive = true;
+        } else if(activated('copyScore') || action=='copyScore') {
+            scoreToClipboard(state.gameStats);
+            this.state['copyState'] = '       COPIED!';
         }
     };
 }
@@ -675,7 +735,7 @@ Mansion bonuses:
 - Up to 5 gold for a timely map delivery.
 - 5 gold if you avoid alerting guards.
 
-[X|home] Exit to menu (abort game)
+[X|home] Exit to home screen (abort game)
 
 1/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
 `Keyboard controls

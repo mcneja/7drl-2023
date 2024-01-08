@@ -280,6 +280,11 @@ function scoreCurrentLevel(state: State) {
         const timeBonus = calculateTimeBonus(state);
         state.player.loot += timeBonus + state.ghostBonus;
         const es = state.gameStats;
+        es.daily = state.dailyRun;
+        es.loot = state.player.loot;
+        es.turns = state.totalTurns;
+        es.level = state.level+1;
+        es.win = state.level===9 && state.player.health>0;
         es.lootStolen += state.lootStolen;
         es.maxLootStolen += state.lootAvailable;
         es.ghostBonuses += state.ghostBonus;
@@ -377,10 +382,10 @@ function advanceToWin(state: State) {
             state.stats.dailyPerfect++;
             setStat('dailyPerfect', state.stats.dailyPerfect);
         }
-        const dscore = {score:state.player.loot, date:state.dailyRun, turns:state.totalTurns, level:state.level+1};
-        state.stats.lastDaily = dscore;
-        state.stats.dailyScores.push(state.stats.lastDaily);
-        setStat('lastDaily', state.stats.lastDaily);
+        // const dscore = {date:state.dailyRun, ...state.gameStats};
+        // state.stats.lastDaily = dscore;
+        // state.stats.dailyScores.push(state.stats.lastDaily);
+        setStat('lastDaily', state.gameStats);
         //TODO: notify user if the game was finished after the deadline
         // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
     }
@@ -1169,8 +1174,7 @@ function advanceTime(state: State) {
             if(state.dailyRun) {
                 state.stats.dailyWinStreak=0;
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-                state.stats.lastDaily = {score:state.player.loot, date:state.dailyRun, turns: state.totalTurns, level:state.level+1};
-                setStat('lastDaily', state.stats.lastDaily);
+                setStat('lastDaily', state.gameStats);
             }
             state.topStatusMessage = 'You were killed. Press Escape/Menu to see score.'
             state.topStatusMessageSticky = true;
@@ -1584,11 +1588,11 @@ function createCamera(posPlayer: vec2): Camera {
 }
 
 //TODO: should do some runtime type checking here to validate what's being written
-function getStat<T>(name:string):T {
+export function getStat<T>(name:string):T {
     return JSON.parse(String(window.localStorage.getItem('stat.'+name)));
 }
 
-function setStat<T>(name:string, value:T) {
+export function setStat<T>(name:string, value:T) {
     window.localStorage.setItem('stat.'+name, JSON.stringify(value));
 }
 
@@ -1625,6 +1629,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
     return {
         gameStats: {    
+            loot: 0,
             lootStolen: 0,
             lootSpent: 0,
             ghostBonuses: 0,
@@ -1632,6 +1637,10 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             maxGhostBonuses: 0,
             maxTimeBonuses: 0,
             maxLootStolen: 0,
+            turns: 0,
+            level: 0,
+            win: false,
+            daily: null,
         },
         lightStates:[],
         particles:[],
@@ -1737,7 +1746,8 @@ export function restartGame(state: State) {
         setStat('dailyPlays',state.stats.dailyPlays);    
     }
 
-    state.gameStats = {    
+    state.gameStats = { 
+        loot: 0,   
         lootStolen: 0,
         lootSpent: 0,
         ghostBonuses: 0,
@@ -1745,6 +1755,10 @@ export function restartGame(state: State) {
         maxGhostBonuses: 0,
         maxTimeBonuses: 0,
         maxLootStolen: 0,
+        turns: 0,
+        level: 0,
+        win: false,
+        daily: state.dailyRun,
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = Array(gameMap.lightCount).fill(0);

@@ -56,6 +56,7 @@ type Statistics = {
 }
 
 type GameStats = {
+    loot: number;
     lootStolen: number;
     lootSpent: number;
     ghostBonuses: number;
@@ -63,6 +64,10 @@ type GameStats = {
     maxGhostBonuses: number;
     maxTimeBonuses: number;
     maxLootStolen: number;
+    turns: number;
+    level: number;
+    win: boolean;
+    daily: string|null;
 }
 
 interface Particle {
