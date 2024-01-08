@@ -1171,6 +1171,7 @@ function advanceTime(state: State) {
 
         if (state.player.health <= 0) {
             setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
+            scoreCurrentLevel(state);
             if(state.dailyRun) {
                 state.stats.dailyWinStreak=0;
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    

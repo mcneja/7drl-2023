@@ -526,6 +526,7 @@ class DailyHubScreen extends TextWindow {
             stats.loot = stats.loot??0;
             scoreToClipboard(stats);
             this.state['copyState'] = '    COPIED!';
+            setTimeout(()=>{this.state['copyState']=''},3000)
         }
     };        
 }
@@ -668,6 +669,7 @@ $copyState$
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
             this.state['copyState'] = '       COPIED!';
+            setTimeout(()=>{this.state['copyState']=''},3000)
         }
     }   
 };
@@ -718,6 +720,7 @@ $copyState$
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
             this.state['copyState'] = '       COPIED!';
+            setTimeout(()=>{this.state['copyState']=''},3000)
         }
     };
 }
