@@ -390,10 +390,9 @@ class DailyHubScreen extends TextWindow {
 `                       Daily Challenge
 
             $dailyStatus$
+            $playMode$
 
-            $dailyServerStatus$
-
-            Last played:        $lastPlayed$
+            Last game played:   $lastPlayed$ (UTC Time)
             Last score:         $lastScore$
             Best winning score: $bestScore$
 
@@ -403,20 +402,7 @@ class DailyHubScreen extends TextWindow {
             Win streak:         $dailyWinStreak$
 
 
-1/2    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
-//Daily rankings
-`                  Daily Challenge Results
-
-    Challenge ending $tableHeading$
-    Your rank: $dayRanking$
-    $playMode$
-
-$scoreTable$
-
-    [PgUp|scrollUp] Scroll up  [PgDn|scrollDown] Scroll down
-    [-|priorDay] Prior day     [+|nextDay] Next day   [0|today]  Current day
-
-2/2 [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
+                                    [Esc|menuClose] Back to menu`,
     ];
     scoreTablePos:number = 0;
     scoreTableCount: number = 8;
@@ -458,7 +444,7 @@ $scoreTable$
         const lastDaily = store.getItem("lastDaily");
         if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
             this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
-            this.state['playMode'] = state.scoreServer.user? '[P|homePlay] Replay this game seed in non-challenge mode':'';
+            this.state['playMode'] = '[P|homePlay] Play it again (score not recorded)';
         } else {
             this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to submit: '+this.timeToMidnightUTC();
             this.state['playMode'] ='[P|homePlay] Play daily game now';
@@ -466,11 +452,6 @@ $scoreTable$
 
 
         if(this.activePage==0) {
-            if(state.scoreServer.user!==null) {
-                this.state['dailyServerStatus'] = `Signed in as ${state.scoreServer.user.displayName?.slice(0,20).replace(']',')').replace('[','(')}\n            [X|home] Signout [C|serverConfig] Configure`;
-            } else {
-                this.state['dailyServerStatus'] = `[R|restart] register or sign in\n            to track your scores online`;
-            }
             this.state['lastPlayed'] = state.stats.lastDaily.date;
             this.state['lastScore'] = state.stats.lastDaily.score;
             this.state['bestScore'] = state.stats.bestDailyScore;
@@ -479,40 +460,13 @@ $scoreTable$
             this.state['dailyPerfect'] = state.stats.dailyPerfect;
             this.state['dailyWinStreak'] = state.stats.dailyWinStreak;
         }
-        if(this.activePage==1) {
-            if(state.scoreServer.user===null) {
-                this.state['scoreTable'] = '    No score data available.';
-                this.state['tableHeading'] = '';
-                this.state['dayRanking'] = 'N/A';
-            } else if(state.scoreServer.scoreData===null) {
-                this.state['scoreTable'] = '    Loading...';
-                this.state['tableHeading'] = '';
-                this.state['dayRanking'] = 'Loading...';
-            } else {
-                const [table, date, start, count] = state.scoreServer.getFormattedScoreData(this.scoreTablePos,this.scoreTableCount,'');
-                this.state['scoreTable'] = table;
-                this.state['tableHeading'] = this.scoreTableDate?.toLocaleString();
-                this.state['dayRanking'] = state.scoreServer.userScoreRanking +' of '+state.scoreServer.scoreData.length;
-            }
-
-        }
-
-
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
             state.gameMode = GameMode.HomeScreen;
         } else if ((activated('homePlay') || action=='homePlay')) {
-            let date;
-            if(this.activePage==0) {
-                date = game.getCurrentDateFormatted();
-            } else {
-                if(state.scoreServer.scoreDate===null) {
-                    return;
-                }
-                date = game.getCurrentDateFormatted(state.scoreServer.scoreDate, false);
-            }
+            let date = game.getCurrentDateFormatted();
             state.rng = new RNG('Daily '+date);
             if(this.state['dailyStatus'][0]!=='T') { //This is a challenge run
                 const store = window.localStorage;
@@ -522,57 +476,6 @@ $scoreTable$
                 state.dailyRun = null;
             }
             game.restartGame(state);
-        } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
-            this.prevPage();
-        } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
-            const op = this.activePage;
-            this.nextPage();
-            if(this.activePage===1 && op===0) {
-                this.scoreTableDate = this.endTimeForDate(new Date());
-                state.scoreServer.getScoresForDate(this.scoreTableDate);
-            }
-        } else if(activated('today') || action=='today') {
-            if(!this.scoreTableDate) return;
-            this.scoreTablePos = 0;
-            this.scoreTableDate = this.endTimeForDate(new Date());
-            state.scoreServer.getScoresForDate(this.scoreTableDate);
-        } else if(activated('nextDay') || action=='nextDay') {
-            if(!this.scoreTableDate) return;
-            this.scoreTablePos = 0;
-            this.scoreTableDate = this.nextDay(this.scoreTableDate);
-            state.scoreServer.getScoresForDate(this.scoreTableDate);
-        } else if(activated('priorDay') || action=='priorDay') {
-            if(!this.scoreTableDate) return;
-            this.scoreTablePos = 0;
-            this.scoreTableDate = this.prevDay(this.scoreTableDate);
-            state.scoreServer.getScoresForDate(this.scoreTableDate);
-        } else if(activated('scrollUp') || action=='scrollUp') {
-            if(state.scoreServer.scoreData===null) return;
-            this.scoreTablePos = Math.max(this.scoreTablePos-this.scoreTableCount,0)
-        } else if(activated('scrollDown') || action=='scrollDown') {
-            if(state.scoreServer.scoreData===null) return;
-            this.scoreTablePos = Math.min(this.scoreTablePos+this.scoreTableCount,state.scoreServer.scoreData.length-this.scoreTableCount)
-        } else if(activated('home') || action=='home') {
-            state.scoreServer.signOut();
-        } else if(activated('restart') || action=='restart') {
-            state.keyboardController.preventDefault = false;
-            state.touchController.preventDefault = false;
-            state.gameMode = GameMode.ServerConfig;
-            state.scoreServer.openSignInPopup(()=>{
-                state.gameMode=GameMode.DailyHub;
-                state.keyboardController.preventDefault = true;
-                state.touchController.preventDefault = true;
-            });
-        } else if(activated('serverConfig') || action=='serverConfig') {
-            console.log('Server config', action);
-            state.keyboardController.preventDefault = false;
-            state.touchController.preventDefault = false;
-            state.gameMode = GameMode.ServerConfig;
-            state.scoreServer.openConfigPopup(()=>{
-                state.gameMode=GameMode.DailyHub;
-                state.keyboardController.preventDefault = true;
-                state.touchController.preventDefault = true;
-            });
         }
     };        
 }

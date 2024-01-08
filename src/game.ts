@@ -15,8 +15,6 @@ import {Camera, GameMode, State, Statistics} from './types';
 import * as colorPreset from './color-preset';
 import { stat } from 'fs';
 
-import {ScoreServer} from './firebase';
-
 export const gameConfig = {
     numGameMaps: 10,
     totalGameLoot: 100
@@ -384,7 +382,7 @@ function advanceToWin(state: State) {
         state.stats.dailyScores.push(state.stats.lastDaily);
         setStat('lastDaily', state.stats.lastDaily);
         //TODO: notify user if the game was finished after the deadline
-        if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
+        // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
     }
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
@@ -1173,8 +1171,6 @@ function advanceTime(state: State) {
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    
                 state.stats.lastDaily = {score:state.player.loot, date:state.dailyRun, turns: state.totalTurns, level:state.level+1};
                 setStat('lastDaily', state.stats.lastDaily);
-                //TODO: notify user if the game was finished after the deadline
-                if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level);
             }
             state.topStatusMessage = 'You were killed. Press Escape/Menu to see score.'
             state.topStatusMessageSticky = true;
@@ -1628,7 +1624,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const touchAsGamepad = touchMode==='Gamepad';
 
     return {
-        scoreServer: new ScoreServer(),
         gameStats: {    
             lootStolen: 0,
             lootSpent: 0,

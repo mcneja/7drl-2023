@@ -6,7 +6,6 @@ import { Popups } from './popups';
 import { TouchController, GamepadManager, KeyboardController } from './controllers';
 import { TextWindow } from './ui';
 import { Animator } from './animation';
-import { ScoreServer } from './firebase';
 
 export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry}
 
@@ -72,7 +71,6 @@ interface Particle {
 }
 
 type State = {
-    scoreServer: ScoreServer;
     gameStats: GameStats;
     stats: Statistics;
     rng: RNG;
