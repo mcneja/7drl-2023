@@ -28,14 +28,14 @@ function scoreToClipboard(stats:GameStats) {
     const runText = daily!==null? '📅 Daily run for '+daily:
         '🎲 Random game';
     const endText = win? 'Completed mission in '+turns+' turns.':
-        '💀 Died on level '+level+' after '+turns+' turns.';
-    const scoreText = win?  `Walked away with ${loot} 🪙`:
-        `Died with ${loot} 🪙`
+        '💀 Died in mansion '+level+' after '+turns+' turns.';
+    const scoreText = win?  `Walked away with ${loot} 🪙.`:
+        `Guards recovered ${loot} 🪙 that you stole.`
 
     navigator.clipboard.writeText(
         `🏛️ Lurk Leap Loot 🏛️\n${runText}\n${endText}\n`+
         `🪙 stolen:   ${lootStolen} / ${maxLootStolen}\n`+
-        `🥷 bonuses: ${ghostBonuses} / ${maxGhostBonuses}\n`+
+        `🥷 bonuses:  ${ghostBonuses} / ${maxGhostBonuses}\n`+
         `🕰️ bonuses:  ${timeBonuses} / ${maxTimeBonuses}\n`+
         `🪙 spent:    ${lootSpent}\n\n`+
         scoreText
