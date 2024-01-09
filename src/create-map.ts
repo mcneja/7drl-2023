@@ -228,31 +228,47 @@ function offsetWalls(
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
 
-    let i = rng.randomInRange(3) - 1;
-    for (let y = 0; y < roomsY; ++y)
-        offsetX.set(0, y, i);
+    const straightOutsideWalls = true;
 
-    i = rng.randomInRange(3) - 1;
-    for (let y = 0; y < roomsY; ++y)
-        offsetX.set(roomsX, y, i);
+    if (straightOutsideWalls) {
+        let i = rng.randomInRange(3) - 1;
+        for (let y = 0; y < roomsY; ++y)
+            offsetX.set(0, y, i);
 
-    i = rng.randomInRange(3) - 1;
-    for (let x = 0; x < roomsX; ++x)
-        offsetY.set(x, 0, i);
+        i = rng.randomInRange(3) - 1;
+        for (let y = 0; y < roomsY; ++y)
+            offsetX.set(roomsX, y, i);
 
-    i = rng.randomInRange(3) - 1;
-    for (let x = 0; x < roomsX; ++x)
-        offsetY.set(x, roomsY, i);
+        i = rng.randomInRange(3) - 1;
+        for (let x = 0; x < roomsX; ++x)
+            offsetY.set(x, 0, i);
 
-    for (let x = 1; x < roomsX; ++x) {
-        for (let y = 0; y < roomsY; ++y) {
-            offsetX.set(x, y, rng.randomInRange(3) - 1);
+        i = rng.randomInRange(3) - 1;
+        for (let x = 0; x < roomsX; ++x)
+            offsetY.set(x, roomsY, i);
+
+        for (let x = 1; x < roomsX; ++x) {
+            for (let y = 0; y < roomsY; ++y) {
+                offsetX.set(x, y, rng.randomInRange(3) - 1);
+            }
         }
-    }
 
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = 1; y < roomsY; ++y) {
-            offsetY.set(x, y, rng.randomInRange(3) - 1);
+        for (let x = 0; x < roomsX; ++x) {
+            for (let y = 1; y < roomsY; ++y) {
+                offsetY.set(x, y, rng.randomInRange(3) - 1);
+            }
+        }
+    } else {
+        for (let x = 0; x < roomsX + 1; ++x) {
+            for (let y = 0; y < roomsY; ++y) {
+                offsetX.set(x, y, rng.randomInRange(3) - 1);
+            }
+        }
+
+        for (let x = 0; x < roomsX; ++x) {
+            for (let y = 0; y < roomsY + 1; ++y) {
+                offsetY.set(x, y, rng.randomInRange(3) - 1);
+            }
         }
     }
 
@@ -412,6 +428,8 @@ function computeAdjacencies(
     {
         const adjacencyRows: Array<Array<number>> = [];
 
+        // Rooms along the bottom are all adjacent along their bottoms to room 0 (the exterior)
+
         {
             const adjacencyRow: Array<number> = [];
 
@@ -440,69 +458,58 @@ function computeAdjacencies(
             adjacencyRows.push(adjacencyRow);
         }
 
+        // Along the interior lines, generate adjacencies between touching pairs of rooms on either side
+
         for (let ry = 1; ry < roomsY; ++ry) {
             const adjacencyRow: Array<number> = [];
 
-            for (let rx = 0; rx < roomsX; ++rx) {
-                let x0_upper = offsetX.get(rx, ry);
-                let x0_lower = offsetX.get(rx, ry-1);
-                let x1_upper = offsetX.get(rx+1, ry);
-                let x1_lower = offsetX.get(rx+1, ry-1);
-                let x0 = Math.max(x0_lower, x0_upper);
-                let x1 = Math.min(x1_lower, x1_upper);
-                let y = offsetY.get(rx, ry);
-
-                if (rx > 0 && x0_lower - x0_upper > 1) {
-                    let i = adjacencies.length;
-                    adjacencyRow.push(i);
-
-                    adjacencies.push({
-                        origin: vec2.fromValues(x0_upper + 1, y),
-                        dir: vec2.fromValues(1, 0),
-                        length: x0_lower - (x0_upper + 1),
-                        roomLeft: roomIndex.get(rx, ry),
-                        roomRight: roomIndex.get(rx - 1, ry - 1),
-                        nextMatching: i,
-                        door: false,
-                        doorOffset: 0,
-                    });
+            function addAdj(y: number, x0: number, x1: number, iRoomLeft: number, iRoomRight: number) {
+                if (x1 - x0 < 2) {
+                    return;
                 }
+    
+                const i = adjacencies.length;
+                adjacencyRow.push(i);
+    
+                adjacencies.push({
+                    origin: vec2.fromValues(x0 + 1, y),
+                    dir: vec2.fromValues(1, 0),
+                    length: x1 - (x0 + 1),
+                    roomLeft: iRoomLeft,
+                    roomRight: iRoomRight,
+                    nextMatching: i,
+                    door: false,
+                    doorOffset: 0,
+                });
+            }
+    
+            let rxLeft = 0;
+            let rxRight = 0;
 
-                if (x1 - x0 > 1) {
-                    let i = adjacencies.length;
-                    adjacencyRow.push(i);
+            while (rxLeft < offsetX.sizeX && rxRight < offsetX.sizeX) {
+                const xLeft = (rxLeft < offsetX.sizeX) ? offsetX.get(rxLeft, ry) : Infinity;
+                const xRight = (rxRight < offsetX.sizeX) ? offsetX.get(rxRight, ry - 1) : Infinity;
+                const y = offsetY.get(Math.max(0, Math.max(rxLeft, rxRight) - 1), ry);
 
-                    adjacencies.push({
-                        origin: vec2.fromValues(x0 + 1, y),
-                        dir: vec2.fromValues(1, 0),
-                        length: x1 - (x0 + 1),
-                        roomLeft: roomIndex.get(rx, ry),
-                        roomRight: roomIndex.get(rx, ry - 1),
-                        nextMatching: i,
-                        door: false,
-                        doorOffset: 0,
-                    });
-                }
-
-                if (rx + 1 < roomsX && x1_upper - x1_lower > 1) {
-                    let i = adjacencies.length;
-                    adjacencyRow.push(i);
-
-                    adjacencies.push({
-                        origin: vec2.fromValues(x1_lower + 1, y),
-                        dir: vec2.fromValues(1, 0),
-                        length: x1_upper - (x1_lower + 1),
-                        roomLeft: roomIndex.get(rx, ry),
-                        roomRight: roomIndex.get(rx + 1, ry - 1),
-                        nextMatching: i,
-                        door: false,
-                        doorOffset: 0,
-                    });
+                if (xLeft < xRight) {
+                    const xLeftNext = Math.min(xRight, (rxLeft + 1 < offsetX.sizeX) ? offsetX.get(rxLeft + 1, ry) : Infinity);
+                    const iRoomLeft = (rxLeft >= roomIndex.sizeX) ? 0 : roomIndex.get(rxLeft, ry);
+                    const iRoomRight = (rxRight <= 0) ? 0 : roomIndex.get(rxRight - 1, ry - 1);
+                    addAdj(y, xLeft, xLeftNext, iRoomLeft, iRoomRight);
+                    ++rxLeft;
+                } else {
+                    const xRightNext = Math.min(xLeft, (rxRight + 1 < offsetX.sizeX) ? offsetX.get(rxRight + 1, ry - 1) : Infinity);
+                    const iRoomLeft = (rxLeft <= 0) ? 0 : roomIndex.get(rxLeft - 1, ry);
+                    const iRoomRight = (rxRight >= roomIndex.sizeX) ? 0 : roomIndex.get(rxRight, ry - 1);
+                    addAdj(y, xRight, xRightNext, iRoomLeft, iRoomRight);
+                    ++rxRight;
                 }
             }
 
             adjacencyRows.push(adjacencyRow);
         }
+
+        // Rooms along the top are all adjacent along their tops to room 0 (the exterior)
 
         {
             const adjacencyRow: Array<number> = [];
@@ -584,6 +591,8 @@ function computeAdjacencies(
     {
         let adjacencyRows: Array<Array<number>> = [];
 
+        // Rooms along the left are all adjacent on their left to room 0 (the exterior)
+
         {
             const adjacencyRow: Array<number> = [];
 
@@ -612,69 +621,58 @@ function computeAdjacencies(
             adjacencyRows.push(adjacencyRow);
         }
 
+        // Along the interior lines, generate adjacencies between touching pairs of rooms on either side
+
         for (let rx = 1; rx < roomsX; ++rx) {
             const adjacencyRow: Array<number> = [];
 
-            for (let ry = 0; ry < roomsY; ++ry) {
-                let y0_left  = offsetY.get(rx-1, ry);
-                let y0_right = offsetY.get(rx, ry);
-                let y1_left  = offsetY.get(rx-1, ry+1);
-                let y1_right = offsetY.get(rx, ry+1);
-                let y0 = Math.max(y0_left, y0_right);
-                let y1 = Math.min(y1_left, y1_right);
-                let x = offsetX.get(rx, ry);
-
-                if (ry > 0 && y0_left - y0_right > 1) {
-                    let i = adjacencies.length;
-                    adjacencyRow.push(i);
-
-                    adjacencies.push({
-                        origin: vec2.fromValues(x, y0_right + 1),
-                        dir: vec2.fromValues(0, 1),
-                        length: y0_left - (y0_right + 1),
-                        roomLeft: roomIndex.get(rx - 1, ry - 1),
-                        roomRight: roomIndex.get(rx, ry),
-                        nextMatching: i,
-                        door: false,
-                        doorOffset: 0,
-                    });
+            function addAdj(x: number, y0: number, y1: number, iRoomLeft: number, iRoomRight: number) {
+                if (y1 - y0 < 2) {
+                    return;
                 }
+    
+                const i = adjacencies.length;
+                adjacencyRow.push(i);
+    
+                adjacencies.push({
+                    origin: vec2.fromValues(x, y0 + 1),
+                    dir: vec2.fromValues(0, 1),
+                    length: y1 - (y0 + 1),
+                    roomLeft: iRoomLeft,
+                    roomRight: iRoomRight,
+                    nextMatching: i,
+                    door: false,
+                    doorOffset: 0,
+                });
+            }
+    
+            let ryLeft = 0;
+            let ryRight = 0;
 
-                if (y1 - y0 > 1) {
-                    let i = adjacencies.length;
-                    adjacencyRow.push(i);
+            while (ryLeft < offsetY.sizeY && ryRight < offsetY.sizeY) {
+                const yLeft = (ryLeft < offsetY.sizeY) ? offsetY.get(rx - 1, ryLeft) : Infinity;
+                const yRight = (ryRight < offsetY.sizeY) ? offsetY.get(rx, ryRight) : Infinity;
+                const x = offsetX.get(rx, Math.max(0, Math.max(ryLeft, ryRight) - 1));
 
-                    adjacencies.push({
-                        origin: vec2.fromValues(x, y0 + 1),
-                        dir: vec2.fromValues(0, 1),
-                        length: y1 - (y0 + 1),
-                        roomLeft: roomIndex.get(rx - 1, ry),
-                        roomRight: roomIndex.get(rx, ry),
-                        nextMatching: i,
-                        door: false,
-                        doorOffset: 0,
-                    });
-                }
-
-                if (ry + 1 < roomsY && y1_right - y1_left > 1) {
-                    let i = adjacencies.length;
-                    adjacencyRow.push(i);
-
-                    adjacencies.push({
-                        origin: vec2.fromValues(x, y1_left + 1),
-                        dir: vec2.fromValues(0, 1),
-                        length: y1_right - (y1_left + 1),
-                        roomLeft: roomIndex.get(rx - 1, ry + 1),
-                        roomRight: roomIndex.get(rx, ry),
-                        nextMatching: i,
-                        door: false,
-                        doorOffset: 0,
-                    });
+                if (yLeft < yRight) {
+                    const yLeftNext = Math.min(yRight, (ryLeft + 1 < offsetY.sizeY) ? offsetY.get(rx - 1, ryLeft + 1) : Infinity);
+                    const iRoomLeft = (ryLeft >= roomIndex.sizeY) ? 0 : roomIndex.get(rx - 1, ryLeft);
+                    const iRoomRight = (ryRight <= 0) ? 0 : roomIndex.get(rx, ryRight - 1);
+                    addAdj(x, yLeft, yLeftNext, iRoomLeft, iRoomRight);
+                    ++ryLeft;
+                } else {
+                    const yRightNext = Math.min(yLeft, (ryRight + 1 < offsetY.sizeY) ? offsetY.get(rx, ryRight + 1) : Infinity);
+                    const iRoomLeft = (ryLeft <= 0) ? 0 : roomIndex.get(rx - 1, ryLeft - 1);
+                    const iRoomRight = (ryRight >= roomIndex.sizeY) ? 0 : roomIndex.get(rx, ryRight);
+                    addAdj(x, yRight, yRightNext, iRoomLeft, iRoomRight);
+                    ++ryRight;
                 }
             }
 
             adjacencyRows.push(adjacencyRow);
         }
+
+        // Rooms along the right are all adjacent on their right to room 0 (the exterior)
 
         {
             const adjacencyRow: Array<number> = [];
@@ -2190,23 +2188,31 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
     console.assert(guardLoot===0);
 }
 
-function markRectAsSeen(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number) {
-    for (let x = xMin; x < xMax; ++x) {
-        for (let y = yMin; y < yMax; ++y) {
-            map.cells.at(x, y).seen = true;
+function markExteriorAsSeen(map: GameMap) {
+    const visited = new BooleanGrid(map.cells.sizeX, map.cells.sizeY, false);
+
+    const toVisit: Array<vec2> = [map.playerStartPos];
+    for (let iToVisit = 0; iToVisit < toVisit.length; ++iToVisit) {
+        const p = toVisit[iToVisit];
+        if (visited.get(p[0], p[1])) {
+            continue;
+        }
+        visited.set(p[0], p[1], true);
+        map.cells.atVec(p).seen = true;
+
+        if (map.cells.atVec(p).type >= TerrainType.Wall0000) {
+            continue;
+        }
+
+        for (let dx = -1; dx <= 1; ++dx) {
+            for (let dy = -1; dy <= 1; ++dy) {
+                const p2 = vec2.fromValues(p[0] + dx, p[1] + dy);
+                if (p2[0] >= 0 && p2[1] >= 0 && p2[0] < map.cells.sizeX && p2[1] < map.cells.sizeY && !visited.get(p2[0], p2[1])) {
+                    toVisit.push(p2);
+                }
+            }
         }
     }
-}
-
-function markExteriorAsSeen(map: GameMap) {
-    const sx = map.cells.sizeX;
-    const sy = map.cells.sizeY;
-    const r = outerBorder + 1;
-
-    markRectAsSeen(map, 0, 0, r, sy);
-    markRectAsSeen(map, sx - r, 0, sx, sy);
-    markRectAsSeen(map, r, 0, sx - r, r);
-    markRectAsSeen(map, r, sy - r, sx - r, sy);
 }
 
 function cacheCellInfo(map: GameMap) {
