@@ -427,7 +427,7 @@ class DailyHubScreen extends TextWindow {
             Last game played:   $lastPlayed$ (UTC Time)
             Last score:         $lastScore$
             [C|copyScore] Copy last game to clipboard
-
+            $copyState$
             Best winning score: $bestScore$
             Total daily runs:   $dailyPlays$
             Total daily wins:   $dailyWins$
@@ -492,6 +492,7 @@ class DailyHubScreen extends TextWindow {
             this.state['dailyWins'] = state.stats.dailyWins;
             this.state['dailyPerfect'] = state.stats.dailyPerfect;
             this.state['dailyWinStreak'] = state.stats.dailyWinStreak;
+            if(!('copyState' in this.state)) this.state['copyState'] = '';
         }
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -524,6 +525,7 @@ class DailyHubScreen extends TextWindow {
             stats.level = stats.level??1;
             stats.loot = stats.loot??0;
             scoreToClipboard(stats);
+            this.state['copyState'] = '    COPIED!';
         }
     };        
 }
