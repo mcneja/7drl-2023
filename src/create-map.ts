@@ -39,16 +39,16 @@ type Room = {
     depth: number,
     posMin: vec2,
     posMax: vec2,
-    edges: Array<number>,
+    edges: Array<Adjacency>,
 }
 
 type Adjacency = {
     origin: vec2,
     dir: vec2,
     length: number,
-    roomLeft: number,
-    roomRight: number,
-    nextMatching: number,
+    roomLeft: Room,
+    roomRight: Room,
+    nextMatching: Adjacency | null,
     door: boolean,
     doorOffset: number,
 }
@@ -130,8 +130,8 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Compute a list of room adjacencies.
 
-    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, roomIndex);
-    storeAdjacenciesInRooms(adjacencies, rooms);
+    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, rooms, roomIndex);
+    storeAdjacenciesInRooms(adjacencies);
 
     // Connect rooms together.
 
@@ -139,7 +139,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Assign types to the rooms.
 
-    assignRoomTypes(adjacencies, rooms, level, rng);
+    assignRoomTypes(rooms, level, rng);
 
     // Create the actual map
 
@@ -417,6 +417,7 @@ function computeAdjacencies(
     mirrorY: boolean,
     offsetX: Int32Grid,
     offsetY: Int32Grid,
+    rooms: Array<Room>,
     roomIndex: Int32Grid
 ): Array<Adjacency> {
 
@@ -426,12 +427,12 @@ function computeAdjacencies(
     const adjacencies: Array<Adjacency> = [];
 
     {
-        const adjacencyRows: Array<Array<number>> = [];
+        const adjacencyRows: Array<Array<Adjacency>> = [];
 
         // Rooms along the bottom are all adjacent along their bottoms to room 0 (the exterior)
 
         {
-            const adjacencyRow: Array<number> = [];
+            const adjacencyRow: Array<Adjacency> = [];
 
             let ry = 0;
 
@@ -440,19 +441,21 @@ function computeAdjacencies(
                 let x1 = offsetX.get(rx+1, ry);
                 let y = offsetY.get(rx, ry);
 
-                let i = adjacencies.length;
-                adjacencyRow.push(i);
-
-                adjacencies.push({
+                const adj: Adjacency = {
                     origin: vec2.fromValues(x0 + 1, y),
                     dir: vec2.fromValues(1, 0),
                     length: x1 - (x0 + 1),
-                    roomLeft: roomIndex.get(rx, ry),
-                    roomRight: 0,
-                    nextMatching: i,
+                    roomLeft: rooms[roomIndex.get(rx, ry)],
+                    roomRight: rooms[0],
+                    nextMatching: null,
                     door: false,
                     doorOffset: 0,
-                });
+                };
+
+                adj.nextMatching = adj;
+
+                adjacencyRow.push(adj);
+                adjacencies.push(adj);
             }
 
             adjacencyRows.push(adjacencyRow);
@@ -461,26 +464,28 @@ function computeAdjacencies(
         // Along the interior lines, generate adjacencies between touching pairs of rooms on either side
 
         for (let ry = 1; ry < roomsY; ++ry) {
-            const adjacencyRow: Array<number> = [];
+            const adjacencyRow: Array<Adjacency> = [];
 
             function addAdj(y: number, x0: number, x1: number, iRoomLeft: number, iRoomRight: number) {
                 if (x1 - x0 < 2) {
                     return;
                 }
     
-                const i = adjacencies.length;
-                adjacencyRow.push(i);
-    
-                adjacencies.push({
+                const adj: Adjacency = {
                     origin: vec2.fromValues(x0 + 1, y),
                     dir: vec2.fromValues(1, 0),
                     length: x1 - (x0 + 1),
-                    roomLeft: iRoomLeft,
-                    roomRight: iRoomRight,
-                    nextMatching: i,
+                    roomLeft: rooms[iRoomLeft],
+                    roomRight: rooms[iRoomRight],
+                    nextMatching: null,
                     door: false,
                     doorOffset: 0,
-                });
+                };
+
+                adj.nextMatching = adj;
+
+                adjacencyRow.push(adj);
+                adjacencies.push(adj);
             }
     
             let rxLeft = 0;
@@ -512,7 +517,7 @@ function computeAdjacencies(
         // Rooms along the top are all adjacent along their tops to room 0 (the exterior)
 
         {
-            const adjacencyRow: Array<number> = [];
+            const adjacencyRow: Array<Adjacency> = [];
 
             let ry = roomsY;
 
@@ -521,19 +526,21 @@ function computeAdjacencies(
                 let x1 = offsetX.get(rx+1, ry-1);
                 let y = offsetY.get(rx, ry);
 
-                let i = adjacencies.length;
-                adjacencyRow.push(i);
-
-                adjacencies.push({
+                const adj: Adjacency = {
                     origin: vec2.fromValues(x0 + 1, y),
                     dir: vec2.fromValues(1, 0),
                     length: x1 - (x0 + 1),
-                    roomLeft: 0,
-                    roomRight: roomIndex.get(rx, ry - 1),
-                    nextMatching: i,
+                    roomLeft: rooms[0],
+                    roomRight: rooms[roomIndex.get(rx, ry - 1)],
+                    nextMatching: null,
                     door: false,
                     doorOffset: 0,
-                });
+                };
+
+                adj.nextMatching = adj;
+
+                adjacencyRow.push(adj);
+                adjacencies.push(adj);
             }
 
             adjacencyRows.push(adjacencyRow);
@@ -549,16 +556,13 @@ function computeAdjacencies(
                     let adj0 = row[i];
                     let adj1 = row[j];
 
-                    adjacencies[adj0].nextMatching = adj1;
-                    adjacencies[adj1].nextMatching = adj0;
+                    adj0.nextMatching = adj1;
+                    adj1.nextMatching = adj0;
 
-                    // Flip edge a1 to point the opposite direction
-                    {
-                        let a1 = adjacencies[adj1];
-                        vec2.scaleAndAdd(a1.origin, a1.origin, a1.dir, a1.length - 1);
-                        vec2.negate(a1.dir, a1.dir);
-                        [a1.roomLeft, a1.roomRight] = [a1.roomRight, a1.roomLeft];
-                    }
+                    // Flip edge adj1 to point the opposite direction
+                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length - 1);
+                    vec2.negate(adj1.dir, adj1.dir);
+                    [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
 
                     i += 1;
                     j -= 1;
@@ -578,8 +582,8 @@ function computeAdjacencies(
                 for (let i = 0; i < row0.length; ++i) {
                     let adj0 = row0[i];
                     let adj1 = row1[i];
-                    adjacencies[adj0].nextMatching = adj1;
-                    adjacencies[adj1].nextMatching = adj0;
+                    adj0.nextMatching = adj1;
+                    adj1.nextMatching = adj0;
                 }
 
                 ry0 += 1;
@@ -589,12 +593,12 @@ function computeAdjacencies(
     }
 
     {
-        let adjacencyRows: Array<Array<number>> = [];
+        let adjacencyRows: Array<Array<Adjacency>> = [];
 
         // Rooms along the left are all adjacent on their left to room 0 (the exterior)
 
         {
-            const adjacencyRow: Array<number> = [];
+            const adjacencyRow: Array<Adjacency> = [];
 
             let rx = 0;
 
@@ -603,19 +607,21 @@ function computeAdjacencies(
                 let y1 = offsetY.get(rx, ry+1);
                 let x = offsetX.get(rx, ry);
 
-                let i = adjacencies.length;
-                adjacencyRow.push(i);
-
-                adjacencies.push({
+                const adj: Adjacency = {
                     origin: vec2.fromValues(x, y0 + 1),
                     dir: vec2.fromValues(0, 1),
                     length: y1 - (y0 + 1),
-                    roomLeft: 0,
-                    roomRight: roomIndex.get(rx, ry),
-                    nextMatching: i,
+                    roomLeft: rooms[0],
+                    roomRight: rooms[roomIndex.get(rx, ry)],
+                    nextMatching: null,
                     door: false,
                     doorOffset: 0,
-                });
+                };
+
+                adj.nextMatching = adj;
+
+                adjacencyRow.push(adj);
+                adjacencies.push(adj);
             }
 
             adjacencyRows.push(adjacencyRow);
@@ -624,26 +630,28 @@ function computeAdjacencies(
         // Along the interior lines, generate adjacencies between touching pairs of rooms on either side
 
         for (let rx = 1; rx < roomsX; ++rx) {
-            const adjacencyRow: Array<number> = [];
+            const adjacencyRow: Array<Adjacency> = [];
 
             function addAdj(x: number, y0: number, y1: number, iRoomLeft: number, iRoomRight: number) {
                 if (y1 - y0 < 2) {
                     return;
                 }
     
-                const i = adjacencies.length;
-                adjacencyRow.push(i);
-    
-                adjacencies.push({
+                const adj: Adjacency = {
                     origin: vec2.fromValues(x, y0 + 1),
                     dir: vec2.fromValues(0, 1),
                     length: y1 - (y0 + 1),
-                    roomLeft: iRoomLeft,
-                    roomRight: iRoomRight,
-                    nextMatching: i,
+                    roomLeft: rooms[iRoomLeft],
+                    roomRight: rooms[iRoomRight],
+                    nextMatching: null,
                     door: false,
                     doorOffset: 0,
-                });
+                };
+
+                adj.nextMatching = adj;
+
+                adjacencyRow.push(adj);
+                adjacencies.push(adj);
             }
     
             let ryLeft = 0;
@@ -675,7 +683,7 @@ function computeAdjacencies(
         // Rooms along the right are all adjacent on their right to room 0 (the exterior)
 
         {
-            const adjacencyRow: Array<number> = [];
+            const adjacencyRow: Array<Adjacency> = [];
 
             let rx = roomsX;
 
@@ -684,18 +692,21 @@ function computeAdjacencies(
                 let y1 = offsetY.get(rx-1, ry+1);
                 let x = offsetX.get(rx, ry);
 
-                let i = adjacencies.length;
-                adjacencies.push({
+                const adj: Adjacency = {
                     origin: vec2.fromValues(x, y0 + 1),
                     dir: vec2.fromValues(0, 1),
                     length: y1 - (y0 + 1),
-                    roomLeft: roomIndex.get(rx - 1, ry),
-                    roomRight: 0,
-                    nextMatching: i,
+                    roomLeft: rooms[roomIndex.get(rx - 1, ry)],
+                    roomRight: rooms[0],
+                    nextMatching: null,
                     door: false,
                     doorOffset: 0,
-                });
-                adjacencyRow.push(i);
+                };
+
+                adj.nextMatching = adj;
+
+                adjacencyRow.push(adj);
+                adjacencies.push(adj);
             }
 
             adjacencyRows.push(adjacencyRow);
@@ -710,16 +721,13 @@ function computeAdjacencies(
                     let adj0 = row[i];
                     let adj1 = row[(row.length - 1) - i];
 
-                    adjacencies[adj0].nextMatching = adj1;
-                    adjacencies[adj1].nextMatching = adj0;
+                    adj0.nextMatching = adj1;
+                    adj1.nextMatching = adj0;
 
-                    {
-                        // Flip edge a1 to point the opposite direction
-                        let a1 = adjacencies[adj1];
-                        vec2.scaleAndAdd(a1.origin, a1.origin, a1.dir, a1.length - 1);
-                        vec2.negate(a1.dir, a1.dir);
-                        [a1.roomLeft, a1.roomRight] = [a1.roomRight, a1.roomLeft];
-                    }
+                    // Flip edge a1 to point the opposite direction
+                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length - 1);
+                    vec2.negate(adj1.dir, adj1.dir);
+                    [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
                 }
             }
         }
@@ -734,8 +742,8 @@ function computeAdjacencies(
                 for (let i = 0; i < row0.length; ++i) {
                     let adj0 = row0[i];
                     let adj1 = row1[i];
-                    adjacencies[adj0].nextMatching = adj1;
-                    adjacencies[adj1].nextMatching = adj0;
+                    adj0.nextMatching = adj1;
+                    adj1.nextMatching = adj0;
                 }
 
                 ry0 += 1;
@@ -747,13 +755,10 @@ function computeAdjacencies(
     return adjacencies;
 }
 
-function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>, rooms: Array<Room>) {
-    for (let i = 0; i < adjacencies.length; ++i) {
-        const adj = adjacencies[i];
-        let i0 = adj.roomLeft;
-        let i1 = adj.roomRight;
-        rooms[i0].edges.push(i);
-        rooms[i1].edges.push(i);
+function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>) {
+    for (const adj of adjacencies) {
+        adj.roomLeft.edges.push(adj);
+        adj.roomRight.edges.push(adj);
     }
 }
 
@@ -761,20 +766,20 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
 
     // Collect sets of edges that are mirrors of each other
 
-    let edgeSets = getEdgeSets(adjacencies, rng);
+    const edgeSets = getEdgeSets(adjacencies, rng);
 
     // Connect all adjacent courtyard rooms together.
 
     for (const adj of adjacencies) {
-        let i0 = adj.roomLeft;
-        let i1 = adj.roomRight;
-        if (rooms[i0].roomType != RoomType.PublicCourtyard || rooms[i1].roomType != RoomType.PublicCourtyard) {
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+        if (room0.roomType != RoomType.PublicCourtyard || room1.roomType != RoomType.PublicCourtyard) {
             continue;
         }
 
         adj.door = true;
-        let group0 = rooms[i0].group;
-        let group1 = rooms[i1].group;
+        const group0 = room0.group;
+        const group1 = room1.group;
         joinGroups(rooms, group0, group1);
     }
 
@@ -782,37 +787,34 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
 
     for (const edgeSet of edgeSets) {
 
-        let addedDoor = false;
+        // This is pretty bad; I just want to grab one adjacency from the set to decide
+        // whether to put doors in all of them, since they all should have the same
+        // situation.
 
-        {
-            let adj = adjacencies[edgeSet[0]];
+        let addDoor = false;
 
-            let i0 = adj.roomLeft;
-            let i1 = adj.roomRight;
-
-            if (rooms[i0].roomType != RoomType.PublicRoom || rooms[i1].roomType != RoomType.PublicRoom) {
-                continue;
+        for (const adj of edgeSet) {
+            if (adj.roomLeft.roomType !== RoomType.PublicRoom) {
+                break;
+            }
+            if (adj.roomRight.roomType !== RoomType.PublicRoom) {
+                break;
             }
 
-            let group0 = rooms[i0].group;
-            let group1 = rooms[i1].group;
-
-            if (group0 != group1 || rng.random() < 0.4) {
-                adj.door = true;
-                addedDoor = true;
-                joinGroups(rooms, group0, group1);
+            if (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4) {
+                addDoor = true;
             }
+
+            break;
         }
 
-        if (addedDoor) {
-            for (let i = 1; i < edgeSet.length; ++i) {
-                let adj = adjacencies[edgeSet[i]];
+        if (addDoor) {
+            for (const adj of edgeSet) {
+                const room0 = adj.roomLeft;
+                const room1 = adj.roomRight;
 
-                let i0 = adj.roomLeft;
-                let i1 = adj.roomRight;
-
-                let group0 = rooms[i0].group;
-                let group1 = rooms[i1].group;
+                const group0 = room0.group;
+                const group1 = room1.group;
 
                 adj.door = true;
                 joinGroups(rooms, group0, group1);
@@ -824,44 +826,33 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
 
     for (const edgeSet of edgeSets) {
 
-        let addedDoor = false;
+        let addDoor = false;
 
-        {
-            let adj = adjacencies[edgeSet[0]];
-
-            let i0 = adj.roomLeft;
-            let i1 = adj.roomRight;
-
-            let room_type0 = rooms[i0].roomType;
-            let room_type1 = rooms[i1].roomType;
-
-            if (room_type0 == room_type1) {
-                continue;
+        for (const adj of edgeSet) {
+            if (adj.roomLeft.roomType === adj.roomRight.roomType) {
+                break;
+            }
+            if (adj.roomLeft.roomType === RoomType.Exterior) {
+                break;
+            }
+            if (adj.roomRight.roomType === RoomType.Exterior) {
+                break;
             }
 
-            if (room_type0 == RoomType.Exterior || room_type1 == RoomType.Exterior) {
-                continue;
+            if (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4) {
+                addDoor = true;
             }
 
-            let group0 = rooms[i0].group;
-            let group1 = rooms[i1].group;
-
-            if (group0 != group1 || rng.random() < 0.4) {
-                adj.door = true;
-                addedDoor = true;
-                joinGroups(rooms, group0, group1);
-            }
+            break;
         }
 
-        if (addedDoor) {
-            for (let i = 1; i < edgeSet.length; ++i) {
-                let adj = adjacencies[edgeSet[i]];
+        if (addDoor) {
+            for (const adj of edgeSet) {
+                const room0 = adj.roomLeft;
+                const room1 = adj.roomRight;
 
-                let i0 = adj.roomLeft;
-                let i1 = adj.roomRight;
-
-                let group0 = rooms[i0].group;
-                let group1 = rooms[i1].group;
+                const group0 = room0.group;
+                const group1 = room1.group;
 
                 adj.door = true;
                 joinGroups(rooms, group0, group1);
@@ -873,41 +864,46 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
 
     let posStart = vec2.fromValues(0, 0);
 
-    {
-        let i = frontDoorAdjacencyIndex(rooms, adjacencies, edgeSets);
-
+    const adjDoor = frontDoorAdjacency(edgeSets);
+    if (adjDoor !== null) {
         // Set the player's start position based on where the door is.
 
-        posStart[0] = adjacencies[i].origin[0] + adjacencies[i].dir[0] * Math.floor(adjacencies[i].length / 2);
-        posStart[1] = outerBorder - 1;
+        posStart[0] = adjDoor.origin[0] + adjDoor.dir[0] * Math.floor(adjDoor.length / 2);
+        posStart[1] = adjDoor.origin[1] - 1;
 
-        adjacencies[i].door = true;
+        adjDoor.door = true;
 
         // Break symmetry if the door is off center.
 
-        let j = adjacencies[i].nextMatching;
-        if (j != i) {
-            adjacencies[j].nextMatching = j;
-            adjacencies[i].nextMatching = i;
+        let adjDoorMirror = adjDoor.nextMatching;
+        if (adjDoorMirror !== adjDoor) {
+            adjDoor.nextMatching = adjDoor;
+            if (adjDoorMirror !== null) {
+                adjDoorMirror.nextMatching = adjDoorMirror;
+            }
         }
     }
 
     return posStart;
 }
 
-function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Array<number>> {
-    const edgeSets: Array<Array<number>> = [];
+function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Set<Adjacency>> {
+    const edgeSets: Array<Set<Adjacency>> = [];
+    const adjHandled: Set<Adjacency> = new Set();
 
-    for (let i = 0; i < adjacencies.length; ++i) {
-        const adj = adjacencies[i];
-        let j = adj.nextMatching;
-        if (j >= i) {
-            if (j > i) {
-                edgeSets.push([i, j]);
-            } else {
-                edgeSets.push([i]);
-            }
+    for (const adj of adjacencies) {
+        if (adjHandled.has(adj)) {
+            continue;
         }
+        const adjMirror = adj.nextMatching;
+        const setAdjMirror: Set<Adjacency> = new Set();
+        setAdjMirror.add(adj);
+        adjHandled.add(adj);
+        if (adjMirror !== null) {
+            setAdjMirror.add(adjMirror);
+            adjHandled.add(adjMirror);
+        }
+        edgeSets.push(setAdjMirror);
     }
 
     rng.shuffleArray(edgeSets);
@@ -925,39 +921,33 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
     }
 }
 
-function frontDoorAdjacencyIndex(rooms: Array<Room>, adjacencies: Array<Adjacency>, edgeSets: Array<Array<number>>): number {
-    for (const edgeSet of edgeSets) {
-        for (const i of edgeSet) {
-            let adj = adjacencies[i];
+function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
+    let adjDoor: Adjacency | null = null;
 
+    for (const edgeSet of edgeSets) {
+        for (const adj of edgeSet) {
             if (adj.dir[0] == 0) {
                 continue;
             }
 
-            if (adj.nextMatching > i) {
-                continue;
+            if (adj.roomLeft.roomType === RoomType.Exterior &&
+                adj.roomRight.roomType !== RoomType.Exterior &&
+                adj.dir[0] < 0 &&
+                (adjDoor === null || adj.origin[1] < adjDoor.origin[1] || (adj.origin[1] === adjDoor.origin[1] && adj.origin[0] > adjDoor.origin[0]))) {
+                adjDoor = adj;
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior &&
+                adj.roomRight.roomType === RoomType.Exterior &&
+                adj.dir[0] > 0 &&
+                (adjDoor === null || adj.origin[1] < adjDoor.origin[1] || (adj.origin[1] === adjDoor.origin[1] && adj.origin[0] > adjDoor.origin[0]))) {
+                adjDoor = adj;
             }
-
-            if (adj.nextMatching == i) {
-                if (rooms[adj.roomRight].roomType != RoomType.Exterior) {
-                    continue;
-                }
-            } else {
-                if (rooms[adj.roomLeft].roomType != RoomType.Exterior) {
-                    continue;
-                }
-            }
-
-            return i;
         }
     }
 
-    // Should always return above...
-
-    return 0;
+    return adjDoor;
 }
 
-function assignRoomTypes(adjacencies: Array<Adjacency>, rooms: Array<Room>, level: number, rng: RNG) {
+function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 
     // Assign rooms depth based on distance from the bottom row of rooms.
 
@@ -966,38 +956,38 @@ function assignRoomTypes(adjacencies: Array<Adjacency>, rooms: Array<Room>, leve
 
     let unvisited = rooms.length;
 
-    const roomsToVisit: Array<number> = [];
+    const roomsToVisit: Array<Room> = [];
 
-    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-        if (rooms[iRoom].depth === 1) {
-            roomsToVisit.push(iRoom);
-        } else if (rooms[iRoom].depth > 1) {
-            rooms[iRoom].depth = unvisited;
+    for (const room of rooms) {
+        if (room.roomType == RoomType.Exterior) {
+            continue;
+        }
+        if (room.depth === 1) {
+            roomsToVisit.push(room);
+        } else if (room.depth > 1) {
+            room.depth = unvisited;
         }
     }
 
     // Visit rooms in breadth-first order, assigning them distances from the seed rooms.
 
-    let iiRoom = 0;
-    while (iiRoom < roomsToVisit.length) {
-        let iRoom = roomsToVisit[iiRoom];
+    for (let iRoom = 0; iRoom < roomsToVisit.length; ++iRoom) {
+        const room = roomsToVisit[iRoom];
 
-        for (const iAdj of rooms[iRoom].edges) {
-            let adj = adjacencies[iAdj];
+        const depthNext = room.depth + 1;
 
+        for (const adj of room.edges) {
             if (!adj.door) {
                 continue;
             }
 
-            const iRoomNeighbor = (adj.roomLeft == iRoom) ? adj.roomRight : adj.roomLeft;
+            const roomNeighbor = (adj.roomLeft == room) ? adj.roomRight : adj.roomLeft;
 
-            if (rooms[iRoomNeighbor].depth === unvisited) {
-                rooms[iRoomNeighbor].depth = rooms[iRoom].depth + 1;
-                roomsToVisit.push(iRoomNeighbor);
+            if (roomNeighbor.depth > depthNext) {
+                roomNeighbor.depth = depthNext;
+                roomsToVisit.push(roomNeighbor);
             }
         }
-
-        iiRoom += 1;
     }
 
     // Assign master-suite room type to the inner rooms.
@@ -1040,18 +1030,16 @@ function assignRoomTypes(adjacencies: Array<Adjacency>, rooms: Array<Room>, leve
     while (true) {
         let changed = false;
 
-        for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
-            if (rooms[iRoom].roomType != RoomType.PublicCourtyard) {
+        for (const room of rooms) {
+            if (room.roomType != RoomType.PublicCourtyard) {
                 continue;
             }
 
-            for (const iAdj of rooms[iRoom].edges) {
-                const adj = adjacencies[iAdj];
+            for (const adj of room.edges) {
+                let roomOther = (adj.roomLeft != room) ? adj.roomLeft : adj.roomRight;
 
-                let iRoomOther = (adj.roomLeft != iRoom) ? adj.roomLeft : adj.roomRight;
-
-                if (rooms[iRoomOther].roomType == RoomType.PrivateCourtyard) {
-                    rooms[iRoom].roomType = RoomType.PrivateCourtyard;
+                if (roomOther.roomType == RoomType.PrivateCourtyard) {
+                    room.roomType = RoomType.PrivateCourtyard;
                     changed = true;
                     break;
                 }
@@ -1083,8 +1071,7 @@ function assignRoomTypes(adjacencies: Array<Adjacency>, rooms: Array<Room>, leve
             }
 
             let numDoors = 0;
-            for (const iAdj of room.edges) {
-                const adj = adjacencies[iAdj];
+            for (const adj of room.edges) {
                 if (adj.door) {
                     ++numDoors;
                 }
@@ -1102,7 +1089,7 @@ function assignRoomTypes(adjacencies: Array<Adjacency>, rooms: Array<Room>, leve
 }
 
 type PatrolNode = {
-    roomIndex: number;
+    room: Room;
     nodeNext: PatrolNode | null;
     nodePrev: PatrolNode | null;
     visited: boolean;
@@ -1115,10 +1102,10 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
-        rooms[adj.roomLeft].roomType !== RoomType.Exterior &&
-        rooms[adj.roomRight].roomType !== RoomType.Exterior &&
-        rooms[adj.roomLeft].roomType !== RoomType.Vault &&
-        rooms[adj.roomRight].roomType !== RoomType.Vault);
+        adj.roomLeft.roomType !== RoomType.Exterior &&
+        adj.roomRight.roomType !== RoomType.Exterior &&
+        adj.roomLeft.roomType !== RoomType.Vault &&
+        adj.roomRight.roomType !== RoomType.Vault);
     rng.shuffleArray(adjacenciesShuffled);
 
     // Build a set of nodes for joining into routes. Initially there will be one per room.
@@ -1126,21 +1113,28 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     // visited multiple times in the route.
 
     const nodes: Array<PatrolNode> = [];
-    for (let iRoom = 0; iRoom < rooms.length; ++iRoom) {
+    const nodeForRoom: Map<Room, PatrolNode> = new Map();
+
+    for (const room of rooms) {
         const node = {
-            roomIndex: iRoom,
+            room: room,
             nodeNext: null,
             nodePrev: null,
             visited: false,
         };
         nodes.push(node);
+        nodeForRoom.set(room, node);
     }
 
     // Join rooms onto the start or end (or both) of patrol routes
 
     for (const adj of adjacenciesShuffled) {
-        let node0 = nodes[adj.roomLeft];
-        let node1 = nodes[adj.roomRight];
+        let node0 = nodeForRoom.get(adj.roomLeft);
+        let node1 = nodeForRoom.get(adj.roomRight);
+
+        if (node0 === undefined || node1 === undefined) {
+            continue;
+        }
 
         if (node0.nodeNext == null && node1.nodePrev == null) {
             node0.nodeNext = node1;
@@ -1184,18 +1178,19 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     // Join orphan rooms by generating new nodes in the existing paths
 
     for (const adj of adjacenciesShuffled) {
-        const iNode0 = adj.roomLeft;
-        const iNode1 = adj.roomRight;
+        const node0 = nodeForRoom.get(adj.roomLeft);
+        const node1 = nodeForRoom.get(adj.roomRight);
 
-        const node0 = nodes[iNode0];
-        const node1 = nodes[iNode1];
+        if (node0 === undefined || node1 === undefined) {
+            continue;
+        }
 
         if (node0.nodeNext == null && node0.nodePrev == null && node1.nodeNext != null && node1.nodePrev != null) {
             // Old: node1 --> node3
             // New: node1 --> node0 --> node2 --> node3 (where node2 is the same room as node1)
             const node3 = node1.nodeNext;
             const node2 = {
-                roomIndex: node1.roomIndex,
+                room: node1.room,
                 nodeNext: node3,
                 nodePrev: node0,
                 visited: false,
@@ -1210,7 +1205,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
             // New: node0 <-> node1 <-> node2 <-> node3
             const node3 = node0.nodeNext;
             const node2 = {
-                roomIndex: node0.roomIndex,
+                room: node0.room,
                 nodeNext: node3,
                 nodePrev: node1,
                 visited: false,
@@ -1267,24 +1262,24 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
                 continue;
             }
 
-            const iRoom = node.roomIndex;
-            const iRoomNext = nodeNext.roomIndex;
-            const iRoomPrev = nodePrev.roomIndex;
+            const room = node.room;
+            const roomNext = nodeNext.room;
+            const roomPrev = nodePrev.room;
 
             const posStart = vec2.create();
             const posEnd = vec2.create();
 
-            if (iRoomNext !== iRoomPrev) {
-                posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
-                posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
+            if (roomNext !== roomPrev) {
+                posInDoor(posStart, room, roomPrev);
+                posInDoor(posEnd, room, roomNext);
             } else {
                 // Have to get ourselves from the door to an activity station and then back to the door.
-                posInDoor(posStart, rooms, adjacencies, iRoom, iRoomPrev);
-                const positions = activityStationPositions(gameMap, rooms[iRoom]);
+                posInDoor(posStart, room, roomPrev);
+                const positions = activityStationPositions(gameMap, room);
                 if (positions.length > 0) {
                     vec2.copy(posEnd, positions[rng.randomInRange(positions.length)]);
                 } else {
-                    posBesideDoor(posEnd, rooms, adjacencies, iRoom, iRoomPrev, gameMap);
+                    posBesideDoor(posEnd, room, roomPrev, gameMap);
                 }
 
                 for (const pos of pathBetweenPoints(gameMap, posStart, posEnd)) {
@@ -1296,7 +1291,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
                 patrolPositions.push(vec2.clone(posEnd));
 
                 vec2.copy(posStart, posEnd);
-                posInDoor(posEnd, rooms, adjacencies, iRoom, iRoomNext);
+                posInDoor(posEnd, room, roomNext);
             }
 
             const path = pathBetweenPoints(gameMap, posStart, posEnd);
@@ -1371,7 +1366,7 @@ function convertOneWayRoutesToReversibleRoutes(nodes: Array<PatrolNode>) {
 
         while (nodeForwardNext !== null && nodeForwardNext.nodeNext !== null) {
             const nodeReverse = {
-                roomIndex: nodeForwardNext.roomIndex,
+                room: nodeForwardNext.room,
                 nodeNext: nodeReverseNext,
                 nodePrev: null,
                 visited: true,
@@ -1496,11 +1491,10 @@ function splitPatrolRoute(nodeAny: PatrolNode, pieceLength: number) {
     }
 }
 
-function posInDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom0: number, iRoom1: number) {
-    for (const iAdj of rooms[iRoom0].edges) {
-        const adj = adjacencies[iAdj];
-        if ((adj.roomLeft === iRoom0 && adj.roomRight === iRoom1) ||
-            (adj.roomLeft === iRoom1 && adj.roomRight === iRoom0)) {
+function posInDoor(pos: vec2, room0: Room, room1: Room) {
+    for (const adj of room0.edges) {
+        if ((adj.roomLeft === room0 && adj.roomRight === room1) ||
+            (adj.roomLeft === room1 && adj.roomRight === room0)) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             return;
         }
@@ -1508,11 +1502,10 @@ function posInDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>,
     vec2.zero(pos);
 }
 
-function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacency>, iRoom: number, iRoomNext: number, gameMap: GameMap) {
+function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) {
     // Try two squares into the room, if possible. If not, fall back to one square in, which will be clear.
-    for (const iAdj of rooms[iRoom].edges) {
-        const adj = adjacencies[iAdj];
-        if ((adj.roomLeft === iRoom && adj.roomRight === iRoomNext)) {
+    for (const adj of room.edges) {
+        if ((adj.roomLeft === room && adj.roomRight === roomNext)) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             const dirCross = vec2.fromValues(-adj.dir[1], adj.dir[0]);
             vec2.scaleAndAdd(pos, pos, dirCross, 2);
@@ -1520,7 +1513,7 @@ function posBesideDoor(pos: vec2, rooms: Array<Room>, adjacencies: Array<Adjacen
                 vec2.scaleAndAdd(pos, pos, dirCross, -1);
             }
             return;
-        } else if (adj.roomLeft === iRoomNext && adj.roomRight === iRoom) {
+        } else if (adj.roomLeft === roomNext && adj.roomRight === room) {
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
             const dirCross = vec2.fromValues(adj.dir[1], -adj.dir[0]);
             vec2.scaleAndAdd(pos, pos, dirCross, 2);
@@ -1652,8 +1645,8 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
     // Plot walls around all the rooms, except between courtyard rooms.
 
     for (const adj of adjacencies) {
-        const type0 = rooms[adj.roomLeft].roomType;
-        const type1 = rooms[adj.roomRight].roomType;
+        const type0 = adj.roomLeft.roomType;
+        const type1 = adj.roomRight.roomType;
 
         if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
             continue;
@@ -1668,17 +1661,22 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
     // Add windows and doors to the walls.
 
-    for (let i = 0; i < adjacencies.length; ++i) {
-        const adj0 = adjacencies[i];
+    const adjHandled: Set<Adjacency> = new Set();
 
-        const j = adj0.nextMatching;
-
-        if (j < i) {
+    for (const adj0 of adjacencies) {
+        if (adjHandled.has(adj0)) {
             continue;
         }
 
+        adjHandled.add(adj0);
+
+        const adjMirror = adj0.nextMatching;
+        if (adjMirror !== null && adjMirror !== adj0) {
+            adjHandled.add(adjMirror);
+        }
+
         let offset;
-        if (j == i) {
+        if (adjMirror === adj0) {
             offset = Math.floor(adj0.length / 2);
         } else if (adj0.length > 2) {
             offset = 1 + rng.randomInRange(adj0.length - 2);
@@ -1689,12 +1687,12 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
         let walls: Array<Adjacency> = [];
         walls.push(adj0);
 
-        if (j != i) {
-            walls.push(adjacencies[j]);
+        if (adjMirror !== null && adjMirror !== adj0) {
+            walls.push(adjMirror);
         }
 
-        const type0 = rooms[adj0.roomLeft].roomType;
-        const type1 = rooms[adj0.roomRight].roomType;
+        const type0 = adj0.roomLeft.roomType;
+        const type1 = adj0.roomRight.roomType;
 
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
@@ -1702,15 +1700,15 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
                     let k = Math.floor(adj0.length / 2);
 
                     for (const a of walls) {
-                        if (rooms[a.roomLeft].roomType === RoomType.Vault ||
-                            rooms[a.roomRight].roomType === RoomType.Vault) {
+                        if (a.roomLeft.roomType === RoomType.Vault ||
+                            a.roomRight.roomType === RoomType.Vault) {
                             continue;
                         }
 
                         const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
 
                         let dir = vec2.clone(a.dir);
-                        if (rooms[a.roomRight].roomType == RoomType.Exterior) {
+                        if (a.roomRight.roomType == RoomType.Exterior) {
                             vec2.negate(dir, dir);
                         }
 
@@ -1723,13 +1721,13 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
                 while (k < k_end) {
                     for (const a of walls) {
-                        if (rooms[a.roomLeft].roomType === RoomType.Vault ||
-                            rooms[a.roomRight].roomType === RoomType.Vault) {
+                        if (a.roomLeft.roomType === RoomType.Vault ||
+                            a.roomRight.roomType === RoomType.Vault) {
                             continue;
                         }
 
                         let dir = vec2.clone(a.dir);
-                        if (isCourtyardRoomType(rooms[a.roomRight].roomType)) {
+                        if (isCourtyardRoomType(a.roomRight.roomType)) {
                             dir = dir.negate();
                         }
 
@@ -1759,8 +1757,8 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
 
             let orientNS = (a.dir[0] == 0);
 
-            let roomTypeLeft = rooms[a.roomLeft].roomType;
-            let roomTypeRight = rooms[a.roomRight].roomType;
+            let roomTypeLeft = a.roomLeft.roomType;
+            let roomTypeRight = a.roomRight.roomType;
 
             if (roomTypeLeft == RoomType.Exterior || roomTypeRight == RoomType.Exterior) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
@@ -2022,8 +2020,8 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>,
         }
 
         let numExits = 0;
-        for (const iAdj of room.edges) {
-            if (adjacencies[iAdj].door) {
+        for (const adj of room.edges) {
+            if (adj.door) {
                 numExits += 1;
             }
         }
