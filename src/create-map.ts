@@ -159,7 +159,9 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Additional decorations
 
-    placeExteriorBushes(map, rng);
+    const outerPerimeter = outerBuildingPerimeter(map, map.playerStartPos);
+
+    placeExteriorBushes(map, outerPerimeter, rng);
     placeFrontPillars(map);
 
     // Convert walls to proper straight, corner, T-junction, cross tiles
@@ -172,7 +174,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Place patrol routes
 
-    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
+    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outerPerimeter, rng);
 
     // Place loot
 
@@ -228,7 +230,7 @@ function offsetWalls(
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
 
-    const straightOutsideWalls = true;
+    const straightOutsideWalls = false;
 
     if (straightOutsideWalls) {
         let i = rng.randomInRange(3) - 1;
@@ -1096,7 +1098,7 @@ type PatrolNode = {
 }
 
 function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
-    adjacencies: Array<Adjacency>, rng: RNG): Array<Array<vec2>> {
+    adjacencies: Array<Adjacency>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
 
     // Keep adjacencies that connect interior rooms via a door; shuffle them
 
@@ -1311,27 +1313,10 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     // so they won't get keys or purses.
 
     if (level > 5) {
-        const patrolPositions: Array<vec2> = [];
-        const xMin = 2;
-        const yMin = 2;
-        const xMax = gameMap.cells.sizeX - 3;
-        const yMax = gameMap.cells.sizeY - 3;
+        const patrolLength = outerPerimeter.length;
 
-        for (let x = xMin; x < xMax; ++x) {
-            patrolPositions.push(vec2.fromValues(x, yMin));
-        }
-        for (let y = yMin; y < yMax; ++y) {
-            patrolPositions.push(vec2.fromValues(xMax, y));
-        }
-        for (let x = xMax; x > xMin; --x) {
-            patrolPositions.push(vec2.fromValues(x, yMax));
-        }
-        for (let y = yMax; y > yMin; --y) {
-            patrolPositions.push(vec2.fromValues(xMin, y));
-        }
-
-        patrolRoutes.push(patrolPositions);
-        patrolRoutes.push(shiftedPathCopy(patrolPositions, Math.floor(patrolPositions.length / 2)));
+        patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25)));
+        patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75)));
     }
    
     return patrolRoutes;
@@ -2099,15 +2084,15 @@ function setRectTerrainType(map: GameMap, xMin: number, yMin: number, xMax: numb
     }
 }
 
-function placeExteriorBushes(map: GameMap, rng: RNG) {
+function placeExteriorBushes(map: GameMap, outerPerimeter: Array<vec2>, rng: RNG) {
     const sx = map.cells.sizeX;
     const sy = map.cells.sizeY;
-    const r = outerBorder;
 
-    setRectTerrainType(map, 0, 0, sx, r, TerrainType.GroundNormal);
-    setRectTerrainType(map, r - 1, r, r, sy - r, TerrainType.GroundNormal);
-    setRectTerrainType(map, sx - r, r, sx - r + 1, sy - r, TerrainType.GroundNormal);
-    setRectTerrainType(map, r - 1, sy - r, sx - r + 1, sy - r + 1, TerrainType.GroundNormal);
+    for (const pos of outerPerimeter) {
+        map.cells.atVec(pos).type = TerrainType.GroundNormal;
+    }
+
+    setRectTerrainType(map, 0, 0, sx, outerBorder, TerrainType.GroundNormal);
 
     for (let x = 0; x < sx; ++x) {
         if ((x & 1) == 0 && rng.random() < 0.8) {
@@ -2125,6 +2110,81 @@ function placeExteriorBushes(map: GameMap, rng: RNG) {
             }
         }
     }
+}
+
+function isAdjacentToWall(map: GameMap, pos: vec2): boolean {
+    if (map.cells.atVec(pos).type >= TerrainType.Wall0000) {
+        return false;
+    }
+
+    if (pos[0] >= 0 && map.cells.at(pos[0] - 1, pos[1]).type >= TerrainType.Wall0000) {
+        return true;
+    }
+
+    if (pos[1] >= 0 && map.cells.at(pos[0], pos[1] - 1).type >= TerrainType.Wall0000) {
+        return true;
+    }
+
+    if (pos[0] + 1 < map.cells.sizeX && map.cells.at(pos[0] + 1, pos[1]).type >= TerrainType.Wall0000) {
+        return true;
+    }
+
+    if (pos[1] + 1 < map.cells.sizeY && map.cells.at(pos[0], pos[1] + 1).type >= TerrainType.Wall0000) {
+        return true;
+    }
+
+    return false;
+}
+
+function outerBuildingPerimeter(map: GameMap, posStart: vec2): Array<vec2> {
+    const path: Array<vec2> = [];
+    const pos = vec2.clone(posStart);
+    const dir = vec2.fromValues(1, 0);
+
+    while (true) {
+        // Add current position to path
+
+        path.push(vec2.clone(pos));
+
+        // Change movement direction if we are either headed into a wall, or are not adjacent to a wall
+
+        const dirLeft = vec2.fromValues(-dir[1], dir[0]);
+        const dirRight = vec2.fromValues(dir[1], -dir[0]);
+
+        if (map.cells.at(pos[0] + dir[0], pos[1] + dir[1]).type >= TerrainType.Wall0000) {
+            if (map.cells.at(pos[0] + dirLeft[0], pos[1] + dirLeft[1]).type < TerrainType.Wall0000) {
+                vec2.copy(dir, dirLeft);
+            } else if (map.cells.at(pos[0] + dirRight[0], pos[1] + dirRight[1]).type < TerrainType.Wall0000) {
+                vec2.copy(dir, dirRight);
+            } else {
+                break;
+            }
+        } else if (!isAdjacentToWall(map, pos)) {
+            if (isAdjacentToWall(map, vec2.fromValues(pos[0] + dirLeft[0], pos[1] + dirLeft[1]))) {
+                vec2.copy(dir, dirLeft);
+            } else if (isAdjacentToWall(map, vec2.fromValues(pos[0] + dirRight[0], pos[1] + dirRight[1]))) {
+                vec2.copy(dir, dirRight);
+            } else {
+                break;
+            }
+        }
+
+        // Take a step
+
+        pos.set(pos[0] + dir[0], pos[1] + dir[1]);
+
+        // Stop if we return to the starting point, or move off the map
+
+        if (pos.equals(posStart)) {
+            break;
+        }
+
+        if (pos[0] < 0 || pos[1] < 0 || pos[0] >= map.cells.sizeX || pos[1] >= map.cells.sizeY) {
+            break;
+        }
+    }
+
+    return path;
 }
 
 function placeFrontPillars(map: GameMap) {
