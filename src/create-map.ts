@@ -141,6 +141,10 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     assignRoomTypes(rooms, level, rng);
 
+    // Join a pair of rooms together.
+
+    makeDoubleRooms(rooms, adjacencies, rng);
+
     // Create the actual map
 
     const map = createBlankGameMap(rooms);
@@ -1087,6 +1091,111 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
         if (deadEndRooms.length > 0) {
             deadEndRooms[rng.randomInRange(deadEndRooms.length)].roomType = RoomType.Vault;
         }
+    }
+}
+
+function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency | undefined {
+    const removableAdjs: Array<Adjacency> = [];
+
+    for (const adj of adjacencies) {
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+
+        if (room0.roomType !== room1.roomType) {
+            continue;
+        }
+
+        if (adj.dir[1] === 0) {
+            // Horizontal adjacency
+            if (adj.length !== (room0.posMax[0] - room0.posMin[0])) {
+                continue;
+            }
+            if (adj.length !== (room1.posMax[0] - room1.posMin[0])) {
+                continue;
+            }
+        } else {
+            // Vertical adjacency
+            if (adj.length !== (room0.posMax[1] - room0.posMin[1])) {
+                continue;
+            }
+            if (adj.length !== (room1.posMax[1] - room1.posMin[1])) {
+                continue;
+            }
+        }
+
+        removableAdjs.push(adj);
+    }
+
+    if (removableAdjs.length > 0) {
+        return removableAdjs[rng.randomInRange(removableAdjs.length)];
+    }
+
+    return undefined;
+}
+
+function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj: Adjacency) {
+    const room0 = adj.roomLeft;
+    const room1 = adj.roomRight;
+
+    // Copy all adjacencies except for adj from room1 to room0
+    // Adjust all of the adjacencies pointing at room1 to point to room0 instead
+
+    for (const adjMove of room1.edges) {
+        if (adjMove !== adj) {
+            room0.edges.push(adjMove);
+            if (adjMove.roomLeft === room1) {
+                adjMove.roomLeft = room0;
+            } else {
+                console.assert(adjMove.roomRight === room1);
+                adjMove.roomRight = room0;
+            }
+        }
+    }
+
+    // Resize room0 to encompass room1
+
+    const posMin = vec2.fromValues(
+        Math.min(room0.posMin[0], room1.posMin[0]),
+        Math.min(room0.posMin[1], room1.posMin[1]));
+    const posMax = vec2.fromValues(
+        Math.max(room0.posMax[0], room1.posMax[0]),
+        Math.max(room0.posMax[1], room1.posMax[1]));
+
+    vec2.copy(room0.posMin, posMin);
+    vec2.copy(room0.posMax, posMax);
+
+    // Remove adj from its twin
+
+    const adjMatch = adj.nextMatching;
+    if (adjMatch !== null && adjMatch !== adj) {
+        adjMatch.nextMatching = adjMatch;
+    }
+
+    // Remove adj from adjacencies and from room0.edges
+
+    let i = adjacencies.indexOf(adj);
+    adjacencies.splice(i, 1);
+
+    i = room0.edges.indexOf(adj);
+    room0.edges.splice(i, 1);
+
+    // Remove room1 from rooms
+
+    i = rooms.indexOf(room1);
+    rooms.splice(i, 1);
+}
+
+function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
+    const adj = removableAdjacency(adjacencies, rng);
+    if (adj === undefined) {
+        return;
+    }
+
+    const adjMirror = adj.nextMatching;
+
+    removeAdjacency(rooms, adjacencies, adj);
+    if (adjMirror !== null && adjMirror !== adj && adjMirror.roomLeft.roomType === adjMirror.roomRight.roomType) {
+        removeAdjacency(rooms, adjacencies, adjMirror);
     }
 }
 
