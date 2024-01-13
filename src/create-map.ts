@@ -1101,6 +1101,10 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
         const room0 = adj.roomLeft;
         const room1 = adj.roomRight;
 
+        if (!adj.door) {
+            continue;
+        }
+
         if (room0.roomType !== room1.roomType) {
             continue;
         }
@@ -1183,19 +1187,25 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 
     i = rooms.indexOf(room1);
     rooms.splice(i, 1);
+
+    // TODO: join adjacencies between pairs of rooms to form longer adjacencies
 }
 
 function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
-    const adj = removableAdjacency(adjacencies, rng);
-    if (adj === undefined) {
-        return;
-    }
+    rng.shuffleArray(adjacencies);
 
-    const adjMirror = adj.nextMatching;
+    while (true) {
+        const adj = removableAdjacency(adjacencies, rng);
+        if (adj === undefined) {
+            return;
+        }
 
-    removeAdjacency(rooms, adjacencies, adj);
-    if (adjMirror !== null && adjMirror !== adj && adjMirror.roomLeft.roomType === adjMirror.roomRight.roomType) {
-        removeAdjacency(rooms, adjacencies, adjMirror);
+//        const adjMirror = adj.nextMatching;
+
+        removeAdjacency(rooms, adjacencies, adj);
+//        if (adjMirror !== null && adjMirror !== adj && adjMirror.roomLeft.roomType === adjMirror.roomRight.roomType) {
+//            removeAdjacency(rooms, adjacencies, adjMirror);
+//        }
     }
 }
 
