@@ -227,7 +227,7 @@ class TextWindow {
             const r = tt.game;
             const [vx0,vy0] = this.pixelCoords([r[0], r[1]]);
             const [vx1,vy1] = this.pixelCoords([r[2]+r[0], r[3]+r[1]]);
-            tt.view = new Rect(vx0, vy0, vx1-vx0, vy1-vy0);
+            tt.view = new Rect(vx0, vy0, vx1-vx0-1, vy1-vy0-1);
         }
         return this.touchTargets;
     }
@@ -385,10 +385,10 @@ class OptionsScreen extends TextWindow {
 [Esc|menu]    Back to menu`,
     ];
     update(state: State): void {
-        let touchMode = window.localStorage.getItem('touchMode');
+        let touchMode = window.localStorage.getItem('LLL/touchMode');
         if(touchMode === null) {
             touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
-            window.localStorage.setItem(touchMode, touchMode);
+            window.localStorage.setItem('LLL/touchMode', touchMode);
         }
         this.state['touchMode'] = touchMode;
     }
@@ -397,19 +397,22 @@ class OptionsScreen extends TextWindow {
         if(activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
         } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
-            let touchMode = window.localStorage.getItem('touchMode');
+            let touchMode = window.localStorage.getItem('LLL/touchMode');
             if(touchMode=='Gamepad') {
                 state.touchAsGamepad = false;
                 state.touchController.setTouchConfig(false);
-                window.localStorage.setItem('touchMode','Mouse');
+                window.localStorage.setItem('LLL/touchMode','Mouse');
             } else {
                 state.touchAsGamepad = true;
                 state.touchController.setTouchConfig(true);
-                window.localStorage.setItem('touchMode','Gamepad');
+                window.localStorage.setItem('LLL/touchMode','Gamepad');
             }
         } else if(activated('forceRestart') || action=='forceRestart') {
             //TODO: Prompt??
-            window.localStorage.clear();
+            for(let k=0;k<window.localStorage.length;k++) {
+                const key = window.localStorage.key(k);
+                if(key?.startsWith('LLL/')) window.localStorage.removeItem(key);
+            }
             state.stats = game.loadStats();
             state.gameMode = GameMode.HomeScreen;
         }
@@ -419,12 +422,12 @@ class OptionsScreen extends TextWindow {
 class DailyHubScreen extends TextWindow {
     pages = [
 //Daily runs
-`                       Daily Challenge
+`            Daily Challenge for $date$
 
             $dailyStatus$
             $playMode$
 
-            Last game played:   $lastPlayed$ (UTC Time)
+            Last game played:   $lastPlayed$
             Last score:         $lastScore$
             [C|copyScore] Copy last game to clipboard
             $copyState$
@@ -435,7 +438,7 @@ class DailyHubScreen extends TextWindow {
             Win streak:         $dailyWinStreak$
 
 
-                                    [Esc|menuClose] Back to menu`,
+                                        [Esc|menuClose] Back to menu`,
     ];
     scoreTablePos:number = 0;
     scoreTableCount: number = 8;
@@ -474,17 +477,18 @@ class DailyHubScreen extends TextWindow {
       }    
     update(state:State) {
         const store = window.localStorage;
-        const lastDaily = store.getItem("lastDaily");
+        const lastDaily = store.getItem("LLL/lastDaily");
         if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
             this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
-            this.state['playMode'] = '[P|homePlay] Play it again (score not recorded)';
+            this.state['playMode'] = '[P|homePlay] Play it again';
         } else {
             this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to play: '+this.timeToMidnightUTC();
-            this.state['playMode'] ='[P|homePlay] Play daily game now';
+            this.state['playMode'] ='';
         }
 
 
         if(this.activePage==0) {
+            this.state['date'] = game.getCurrentDateFormatted()+ ' UTC';
             this.state['lastPlayed'] = state.stats.lastDaily.date;
             this.state['lastScore'] = state.stats.lastDaily.score;
             this.state['bestScore'] = state.stats.bestDailyScore;
@@ -504,7 +508,7 @@ class DailyHubScreen extends TextWindow {
             state.rng = new RNG('Daily '+date);
             if(this.state['dailyStatus'][0]!=='T') { //This is a challenge run
                 const store = window.localStorage;
-                store.setItem("lastDaily", date);
+                store.setItem("LLL/lastDaily", date);
                 state.dailyRun = date;    
             } else {
                 state.dailyRun = null;
