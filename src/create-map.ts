@@ -447,9 +447,9 @@ function computeAdjacencies(
                 let y = offsetY.get(rx, ry);
 
                 const adj: Adjacency = {
-                    origin: vec2.fromValues(x0 + 1, y),
+                    origin: vec2.fromValues(x0, y),
                     dir: vec2.fromValues(1, 0),
-                    length: x1 - (x0 + 1),
+                    length: x1 - x0,
                     roomLeft: rooms[roomIndex.get(rx, ry)],
                     roomRight: rooms[0],
                     nextMatching: null,
@@ -476,9 +476,9 @@ function computeAdjacencies(
                 }
     
                 const adj: Adjacency = {
-                    origin: vec2.fromValues(x0 + 1, y),
+                    origin: vec2.fromValues(x0, y),
                     dir: vec2.fromValues(1, 0),
-                    length: x1 - (x0 + 1),
+                    length: x1 - x0,
                     roomLeft: rooms[iRoomLeft],
                     roomRight: rooms[iRoomRight],
                     nextMatching: null,
@@ -530,9 +530,9 @@ function computeAdjacencies(
                 let y = offsetY.get(rx, ry);
 
                 const adj: Adjacency = {
-                    origin: vec2.fromValues(x0 + 1, y),
+                    origin: vec2.fromValues(x0, y),
                     dir: vec2.fromValues(1, 0),
-                    length: x1 - (x0 + 1),
+                    length: x1 - x0,
                     roomLeft: rooms[0],
                     roomRight: rooms[roomIndex.get(rx, ry - 1)],
                     nextMatching: null,
@@ -562,7 +562,7 @@ function computeAdjacencies(
                     adj1.nextMatching = adj0;
 
                     // Flip edge adj1 to point the opposite direction
-                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length - 1);
+                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
                     vec2.negate(adj1.dir, adj1.dir);
                     [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
 
@@ -610,9 +610,9 @@ function computeAdjacencies(
                 let x = offsetX.get(rx, ry);
 
                 const adj: Adjacency = {
-                    origin: vec2.fromValues(x, y0 + 1),
+                    origin: vec2.fromValues(x, y0),
                     dir: vec2.fromValues(0, 1),
-                    length: y1 - (y0 + 1),
+                    length: y1 - y0,
                     roomLeft: rooms[0],
                     roomRight: rooms[roomIndex.get(rx, ry)],
                     nextMatching: null,
@@ -639,9 +639,9 @@ function computeAdjacencies(
                 }
     
                 const adj: Adjacency = {
-                    origin: vec2.fromValues(x, y0 + 1),
+                    origin: vec2.fromValues(x, y0),
                     dir: vec2.fromValues(0, 1),
-                    length: y1 - (y0 + 1),
+                    length: y1 - y0,
                     roomLeft: rooms[iRoomLeft],
                     roomRight: rooms[iRoomRight],
                     nextMatching: null,
@@ -693,9 +693,9 @@ function computeAdjacencies(
                 let x = offsetX.get(rx, ry);
 
                 const adj: Adjacency = {
-                    origin: vec2.fromValues(x, y0 + 1),
+                    origin: vec2.fromValues(x, y0),
                     dir: vec2.fromValues(0, 1),
-                    length: y1 - (y0 + 1),
+                    length: y1 - y0,
                     roomLeft: rooms[roomIndex.get(rx - 1, ry)],
                     roomRight: rooms[0],
                     nextMatching: null,
@@ -724,7 +724,7 @@ function computeAdjacencies(
                     adj1.nextMatching = adj0;
 
                     // Flip edge a1 to point the opposite direction
-                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length - 1);
+                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
                     vec2.negate(adj1.dir, adj1.dir);
                     [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
                 }
@@ -1104,18 +1104,18 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
 
         if (adj.dir[1] === 0) {
             // Horizontal adjacency
-            if (adj.length !== (room0.posMax[0] - room0.posMin[0])) {
+            if (adj.length !== 1 + (room0.posMax[0] - room0.posMin[0])) {
                 continue;
             }
-            if (adj.length !== (room1.posMax[0] - room1.posMin[0])) {
+            if (adj.length !== 1 + (room1.posMax[0] - room1.posMin[0])) {
                 continue;
             }
         } else {
             // Vertical adjacency
-            if (adj.length !== (room0.posMax[1] - room0.posMin[1])) {
+            if (adj.length !== 1 + (room0.posMax[1] - room0.posMin[1])) {
                 continue;
             }
-            if (adj.length !== (room1.posMax[1] - room1.posMin[1])) {
+            if (adj.length !== 1 + (room1.posMax[1] - room1.posMin[1])) {
                 continue;
             }
         }
@@ -1592,7 +1592,7 @@ function posInDoor(pos: vec2, room0: Room, room1: Room, gameMap: GameMap) {
         if ((adj.roomLeft === room0 && adj.roomRight === room1) ||
             (adj.roomLeft === room1 && adj.roomRight === room0)) {
             const posAdj = vec2.create();
-            for (let i = 0; i < adj.length; ++i) {
+            for (let i = 1; i < adj.length; ++i) {
                 vec2.scaleAndAdd(posAdj, adj.origin, adj.dir, i);
                 const terrainType = gameMap.cells.atVec(posAdj).type;
                 if (terrainType >= TerrainType.PortcullisNS && terrainType <= TerrainType.GardenDoorEW) {
@@ -1757,7 +1757,7 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
             continue;
         }
 
-        for (let i = -1; i < adj.length + 1; ++i) {
+        for (let i = 0; i < adj.length + 1; ++i) {
             const pos = vec2.create();
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
             map.cells.atVec(pos).type = TerrainType.Wall0000;
@@ -1780,15 +1780,6 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
             adjHandled.add(adjMirror);
         }
 
-        let offset;
-        if (adjMirror === adj0) {
-            offset = Math.floor(adj0.length / 2);
-        } else if (adj0.length > 2) {
-            offset = 1 + rng.randomInRange(adj0.length - 2);
-        } else {
-            offset = rng.randomInRange(adj0.length);
-        }
-
         let walls: Array<Adjacency> = [];
         walls.push(adj0);
 
@@ -1801,7 +1792,7 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
-                if ((adj0.length & 1) != 0) {
+                if ((adj0.length & 1) === 0) {
                     let k = Math.floor(adj0.length / 2);
 
                     for (const a of walls) {
@@ -1821,8 +1812,8 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
                     }
                 }
             } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
-                let k = rng.randomInRange(2);
-                const k_end = Math.floor((adj0.length + 1) / 2);
+                let k = 1 + rng.randomInRange(2);
+                const k_end = 1 + Math.floor(adj0.length / 2);
 
                 while (k < k_end) {
                     for (const a of walls) {
@@ -1839,7 +1830,7 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
                         let windowType = oneWayWindowTerrainTypeFromDir(dir);
 
                         const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
-                        const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - (k+1));
+                        const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
 
                         map.cells.atVec(p).type = windowType;
                         map.cells.atVec(q).type = windowType;
@@ -1850,6 +1841,15 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
         }
 
         let installMasterSuiteDoor = rng.random() < 0.3333;
+
+        let offset;
+        if (adjMirror === adj0) {
+            offset = Math.floor(adj0.length / 2);
+        } else if (adj0.length > 2) {
+            offset = 2 + rng.randomInRange(adj0.length - 3);
+        } else {
+            offset = 1 + rng.randomInRange(adj0.length - 1);
+        }
 
         for (const a of walls) {
             if (!a.door) {
