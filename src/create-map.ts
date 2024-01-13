@@ -1594,7 +1594,8 @@ function posInDoor(pos: vec2, room0: Room, room1: Room, gameMap: GameMap) {
             const posAdj = vec2.create();
             for (let i = 0; i < adj.length; ++i) {
                 vec2.scaleAndAdd(posAdj, adj.origin, adj.dir, i);
-                if (gameMap.cells.atVec(posAdj).moveCost === 0) {
+                const terrainType = gameMap.cells.atVec(posAdj).type;
+                if (terrainType >= TerrainType.PortcullisNS && terrainType <= TerrainType.GardenDoorEW) {
                     vec2.copy(pos, posAdj);
                     return;
                 }
