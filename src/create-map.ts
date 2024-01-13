@@ -50,7 +50,6 @@ type Adjacency = {
     roomRight: Room,
     nextMatching: Adjacency | null,
     door: boolean,
-    doorOffset: number,
 }
 
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
@@ -151,7 +150,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Render doors and windows.
 
-    renderWalls(rooms, adjacencies, map, rng);
+    renderWalls(adjacencies, map, rng);
 
     // Render floors.
 
@@ -455,7 +454,6 @@ function computeAdjacencies(
                     roomRight: rooms[0],
                     nextMatching: null,
                     door: false,
-                    doorOffset: 0,
                 };
 
                 adj.nextMatching = adj;
@@ -485,7 +483,6 @@ function computeAdjacencies(
                     roomRight: rooms[iRoomRight],
                     nextMatching: null,
                     door: false,
-                    doorOffset: 0,
                 };
 
                 adj.nextMatching = adj;
@@ -540,7 +537,6 @@ function computeAdjacencies(
                     roomRight: rooms[roomIndex.get(rx, ry - 1)],
                     nextMatching: null,
                     door: false,
-                    doorOffset: 0,
                 };
 
                 adj.nextMatching = adj;
@@ -621,7 +617,6 @@ function computeAdjacencies(
                     roomRight: rooms[roomIndex.get(rx, ry)],
                     nextMatching: null,
                     door: false,
-                    doorOffset: 0,
                 };
 
                 adj.nextMatching = adj;
@@ -651,7 +646,6 @@ function computeAdjacencies(
                     roomRight: rooms[iRoomRight],
                     nextMatching: null,
                     door: false,
-                    doorOffset: 0,
                 };
 
                 adj.nextMatching = adj;
@@ -706,7 +700,6 @@ function computeAdjacencies(
                     roomRight: rooms[0],
                     nextMatching: null,
                     door: false,
-                    doorOffset: 0,
                 };
 
                 adj.nextMatching = adj;
@@ -1388,32 +1381,31 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
             const roomPrev = nodePrev.room;
 
             const posStart = vec2.create();
-            const posEnd = vec2.create();
+            posInDoor(posStart, room, roomPrev, gameMap);
 
-            if (roomNext !== roomPrev) {
-                posInDoor(posStart, room, roomPrev);
-                posInDoor(posEnd, room, roomNext);
-            } else {
+            if (roomNext === roomPrev) {
                 // Have to get ourselves from the door to an activity station and then back to the door.
-                posInDoor(posStart, room, roomPrev);
                 const positions = activityStationPositions(gameMap, room);
+                const posMid = vec2.create();
                 if (positions.length > 0) {
-                    vec2.copy(posEnd, positions[rng.randomInRange(positions.length)]);
+                    vec2.copy(posMid, positions[rng.randomInRange(positions.length)]);
                 } else {
-                    posBesideDoor(posEnd, room, roomPrev, gameMap);
+                    posBesideDoor(posMid, room, roomPrev, gameMap);
                 }
 
-                for (const pos of pathBetweenPoints(gameMap, posStart, posEnd)) {
+                for (const pos of pathBetweenPoints(gameMap, posStart, posMid)) {
                     patrolPositions.push(pos);
                 }
 
-                patrolPositions.push(vec2.clone(posEnd));
-                patrolPositions.push(vec2.clone(posEnd));
-                patrolPositions.push(vec2.clone(posEnd));
+                patrolPositions.push(vec2.clone(posMid));
+                patrolPositions.push(vec2.clone(posMid));
+                patrolPositions.push(vec2.clone(posMid));
 
-                vec2.copy(posStart, posEnd);
-                posInDoor(posEnd, room, roomNext);
+                vec2.copy(posStart, posMid);
             }
+
+            const posEnd = vec2.create();
+            posInDoor(posEnd, room, roomNext, gameMap);
 
             const path = pathBetweenPoints(gameMap, posStart, posEnd);
             for (const pos of path) {
@@ -1437,7 +1429,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25)));
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75)));
     }
-   
+
     return patrolRoutes;
 }
 
@@ -1595,12 +1587,18 @@ function splitPatrolRoute(nodeAny: PatrolNode, pieceLength: number) {
     }
 }
 
-function posInDoor(pos: vec2, room0: Room, room1: Room) {
+function posInDoor(pos: vec2, room0: Room, room1: Room, gameMap: GameMap) {
     for (const adj of room0.edges) {
         if ((adj.roomLeft === room0 && adj.roomRight === room1) ||
             (adj.roomLeft === room1 && adj.roomRight === room0)) {
-            vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
-            return;
+            const posAdj = vec2.create();
+            for (let i = 0; i < adj.length; ++i) {
+                vec2.scaleAndAdd(posAdj, adj.origin, adj.dir, i);
+                if (gameMap.cells.atVec(posAdj).moveCost === 0) {
+                    vec2.copy(pos, posAdj);
+                    return;
+                }
+            }
         }
     }
     vec2.zero(pos);
@@ -1609,20 +1607,22 @@ function posInDoor(pos: vec2, room0: Room, room1: Room) {
 function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) {
     // Try two squares into the room, if possible. If not, fall back to one square in, which will be clear.
     for (const adj of room.edges) {
-        if ((adj.roomLeft === room && adj.roomRight === roomNext)) {
-            vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
+        if (adj.roomLeft === room && adj.roomRight === roomNext) {
+            const posDoor = vec2.create();
+            posInDoor(posDoor, room, roomNext, gameMap);
             const dirCross = vec2.fromValues(-adj.dir[1], adj.dir[0]);
-            vec2.scaleAndAdd(pos, pos, dirCross, 2);
+            vec2.scaleAndAdd(pos, posDoor, dirCross, 2);
             if (gameMap.cells.at(pos[0], pos[1]).moveCost != 0) {
-                vec2.scaleAndAdd(pos, pos, dirCross, -1);
+                vec2.scaleAndAdd(pos, posDoor, dirCross, 1);
             }
             return;
         } else if (adj.roomLeft === roomNext && adj.roomRight === room) {
-            vec2.scaleAndAdd(pos, adj.origin, adj.dir, adj.doorOffset);
+            const posDoor = vec2.create();
+            posInDoor(posDoor, room, roomNext, gameMap);
             const dirCross = vec2.fromValues(adj.dir[1], -adj.dir[0]);
-            vec2.scaleAndAdd(pos, pos, dirCross, 2);
+            vec2.scaleAndAdd(pos, posDoor, dirCross, 2);
             if (gameMap.cells.at(pos[0], pos[1]).moveCost != 0) {
-                vec2.scaleAndAdd(pos, pos, dirCross, -1);
+                vec2.scaleAndAdd(pos, posDoor, dirCross, 1);
             }
             return;
         }
@@ -1744,7 +1744,7 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
     return oneWayWindowTerrainType[dir[0] + 2 * Math.max(0, dir[1]) + 1];
 }
 
-function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
+function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
     // Plot walls around all the rooms, except between courtyard rooms.
 
@@ -1854,8 +1854,6 @@ function renderWalls(rooms: Array<Room>, adjacencies: Array<Adjacency>, map: Gam
             if (!a.door) {
                 continue;
             }
-
-            a.doorOffset = offset;
 
             const p = vec2.clone(a.origin).scaleAndAdd(a.dir, offset);
 
