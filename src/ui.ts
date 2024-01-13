@@ -227,7 +227,7 @@ class TextWindow {
             const r = tt.game;
             const [vx0,vy0] = this.pixelCoords([r[0], r[1]]);
             const [vx1,vy1] = this.pixelCoords([r[2]+r[0], r[3]+r[1]]);
-            tt.view = new Rect(vx0, vy0, vx1-vx0, vy1-vy0);
+            tt.view = new Rect(vx0, vy0, vx1-vx0-1, vy1-vy0-1);
         }
         return this.touchTargets;
     }
@@ -422,12 +422,12 @@ class OptionsScreen extends TextWindow {
 class DailyHubScreen extends TextWindow {
     pages = [
 //Daily runs
-`                       Daily Challenge
+`            Daily Challenge for $date$
 
             $dailyStatus$
             $playMode$
 
-            Last game played:   $lastPlayed$ (UTC Time)
+            Last game played:   $lastPlayed$
             Last score:         $lastScore$
             [C|copyScore] Copy last game to clipboard
             $copyState$
@@ -438,7 +438,7 @@ class DailyHubScreen extends TextWindow {
             Win streak:         $dailyWinStreak$
 
 
-                                    [Esc|menuClose] Back to menu`,
+                                        [Esc|menuClose] Back to menu`,
     ];
     scoreTablePos:number = 0;
     scoreTableCount: number = 8;
@@ -480,14 +480,15 @@ class DailyHubScreen extends TextWindow {
         const lastDaily = store.getItem("LLL/lastDaily");
         if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
             this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
-            this.state['playMode'] = '[P|homePlay] Play it again (score not recorded)';
+            this.state['playMode'] = '[P|homePlay] Play it again';
         } else {
             this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to play: '+this.timeToMidnightUTC();
-            this.state['playMode'] ='[P|homePlay] Play daily game now';
+            this.state['playMode'] ='';
         }
 
 
         if(this.activePage==0) {
+            this.state['date'] = game.getCurrentDateFormatted()+ ' UTC';
             this.state['lastPlayed'] = state.stats.lastDaily.date;
             this.state['lastScore'] = state.stats.lastDaily.score;
             this.state['bestScore'] = state.stats.bestDailyScore;
