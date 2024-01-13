@@ -2061,7 +2061,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), tileInfo:tt['up']},
             'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), tileInfo:tt['down']},
             'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['wait']},
-            'jump':     {game:new Rect(x+w-bw,y+bw,bw,bh), view: new Rect(), tileInfo:tt['jump']},
+            'jump':     {game:new Rect(x+w-1.5*bw,y+0.75*bw,1.5*bw,1.5*bh), view: new Rect(), tileInfo:tt['jump']},
         }    
     } else {
         const s = 4/state.zoomLevel;
@@ -2083,6 +2083,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         } else {
             buttonData['exitLevel'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['exitLevel']};
         }
+        buttonData['jump'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['jump']};
         for(const vals of [['left',[-1,0]],['right',[1,0]],['up',[0,1]],['down',[0,-1]]] as Array<[string, [number,number]]>) {
             const name = vals[0];
             const p = vals[1];
