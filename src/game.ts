@@ -1590,11 +1590,11 @@ function createCamera(posPlayer: vec2): Camera {
 
 //TODO: should do some runtime type checking here to validate what's being written
 export function getStat<T>(name:string):T {
-    return JSON.parse(String(window.localStorage.getItem('stat.'+name)));
+    return JSON.parse(String(window.localStorage.getItem('LLL/stat/'+name)));
 }
 
 export function setStat<T>(name:string, value:T) {
-    window.localStorage.setItem('stat.'+name, JSON.stringify(value));
+    window.localStorage.setItem('LLL/stat/'+name, JSON.stringify(value));
 }
 
 export function loadStats(): Statistics {
@@ -1625,7 +1625,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
-    const touchMode = window.localStorage.getItem('touchMode')?? 'Gamepad';
+    const touchMode = window.localStorage.getItem('LLL/touchMode')?? 'Gamepad';
     const touchAsGamepad = touchMode==='Gamepad';
 
     return {
