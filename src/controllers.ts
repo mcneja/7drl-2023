@@ -347,28 +347,29 @@ class GamepadManager {
                 continue;
             let c = this.gamepads[g.index];
             c.gamepad = g; //put the latest state in the gamepad object
-            c.set("jump", this.buttonPressed(g.buttons[0]));
-//            c.set("heal", this.buttonPressed(g.buttons[1]));
-            c.set("wait", this.buttonPressed(g.buttons[2]));
-//            c.set("startLevel", this.buttonPressed(g.buttons[3]));
-            c.set("zoomIn", this.buttonPressed(g.buttons[6]));
-            c.set("zoomOut", this.buttonPressed(g.buttons[7]));
-            c.set("fullscreen", this.buttonPressed(g.buttons[8]));
-//            c.set("restart", this.buttonPressed(g.buttons[5]));
-            c.set("menu", this.buttonPressed(g.buttons[9]));
-            c.set("left", this.buttonPressed(g.buttons[14]) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
-            c.set("right", this.buttonPressed(g.buttons[15]) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));
-            c.set("up", this.buttonPressed(g.buttons[12]) || g.axes[1]<-c.thresh && (g.axes[1]<-0.5*Math.abs(g.axes[0])));
-            c.set("down", this.buttonPressed(g.buttons[13]) || g.axes[1]>c.thresh    && (g.axes[1]>-0.5*Math.abs(g.axes[0])));
+            c.set("jump", buttonPressed(g, 0));
+//            c.set("heal", buttonPressed(g, 1));
+            c.set("wait", buttonPressed(g, 2));
+//            c.set("startLevel", buttonPressed(g, 3));
+            c.set("zoomIn", buttonPressed(g, 6));
+            c.set("zoomOut", buttonPressed(g, 7));
+            c.set("fullscreen", buttonPressed(g, 8));
+//            c.set("restart", buttonPressed(g, 5));
+            c.set("menu", buttonPressed(g, 9));
+            c.set("left", buttonPressed(g, 14) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
+            c.set("right", buttonPressed(g, 15) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));
+            c.set("up", buttonPressed(g, 12) || g.axes[1]<-c.thresh && (g.axes[1]<-0.5*Math.abs(g.axes[0])));
+            c.set("down", buttonPressed(g, 13) || g.axes[1]>c.thresh    && (g.axes[1]>-0.5*Math.abs(g.axes[0])));
             c.set("panLeft", g.axes[2]<-c.thresh && (g.axes[2]<-0.5*Math.abs(g.axes[3])));
             c.set("panRight", g.axes[2]>c.thresh && (g.axes[2]>0.5*Math.abs(g.axes[3])));
             c.set("panUp", g.axes[3]<-c.thresh && (g.axes[3]<-0.5*Math.abs(g.axes[2])));
             c.set("panDown", g.axes[3]>c.thresh    && (g.axes[3]>-0.5*Math.abs(g.axes[2])));
         }
     }
-    buttonPressed(b:GamepadButton) {
-        return b.pressed;
-    }
+}
+
+function buttonPressed(g: Gamepad, b: number): boolean {
+    return b < g.buttons.length && g.buttons[b].pressed;
 }
 
 type TouchTargets = {
