@@ -1182,59 +1182,64 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 }
 
 function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room): boolean {
-    for (const adj0_0 of room0.edges) {
-        for (const adj0_1 of room0.edges) {
-            if (adj0_0 === adj0_1) {
+    for (const adj0 of room0.edges) {
+        for (const adj1 of room0.edges) {
+            if (adj0 === adj1) {
                 continue;
             }
 
-            if (adj0_0.roomLeft === room0) {
-                if ((adj0_1.roomLeft  === room0 && adj0_0.roomRight === adj0_1.roomRight && adj0_0.dir[0] ===  adj0_1.dir[0] && adj0_0.dir[1] ===  adj0_1.dir[1]) ||
-                    (adj0_1.roomRight === room0 && adj0_0.roomRight === adj0_1.roomLeft  && adj0_0.dir[0] === -adj0_1.dir[0] && adj0_0.dir[1] === -adj0_1.dir[1])) {
-                    const x0 = (adj0_0.dir[0] >= 0) ? Math.min(adj0_0.origin[0], adj0_1.origin[0]) : Math.max(adj0_0.origin[0], adj0_1.origin[0]);
-                    const y0 = (adj0_0.dir[1] >= 0) ? Math.min(adj0_0.origin[1], adj0_1.origin[1]) : Math.max(adj0_0.origin[1], adj0_1.origin[1]);
-                    const length = adj0_0.length + adj0_1.length;
-                    adj0_0.origin[0] = x0;
-                    adj0_0.origin[1] = y0;
-                    adj0_0.length = length;
-                    if (adj0_0.nextMatching !== null) {
-                        adj0_0.nextMatching.nextMatching = null;
-                    }
-                    if (adj0_1.nextMatching !== null) {
-                        adj0_1.nextMatching.nextMatching = null;
-                    }
-                    adj0_0.nextMatching = null;
-                    adj0_0.door = adj0_0.door || adj0_1.door;
-                    removeByValue(room0.edges, adj0_1);
-                    removeByValue(adj0_0.roomRight.edges, adj0_1);
-                    removeByValue(adjacencies, adj0_1);
+            // Edges adj0 and adj1 need to have parallel directions and have the same rooms on either side
+            // Figure out which room is on the other side of the two edges from room0
 
-                    return true;
+            let room1;
+            
+            if (adj0.roomLeft === room0) {
+                if (!(adj1.roomLeft  === room0 && adj0.roomRight === adj1.roomRight && adj0.dir[0] ===  adj1.dir[0] && adj0.dir[1] ===  adj1.dir[1]) &&
+                    !(adj1.roomRight === room0 && adj0.roomRight === adj1.roomLeft  && adj0.dir[0] === -adj1.dir[0] && adj0.dir[1] === -adj1.dir[1])) {
+                    continue;
                 }
+                room1 = adj0.roomRight;
             } else {
-                if ((adj0_1.roomRight === room0 && adj0_0.roomLeft === adj0_1.roomLeft  && adj0_0.dir[0] ===  adj0_1.dir[0] && adj0_1.dir[1] ===  adj0_1.dir[1]) ||
-                    (adj0_1.roomLeft  === room0 && adj0_0.roomLeft === adj0_1.roomRight && adj0_0.dir[0] === -adj0_1.dir[0] && adj0_1.dir[1] === -adj0_1.dir[1])) {
-                    const x0 = (adj0_0.dir[0] >= 0) ? Math.min(adj0_0.origin[0], adj0_1.origin[0]) : Math.max(adj0_0.origin[0], adj0_1.origin[0]);
-                    const y0 = (adj0_0.dir[1] >= 0) ? Math.min(adj0_0.origin[1], adj0_1.origin[1]) : Math.max(adj0_0.origin[1], adj0_1.origin[1]);
-                    const length = adj0_0.length + adj0_1.length;
-                    adj0_0.origin[0] = x0;
-                    adj0_0.origin[1] = y0;
-                    adj0_0.length = length;
-                    if (adj0_0.nextMatching !== null) {
-                        adj0_0.nextMatching.nextMatching = null;
-                    }
-                    if (adj0_1.nextMatching !== null) {
-                        adj0_1.nextMatching.nextMatching = null;
-                    }
-                    adj0_0.nextMatching = null;
-                    adj0_0.door = adj0_0.door || adj0_1.door;
-                    removeByValue(room0.edges, adj0_1);
-                    removeByValue(adj0_0.roomLeft.edges, adj0_1);
-                    removeByValue(adjacencies, adj0_1);
-
-                    return true;
+                if (!(adj1.roomRight === room0 && adj0.roomLeft === adj1.roomLeft  && adj0.dir[0] ===  adj1.dir[0] && adj1.dir[1] ===  adj1.dir[1]) &&
+                    !(adj1.roomLeft  === room0 && adj0.roomLeft === adj1.roomRight && adj0.dir[0] === -adj1.dir[0] && adj1.dir[1] === -adj1.dir[1])) {
+                    continue;
                 }
+                room1 = adj0.roomLeft;
             }
+
+            // Compute the new origin and length for the combined edge
+
+            const x0 = (adj0.dir[0] >= 0) ? Math.min(adj0.origin[0], adj1.origin[0]) : Math.max(adj0.origin[0], adj1.origin[0]);
+            const y0 = (adj0.dir[1] >= 0) ? Math.min(adj0.origin[1], adj1.origin[1]) : Math.max(adj0.origin[1], adj1.origin[1]);
+            const length = adj0.length + adj1.length;
+
+            // Store combined origin and length on adj0, the edge we're keeping
+
+            adj0.origin[0] = x0;
+            adj0.origin[1] = y0;
+            adj0.length = length;
+
+            // Break all symmetry links
+
+            if (adj0.nextMatching !== null) {
+                adj0.nextMatching.nextMatching = null;
+            }
+            if (adj1.nextMatching !== null) {
+                adj1.nextMatching.nextMatching = null;
+            }
+            adj0.nextMatching = null;
+
+            // If either edge had a door, the combined edge must have a door, since we already established connectivity.
+
+            adj0.door = adj0.door || adj1.door;
+
+            // Remove edge adj1 from the rooms and the overall list of adjacencies
+
+            removeByValue(room0.edges, adj1);
+            removeByValue(room1.edges, adj1);
+            removeByValue(adjacencies, adj1);
+
+            return true;
         }
     }
 
