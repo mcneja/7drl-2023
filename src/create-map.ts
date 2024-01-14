@@ -1896,7 +1896,8 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
         let installMasterSuiteDoor = rng.random() < 0.3333;
 
-        let offset;
+        let offset = Math.floor(adj0.length / 2);
+        /*
         if (adjMirror === adj0) {
             offset = Math.floor(adj0.length / 2);
         } else if (adj0.length > 2) {
@@ -1904,6 +1905,7 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
         } else {
             offset = 1 + rng.randomInRange(adj0.length - 1);
         }
+        */
 
         for (const a of walls) {
             if (!a.door) {
