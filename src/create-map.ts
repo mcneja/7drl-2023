@@ -1197,9 +1197,13 @@ function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room)
                     adj0_0.origin[0] = x0;
                     adj0_0.origin[1] = y0;
                     adj0_0.length = length;
-                    if (adj0_1.nextMatching !== null && adj0_1.nextMatching !== adj0_1) {
-                        adj0_1.nextMatching.nextMatching = adj0_1.nextMatching;
+                    if (adj0_0.nextMatching !== null) {
+                        adj0_0.nextMatching.nextMatching = null;
                     }
+                    if (adj0_1.nextMatching !== null) {
+                        adj0_1.nextMatching.nextMatching = null;
+                    }
+                    adj0_0.nextMatching = null;
                     adj0_0.door = adj0_0.door || adj0_1.door;
                     removeByValue(room0.edges, adj0_1);
                     removeByValue(adj0_0.roomRight.edges, adj0_1);
@@ -1216,9 +1220,13 @@ function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room)
                     adj0_0.origin[0] = x0;
                     adj0_0.origin[1] = y0;
                     adj0_0.length = length;
-                    if (adj0_1.nextMatching !== null && adj0_1.nextMatching !== adj0_1) {
-                        adj0_1.nextMatching.nextMatching = adj0_1.nextMatching;
+                    if (adj0_0.nextMatching !== null) {
+                        adj0_0.nextMatching.nextMatching = null;
                     }
+                    if (adj0_1.nextMatching !== null) {
+                        adj0_1.nextMatching.nextMatching = null;
+                    }
+                    adj0_0.nextMatching = null;
                     adj0_0.door = adj0_0.door || adj0_1.door;
                     removeByValue(room0.edges, adj0_1);
                     removeByValue(adj0_0.roomLeft.edges, adj0_1);
