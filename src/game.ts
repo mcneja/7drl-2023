@@ -1,5 +1,5 @@
 import { vec2, mat4 } from './my-matrix';
-import { createGameMapRoughPlans, createGameMap } from './create-map';
+import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
 import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
@@ -1353,6 +1353,42 @@ function renderWorld(state: State, renderer: Renderer) {
             }
         }
     }
+
+    // Draw adjacencies
+
+//    renderRoomAdjacencies(state.gameMap.adjacencies, renderer);
+}
+
+function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer) {
+    const tile = {
+        textureIndex: 2,
+        color: 0xffffffff,
+        unlitColor: 0xffffffff
+    };
+
+    for (const adj of adjacencies) {
+        const x0 = adj.origin[0];
+        const y0 = adj.origin[1];
+        const x1 = adj.origin[0] + adj.dir[0] * adj.length;
+        const y1 = adj.origin[1] + adj.dir[1] * adj.length;
+        renderer.addGlyph(x0 + 0.25, y0 + 0.25, x0 + 0.75, y0 + 0.75, tile, 1);
+        renderer.addGlyph(x1 + 0.25, y1 + 0.25, x1 + 0.75, y1 + 0.75, tile, 1);
+    }
+
+    for (const adj of adjacencies) {
+        const p0x = adj.origin[0] + 0.5;
+        const p0y = adj.origin[1] + 0.5;
+        const p1x = adj.origin[0] + adj.dir[0] * adj.length + 0.5;
+        const p1y = adj.origin[1] + adj.dir[1] * adj.length + 0.5;
+
+        const r = 0.1;
+        const x0 = Math.min(p0x, p1x) - r + Math.abs(adj.dir[0]) *  0.5;
+        const y0 = Math.min(p0y, p1y) - r + Math.abs(adj.dir[1]) *  0.5;
+        const x1 = Math.max(p0x, p1x) + r + Math.abs(adj.dir[0]) * -0.5;
+        const y1 = Math.max(p0y, p1y) + r + Math.abs(adj.dir[1]) * -0.5;
+
+        renderer.addGlyph(x0, y0, x1, y1, tile, 1);
+    }
 }
 
 function renderPlayer(state: State, renderer: Renderer) {
@@ -1968,7 +2004,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderer.start(matScreenFromWorld, 1);
         renderTouchButtons(renderer, screenSize, state.touchController);
         renderer.flush();
-    } 
+    }
 }
 
 type PosTranslator = {

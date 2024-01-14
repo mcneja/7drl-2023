@@ -19,8 +19,9 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { Animator, SpriteAnimation, tween } from './animation';
-import { RNG, randomInRange } from './random';
+import { Animator } from './animation';
+import { RNG } from './random';
+import { Adjacency } from './create-map';
 
 
 const cardinalDirections: Array<vec2> = [
@@ -393,6 +394,7 @@ class GameMap {
     guards: Array<Guard>;
     playerStartPos: vec2;
     lightCount: number;
+    adjacencies: Array<Adjacency>;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -402,6 +404,7 @@ class GameMap {
         this.guards = [];
         this.playerStartPos = vec2.create();
         this.lightCount = 0;
+        this.adjacencies = [];
     }
 
     collectLootAt(pos:vec2): Array<Item> {

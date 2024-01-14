@@ -1,4 +1,4 @@
-export { createGameMap, createGameMapRoughPlans };
+export { createGameMap, createGameMapRoughPlans, Adjacency };
 
 import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
@@ -196,6 +196,8 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     markExteriorAsSeen(map);
     map.computeLighting();
     map.recomputeVisibility(map.playerStartPos);
+
+    map.adjacencies = adjacencies;
 
     return map;
 }
@@ -456,8 +458,6 @@ function computeAdjacencies(
                     door: false,
                 };
 
-                adj.nextMatching = adj;
-
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
             }
@@ -471,7 +471,7 @@ function computeAdjacencies(
             const adjacencyRow: Array<Adjacency> = [];
 
             function addAdj(y: number, x0: number, x1: number, iRoomLeft: number, iRoomRight: number) {
-                if (x1 - x0 < 2) {
+                if (x1 - x0 <= 0) {
                     return;
                 }
     
@@ -484,8 +484,6 @@ function computeAdjacencies(
                     nextMatching: null,
                     door: false,
                 };
-
-                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -539,8 +537,6 @@ function computeAdjacencies(
                     door: false,
                 };
 
-                adj.nextMatching = adj;
-
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
             }
@@ -554,17 +550,19 @@ function computeAdjacencies(
 
                 let i = 0;
                 let j = row.length - 1;
-                while (i < j) {
+                while (i <= j) {
                     let adj0 = row[i];
                     let adj1 = row[j];
 
                     adj0.nextMatching = adj1;
                     adj1.nextMatching = adj0;
 
-                    // Flip edge adj1 to point the opposite direction
-                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
-                    vec2.negate(adj1.dir, adj1.dir);
-                    [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
+                    if (i !== j) {
+                        // Flip edge adj1 to point the opposite direction
+                        vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
+                        vec2.negate(adj1.dir, adj1.dir);
+                        [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
+                    }
 
                     i += 1;
                     j -= 1;
@@ -619,8 +617,6 @@ function computeAdjacencies(
                     door: false,
                 };
 
-                adj.nextMatching = adj;
-
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
             }
@@ -634,7 +630,7 @@ function computeAdjacencies(
             const adjacencyRow: Array<Adjacency> = [];
 
             function addAdj(x: number, y0: number, y1: number, iRoomLeft: number, iRoomRight: number) {
-                if (y1 - y0 < 2) {
+                if (y1 - y0 <= 0) {
                     return;
                 }
     
@@ -647,8 +643,6 @@ function computeAdjacencies(
                     nextMatching: null,
                     door: false,
                 };
-
-                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -701,8 +695,6 @@ function computeAdjacencies(
                     nextMatching: null,
                     door: false,
                 };
-
-                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -773,6 +765,10 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         const room0 = adj.roomLeft;
         const room1 = adj.roomRight;
         if (room0.roomType != RoomType.PublicCourtyard || room1.roomType != RoomType.PublicCourtyard) {
+            continue;
+        }
+
+        if (adj.length < 2) {
             continue;
         }
 
@@ -875,11 +871,9 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         // Break symmetry if the door is off center.
 
         let adjDoorMirror = adjDoor.nextMatching;
-        if (adjDoorMirror !== adjDoor) {
-            adjDoor.nextMatching = adjDoor;
-            if (adjDoorMirror !== null) {
-                adjDoorMirror.nextMatching = adjDoorMirror;
-            }
+        if (adjDoorMirror !== null && adjDoorMirror !== adjDoor) {
+            adjDoor.nextMatching = null;
+            adjDoorMirror.nextMatching = null;
         }
     }
 
@@ -891,6 +885,9 @@ function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Set<Adjacen
     const adjHandled: Set<Adjacency> = new Set();
 
     for (const adj of adjacencies) {
+        if (adj.length < 2) {
+            continue;
+        }
         if (adjHandled.has(adj)) {
             continue;
         }
@@ -1170,18 +1167,71 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 
     // Remove adj from adjacencies and from room0.edges
 
-    let i = adjacencies.indexOf(adj);
-    adjacencies.splice(i, 1);
-
-    i = room0.edges.indexOf(adj);
-    room0.edges.splice(i, 1);
+    removeByValue(adjacencies, adj);
+    removeByValue(room0.edges, adj);
 
     // Remove room1 from rooms
 
-    i = rooms.indexOf(room1);
-    rooms.splice(i, 1);
+    removeByValue(rooms, room1);
 
-    // TODO: join adjacencies between pairs of rooms to form longer adjacencies
+    // Join adjacencies between pairs of rooms to form longer adjacencies
+
+    while (true) {
+        let removedAdj = false;
+        for (const adj0_0 of room0.edges) {
+            for (const adj0_1 of room0.edges) {
+                if (adj0_0 === adj0_1) {
+                    continue;
+                }
+
+                if (adj0_0.roomLeft === room0) {
+                    if ((adj0_1.roomLeft  === room0 && adj0_0.roomRight === adj0_1.roomRight && adj0_0.dir[0] ===  adj0_1.dir[0] && adj0_0.dir[1] ===  adj0_1.dir[1]) ||
+                        (adj0_1.roomRight === room0 && adj0_0.roomRight === adj0_1.roomLeft  && adj0_0.dir[0] === -adj0_1.dir[0] && adj0_0.dir[1] === -adj0_1.dir[1])) {
+                        const x0 = (adj0_0.dir[0] >= 0) ? Math.min(adj0_0.origin[0], adj0_1.origin[0]) : Math.max(adj0_0.origin[0], adj0_1.origin[0]);
+                        const y0 = (adj0_0.dir[1] >= 0) ? Math.min(adj0_0.origin[1], adj0_1.origin[1]) : Math.max(adj0_0.origin[1], adj0_1.origin[1]);
+                        const length = adj0_0.length + adj0_1.length;
+                        adj0_0.origin[0] = x0;
+                        adj0_0.origin[1] = y0;
+                        adj0_0.length = length;
+                        if (adj0_1.nextMatching !== null && adj0_1.nextMatching !== adj0_1) {
+                            adj0_1.nextMatching.nextMatching = adj0_1.nextMatching;
+                        }
+                        adj0_0.door = adj0_0.door || adj0_1.door;
+                        removeByValue(room0.edges, adj0_1);
+                        removeByValue(adj0_0.roomRight.edges, adj0_1);
+                        removeByValue(adjacencies, adj0_1);
+                        removedAdj = true;
+                    }
+                } else {
+                    if ((adj0_1.roomRight === room0 && adj0_0.roomLeft === adj0_1.roomLeft  && adj0_0.dir[0] ===  adj0_1.dir[0] && adj0_1.dir[1] ===  adj0_1.dir[1]) ||
+                        (adj0_1.roomLeft  === room0 && adj0_0.roomLeft === adj0_1.roomRight && adj0_0.dir[0] === -adj0_1.dir[0] && adj0_1.dir[1] === -adj0_1.dir[1])) {
+                        const x0 = (adj0_0.dir[0] >= 0) ? Math.min(adj0_0.origin[0], adj0_1.origin[0]) : Math.max(adj0_0.origin[0], adj0_1.origin[0]);
+                        const y0 = (adj0_0.dir[1] >= 0) ? Math.min(adj0_0.origin[1], adj0_1.origin[1]) : Math.max(adj0_0.origin[1], adj0_1.origin[1]);
+                        const length = adj0_0.length + adj0_1.length;
+                        adj0_0.origin[0] = x0;
+                        adj0_0.origin[1] = y0;
+                        adj0_0.length = length;
+                        if (adj0_1.nextMatching !== null && adj0_1.nextMatching !== adj0_1) {
+                            adj0_1.nextMatching.nextMatching = adj0_1.nextMatching;
+                        }
+                        adj0_0.door = adj0_0.door || adj0_1.door;
+                        removeByValue(room0.edges, adj0_1);
+                        removeByValue(adj0_0.roomLeft.edges, adj0_1);
+                        removeByValue(adjacencies, adj0_1);
+                        removedAdj = true;
+                    }
+                }
+            }
+        }
+        if (!removedAdj) {
+            break;
+        }
+    }
+}
+
+function removeByValue<T>(array: Array<T>, value: T) {
+    const i = array.indexOf(value);
+    array.splice(i, 1);
 }
 
 function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
