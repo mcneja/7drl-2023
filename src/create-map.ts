@@ -1161,8 +1161,8 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
     // Remove adj from its twin
 
     const adjMatch = adj.nextMatching;
-    if (adjMatch !== null && adjMatch !== adj) {
-        adjMatch.nextMatching = adjMatch;
+    if (adjMatch !== null) {
+        adjMatch.nextMatching = null;
     }
 
     // Remove adj from adjacencies and from room0.edges
@@ -1241,7 +1241,7 @@ function removeByValue<T>(array: Array<T>, value: T) {
 function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
     rng.shuffleArray(adjacencies);
 
-    while (true) {
+    for (let numMergeAttempts = Math.floor(rooms.length / 6); numMergeAttempts > 0; --numMergeAttempts) {
         const adj = removableAdjacency(adjacencies, rng);
         if (adj === undefined) {
             return;
