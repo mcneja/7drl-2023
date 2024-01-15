@@ -1100,7 +1100,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 }
 
 function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency | undefined {
-    const removableAdjs: Array<Adjacency> = [];
+    const removableAdjs: Array<[Adjacency, number]> = [];
 
     for (const adj of adjacencies) {
         const room0 = adj.roomLeft;
@@ -1132,14 +1132,29 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
             }
         }
 
-        removableAdjs.push(adj);
+        // Compute the area of the merged room
+        const xMin = Math.min(room0.posMin[0], room1.posMin[0]);
+        const yMin = Math.min(room0.posMin[1], room1.posMin[1]);
+        const xMax = Math.max(room0.posMax[0], room1.posMax[0]);
+        const yMax = Math.max(room0.posMax[1], room1.posMax[1]);
+        const area = (xMax - xMin) * (yMax - yMin);
+
+        // Don't let rooms get too big
+        if (area > roomSizeX * roomSizeY * 3) {
+            continue;
+        }
+
+        removableAdjs.push([adj, area]);
     }
 
-    if (removableAdjs.length > 0) {
-        return removableAdjs[rng.randomInRange(removableAdjs.length)];
+    if (removableAdjs.length <= 0) {
+        return undefined;
     }
 
-    return undefined;
+    rng.shuffleArray(removableAdjs);
+    removableAdjs.sort((a, b) => a[1] - b[1]);
+
+    return removableAdjs[0][0];
 }
 
 function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj: Adjacency) {
@@ -1269,7 +1284,7 @@ function removeByValue<T>(array: Array<T>, value: T) {
 function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
     rng.shuffleArray(adjacencies);
 
-    for (let numMergeAttempts = Math.floor(rooms.length / 6); numMergeAttempts > 0; --numMergeAttempts) {
+    for (let numMergeAttempts = 2 * Math.floor(rooms.length / 12); numMergeAttempts > 0; --numMergeAttempts) {
         const adj = removableAdjacency(adjacencies, rng);
         if (adj === undefined) {
             return;
