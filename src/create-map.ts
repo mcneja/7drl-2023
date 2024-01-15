@@ -31,6 +31,7 @@ enum RoomType
     PrivateCourtyard,
     PrivateRoom,
     Vault,
+    Bedroom,
 }
 
 type Room = {
@@ -185,7 +186,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const guardsAvailableForLoot = patrolRoutes.length - (needKey ? 1 : 0);
     const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
 
-    placeLoot(plan.totalLoot - guardLoot, rooms, adjacencies, map, rng);
+    placeLoot(plan.totalLoot - guardLoot, rooms, map, rng);
 
     // Put guards on the patrol routes
 
@@ -289,6 +290,8 @@ function offsetWalls(
         }
     }
 
+    // Do mirroring
+
     if (mirrorX) {
         if ((roomsX & 1) === 0) {
             const xMid = Math.floor(roomsX / 2);
@@ -331,30 +334,43 @@ function offsetWalls(
         }
     }
 
-    let roomOffsetX = Number.MIN_SAFE_INTEGER;
-    let roomOffsetY = Number.MIN_SAFE_INTEGER;
-
-    for (let y = 0; y < roomsY; ++y) {
-        roomOffsetX = Math.max(roomOffsetX, -offsetX.get(0, y));
-    }
-
-    for (let x = 0; x < roomsX; ++x) {
-        roomOffsetY = Math.max(roomOffsetY, -offsetY.get(x, 0));
-    }
-
-    roomOffsetX += outerBorder;
-    roomOffsetY += outerBorder;
+    // Add in room widths
 
     for (let x = 0; x < roomsX + 1; ++x) {
         for (let y = 0; y < roomsY; ++y) {
-            const z = offsetX.get(x, y) + roomOffsetX + x * roomSizeX;
-            offsetX.set(x, y, z);
+            offsetX.set(x, y, offsetX.get(x, y) + x * roomSizeX);
         }
     }
 
     for (let x = 0; x < roomsX; ++x) {
         for (let y = 0; y < roomsY + 1; ++y) {
-            offsetY.set(x, y, offsetY.get(x, y) + roomOffsetY + y * roomSizeY);
+            offsetY.set(x, y, offsetY.get(x, y) + y * roomSizeY);
+        }
+    }
+
+    // Translate the building so it abuts the X and Y axes with outerBorder padding
+
+    let roomOffsetX = Number.MIN_SAFE_INTEGER;
+    for (let y = 0; y < roomsY; ++y) {
+        roomOffsetX = Math.max(roomOffsetX, -offsetX.get(0, y));
+    }
+    roomOffsetX += outerBorder;
+
+    for (let x = 0; x < roomsX + 1; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            offsetX.set(x, y, offsetX.get(x, y) + roomOffsetX);
+        }
+    }
+
+    let roomOffsetY = Number.MIN_SAFE_INTEGER;
+    for (let x = 0; x < roomsX; ++x) {
+        roomOffsetY = Math.max(roomOffsetY, -offsetY.get(x, 0));
+    }
+    roomOffsetY += outerBorder;
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY + 1; ++y) {
+            offsetY.set(x, y, offsetY.get(x, y) + roomOffsetY);
         }
     }
 
@@ -1082,10 +1098,44 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
             deadEndRooms[rng.randomInRange(deadEndRooms.length)].roomType = RoomType.Vault;
         }
     }
+
+    // Assign private rooms with only one or two entrances to be bedrooms, if they are large enough
+    // TODO: Ideally bedrooms need to be on a dead-end branch of the house (low betweenness)
+
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.PrivateRoom) {
+            continue;
+        }
+
+        const sizeX = room.posMax[0] - room.posMin[0];
+        if (sizeX < 3) {
+            continue;
+        }
+
+        const sizeY = room.posMax[1] - room.posMin[1];
+        if (sizeY < 3) {
+            continue;
+        }
+
+        if (sizeX * sizeY > 25) {
+            continue;
+        }
+
+        let numDoors = 0;
+        for (const adj of room.edges) {
+            if (adj.door) {
+                ++numDoors;
+            }
+        }
+
+        if (numDoors <= 2) {
+            room.roomType = RoomType.Bedroom;
+        }
+    }
 }
 
 function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency | undefined {
-    const removableAdjs: Array<Adjacency> = [];
+    const removableAdjs: Array<[Adjacency, number]> = [];
 
     for (const adj of adjacencies) {
         const room0 = adj.roomLeft;
@@ -1117,14 +1167,29 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
             }
         }
 
-        removableAdjs.push(adj);
+        // Compute the area of the merged room
+        const xMin = Math.min(room0.posMin[0], room1.posMin[0]);
+        const yMin = Math.min(room0.posMin[1], room1.posMin[1]);
+        const xMax = Math.max(room0.posMax[0], room1.posMax[0]);
+        const yMax = Math.max(room0.posMax[1], room1.posMax[1]);
+        const area = (xMax - xMin) * (yMax - yMin);
+
+        // Don't let rooms get too big
+        if (area > roomSizeX * roomSizeY * 3) {
+            continue;
+        }
+
+        removableAdjs.push([adj, area]);
     }
 
-    if (removableAdjs.length > 0) {
-        return removableAdjs[rng.randomInRange(removableAdjs.length)];
+    if (removableAdjs.length <= 0) {
+        return undefined;
     }
 
-    return undefined;
+    rng.shuffleArray(removableAdjs);
+    removableAdjs.sort((a, b) => a[1] - b[1]);
+
+    return removableAdjs[0][0];
 }
 
 function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj: Adjacency) {
@@ -1254,7 +1319,7 @@ function removeByValue<T>(array: Array<T>, value: T) {
 function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
     rng.shuffleArray(adjacencies);
 
-    for (let numMergeAttempts = Math.floor(rooms.length / 6); numMergeAttempts > 0; --numMergeAttempts) {
+    for (let numMergeAttempts = 2 * Math.floor(rooms.length / 12); numMergeAttempts > 0; --numMergeAttempts) {
         const adj = removableAdjacency(adjacencies, rng);
         if (adj === undefined) {
             return;
@@ -1962,16 +2027,19 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             case RoomType.PrivateCourtyard: cellType = TerrainType.GroundGrass; break;
             case RoomType.PrivateRoom: cellType = TerrainType.GroundMarble; break;
             case RoomType.Vault: cellType = TerrainType.GroundVault; break;
+            case RoomType.Bedroom: cellType = TerrainType.GroundMarble; break;
         }
 
         setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
 
         if (isCourtyardRoomType(room.roomType)) {
             renderRoomCourtyard(map, room, level, rng);
-        } else if (room.roomType == RoomType.PublicRoom || room.roomType == RoomType.PrivateRoom) {
+        } else if (room.roomType === RoomType.PublicRoom || room.roomType === RoomType.PrivateRoom) {
             renderRoomGeneric(map, room, level, rng);
         } else if (room.roomType === RoomType.Vault) {
             renderRoomVault(map, room);
+        } else if (room.roomType === RoomType.Bedroom) {
+            renderRoomBedroom(map, room, rng);
         }
 
         // Place creaky floor tiles
@@ -2079,6 +2147,12 @@ function renderRoomVault(map: GameMap, room: Room) {
     }
 }
 
+function renderRoomBedroom(map: GameMap, room: Room, rng: RNG) {
+    const x = Math.floor((room.posMin[0] + room.posMax[0]) / 2);
+    const y = Math.floor((room.posMin[1] + room.posMax[1]) / 2);
+    tryPlaceItem(map, vec2.fromValues(x, y), ItemType.Chair);
+}
+
 function placeCreakyFloorTiles(map: GameMap, room: Room, rng: RNG) {
     for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
         for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
@@ -2180,19 +2254,22 @@ function placeItem(map: GameMap, pos: vec2, type: ItemType) {
     });
 }
 
-function placeLoot(totalLootToPlace: number, rooms: Array<Room>, 
-    adjacencies: Array<Adjacency>, map: GameMap, rng: RNG) {
+function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, rng: RNG) {
 
     let totalLootPlaced = 0;
 
-    // Vault rooms automatically get loot.
+    // Vault rooms (may) get loot.
 
     for (const room of rooms) {
         if (room.roomType !== RoomType.Vault) {
             continue;
         }
 
-        for (let i = 0; i < 4; ++i) {
+        for (let i = rng.randomInRange(3) + rng.randomInRange(3); i > 0; --i) {
+            if (totalLootPlaced >= totalLootToPlace) {
+                break;
+            }
+
             if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
                 ++totalLootPlaced;
             }
@@ -2206,7 +2283,11 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>,
             break;
         }
 
-        if (room.roomType != RoomType.PublicRoom && room.roomType != RoomType.PrivateRoom) {
+        if (room.roomType === RoomType.Exterior || room.roomType === RoomType.Vault) {
+            continue;
+        }
+
+        if ((room.roomType === RoomType.PublicCourtyard || room.roomType === RoomType.PrivateCourtyard) && rng.random() < 0.75) {
             continue;
         }
 
@@ -2231,11 +2312,11 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>,
             break;
         }
 
-        if (room.roomType != RoomType.PrivateRoom) {
+        if (!isMasterSuiteRoomType(room.roomType)) {
             continue;
         }
 
-        if (rng.random() < 0.2) {
+        if (rng.random() < 0.5) {
             continue;
         }
 
@@ -2246,10 +2327,11 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>,
 
     // Place extra loot to reach desired total.
 
-    let posMin = vec2.fromValues(0, 0);
-    let posMax = vec2.fromValues(map.cells.sizeX, map.cells.sizeY);
-    for (let i = 1000; i > 0 && totalLootPlaced < totalLootToPlace; --i) {
-        if (tryPlaceLoot(posMin, posMax, map, rng)) {
+    const candidateRooms = rooms.filter((room) => room.roomType !== RoomType.Exterior && !isCourtyardRoomType(room.roomType));
+    rng.shuffleArray(candidateRooms);
+    for (let i = 0; i < 1000 && totalLootPlaced < totalLootToPlace; ++i) {
+        const room = candidateRooms[i % candidateRooms.length];
+        if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
             ++totalLootPlaced;
         }
     }
@@ -2267,7 +2349,7 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 
         let cellType = map.cells.at(pos[0], pos[1]).type;
 
-        if (cellType !== TerrainType.GroundWood && cellType !== TerrainType.GroundMarble && cellType !== TerrainType.GroundVault) {
+        if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
             continue;
         }
 
@@ -2425,7 +2507,12 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     case RoomType.PrivateCourtyard: return true;
     case RoomType.PrivateRoom: return false;
     case RoomType.Vault: return false;
+    case RoomType.Bedroom: return false;
     }
+}
+
+function isMasterSuiteRoomType(roomType: RoomType): boolean {
+    return roomType === RoomType.PrivateRoom || roomType === RoomType.Bedroom;
 }
 
 function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>, guardLoot:number, placeVaultKey: boolean, rng: RNG) {
