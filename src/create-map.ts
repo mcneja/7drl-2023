@@ -289,6 +289,8 @@ function offsetWalls(
         }
     }
 
+    // Do mirroring
+
     if (mirrorX) {
         if ((roomsX & 1) === 0) {
             const xMid = Math.floor(roomsX / 2);
@@ -331,30 +333,43 @@ function offsetWalls(
         }
     }
 
-    let roomOffsetX = Number.MIN_SAFE_INTEGER;
-    let roomOffsetY = Number.MIN_SAFE_INTEGER;
-
-    for (let y = 0; y < roomsY; ++y) {
-        roomOffsetX = Math.max(roomOffsetX, -offsetX.get(0, y));
-    }
-
-    for (let x = 0; x < roomsX; ++x) {
-        roomOffsetY = Math.max(roomOffsetY, -offsetY.get(x, 0));
-    }
-
-    roomOffsetX += outerBorder;
-    roomOffsetY += outerBorder;
+    // Add in room widths
 
     for (let x = 0; x < roomsX + 1; ++x) {
         for (let y = 0; y < roomsY; ++y) {
-            const z = offsetX.get(x, y) + roomOffsetX + x * roomSizeX;
-            offsetX.set(x, y, z);
+            offsetX.set(x, y, offsetX.get(x, y) + x * roomSizeX);
         }
     }
 
     for (let x = 0; x < roomsX; ++x) {
         for (let y = 0; y < roomsY + 1; ++y) {
-            offsetY.set(x, y, offsetY.get(x, y) + roomOffsetY + y * roomSizeY);
+            offsetY.set(x, y, offsetY.get(x, y) + y * roomSizeY);
+        }
+    }
+
+    // Translate the building so it abuts the X and Y axes with outerBorder padding
+
+    let roomOffsetX = Number.MIN_SAFE_INTEGER;
+    for (let y = 0; y < roomsY; ++y) {
+        roomOffsetX = Math.max(roomOffsetX, -offsetX.get(0, y));
+    }
+    roomOffsetX += outerBorder;
+
+    for (let x = 0; x < roomsX + 1; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            offsetX.set(x, y, offsetX.get(x, y) + roomOffsetX);
+        }
+    }
+
+    let roomOffsetY = Number.MIN_SAFE_INTEGER;
+    for (let x = 0; x < roomsX; ++x) {
+        roomOffsetY = Math.max(roomOffsetY, -offsetY.get(x, 0));
+    }
+    roomOffsetY += outerBorder;
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY + 1; ++y) {
+            offsetY.set(x, y, offsetY.get(x, y) + roomOffsetY);
         }
     }
 
