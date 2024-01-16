@@ -144,6 +144,10 @@ const tileSet31Color:TileSet = {
     itemTiles: [
         {textureIndex: r([3,  13]),  color:colorPreset.yellowTint, unlitColor:colorPreset.midGray}, // ItemType.Chair,
         {textureIndex: r([4,  13]),  color:colorPreset.yellowTint, unlitColor:colorPreset.midGray}, // ItemType.Table,
+        {textureIndex: r([7,  14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.BedL,
+        {textureIndex: r([8,  14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.BedR,
+        {textureIndex: r([10, 14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DrawersShort,
+        {textureIndex: r([9,  14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DrawersTall,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Bush,
         {textureIndex: r([5,  13]),  color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.Coin,
         {textureIndex: r([7,   3]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DoorNS,

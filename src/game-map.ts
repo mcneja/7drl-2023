@@ -244,6 +244,10 @@ enum GuardStates {
 enum ItemType {
     Chair,
     Table,
+    BedL,
+    BedR,
+    DrawersShort,
+    DrawersTall,
     Bush,
     Coin,
     DoorNS,
@@ -270,6 +274,10 @@ function guardMoveCostForItemType(itemType: ItemType): number {
     switch (itemType) {
         case ItemType.Chair: return 4;
         case ItemType.Table: return 10;
+        case ItemType.BedL: return 10;
+        case ItemType.BedR: return 10;
+        case ItemType.DrawersShort: return Infinity;
+        case ItemType.DrawersTall: return Infinity;
         case ItemType.Bush: return 10;
         case ItemType.Coin: return 0;
         case ItemType.DoorNS: return 0;
