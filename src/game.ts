@@ -446,6 +446,7 @@ function canStepToPos(state: State, pos: vec2): boolean {
 
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(pos))) {
         switch (item.type) {
+        case ItemType.DrawersShort:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
         case ItemType.PortcullisEW:
@@ -496,7 +497,7 @@ function canLeapToPos(state: State, pos: vec2): boolean {
 
     // Cannot leap onto a blocking item
 
-    if (state.gameMap.items.find((item)=>item.pos.equals(pos) && isLeapableMoveObstacle(item.type))) {
+    if (state.gameMap.items.find((item)=>item.pos.equals(pos) && !canLeapOntoItemType(item.type))) {
         return false;
     }
 
@@ -757,6 +758,14 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(posNew))) {
         switch (item.type) {
+        case ItemType.DrawersShort:
+            if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
+                state.topStatusMessage = 'Shift+move to leap';
+                state.topStatusMessageSticky = false;
+            }
+            bumpFail(state, dx, dy);
+            return;
+
         case ItemType.TorchUnlit:
             preTurn(state);
             state.sounds["ignite"].play(0.08);
@@ -1079,13 +1088,16 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     }
 }
 
-function isLeapableMoveObstacle(itemType: ItemType): boolean {
+function canLeapOntoItemType(itemType: ItemType): boolean {
     switch (itemType) {
+        case ItemType.BedL:
+        case ItemType.BedR:
+        case ItemType.DrawersShort:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
-            return true;
-        default:
             return false;
+        default:
+            return true;
     }
 }
 

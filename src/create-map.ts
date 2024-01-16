@@ -2190,7 +2190,7 @@ function renderRoomBedroom(map: GameMap, room: Room, rng: RNG) {
         placeItem(map, pos1, ItemType.BedR);
     }
 
-    for (const itemType of [ItemType.Chair, ItemType.Table]) {
+    for (const itemType of [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table]) {
         const positions = getOpenWallPositions(map, room);
         if (positions.length === 0) {
             break;
@@ -2727,14 +2727,16 @@ function cacheCellInfo(map: GameMap) {
             itemType === ItemType.LockedDoorEW ||
             itemType === ItemType.PortcullisNS ||
             itemType === ItemType.PortcullisEW ||
-            itemType === ItemType.Bush) {
+            itemType === ItemType.Bush ||
+            itemType === ItemType.DrawersTall) {
             cell.blocksSight = true;
         }
         if (itemType === ItemType.Table ||
-            itemType === ItemType.BedL ||
-            itemType === ItemType.BedR ||
             itemType === ItemType.Bush) {
             cell.hidesPlayer = true;
+        }
+        if (itemType === ItemType.DrawersTall) {
+            cell.blocksPlayerMove = true;
         }
     }
 }
