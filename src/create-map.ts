@@ -1924,27 +1924,7 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
-                if ((adj0.length & 1) === 0) {
-                    let k = Math.floor(adj0.length / 2);
-
-                    for (const a of walls) {
-                        if (a.roomLeft.roomType === RoomType.Vault ||
-                            a.roomRight.roomType === RoomType.Vault) {
-                            continue;
-                        }
-
-                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
-
-                        let dir = vec2.clone(a.dir);
-                        if (a.roomRight.roomType == RoomType.Exterior) {
-                            vec2.negate(dir, dir);
-                        }
-
-                        map.cells.atVec(p).type = oneWayWindowTerrainTypeFromDir(dir);
-                    }
-                }
-            } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
-                let k = 1 + rng.randomInRange(2);
+                let k = 2;
                 const k_end = 1 + Math.floor(adj0.length / 2);
 
                 while (k < k_end) {
@@ -1954,12 +1934,38 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
                             continue;
                         }
 
-                        let dir = vec2.clone(a.dir);
-                        if (isCourtyardRoomType(a.roomRight.roomType)) {
-                            dir = dir.negate();
+                        const dir = vec2.clone(a.dir);
+                        if (a.roomRight.roomType == RoomType.Exterior) {
+                            vec2.negate(dir, dir);
                         }
 
-                        let windowType = oneWayWindowTerrainTypeFromDir(dir);
+                        const windowType = oneWayWindowTerrainTypeFromDir(dir);
+
+                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
+                        const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
+
+                        map.cells.atVec(p).type = windowType;
+                        map.cells.atVec(q).type = windowType;
+                    }
+                    k += 2;
+                }
+            } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
+                let k = 2;
+                const k_end = 1 + Math.floor(adj0.length / 2);
+
+                while (k < k_end) {
+                    for (const a of walls) {
+                        if (a.roomLeft.roomType === RoomType.Vault ||
+                            a.roomRight.roomType === RoomType.Vault) {
+                            continue;
+                        }
+
+                        const dir = vec2.clone(a.dir);
+                        if (isCourtyardRoomType(a.roomRight.roomType)) {
+                            vec2.negate(dir, dir);
+                        }
+
+                        const windowType = oneWayWindowTerrainTypeFromDir(dir);
 
                         const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
                         const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
