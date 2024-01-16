@@ -1145,6 +1145,10 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
             continue;
         }
 
+        if (room0.roomType === RoomType.Bedroom) {
+            continue;
+        }
+
         if (room0.roomType !== room1.roomType) {
             continue;
         }
@@ -2154,9 +2158,74 @@ function renderRoomVault(map: GameMap, room: Room) {
 }
 
 function renderRoomBedroom(map: GameMap, room: Room, rng: RNG) {
-    const x = Math.floor((room.posMin[0] + room.posMax[0]) / 2);
-    const y = Math.floor((room.posMin[1] + room.posMax[1]) / 2);
-    tryPlaceItem(map, vec2.fromValues(x, y), ItemType.Chair);
+    // Look for a place to put the bed that doesn't block any doors and is against a wall
+
+    const potentialPositions = [];
+    for (let x = room.posMin[0]; x < room.posMax[0] - 1; ++x) {
+        for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+            const pos0 = vec2.fromValues(x, y);
+            const pos1 = vec2.fromValues(x + 1, y);
+
+            if (!wallOrWindowAdjacent(map.cells, pos0) && !wallOrWindowAdjacent(map.cells, pos1)) {
+                continue;
+            }
+
+            if (isItemAtPos(map, pos0) || isItemAtPos(map, pos1)) {
+                continue;
+            }
+
+            if (doorAdjacent(map.cells, pos0) || doorAdjacent(map.cells, pos1)) {
+                continue;
+            }
+
+            potentialPositions.push(pos0);
+        }
+    }
+
+    if (potentialPositions.length > 0) {
+        const pos0 = potentialPositions[rng.randomInRange(potentialPositions.length)];
+        const pos1 = vec2.fromValues(pos0[0] + 1, pos0[1]);
+
+        placeItem(map, pos0, ItemType.BedL);
+        placeItem(map, pos1, ItemType.BedR);
+    }
+
+    for (const itemType of [ItemType.Chair, ItemType.Table]) {
+        const positions = getOpenWallPositions(map, room);
+        if (positions.length === 0) {
+            break;
+        }
+
+        const pos = positions[rng.randomInRange(positions.length)];
+
+        placeItem(map, pos, itemType);
+    }
+}
+
+function getOpenWallPositions(map: GameMap, room: Room): Array<vec2> {
+    const positions = [];
+
+    for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+        for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+            const pos = vec2.fromValues(x, y);
+
+            if (!wallAdjacent(map.cells, pos)) {
+                continue;
+            }
+
+            if (isItemAtPos(map, pos)) {
+                continue;
+            }
+
+            if (doorAdjacent(map.cells, pos)) {
+                continue;
+            }
+
+            positions.push(pos);
+        }
+    }
+
+    return positions;
 }
 
 function placeCreakyFloorTiles(map: GameMap, room: Room, rng: RNG) {
@@ -2251,6 +2320,56 @@ function windowAdjacent(map: CellGrid, pos: vec2): boolean {
     }
 
     return false;
+}
+
+function wallAdjacent(map: CellGrid, pos: vec2): boolean {
+    let [x, y] = pos;
+    if (isWallTerrainType(map.at(x - 1, y).type)) {
+        return true;
+    }
+
+    if (isWallTerrainType(map.at(x + 1, y).type)) {
+        return true;
+    }
+
+    if (isWallTerrainType(map.at(x, y - 1).type)) {
+        return true;
+    }
+
+    if (isWallTerrainType(map.at(x, y + 1).type)) {
+        return true;
+    }
+
+    return false;
+}
+
+function wallOrWindowAdjacent(map: CellGrid, pos: vec2): boolean {
+    let [x, y] = pos;
+    if (isWallOrWindowTerrainType(map.at(x - 1, y).type)) {
+        return true;
+    }
+
+    if (isWallOrWindowTerrainType(map.at(x + 1, y).type)) {
+        return true;
+    }
+
+    if (isWallOrWindowTerrainType(map.at(x, y - 1).type)) {
+        return true;
+    }
+
+    if (isWallOrWindowTerrainType(map.at(x, y + 1).type)) {
+        return true;
+    }
+
+    return false;
+}
+
+function isWallTerrainType(terrainType: TerrainType): boolean {
+    return terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.Wall1111;
+}
+
+function isWallOrWindowTerrainType(terrainType: TerrainType): boolean {
+    return terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.OneWayWindowS;
 }
 
 function placeItem(map: GameMap, pos: vec2, type: ItemType) {
@@ -2611,7 +2730,10 @@ function cacheCellInfo(map: GameMap) {
             itemType === ItemType.Bush) {
             cell.blocksSight = true;
         }
-        if (itemType === ItemType.Table || itemType === ItemType.Bush) {
+        if (itemType === ItemType.Table ||
+            itemType === ItemType.BedL ||
+            itemType === ItemType.BedR ||
+            itemType === ItemType.Bush) {
             cell.hidesPlayer = true;
         }
     }
