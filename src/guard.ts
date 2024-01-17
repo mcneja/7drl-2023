@@ -80,14 +80,14 @@ class Guard {
         }
     }
 
-    movingWithPlayerPosition(pos: vec2): boolean {
+    allowsMoveOntoFrom(posFrom: vec2): boolean {
         switch (this.mode) {
         case GuardMode.Patrol:
             const posPatrolCur = this.patrolPath[this.patrolPathIndex];
             if (posPatrolCur.equals(this.pos)) {
                 const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
                 const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
+                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(posFrom));
             }
             return true;
 
@@ -97,12 +97,10 @@ class Guard {
         case GuardMode.WakeGuard:
         case GuardMode.LightTorch:
         case GuardMode.Unconscious:
-            return false;
-
         case GuardMode.MoveToLastSighting:
         case GuardMode.MoveToLastSound:
         case GuardMode.MoveToGuardShout:
-            return !this.pos.equals(this.goal);
+            return false;
 
         case GuardMode.MoveToDownedGuard:
         case GuardMode.MoveToTorch:
