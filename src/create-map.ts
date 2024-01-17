@@ -2221,6 +2221,10 @@ function getOpenWallPositions(map: GameMap, room: Room): Array<vec2> {
                 continue;
             }
 
+            if (wouldPartitionSpace(map, room, pos)) {
+                continue;
+            }
+
             positions.push(pos);
         }
     }
@@ -2362,6 +2366,107 @@ function wallOrWindowAdjacent(map: CellGrid, pos: vec2): boolean {
     }
 
     return false;
+}
+
+function wouldPartitionSpace(map: GameMap, room: Room, pos: vec2): boolean {
+    const rx = room.posMax[0] - room.posMin[0];
+    const ry = room.posMax[1] - room.posMin[1];
+
+    const visited = new BooleanGrid(rx, ry, false);
+
+    let numToVisit = rx * ry;
+    for (let x = 0; x < rx; ++x) {
+        for (let y = 0; y < ry; ++y) {
+            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
+                visited.set(x, y, true);
+                --numToVisit;
+            }
+        }
+    }
+
+    for (const item of map.items) {
+        const x = item.pos[0] - room.posMin[0];
+        const y = item.pos[1] - room.posMin[1];
+        if (x < 0 || y < 0 || x >= rx || y >= ry)
+            continue;
+        visited.set(x, y, true);
+        --numToVisit;
+    }
+
+    const px = pos[0] - room.posMin[0];
+    const py = pos[1] - room.posMin[1];
+
+    console.assert(px >= 0);
+    console.assert(py >= 0);
+    console.assert(px < rx);
+    console.assert(py < ry);
+    console.assert(!visited.get(px, py));
+
+    visited.set(px, py, true);
+    --numToVisit;
+
+    const toVisit: Array<vec2> = [];
+    const posStart = unvisitedPos(visited);
+    if (posStart === undefined) {
+        return true;
+    }
+
+    toVisit.push(posStart);
+
+    while (true) {
+        const pos = toVisit.pop();
+        if (pos === undefined)
+            break;
+        const x = pos[0];
+        const y = pos[1];
+        if (visited.get(x, y))
+            continue;
+        visited.set(x, y, true);
+        --numToVisit;
+        if (x > 0 && !visited.get(x - 1, y))
+            toVisit.push(vec2.fromValues(x - 1, y));
+        if (y > 0 && !visited.get(x, y - 1))
+            toVisit.push(vec2.fromValues(x, y - 1));
+        if (x + 1 < rx && !visited.get(x + 1, y))
+            toVisit.push(vec2.fromValues(x + 1, y));
+        if (y + 1 < ry && !visited.get(x, y + 1))
+            toVisit.push(vec2.fromValues(x, y + 1));
+    }
+
+    /*
+    if (numToVisit > 0) {
+        console.log('blocking pos for room at %d,%d (numUnvisited=%d)', room.posMin[0], room.posMin[1], numToVisit);
+        for (let y = ry - 1; y >= 0; --y) {
+            let str = y + ': ';
+            for (let x = 0; x < rx; ++x) {
+                if (x === px && y === py)
+                    str += '*';
+                else if (visited.get(x, y))
+                    str += '.';
+                else
+                    str += 'X';
+            }
+            console.log(str);
+        }
+    }
+    */
+
+    return numToVisit > 0;
+}
+
+function unvisitedPos(visited: BooleanGrid): vec2 | undefined {
+    for (let x = 0; x < visited.sizeX; ++x) {
+        for (let y = 0; y < visited.sizeY; ++y) {
+            if (!visited.get(x, y)) {
+                return vec2.fromValues(x, y);
+            }
+        }
+    }
+    return undefined;
+}
+
+function isWalkableTerrainType(terrainType: TerrainType): boolean {
+    return terrainType < TerrainType.Wall0000 && terrainType !== TerrainType.GroundWater;
 }
 
 function isWallTerrainType(terrainType: TerrainType): boolean {
