@@ -248,6 +248,7 @@ enum ItemType {
     BedR,
     DrawersShort,
     DrawersTall,
+    Bookshelf,
     Bush,
     Coin,
     DoorNS,
@@ -278,6 +279,7 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.BedR: return 10;
         case ItemType.DrawersShort: return Infinity;
         case ItemType.DrawersTall: return Infinity;
+        case ItemType.Bookshelf: return Infinity;
         case ItemType.Bush: return 10;
         case ItemType.Coin: return 0;
         case ItemType.DoorNS: return 0;
@@ -783,10 +785,14 @@ class GameMap {
     
         // Guards are not allowed to move diagonally around corners.
     
+        // TODO: I think there may be a better way to do this. The 64 here is the current movement
+        // cost for water; trying to allow diagonal movement past chairs and tables and such, but
+        // not around the corner of a water pool.
+
         if (posOld[0] != posNew[0] &&
             posOld[1] != posNew[1] &&
-            (this.cells.at(posOld[0], posNew[1]).moveCost === Infinity ||
-             this.cells.at(posNew[0], posOld[1]).moveCost === Infinity)) {
+            (this.cells.at(posOld[0], posNew[1]).moveCost >= 64 ||
+             this.cells.at(posNew[0], posOld[1]).moveCost >= 64)) {
             return Infinity;
         }
     

@@ -32,6 +32,9 @@ enum RoomType
     PrivateRoom,
     Vault,
     Bedroom,
+    Dining,
+    PublicLibrary,
+    PrivateLibrary,
 }
 
 type Room = {
@@ -137,13 +140,13 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     const posStart = connectRooms(rooms, adjacencies, rng);
 
-    // Assign types to the rooms.
-
-    assignRoomTypes(rooms, level, rng);
-
     // Join a pair of rooms together.
 
     makeDoubleRooms(rooms, adjacencies, rng);
+
+    // Assign types to the rooms.
+
+    assignRoomTypes(rooms, level, rng);
 
     // Create the actual map
 
@@ -1132,6 +1135,88 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
             room.roomType = RoomType.Bedroom;
         }
     }
+
+    // TODO: All these rooms should be chosen in round-robin fashion, where we ensure we've got
+    // at least one of everything important for a given mansion size, before then allocating any
+    // remaining rooms.
+
+    // Pick rooms to be dining rooms
+
+    for (const room of chooseRooms(rooms, roomCanBeDining, Math.ceil(rooms.length / 21), rng)) {
+        room.roomType = RoomType.Dining;
+    }
+
+    // Pick rooms to be libraries
+
+    for (const room of chooseRooms(rooms, roomCanBePublicLibrary, Math.ceil(rooms.length / 42), rng)) {
+        room.roomType = RoomType.PublicLibrary;
+    }
+
+    for (const room of chooseRooms(rooms, roomCanBePrivateLibrary, Math.ceil(rooms.length / 42), rng)) {
+        room.roomType = RoomType.PrivateLibrary;
+    }
+}
+
+function chooseRooms(rooms: Array<Room>, acceptRoom: (room: Room) => boolean, maxRooms: number, rng: RNG): Array<Room> {
+    const acceptableRooms = rooms.filter(acceptRoom);
+    rng.shuffleArray(acceptableRooms);
+    return acceptableRooms.slice(0, maxRooms);
+}
+
+function roomCanBeDining(room: Room): boolean {
+    if (room.roomType !== RoomType.PublicRoom) {
+        return false;
+    }
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    if (sizeX < 5) {
+        return false;
+    }
+
+    const sizeY = room.posMax[1] - room.posMin[1];
+    if (sizeY < 5) {
+        return false;
+    }
+
+    return true;
+}
+
+function roomCanBePublicLibrary(room: Room): boolean {
+    if (room.roomType !== RoomType.PublicRoom) {
+        return false;
+    }
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    const sizeY = room.posMax[1] - room.posMin[1];
+
+    if (Math.min(sizeX, sizeY) < 4) {
+        return false;
+    }
+
+    if (Math.max(sizeX, sizeY) < 5) {
+        return false;
+    }
+
+    return true;
+}
+
+function roomCanBePrivateLibrary(room: Room): boolean {
+    if (room.roomType !== RoomType.PrivateRoom) {
+        return false;
+    }
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    const sizeY = room.posMax[1] - room.posMin[1];
+
+    if (Math.min(sizeX, sizeY) < 4) {
+        return false;
+    }
+
+    if (Math.max(sizeX, sizeY) < 5) {
+        return false;
+    }
+
+    return true;
 }
 
 function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency | undefined {
@@ -1142,10 +1227,6 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
         const room1 = adj.roomRight;
 
         if (!adj.door) {
-            continue;
-        }
-
-        if (room0.roomType === RoomType.Bedroom) {
             continue;
         }
 
@@ -1176,14 +1257,18 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
         const yMin = Math.min(room0.posMin[1], room1.posMin[1]);
         const xMax = Math.max(room0.posMax[0], room1.posMax[0]);
         const yMax = Math.max(room0.posMax[1], room1.posMax[1]);
-        const area = (xMax - xMin) * (yMax - yMin);
+        const rx = xMax - xMin;
+        const ry = yMax - yMin;
+        const area = rx * ry;
 
         // Don't let rooms get too big
-        if (area > roomSizeX * roomSizeY * 3) {
+        if (area > roomSizeX * roomSizeY * 30) {
             continue;
         }
 
-        removableAdjs.push([adj, area]);
+        const aspect = Math.max(rx, ry) / Math.min(rx, ry);
+
+        removableAdjs.push([adj, aspect]);
     }
 
     if (removableAdjs.length <= 0) {
@@ -2038,6 +2123,9 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             case RoomType.PrivateRoom: cellType = TerrainType.GroundMarble; break;
             case RoomType.Vault: cellType = TerrainType.GroundVault; break;
             case RoomType.Bedroom: cellType = TerrainType.GroundMarble; break;
+            case RoomType.Dining: cellType = TerrainType.GroundWood; break;
+            case RoomType.PublicLibrary: cellType = TerrainType.GroundWood; break;
+            case RoomType.PrivateLibrary: cellType = TerrainType.GroundMarble; break;
         }
 
         setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
@@ -2049,7 +2137,11 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         } else if (room.roomType === RoomType.Vault) {
             renderRoomVault(map, room);
         } else if (room.roomType === RoomType.Bedroom) {
-            renderRoomBedroom(map, room, rng);
+            renderRoomBedroom(map, room, level, rng);
+        } else if (room.roomType === RoomType.Dining) {
+            renderRoomDining(map, room, level, rng);
+        } else if (room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary) {
+            renderRoomLibrary(map, room, level, rng);
         }
 
         // Place creaky floor tiles
@@ -2157,7 +2249,7 @@ function renderRoomVault(map: GameMap, room: Room) {
     }
 }
 
-function renderRoomBedroom(map: GameMap, room: Room, rng: RNG) {
+function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
     // Look for a place to put the bed that doesn't block any doors and is against a wall
 
     const potentialPositions = [];
@@ -2190,7 +2282,7 @@ function renderRoomBedroom(map: GameMap, room: Room, rng: RNG) {
         placeItem(map, pos1, ItemType.BedR);
     }
 
-    for (const itemType of [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table]) {
+    for (const itemType of [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, randomlyLitTorch(level, rng), ItemType.Chair]) {
         const positions = getOpenWallPositions(map, room);
         if (positions.length === 0) {
             break;
@@ -2199,6 +2291,88 @@ function renderRoomBedroom(map: GameMap, room: Room, rng: RNG) {
         const pos = positions[rng.randomInRange(positions.length)];
 
         placeItem(map, pos, itemType);
+    }
+}
+
+function renderRoomDining(map: GameMap, room: Room, level: number, rng: RNG) {
+    const x0 = room.posMin[0];
+    const y0 = room.posMin[1];
+    const rx = room.posMax[0] - room.posMin[0];
+    const ry = room.posMax[1] - room.posMin[1];
+
+    if (rx >= ry) {
+        const yCenter = y0 + Math.floor(ry / 2);
+        if ((rx & 1) == 0) {
+            tryPlaceItem(map, vec2.fromValues(x0 + 1, yCenter), randomlyLitTorch(level, rng));
+            tryPlaceItem(map, vec2.fromValues(x0 + rx - 2, yCenter), randomlyLitTorch(level, rng));
+            for (let x = x0 + 2; x < x0 + rx - 2; ++x) {
+                placeItem(map, vec2.fromValues(x, yCenter - 1), ItemType.Chair);
+                placeItem(map, vec2.fromValues(x, yCenter    ), ItemType.Table);
+                placeItem(map, vec2.fromValues(x, yCenter + 1), ItemType.Chair);
+            }
+        } else {
+            const xCenter = x0 + (rx - 1) / 2;
+            tryPlaceItem(map, vec2.fromValues(xCenter, yCenter), randomlyLitTorch(level, rng));
+            for (let x = x0 + 1; x < xCenter; ++x) {
+                placeItem(map, vec2.fromValues(x, yCenter - 1), ItemType.Chair);
+                placeItem(map, vec2.fromValues(x, yCenter    ), ItemType.Table);
+                placeItem(map, vec2.fromValues(x, yCenter + 1), ItemType.Chair);
+            }
+            for (let x = xCenter + 1; x < x0 + rx - 1; ++x) {
+                placeItem(map, vec2.fromValues(x, yCenter - 1), ItemType.Chair);
+                placeItem(map, vec2.fromValues(x, yCenter    ), ItemType.Table);
+                placeItem(map, vec2.fromValues(x, yCenter + 1), ItemType.Chair);
+            }
+        }
+    } else {
+        const xCenter = x0 + Math.floor(rx / 2);
+        if ((ry & 1) == 0) {
+            tryPlaceItem(map, vec2.fromValues(xCenter, y0 + 1), randomlyLitTorch(level, rng));
+            tryPlaceItem(map, vec2.fromValues(xCenter, y0 + ry - 2), randomlyLitTorch(level, rng));
+            for (let y = y0 + 2; y < y0 + ry - 2; ++y) {
+                placeItem(map, vec2.fromValues(xCenter - 1, y), ItemType.Chair);
+                placeItem(map, vec2.fromValues(xCenter, y    ), ItemType.Table);
+                placeItem(map, vec2.fromValues(xCenter + 1, y), ItemType.Chair);
+            }
+        } else {
+            const yCenter = y0 + (ry - 1) / 2;
+            tryPlaceItem(map, vec2.fromValues(xCenter, yCenter), randomlyLitTorch(level, rng));
+            for (let y = y0 + 1; y < yCenter; ++y) {
+                placeItem(map, vec2.fromValues(xCenter - 1, y), ItemType.Chair);
+                placeItem(map, vec2.fromValues(xCenter,     y), ItemType.Table);
+                placeItem(map, vec2.fromValues(xCenter + 1, y), ItemType.Chair);
+            }
+            for (let y = yCenter + 1; y < y0 + ry - 1; ++y) {
+                placeItem(map, vec2.fromValues(xCenter - 1, y), ItemType.Chair);
+                placeItem(map, vec2.fromValues(xCenter,     y), ItemType.Table);
+                placeItem(map, vec2.fromValues(xCenter + 1, y), ItemType.Chair);
+            }
+        }
+    }
+}
+
+function renderRoomLibrary(map: GameMap, room: Room, level: number, rng: RNG) {
+    const x0 = room.posMin[0];
+    const y0 = room.posMin[1];
+    const rx = room.posMax[0] - room.posMin[0];
+    const ry = room.posMax[1] - room.posMin[1];
+
+    if (rx >= ry) {
+        const cx = Math.floor((rx - 1) / 2);
+        for (let x = 1; x < cx; x += 2) {
+            for (let y = 1; y < ry - 1; ++y) {
+                placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
+                placeItem(map, vec2.fromValues(x0 + rx - (x + 1), y0 + y), ItemType.Bookshelf);
+            }
+        }
+    } else {
+        const cy = Math.floor((ry - 1) / 2);
+        for (let y = 1; y < cy; y += 2) {
+            for (let x = 1; x < rx - 1; ++x) {
+                placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
+                placeItem(map, vec2.fromValues(x0 + x, y0 + ry - (y + 1)), ItemType.Bookshelf);
+            }
+        }
     }
 }
 
@@ -2218,6 +2392,10 @@ function getOpenWallPositions(map: GameMap, room: Room): Array<vec2> {
             }
 
             if (doorAdjacent(map.cells, pos)) {
+                continue;
+            }
+
+            if (wouldPartitionSpace(map, room, pos)) {
                 continue;
             }
 
@@ -2362,6 +2540,107 @@ function wallOrWindowAdjacent(map: CellGrid, pos: vec2): boolean {
     }
 
     return false;
+}
+
+function wouldPartitionSpace(map: GameMap, room: Room, pos: vec2): boolean {
+    const rx = room.posMax[0] - room.posMin[0];
+    const ry = room.posMax[1] - room.posMin[1];
+
+    const visited = new BooleanGrid(rx, ry, false);
+
+    let numToVisit = rx * ry;
+    for (let x = 0; x < rx; ++x) {
+        for (let y = 0; y < ry; ++y) {
+            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
+                visited.set(x, y, true);
+                --numToVisit;
+            }
+        }
+    }
+
+    for (const item of map.items) {
+        const x = item.pos[0] - room.posMin[0];
+        const y = item.pos[1] - room.posMin[1];
+        if (x < 0 || y < 0 || x >= rx || y >= ry)
+            continue;
+        visited.set(x, y, true);
+        --numToVisit;
+    }
+
+    const px = pos[0] - room.posMin[0];
+    const py = pos[1] - room.posMin[1];
+
+    console.assert(px >= 0);
+    console.assert(py >= 0);
+    console.assert(px < rx);
+    console.assert(py < ry);
+    console.assert(!visited.get(px, py));
+
+    visited.set(px, py, true);
+    --numToVisit;
+
+    const toVisit: Array<vec2> = [];
+    const posStart = unvisitedPos(visited);
+    if (posStart === undefined) {
+        return true;
+    }
+
+    toVisit.push(posStart);
+
+    while (true) {
+        const pos = toVisit.pop();
+        if (pos === undefined)
+            break;
+        const x = pos[0];
+        const y = pos[1];
+        if (visited.get(x, y))
+            continue;
+        visited.set(x, y, true);
+        --numToVisit;
+        if (x > 0 && !visited.get(x - 1, y))
+            toVisit.push(vec2.fromValues(x - 1, y));
+        if (y > 0 && !visited.get(x, y - 1))
+            toVisit.push(vec2.fromValues(x, y - 1));
+        if (x + 1 < rx && !visited.get(x + 1, y))
+            toVisit.push(vec2.fromValues(x + 1, y));
+        if (y + 1 < ry && !visited.get(x, y + 1))
+            toVisit.push(vec2.fromValues(x, y + 1));
+    }
+
+    /*
+    if (numToVisit > 0) {
+        console.log('blocking pos for room at %d,%d (numUnvisited=%d)', room.posMin[0], room.posMin[1], numToVisit);
+        for (let y = ry - 1; y >= 0; --y) {
+            let str = y + ': ';
+            for (let x = 0; x < rx; ++x) {
+                if (x === px && y === py)
+                    str += '*';
+                else if (visited.get(x, y))
+                    str += '.';
+                else
+                    str += 'X';
+            }
+            console.log(str);
+        }
+    }
+    */
+
+    return numToVisit > 0;
+}
+
+function unvisitedPos(visited: BooleanGrid): vec2 | undefined {
+    for (let x = 0; x < visited.sizeX; ++x) {
+        for (let y = 0; y < visited.sizeY; ++y) {
+            if (!visited.get(x, y)) {
+                return vec2.fromValues(x, y);
+            }
+        }
+    }
+    return undefined;
+}
+
+function isWalkableTerrainType(terrainType: TerrainType): boolean {
+    return terrainType < TerrainType.Wall0000 && terrainType !== TerrainType.GroundWater;
 }
 
 function isWallTerrainType(terrainType: TerrainType): boolean {
@@ -2626,13 +2905,18 @@ function isItemAtPos(map: GameMap, pos: vec2): boolean {
 
 function isCourtyardRoomType(roomType: RoomType): boolean {
     switch (roomType) {
-    case RoomType.Exterior: return false;
-    case RoomType.PublicCourtyard: return true;
-    case RoomType.PublicRoom: return false;
-    case RoomType.PrivateCourtyard: return true;
-    case RoomType.PrivateRoom: return false;
-    case RoomType.Vault: return false;
-    case RoomType.Bedroom: return false;
+        case RoomType.PublicCourtyard:
+        case RoomType.PrivateCourtyard:
+            return true;
+        case RoomType.Exterior:
+        case RoomType.PublicRoom:
+        case RoomType.PrivateRoom:
+        case RoomType.Vault:
+        case RoomType.Bedroom:
+        case RoomType.Dining:
+        case RoomType.PublicLibrary:
+        case RoomType.PrivateLibrary:
+            return false;
     }
 }
 
@@ -2702,7 +2986,7 @@ function cacheCellInfo(map: GameMap) {
             const isWall = cellType >= TerrainType.Wall0000 && cellType <= TerrainType.Wall1111;
             const isWindow = isWindowTerrainType(cellType);
             const isWater = cellType == TerrainType.GroundWater;
-            cell.moveCost = (isWall || isWindow || isWater) ? Infinity : 0;
+            cell.moveCost = (isWall || isWindow) ? Infinity : (isWater ? 64 : 0);
             cell.blocksPlayerMove = isWall;
             cell.blocksPlayerSight = isWall;
             cell.blocksSight = isWall;
@@ -2728,14 +3012,16 @@ function cacheCellInfo(map: GameMap) {
             itemType === ItemType.PortcullisNS ||
             itemType === ItemType.PortcullisEW ||
             itemType === ItemType.Bush ||
-            itemType === ItemType.DrawersTall) {
+            itemType === ItemType.DrawersTall ||
+            itemType === ItemType.Bookshelf) {
             cell.blocksSight = true;
         }
         if (itemType === ItemType.Table ||
             itemType === ItemType.Bush) {
             cell.hidesPlayer = true;
         }
-        if (itemType === ItemType.DrawersTall) {
+        if (itemType === ItemType.DrawersTall ||
+            itemType === ItemType.Bookshelf) {
             cell.blocksPlayerMove = true;
         }
     }

@@ -80,14 +80,14 @@ class Guard {
         }
     }
 
-    movingWithPlayerPosition(pos: vec2): boolean {
+    allowsMoveOntoFrom(posFrom: vec2): boolean {
         switch (this.mode) {
         case GuardMode.Patrol:
             const posPatrolCur = this.patrolPath[this.patrolPathIndex];
             if (posPatrolCur.equals(this.pos)) {
                 const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
                 const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(pos));
+                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(posFrom));
             }
             return true;
 
@@ -150,7 +150,7 @@ class Guard {
 
         if (this.mode !== GuardMode.Unconscious &&
             !isRelaxedGuardMode(this.mode) &&
-            this.seesActor(map, player)) {
+            this.seesActor(map, player, 1)) {
             this.mode = GuardMode.ChaseVisibleTarget;
         }
 
@@ -406,12 +406,12 @@ class Guard {
         return Math.abs(dx) < 2 && Math.abs(dy) < 2;
     }
 
-    seesActor(map: GameMap, person: Player|Guard): boolean {
+    seesActor(map: GameMap, person: Player|Guard, offset: number = 0): boolean {
         const d = vec2.create();
         vec2.subtract(d, person.pos, this.pos);
 
         // Check view frustum except when in GuardMode.ChaseVisibleTarget
-        if (this.mode !== GuardMode.ChaseVisibleTarget && vec2.dot(this.dir, d) < 0) {
+        if (this.mode !== GuardMode.ChaseVisibleTarget && vec2.dot(this.dir, d) < offset) {
             return false;
         }
 

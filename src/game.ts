@@ -503,7 +503,7 @@ function canLeapToPos(state: State, pos: vec2): boolean {
 
     // Cannot leap onto a stationary guard
 
-    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos) && !guard.movingWithPlayerPosition(state.player.pos))) {
+    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos) && !guard.allowsMoveOntoFrom(state.player.pos))) {
         return false;
     }
 
@@ -833,7 +833,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         }
 
         // If the guard is stationary, pass time in place
-        if (!guard.movingWithPlayerPosition(player.pos)) {
+        if (!guard.allowsMoveOntoFrom(player.pos)) {
             if(needGuardLootCollect) collectGuardLoot(state, player, guard, posOld);
             preTurn(state);
             advanceTime(state);
