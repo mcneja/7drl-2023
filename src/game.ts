@@ -821,9 +821,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         bumpFail(state, dx, dy);
         return;
     } else {
-        if (!isRelaxedGuardMode(guard.mode)) {
-            player.pickTarget = null;
-        } else if (guard.hasPurse || guard.hasVaultKey) {
+        if (guard.hasPurse || guard.hasVaultKey) {
             // If we have already targeted this guard, pick their pocket; otherwise target them
             if (player.pickTarget === guard) {
                 needGuardLootCollect = true;
