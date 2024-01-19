@@ -937,7 +937,7 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
 }
 
 function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
-    let adjDoor: Adjacency | null = null;
+    const bottomAdjs = [];
 
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
@@ -945,21 +945,21 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
                 continue;
             }
 
-            if (adj.roomLeft.roomType === RoomType.Exterior &&
-                adj.roomRight.roomType !== RoomType.Exterior &&
-                adj.dir[0] < 0 &&
-                (adjDoor === null || adj.origin[1] < adjDoor.origin[1] || (adj.origin[1] === adjDoor.origin[1] && adj.origin[0] > adjDoor.origin[0]))) {
-                adjDoor = adj;
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior &&
-                adj.roomRight.roomType === RoomType.Exterior &&
-                adj.dir[0] > 0 &&
-                (adjDoor === null || adj.origin[1] < adjDoor.origin[1] || (adj.origin[1] === adjDoor.origin[1] && adj.origin[0] > adjDoor.origin[0]))) {
-                adjDoor = adj;
+            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
+                bottomAdjs.push(adj);
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] > 0) {
+                bottomAdjs.push(adj);
             }
         }
     }
 
-    return adjDoor;
+    bottomAdjs.sort((adj0, adj1) => (adj0.origin[0] + Math.min(0, adj0.dir[0]) * adj0.length) - (adj1.origin[0] + Math.min(0, adj1.dir[0]) * adj1.length));
+
+    if (bottomAdjs.length <= 0) {
+        return null;
+    }
+
+    return bottomAdjs[Math.floor(bottomAdjs.length / 2)];
 }
 
 function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
@@ -1311,6 +1311,8 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 
     vec2.copy(room0.posMin, posMin);
     vec2.copy(room0.posMax, posMax);
+
+    room0.depth = Math.min(room0.depth, room1.depth);
 
     // Remove adj from its twin
 
