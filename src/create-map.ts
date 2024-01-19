@@ -138,11 +138,15 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Connect rooms together.
 
-    const posStart = connectRooms(rooms, adjacencies, rng);
+    connectRooms(rooms, adjacencies, rng);
 
     // Join a pair of rooms together.
 
     makeDoubleRooms(rooms, adjacencies, rng);
+
+    // Compute room distances from entrance.
+
+    computeRoomDepths(rooms);
 
     // Assign types to the rooms.
 
@@ -162,7 +166,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Set player start position
 
-    vec2.copy(map.playerStartPos, posStart);
+    map.playerStartPos = playerStartPosition(adjacencies, map);
 
     // Additional decorations
 
@@ -427,7 +431,7 @@ function createRooms(
             rooms.push({
                 roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : RoomType.PublicCourtyard,
                 group: group_index,
-                depth: ry + 1,
+                depth: 0,
                 posMin: vec2.fromValues(offsetX.get(rx, ry) + 1, offsetY.get(rx, ry) + 1),
                 posMax: vec2.fromValues(offsetX.get(rx + 1, ry), offsetY.get(rx, ry + 1)),
                 edges: [],
@@ -772,7 +776,7 @@ function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>) {
     }
 }
 
-function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG): vec2 {
+function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
 
     // Collect sets of edges that are mirrors of each other
 
@@ -874,17 +878,10 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         }
     }
 
-    // Create the door to the surrounding exterior. It must be on the south side.
-
-    let posStart = vec2.fromValues(0, 0);
+    // Create a door to the surrounding exterior.
 
     const adjDoor = frontDoorAdjacency(edgeSets);
     if (adjDoor !== null) {
-        // Set the player's start position based on where the door is.
-
-        posStart[0] = adjDoor.origin[0] + adjDoor.dir[0] * Math.floor(adjDoor.length / 2);
-        posStart[1] = adjDoor.origin[1] - 1;
-
         adjDoor.door = true;
 
         // Break symmetry if the door is off center.
@@ -896,7 +893,22 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         }
     }
 
-    return posStart;
+    // Occasionally create a back door to the exterior.
+
+    if (rng.randomInRange(100) < rooms.length) {
+        const adjDoor = backDoorAdjacency(edgeSets);
+        if (adjDoor !== null) {
+            adjDoor.door = true;
+
+            // Break symmetry if the door is off center.
+
+            let adjDoorMirror = adjDoor.nextMatching;
+            if (adjDoorMirror !== null && adjDoorMirror !== adjDoor) {
+                adjDoor.nextMatching = null;
+                adjDoorMirror.nextMatching = null;
+            }
+        }
+    }
 }
 
 function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Set<Adjacency>> {
@@ -937,7 +949,7 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
 }
 
 function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
-    const bottomAdjs = [];
+    const adjs = [];
 
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
@@ -946,40 +958,62 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
             }
 
             if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
-                bottomAdjs.push(adj);
+                adjs.push(adj);
             } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] > 0) {
-                bottomAdjs.push(adj);
+                adjs.push(adj);
             }
         }
     }
 
-    bottomAdjs.sort((adj0, adj1) => (adj0.origin[0] + Math.min(0, adj0.dir[0]) * adj0.length) - (adj1.origin[0] + Math.min(0, adj1.dir[0]) * adj1.length));
+    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
 
-    if (bottomAdjs.length <= 0) {
+    if (adjs.length <= 0) {
         return null;
     }
 
-    return bottomAdjs[Math.floor(bottomAdjs.length / 2)];
+    return adjs[Math.floor(adjs.length / 2)];
 }
 
-function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
+function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
+    const adjs = [];
 
-    // Assign rooms depth based on distance from the bottom row of rooms.
+    for (const edgeSet of edgeSets) {
+        for (const adj of edgeSet) {
+            if (adj.dir[0] == 0) {
+                continue;
+            }
 
-    // Assumes seed rooms already have a value of one, and rooms that need depth computed have
-    // a depth greater than one.
+            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
+                adjs.push(adj);
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] < 0) {
+                adjs.push(adj);
+            }
+        }
+    }
+
+    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
+
+    if (adjs.length <= 0) {
+        return null;
+    }
+
+    return adjs[Math.floor(adjs.length / 2)];
+}
+
+function computeRoomDepths(rooms: Array<Room>) {
+    // Start from rooms with exterior doors
 
     let unvisited = rooms.length;
 
     const roomsToVisit: Array<Room> = [];
 
     for (const room of rooms) {
-        if (room.roomType == RoomType.Exterior) {
-            continue;
-        }
-        if (room.depth === 1) {
+        if (room.roomType === RoomType.Exterior) {
+            room.depth = 0;
+        } else if (hasExteriorDoor(room)) {
+            room.depth = 1;
             roomsToVisit.push(room);
-        } else if (room.depth > 1) {
+        } else {
             room.depth = unvisited;
         }
     }
@@ -1004,6 +1038,27 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
             }
         }
     }
+}
+
+function hasExteriorDoor(room: Room): boolean {
+    for (const adj of room.edges) {
+        if (!adj.door) {
+            continue;
+        }
+        if (adj.roomLeft === room) {
+            if (adj.roomRight.roomType === RoomType.Exterior) {
+                return true;
+            }
+        } else {
+            if (adj.roomLeft.roomType === RoomType.Exterior) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 
     // Assign master-suite room type to the inner rooms.
 
@@ -1852,6 +1907,53 @@ function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) 
         }
     }
     vec2.zero(pos);
+}
+
+function playerStartPosition(adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
+    // Find lowest door to exterior
+
+    let adjFrontDoor: Adjacency | undefined = undefined;
+    let yMin = 0;
+
+    for (const adj of adjacencies) {
+        if (!adj.door) {
+            continue;
+        }
+
+        if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior) {
+            continue;
+        }
+
+        const y = adj.origin[1] + Math.max(0, adj.dir[1]) * adj.length;
+
+        if (adjFrontDoor === undefined) {
+            adjFrontDoor = adj;
+            yMin = y;
+            continue;
+        }
+
+        if (y < yMin) {
+            adjFrontDoor = adj;
+            yMin = y;
+        }
+    }
+
+    if (adjFrontDoor === undefined) {
+        return vec2.fromValues(0, 0);
+    }
+
+    let roomFrom, roomTo;
+    if (adjFrontDoor.roomLeft.roomType === RoomType.Exterior) {
+        roomFrom = adjFrontDoor.roomRight;
+        roomTo = adjFrontDoor.roomLeft;
+    } else {
+        roomFrom = adjFrontDoor.roomLeft;
+        roomTo = adjFrontDoor.roomRight;
+    }
+
+    const pos = vec2.create();
+    posBesideDoor(pos, roomTo, roomFrom, gameMap);
+    return pos;
 }
 
 function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
