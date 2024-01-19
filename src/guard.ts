@@ -607,10 +607,10 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         alertNearbyGuards(map, shout);
     }
 
-    // Clear pickTarget if the guard is no longer relaxed and adjacent to the player
+    // Clear pickTarget if the guard sees the player or is no longer adjacent to the player
 
     if (player.pickTarget !== null &&
-        (!isRelaxedGuardMode(player.pickTarget.mode) || !player.pickTarget.cardinallyAdjacentTo(player.pos))) {
+        (player.pickTarget.mode === GuardMode.ChaseVisibleTarget || !player.pickTarget.cardinallyAdjacentTo(player.pos))) {
         player.pickTarget = null;
     }
 
