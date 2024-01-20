@@ -1131,15 +1131,6 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
                 continue;
             }
 
-            // Bug: should be able to convert courtyard rooms to treasure rooms, but the walls are getting
-            // plotted much earlier, between rooms that have been designated inside and outside. So we
-            // can't change an outside room (a courtyard) into an inside room (treasure) and get correct
-            // walls around it.
-
-            if (room.roomType === RoomType.PrivateCourtyard || room.roomType === RoomType.PublicCourtyard) {
-                continue;
-            }
-
             let numDoors = 0;
             for (const adj of room.edges) {
                 if (adj.door) {
@@ -1153,7 +1144,9 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
         }
 
         if (deadEndRooms.length > 0) {
-            deadEndRooms[rng.randomInRange(deadEndRooms.length)].roomType = RoomType.Vault;
+            rng.shuffleArray(deadEndRooms);
+            deadEndRooms.sort((a, b) => roomArea(a) - roomArea(b));
+            deadEndRooms[0].roomType = RoomType.Vault;
         }
     }
 
@@ -1210,6 +1203,10 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
     for (const room of chooseRooms(rooms, roomCanBePrivateLibrary, Math.ceil(rooms.length / 42), rng)) {
         room.roomType = RoomType.PrivateLibrary;
     }
+}
+
+function roomArea(room: Room): number {
+    return (room.posMax[0] - room.posMin[0]) * (room.posMax[1] - room.posMin[1]);
 }
 
 function chooseRooms(rooms: Array<Room>, acceptRoom: (room: Room) => boolean, maxRooms: number, rng: RNG): Array<Room> {
