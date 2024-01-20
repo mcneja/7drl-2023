@@ -14,6 +14,8 @@ export {
     guardMoveCostForItemType,
     isWindowTerrainType,
     isDoorItemType,
+    updateCellItemInfo,
+    updateCellInfo,
     maxPlayerHealth,
 };
 
@@ -166,6 +168,7 @@ type Cell = {
     blocksSight: boolean;
     blocksSound: boolean;
     hidesPlayer: boolean;
+    item: Item|null;
     lit: number;
     litAnim: number;
     litSrc: Set<number>; //Array<number>; //TODO: this should be a set pointing to the item/guard
@@ -224,6 +227,7 @@ class CellGrid {
             blocksSight: false,
             blocksSound: false,
             hidesPlayer: false,
+            item: null,
             lit: 0,
             litAnim:0,
             litSrc: new Set<number>(),
@@ -1022,5 +1026,55 @@ function priorityQueuePush<T extends PriorityQueueElement>(q: PriorityQueue<T>, 
         }
         [q[i], q[iParent]] = [q[iParent], q[i]];
         i = iParent;
+    }
+}
+
+function updateCellInfo(map: GameMap, x:number, y:number, updateItem:boolean=false) {
+    const cell = map.cells.at(x, y);
+    const cellType = cell.type;
+    const isWall = cellType >= TerrainType.Wall0000 && cellType <= TerrainType.Wall1111;
+    const isWindow = isWindowTerrainType(cellType);
+    const isWater = cellType == TerrainType.GroundWater;
+    cell.moveCost = (isWall || isWindow) ? Infinity : (isWater ? 64 : 0);
+    cell.blocksPlayerMove = isWall;
+    cell.blocksPlayerSight = isWall;
+    cell.blocksSight = isWall;
+    cell.blocksSound = isWall;
+    cell.hidesPlayer = false;
+
+    if(updateItem) {
+        const pos = vec2.fromValues(x,y);
+        map.items.forEach((item)=>{if(item.pos.equals(pos)) updateCellItemInfo(map, x, y, item);})
+    }
+}
+
+function updateCellItemInfo(map:GameMap, x:number, y:number, item:Item) {
+    const cell = map.cells.at(x, y);
+    let itemType = item.type;
+    cell.moveCost = Math.max(cell.moveCost, guardMoveCostForItemType(itemType));
+    if (itemType === ItemType.DoorNS ||
+        itemType === ItemType.DoorEW ||
+        itemType === ItemType.LockedDoorNS ||
+        itemType === ItemType.LockedDoorEW) {
+        cell.blocksPlayerSight = true;
+    }
+    if (itemType === ItemType.DoorNS ||
+        itemType === ItemType.DoorEW ||
+        itemType === ItemType.LockedDoorNS ||
+        itemType === ItemType.LockedDoorEW ||
+        itemType === ItemType.PortcullisNS ||
+        itemType === ItemType.PortcullisEW ||
+        itemType === ItemType.Bush ||
+        itemType === ItemType.DrawersTall ||
+        itemType === ItemType.Bookshelf) {
+        cell.blocksSight = true;
+    }
+    if (itemType === ItemType.Table ||
+        itemType === ItemType.Bush) {
+        cell.hidesPlayer = true;
+    }
+    if (itemType === ItemType.DrawersTall ||
+        itemType === ItemType.Bookshelf) {
+        cell.blocksPlayerMove = true;
     }
 }

@@ -304,13 +304,13 @@ export function setupLevel(state: State, level: number) {
     }
 
     state.activeSoundPool.empty();
-    state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    [state.gameMap, state.customUpdater] = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
-    state.finishedLevel = false;
+    state.finishedLevel = state.level==0;
     state.healCost += 1;
 
     state.turns = 0;
@@ -1191,10 +1191,12 @@ function advanceTime(state: State) {
             state.topStatusMessageSticky = true;
         }
     }
+
+    if(state.customUpdater) state.customUpdater(state);
 }
 
 function postTurn(state: State) {
-    if (state.gameMap.allSeen()) {
+    if (state.gameMap.allSeen() && !state.finishedLevel) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
         }
@@ -1209,10 +1211,14 @@ function postTurn(state: State) {
         state.topStatusMessage = subtitle;
         state.topStatusMessageSticky = true;
     } else if (state.finishedLevel) {
-        if(state.lootAvailable>state.lootStolen) {
-            state.topStatusMessage = 'Mansion fully mapped! You may exit any side but loot remains.'
+        if(state.level===0) {
+            state.topStatusMessage = 'Get out of the hideout then exit any side to escape.'
         } else {
-            state.topStatusMessage = 'Mansion fully mapped and looted! Exit any side.'
+            if(state.lootAvailable>state.lootStolen) {
+                state.topStatusMessage = 'Mansion fully mapped! You may exit any side but loot remains.'
+            } else {
+                state.topStatusMessage = 'Mansion fully mapped and looted! Exit any side.'
+            }    
         }
         state.topStatusMessageSticky = true;
     }
@@ -1667,9 +1673,9 @@ export function loadStats(): Statistics {
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const rng = new RNG();  
-    const initialLevel = 0;
+    const initialLevel = 5;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
-    const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
+    const [gameMap, customUpdater] = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
     const touchMode = window.localStorage.getItem('LLL/touchMode')?? 'Gamepad';
     const touchAsGamepad = touchMode==='Gamepad';
@@ -1731,6 +1737,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         maxTimeBonus: 5,   
         gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
+        customUpdater: customUpdater,
         sounds: sounds,
         subtitledSounds: subtitledSounds,
         activeSoundPool: activeSoundPool,
@@ -1807,14 +1814,14 @@ export function restartGame(state: State) {
         win: false,
         daily: state.dailyRun,
     };
-    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    const [gameMap, customUpdater] = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
-    state.finishedLevel = false;
+    state.finishedLevel = state.level==0;
     state.healCost = 1;
     state.turns = 0;
     state.totalTurns = 0;
@@ -1827,12 +1834,13 @@ export function restartGame(state: State) {
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
+    state.customUpdater = customUpdater;
     state.activeSoundPool.empty();
     state.popups.clear();
 }
 
 function resetState(state: State) {
-    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    const [gameMap, customUpdater] = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -1847,10 +1855,11 @@ function resetState(state: State) {
 
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
-    state.finishedLevel = false;
+    state.finishedLevel = state.level==0;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
+    state.customUpdater = customUpdater;
     state.popups.clear();
     state.activeSoundPool.empty();
 }

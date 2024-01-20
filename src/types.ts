@@ -111,6 +111,7 @@ type State = {
     maxTimeBonus: number;
     gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
+    customUpdater: undefined|((state:State)=>void);
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
     activeSoundPool: ActiveHowlPool;

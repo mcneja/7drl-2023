@@ -43,6 +43,9 @@ class vec2 extends Array<number> {
     multiply(b: vec2):vec2 {
         return vec2.fromValues(this[0] * b[0], this[1] * b[1])
     }
+    abs():vec2 {
+        return vec2.fromValues(Math.abs(this[0]), Math.abs(this[1]));
+    }
     scale(scale: number):vec2 {
         return vec2.fromValues(this[0] * scale, this[1] * scale)
     }
@@ -58,6 +61,9 @@ class vec2 extends Array<number> {
         const x = this[0] - b[0];
         const y = this[1] - b[1];
         return x * x + y * y;
+    }
+    sum(): number {
+        return this[0]+this[1];
     }
     len(): number {
         return Math.hypot(this[0], this[1]);
