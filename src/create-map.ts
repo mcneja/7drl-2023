@@ -3322,15 +3322,19 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                     onboardingStateKO++;
                 } else if(onboardingStateKO==2) {
                     state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'You can even leap over guards if the other side is clear.'
+                    state.topStatusMessage = 'Leaping moves you quickly and helps you avoid guards.'
                     onboardingStateKO++;
                 } else if(onboardingStateKO==3) {
                     state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'Leaping moves you quickly and helps you avoid guards.'
+                    state.topStatusMessage = 'You can even leap over guards if the other side is clear.'
                     onboardingStateKO++;
                 } else if(onboardingStateKO==4) {
                     state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'You can also leap out of windows (but not in) and the entry gate.'
+                    state.topStatusMessage = 'You can also leap over obstacles...'
+                    onboardingStateKO++;
+                } else if(onboardingStateKO==5) {
+                    state.topStatusMessageSticky = true;
+                    state.topStatusMessage = '... including the leaping over the entry gate and out of (but not into) windows.'
                     onboardingStateKO++;
                 }
             } else if(arrestGuardEndPatrol && arrestGuard.pos.equals(arrestGuardEndPatrol)) {
