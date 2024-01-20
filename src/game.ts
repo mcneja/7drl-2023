@@ -754,6 +754,38 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         return;
     }
 
+    // Trying to move onto a guard?
+
+    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
+    let needGuardLootCollect = false;
+    if (guard === undefined) {
+        player.pickTarget = null;
+    } else if (guard.mode === GuardMode.Unconscious) {
+        player.pickTarget = null;
+        pushOrSwapGuard(state, guard);
+    } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
+        bumpFail(state, dx, dy);
+        return;
+    } else {
+        if (guard.hasPurse || guard.hasVaultKey) {
+            // If we have already targeted this guard, pick their pocket; otherwise target them
+            if (player.pickTarget === guard) {
+                needGuardLootCollect = true;
+            } else {
+                player.pickTarget = guard;
+            }
+        }
+
+        // If the guard is stationary, pass time in place
+        if (!guard.allowsMoveOntoFrom(player.pos)) {
+            if(needGuardLootCollect) collectGuardLoot(state, player, guard, posOld);
+            preTurn(state);
+            advanceTime(state);
+            return;
+        }
+        if(needGuardLootCollect) collectGuardLoot(state, player, guard, posNew);
+    }
+
     // Trying to move into an item that blocks movement?
 
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(posNew))) {
@@ -806,38 +838,6 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
             }
             break;
         }
-    }
-
-    // Trying to move onto a guard?
-
-    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
-    let needGuardLootCollect = false;
-    if (guard === undefined) {
-        player.pickTarget = null;
-    } else if (guard.mode === GuardMode.Unconscious) {
-        player.pickTarget = null;
-        pushOrSwapGuard(state, guard);
-    } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
-        bumpFail(state, dx, dy);
-        return;
-    } else {
-        if (guard.hasPurse || guard.hasVaultKey) {
-            // If we have already targeted this guard, pick their pocket; otherwise target them
-            if (player.pickTarget === guard) {
-                needGuardLootCollect = true;
-            } else {
-                player.pickTarget = guard;
-            }
-        }
-
-        // If the guard is stationary, pass time in place
-        if (!guard.allowsMoveOntoFrom(player.pos)) {
-            if(needGuardLootCollect) collectGuardLoot(state, player, guard, posOld);
-            preTurn(state);
-            advanceTime(state);
-            return;
-        }
-        if(needGuardLootCollect) collectGuardLoot(state, player, guard, posNew);
     }
 
     // Execute the move

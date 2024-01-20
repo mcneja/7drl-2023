@@ -3314,20 +3314,24 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
             if(arrestGuard.mode===GuardMode.Unconscious) {
                 if(onboardingStateKO==0) {
                     state.topStatusMessageSticky = true;
-                    onboardingStateKO = 1;
+                    onboardingStateKO++;
                     state.topStatusMessage = 'You knocked the guard out. Push him out of the way and escape.';
                 } else if(onboardingStateKO==1) {
                     state.topStatusMessageSticky = true;
                     state.topStatusMessage = 'Now leap around to escape the remaing guard.'
-                    onboardingStateKO = 2;
+                    onboardingStateKO++;
                 } else if(onboardingStateKO==2) {
                     state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'Leaping moves you quickly and helps you avoid guards.'
-                    onboardingStateKO = 3;
+                    state.topStatusMessage = 'You can even leap over guards if the other side is clear.'
+                    onboardingStateKO++;
                 } else if(onboardingStateKO==3) {
                     state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'You can also leap through one way windows and the entry gate.'
-                    onboardingStateKO = 4;
+                    state.topStatusMessage = 'Leaping moves you quickly and helps you avoid guards.'
+                    onboardingStateKO++;
+                } else if(onboardingStateKO==4) {
+                    state.topStatusMessageSticky = true;
+                    state.topStatusMessage = 'You can also leap out of windows (but not in) and the entry gate.'
+                    onboardingStateKO++;
                 }
             } else if(arrestGuardEndPatrol && arrestGuard.pos.equals(arrestGuardEndPatrol)) {
                 state.topStatusMessage = 'The guard has stopped. To get past, KO him by leaping into him.';
@@ -3336,12 +3340,25 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                 if(arrestGuardEndPatrol) arrestGuard.patrolPath = [arrestGuardEndPatrol];
                 if(chaseGuardEndPatrol) chaseGuard.patrolPath = [chaseGuardEndPatrol];
                 if(onboardingStateThief==0) {
-                    state.topStatusMessage = 'Pew: "Better get back to our posts" [Press rest]';
+                    state.topStatusMessage = 'Pew: "Better get back to our posts."';
                     state.topStatusMessageSticky = false;
                     onboardingState++;
                 } else if(onboardingStateThief==1) {
-                    state.topStatusMessage = 'Now wait until the guard leaves the doorway.';
+                    state.topStatusMessage = 'You got the key! You better get out of here.';
                     state.topStatusMessageSticky = true;
+                    onboardingState++;
+                } else if(onboardingStateThief==2) {
+                    state.topStatusMessage = 'The only way out is to follow the guards.';
+                    state.topStatusMessageSticky = true;
+                    onboardingState++;
+                } else if(onboardingStateThief==3) {
+                    state.topStatusMessage = 'Use the key to get through the locked doors.';
+                    state.topStatusMessageSticky = true;
+                    onboardingState++;
+                } else if(onboardingStateThief==4) {
+                    state.topStatusMessage = 'Stay behind the guards and they will not notice you.';
+                    state.topStatusMessageSticky = true;
+                    onboardingState++;
                 }
             } else {
                 const latchedOn = state.player.pickTarget===chaseGuard;
@@ -3352,19 +3369,19 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                     } else if(onboardingState==1) {
                         state.topStatusMessage = 'Pew: "Some scum I caught spying on us outside" [Press rest]';
                         onboardingState++;
-                    } else if(onboardingState==1) {
+                    } else if(onboardingState==2) {
                         state.topStatusMessage = 'Pew: "Got him good. Should be out for a while." [Press rest]';
                         onboardingState++;
-                    } else if(onboardingState==2) {
+                    } else if(onboardingState==3) {
                         state.topStatusMessage = 'Other guard: "Waiting for Leyton?" [Press rest]';
                         onboardingState++;
-                    } else if(onboardingState==3) {
+                    } else if(onboardingState==4) {
                         state.topStatusMessage = 'Pew: "Yeah, he should be back soon" [Press rest]';
                         onboardingState++;
-                    } else if(onboardingState==4) {
+                    } else if(onboardingState==5) {
                         state.topStatusMessage = 'Other guard: "Leyton will string this scum high" [Press rest]';
                         onboardingState++;
-                    } else if(onboardingState==5) {
+                    } else if(onboardingState==6) {
                         state.topStatusMessage = 'Pew: "Yeah, more than likely, hehe..." [Press rest]';
                         onboardingState++;
                     } else {
