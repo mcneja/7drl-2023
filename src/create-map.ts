@@ -41,6 +41,7 @@ type Room = {
     roomType: RoomType,
     group: number,
     depth: number,
+    betweenness: number,
     posMin: vec2,
     posMax: vec2,
     edges: Array<Adjacency>,
@@ -146,6 +147,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Compute room distances from entrance.
 
+    computeRoomBetweenness(rooms);
     computeRoomDepths(rooms);
 
     // Assign types to the rooms.
@@ -417,6 +419,7 @@ function createRooms(
         roomType: RoomType.Exterior,
         group: 0,
         depth: 0,
+        betweenness: 0,
         posMin: vec2.fromValues(0, 0), // not meaningful for this room
         posMax: vec2.fromValues(0, 0), // not meaningful for this room
         edges: [],
@@ -432,6 +435,7 @@ function createRooms(
                 roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : RoomType.PublicCourtyard,
                 group: group_index,
                 depth: 0,
+                betweenness: 0,
                 posMin: vec2.fromValues(offsetX.get(rx, ry) + 1, offsetY.get(rx, ry) + 1),
                 posMax: vec2.fromValues(offsetX.get(rx + 1, ry), offsetY.get(rx, ry + 1)),
                 edges: [],
@@ -1035,6 +1039,100 @@ function computeRoomDepths(rooms: Array<Room>) {
             if (roomNeighbor.depth > depthNext) {
                 roomNeighbor.depth = depthNext;
                 roomsToVisit.push(roomNeighbor);
+            }
+        }
+    }
+}
+
+function computeRoomBetweenness(rooms: Array<Room>) {
+    // Start from rooms with exterior doors
+
+//    const sourceRooms = [];
+    for (const room of rooms) {
+        room.betweenness = 0;
+//        if (room.roomType === RoomType.Exterior) {
+//            sourceRooms.push(room);
+//        }
+    }
+
+    for (const roomSource of rooms) {
+        const roomNumPaths: Map<Room, number> = new Map();
+        const roomDependency: Map<Room, number> = new Map();
+        const roomDepth: Map<Room, number> = new Map();
+
+        for (const room of rooms) {
+            roomDepth.set(room, Infinity);
+            roomDependency.set(room, 0);
+            roomNumPaths.set(room, 0);
+        }
+
+        roomDepth.set(roomSource, 0);
+        roomNumPaths.set(roomSource, 1);
+
+        const roomsToVisit = [];
+        roomsToVisit.push(roomSource);
+        const roomStack = [];
+
+        while (true) {
+            const room = roomsToVisit.shift();
+            if (room === undefined) {
+                break;
+            }
+
+            roomStack.push(room);
+
+            const depthNext = (roomDepth.get(room) ?? 0) + 1;
+
+            for (const adj of room.edges) {
+                if (!adj.door) {
+                    continue;
+                }
+
+                const roomNext: Room = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
+                if (roomNext.roomType === RoomType.Exterior) {
+                    continue;
+                }
+
+                if (roomNext.depth === Infinity) {
+                    roomNext.depth = depthNext;
+                    roomsToVisit.push(roomNext);
+                }
+                if (roomNext.depth === depthNext) {
+                    roomNumPaths.set(roomNext, (roomNumPaths.get(roomNext) ?? 0) + (roomNumPaths.get(room) ?? 0));
+                }
+            }
+        }
+
+        const weight = (roomSource.roomType === RoomType.Exterior) ? 10 : 1;
+
+        while (true) {
+            const room = roomStack.pop();
+            if (room === undefined) {
+                break;
+            }
+
+            const depthRoomPrev = (roomDepth.get(room) ?? 0) - 1;
+            const numPathsRoom = roomNumPaths.get(room) ?? 1;
+            const depRoom = roomDependency.get(room) ?? 0;
+
+            for (const adj of room.edges) {
+                if (!adj.door) {
+                    continue;
+                }
+
+                const roomPrev: Room = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
+                if (roomDepth.get(roomPrev) !== depthRoomPrev) {
+                    continue;
+                }
+
+                const numPathsRoomPrev = roomNumPaths.get(roomPrev) ?? 0;
+                const depRoomPrev = (numPathsRoomPrev / numPathsRoom) * (1 + depRoom);
+
+                roomDependency.set(roomPrev, depRoomPrev);
+
+                if (room !== roomSource) {
+                    room.betweenness += depRoom * weight;
+                }
             }
         }
     }
