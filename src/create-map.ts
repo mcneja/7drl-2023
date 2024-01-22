@@ -3371,12 +3371,18 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
             } else if(chaseGuard.angry || holdingGuard.angry) {
                 state.topStatusMessage = '"We\'re going to get you, Scum!"';
                 if(holdingGuardEndPatrol) {
-                    const path = pathBetweenPoints(map, holdingGuardEndPatrol, exitGate);
-                    if(path.length>0) holdingGuard.patrolPath = path;
+                    const path = pathBetweenPoints(map, exitGate, holdingGuardEndPatrol);
+                    if(path.length>0) {
+                        holdingGuard.patrolPath = path;
+                        holdingGuard.patrolPathIndex = 0;
+                    }
                 }
                 if(chaseGuardEndPatrol) {
                     const path = pathBetweenPoints(map, state.player.pos, exitGate);
-                    if(path.length>0) chaseGuard.patrolPath = path;
+                    if(path.length>0) {
+                        chaseGuard.patrolPath = path;
+                        chaseGuard.patrolPathIndex = 0;
+                    }
                 }
             } else if(state.player.hasVaultKey) {
                 if(holdingGuardEndPatrol) holdingGuard.patrolPath = [holdingGuardEndPatrol];
