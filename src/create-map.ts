@@ -3208,7 +3208,7 @@ function clearRoom(room:Room, map:GameMap, type:TerrainType|null=TerrainType.Gro
         if(type===TerrainType.GardenDoorEW || type===TerrainType.GardenDoorNS) {
             type = TerrainType.GroundGrass;
         }
-        if(type===TerrainType.GroundWater) {
+        if(type===TerrainType.GroundWater || type >= TerrainType.Wall0000 && type <= TerrainType.Wall1111) {
             type = TerrainType.GroundWood;
         }
     }
@@ -3370,8 +3370,14 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                 state.topStatusMessage = 'The guard has stopped. To get past, KO him by leaping into him.';
             } else if(chaseGuard.angry || holdingGuard.angry) {
                 state.topStatusMessage = '"We\'re going to get you, Scum!"';
-                if(holdingGuardEndPatrol) holdingGuard.patrolPath = pathBetweenPoints(map, holdingGuardEndPatrol, exitGate);
-                if(chaseGuardEndPatrol) chaseGuard.patrolPath = pathBetweenPoints(map, state.player.pos, exitGate);
+                if(holdingGuardEndPatrol) {
+                    const path = pathBetweenPoints(map, holdingGuardEndPatrol, exitGate);
+                    if(path.length>0) holdingGuard.patrolPath = path;
+                }
+                if(chaseGuardEndPatrol) {
+                    const path = pathBetweenPoints(map, state.player.pos, exitGate);
+                    if(path.length>0) chaseGuard.patrolPath = path;
+                }
             } else if(state.player.hasVaultKey) {
                 if(holdingGuardEndPatrol) holdingGuard.patrolPath = [holdingGuardEndPatrol];
                 if(chaseGuardEndPatrol) chaseGuard.patrolPath = [chaseGuardEndPatrol];
