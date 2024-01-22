@@ -59,6 +59,10 @@ function main(images: Array<HTMLImageElement>) {
     const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
     const touchController = new TouchController(canvas, true);
     const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
+    state.gameMap.markAllSeen();
+    state.lightStates = new Array(state.gameMap.lightCount).fill(0);
+    setLights(state.gameMap, state);
+    setCellAnimations(state.gameMap, state);
 
     function onTouchDown(e: TouchEvent) {
         if (Object.keys(state.sounds).length==0) {
