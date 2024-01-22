@@ -3366,8 +3366,6 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                     state.topStatusMessage = 'You can also leap over obstacles like windows and gates.'
                     onboardingStateKO++;
                 }
-            } else if(holdingGuardEndPatrol && holdingGuard.pos.equals(holdingGuardEndPatrol)) {
-                state.topStatusMessage = 'The guard has stopped. To get past, KO him by leaping into him.';
             } else if(chaseGuard.angry || holdingGuard.angry) {
                 state.topStatusMessage = '"We\'re going to get you, Scum!"';
                 if(holdingGuardEndPatrol) {
@@ -3384,6 +3382,8 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                         if(chaseGuard.patrolPathIndex>=path.length) chaseGuard.patrolPathIndex = 0;
                     }
                 }
+            } else if(holdingGuardEndPatrol && holdingGuard.pos.equals(holdingGuardEndPatrol)) {
+                state.topStatusMessage = 'The guard has stopped. To get past, KO him by leaping into him.';
             } else if(state.player.hasVaultKey) {
                 if(holdingGuardEndPatrol) holdingGuard.patrolPath = [holdingGuardEndPatrol];
                 if(chaseGuardEndPatrol) chaseGuard.patrolPath = [chaseGuardEndPatrol];
