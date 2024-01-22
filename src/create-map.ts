@@ -142,8 +142,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): [GameMap, undefin
     connectRooms(rooms, adjacencies, rng);
 
     // Join a pair of rooms together.
-
-    makeDoubleRooms(rooms, adjacencies, rng);
+    if(level>0) makeDoubleRooms(rooms, adjacencies, rng);
 
     // Compute room distances from entrance.
 
@@ -3154,37 +3153,44 @@ function closeInRoom(room:Room, entry:vec2|null, path:vec2[], map:GameMap) {
     let exit:vec2|null = null;
     for(const e of room.edges) {
         for(const pos of iterEdgePositions(e)) {
+            //Ignore the entry door
+            if(entry && pos.equals(entry)) continue;
+            if(path.find((p:vec2)=>(pos.distance(p)==0))) {
+                exitRoom = e.roomLeft!==room? e.roomLeft: e.roomRight;
+                exit = pos;
+                for(let ePos of iterEdgePositions(e)) {
+                    if(map.cells.atVec(ePos).type===TerrainType.GroundGrass) {
+                        map.cells.atVec(ePos).type = TerrainType.Wall0000;
+                    }
+                    map.items = map.items.filter((item)=>(!item.pos.equals(pos)));
+                    updateCellInfo(map, pos[0], pos[1], true);
+                }
+                //TODO: make sure this room is walled in on this edge
+                continue;
+            }
             const t = map.cells.atVec(pos);
             switch(t.type) {
                 case TerrainType.DoorEW:
                 case TerrainType.DoorNS:
-                    //Ignore the entry door
-                    if(entry && pos.equals(entry)) continue;
-                    //Mark the door on the main path
-                    if(path.find((p:vec2)=>(pos.distance(p)==0))) {
-                        exitRoom = e.roomLeft!==room? e.roomLeft: e.roomRight;
-                        exit = pos;
-                    } else { 
-                        //Seal the doors that are not on the main path
-                        if(t.type==TerrainType.DoorEW) {
-                            setRectTerrainType(map, pos[0], pos[1], pos[0]+1, pos[1]+1, TerrainType.Wall0011);
-                        } else {
-                            setRectTerrainType(map, pos[0], pos[1], pos[0]+1, pos[1]+1, TerrainType.Wall1100);
-                        }
-                        map.items = map.items.filter((item)=>(!item.pos.equals(pos)));
+                    //Seal the doors that are not on the main path
+                    if(t.type==TerrainType.DoorEW) {
+                        setRectTerrainType(map, pos[0], pos[1], pos[0]+1, pos[1]+1, TerrainType.Wall0011);
+                    } else {
+                        setRectTerrainType(map, pos[0], pos[1], pos[0]+1, pos[1]+1, TerrainType.Wall1100);
                     }
+                    map.items = map.items.filter((item)=>(!item.pos.equals(pos)));
                     updateCellInfo(map, pos[0], pos[1], true);
                     break;
                 case TerrainType.OneWayWindowE:
                 case TerrainType.OneWayWindowW:
-                case TerrainType.PortcullisEW:
+                case TerrainType.PortcullisNS:
                     setRectTerrainType(map, pos[0], pos[1], pos[0]+1, pos[1]+1, TerrainType.Wall1100);
                     map.items = map.items.filter((item)=>(!item.pos.equals(pos)));
                     updateCellInfo(map, pos[0], pos[1]);
                     break;
                 case TerrainType.OneWayWindowS:
                 case TerrainType.OneWayWindowN:
-                case TerrainType.PortcullisNS:
+                case TerrainType.PortcullisEW:
                     setRectTerrainType(map, pos[0], pos[1], pos[0]+1, pos[1]+1, TerrainType.Wall0011);
                     map.items = map.items.filter((item)=>(!item.pos.equals(pos)));
                     updateCellInfo(map, pos[0], pos[1]);
@@ -3195,12 +3201,17 @@ function closeInRoom(room:Room, entry:vec2|null, path:vec2[], map:GameMap) {
     return {exit, exitRoom}
 }
 
-function clearRoom(room:Room, map:GameMap) {
-    const type = map.cells.at(room.posMin[0]+1, room.posMin[1]+1).type; 
+function clearRoom(room:Room, map:GameMap, type:TerrainType|null=TerrainType.GroundWood) {
 //    setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], TerrainType.GroundWood);
+    if(type===null) {
+        type = map.cells.at(room.posMin[0]+1, room.posMin[1]+1).type;
+        if(type===TerrainType.GardenDoorEW || type===TerrainType.GardenDoorNS) {
+            type = TerrainType.GroundGrass;
+        }
+    }
     for(let x=room.posMin[0];x<room.posMax[0];x++) {
         for(let y=room.posMin[1];y<room.posMax[1];y++) {
-            map.cells.at(x,y).type = TerrainType.GroundWood;
+            map.cells.at(x,y).type = type;
             updateCellInfo(map, x, y, false);
         }
     }
@@ -3237,68 +3248,64 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
             }
         }
         //clear out the furthest room
-        clearRoom(furthestRoom, map);
+        clearRoom(furthestRoom, map, TerrainType.GroundNormal);
         //Find a central part of the room to start the player in
-        let roomCenter = furthestRoom.posMin.add(furthestRoom.posMax).scale(0.5);
-        roomCenter = vec2.fromValues(Math.floor(roomCenter[0]), Math.floor(roomCenter[1]));
+        let playerStartPos = vec2.fromValues(furthestRoom.posMin[0], furthestRoom.posMax[1]-1);
         //Find the path to the exit
-        const path = pathBetweenPoints(map, map.playerStartPos, roomCenter);
+        let exitGate = map.playerStartPos;
+        const path = pathBetweenPoints(map, exitGate, playerStartPos);
         //Setup the starting room by closing exits and locking doors
-        map.playerStartPos = roomCenter;
+        map.playerStartPos = playerStartPos;
 
-        //The furthest room is the arrest room
-        const arrestRoomPathing = closeInRoom(furthestRoom, null, path, map);
-        if(arrestRoomPathing.exit===null) return;
-        if(arrestRoomPathing.exitRoom===null) return;
-        const arrestGuard = new Guard([arrestRoomPathing.exit], 0);
-        arrestGuard.hasVaultKey = true;
-        const arrestExit = arrestRoomPathing.exit;
-        if(map.cells.at(arrestExit[0], arrestExit[1]).type==TerrainType.DoorEW) {
-            const facing = roomCenter.subtract(arrestRoomPathing.exit)[1]>0?-1:1;
-            arrestGuard.dir = vec2.fromValues(0, facing);
+        //The furthest room is the holding room
+        const holdingRoomPathing = closeInRoom(furthestRoom, null, path, map);
+        if(holdingRoomPathing.exit===null) return;
+        if(holdingRoomPathing.exitRoom===null) return;
+        const holdingGuard = new Guard([holdingRoomPathing.exit], 0);
+        holdingGuard.hasVaultKey = true;
+        const holdingExit = holdingRoomPathing.exit;
+        if(map.cells.at(holdingExit[0], holdingExit[1]).type==TerrainType.DoorEW) {
+            const facing = playerStartPos.subtract(holdingRoomPathing.exit)[1]>0?-1:1;
+            holdingGuard.dir = vec2.fromValues(0, facing);
         } else {
-            const facing = roomCenter.subtract(arrestRoomPathing.exit)[0]>0?-1:1;
-            arrestGuard.dir = vec2.fromValues(facing, 0);
+            const facing = playerStartPos.subtract(holdingRoomPathing.exit)[0]>0?-1:1;
+            holdingGuard.dir = vec2.fromValues(facing, 0);
         }
-        map.guards.push(arrestGuard);
-        const patrolPathStart = path.findIndex((pos)=>pos.equals(arrestGuard.pos));
-        map.items.forEach((item)=> {
-            if(item.pos.equals(arrestRoomPathing.exit!)) {
-                if(item.type===ItemType.DoorEW) {
-                    item.type = ItemType.LockedDoorEW
-                } else {
-                    item.type = ItemType.LockedDoorNS
-                }
-                updateCellItemInfo(map, item.pos[0], item.pos[1], item)
-            }
-        });
+        map.guards.push(holdingGuard);
+        const patrolPathStart = path.findIndex((pos)=>pos.equals(holdingGuard.pos));
+        let exit = holdingRoomPathing.exit??vec2.create();
+        map.items.filter((item)=>!item.pos.equals(exit));
+        if(map.cells.atVec(exit).type===TerrainType.DoorEW) {
+            placeItem(map, exit, ItemType.LockedDoorEW);
+        } else {
+            placeItem(map, exit, ItemType.LockedDoorNS);
+        }
+        updateCellInfo(map, exit[0], exit[1], true);
 
-        const guardRoom = arrestRoomPathing.exitRoom;
-        clearRoom(guardRoom, map);
-        const guardRoomPathing = closeInRoom(guardRoom, arrestRoomPathing.exit, path, map) 
+        const guardRoom = holdingRoomPathing.exitRoom;
+        clearRoom(guardRoom, map, null);
+        const guardRoomPathing = closeInRoom(guardRoom, holdingRoomPathing.exit, path, map) 
         if(guardRoomPathing.exit===null) return;
         if(guardRoomPathing.exitRoom===null) return;
-        map.items.forEach((item)=> {
-            if(item.pos.equals(guardRoomPathing.exit!)) {
-                if(item.type===ItemType.DoorEW) {
-                    item.type = ItemType.LockedDoorEW
-                } else {
-                    item.type = ItemType.LockedDoorNS
-                }
-                updateCellItemInfo(map, item.pos[0], item.pos[1], item)
-            }
-        });
-        const arrestGuardEndPatrol = path.find((pos)=>pos.equals(guardRoomPathing.exit!));
+        exit = guardRoomPathing.exit??vec2.create();
+        map.items.filter((item)=>!item.pos.equals(exit));
+        if(map.cells.atVec(exit).type===TerrainType.DoorEW) {
+            placeItem(map, exit, ItemType.LockedDoorEW);
+        } else {
+            placeItem(map, exit, ItemType.LockedDoorNS);
+        }
+        updateCellInfo(map, exit[0], exit[1], true);
+        const holdingGuardEndPatrol = path.find((pos)=>pos.equals(guardRoomPathing.exit!));
         const chaseGuardEndPatrol = path[path.findIndex((pos)=>pos.equals(guardRoomPathing.exit!))-3];
-
+        
         const escapeRoom = guardRoomPathing.exitRoom
-        const chasePos = path[path.findIndex((pos)=>pos.equals(arrestGuard.pos))-1];
+        const chasePos = path[path.findIndex((pos)=>pos.equals(holdingGuard.pos))-1];
         if(!chasePos) return;
         const chaseGuard = new Guard([chasePos], 0);
-        chaseGuard.dir = arrestGuard.pos.subtract(chaseGuard.pos);
+        chaseGuard.dir = holdingGuard.pos.subtract(chaseGuard.pos);
         chaseGuard.hasTorch = true;
         map.guards.push(chaseGuard);
-        clearRoom(escapeRoom, map);
+        clearRoom(escapeRoom, map, null);
 
         //State tracking for the onboarding instructions
         var onboardingState = 0;
@@ -3311,57 +3318,65 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                 chaseGuard.dir = chaseGuard.dir.scale(-1);
                 turnedChaser = true;
             } 
-            if(arrestGuard.mode===GuardMode.Unconscious) {
-                if(onboardingStateKO==0) {
-                    state.topStatusMessageSticky = true;
-                    onboardingStateKO++;
-                    state.topStatusMessage = 'You knocked the guard out. Push him out of the way and escape.';
-                } else if(onboardingStateKO==1) {
-                    state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'Now leap around to escape the remaing guard.'
-                    onboardingStateKO++;
-                } else if(onboardingStateKO==2) {
-                    state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'Leaping moves you quickly and helps you avoid guards.'
-                    onboardingStateKO++;
-                } else if(onboardingStateKO==3) {
-                    state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'You can even leap over guards if the other side is clear.'
-                    onboardingStateKO++;
-                } else if(onboardingStateKO==4) {
-                    state.topStatusMessageSticky = true;
-                    state.topStatusMessage = 'You can also leap over obstacles...'
-                    onboardingStateKO++;
-                } else if(onboardingStateKO==5) {
-                    state.topStatusMessageSticky = true;
-                    state.topStatusMessage = '... including the leaping over the entry gate and out of (but not into) windows.'
+            if(holdingGuard.mode===GuardMode.Unconscious) {
+                if(holdingGuardEndPatrol && !holdingGuard.pos.equals(holdingGuardEndPatrol)
+                && !holdingGuard.pos.equals(holdingExit) && onboardingStateKO==0) {
                     onboardingStateKO++;
                 }
-            } else if(arrestGuardEndPatrol && arrestGuard.pos.equals(arrestGuardEndPatrol)) {
+                if(onboardingStateKO==0) {
+                    state.topStatusMessage = 'You knocked the guard out. Push him out of the way and escape.';
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==1) {
+                    state.topStatusMessage = 'Now leap over or around the remaing guard.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==2) {
+                    state.topStatusMessage = 'You take damage when you move past or over an alert guard.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==3) {
+                    state.topStatusMessage = 'If you take too much damage you die.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==4) {
+                    state.topStatusMessage = 'Leaping moves you quickly and helps you escape from chasing guards.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==5) {
+                    state.topStatusMessage = 'Unlike you, guards can move diagonally.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==6) {
+                    state.topStatusMessage = 'That makes leaping essential when guards are close.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==7) {
+                    state.topStatusMessage = 'You can also leap over obstacles like windows and gates.'
+                    onboardingStateKO++;
+                }
+            } else if(holdingGuardEndPatrol && holdingGuard.pos.equals(holdingGuardEndPatrol)) {
                 state.topStatusMessage = 'The guard has stopped. To get past, KO him by leaping into him.';
-                state.topStatusMessageSticky = true;
+            } else if(chaseGuard.angry || holdingGuard.angry) {
+                state.topStatusMessage = '"We\'re going to get you, Scum!"';
+                if(holdingGuardEndPatrol) holdingGuard.patrolPath = pathBetweenPoints(map, holdingGuardEndPatrol, exitGate);
+                if(chaseGuardEndPatrol) chaseGuard.patrolPath = pathBetweenPoints(map, state.player.pos, exitGate);
             } else if(state.player.hasVaultKey) {
-                if(arrestGuardEndPatrol) arrestGuard.patrolPath = [arrestGuardEndPatrol];
+                if(holdingGuardEndPatrol) holdingGuard.patrolPath = [holdingGuardEndPatrol];
                 if(chaseGuardEndPatrol) chaseGuard.patrolPath = [chaseGuardEndPatrol];
                 if(onboardingStateThief==0) {
                     state.topStatusMessage = 'Pew: "Better get back to our posts."';
-                    state.topStatusMessageSticky = false;
                     onboardingState++;
                 } else if(onboardingStateThief==1) {
                     state.topStatusMessage = 'You got the key! You better get out of here.';
-                    state.topStatusMessageSticky = true;
                     onboardingState++;
                 } else if(onboardingStateThief==2) {
                     state.topStatusMessage = 'The only way out is to follow the guards.';
-                    state.topStatusMessageSticky = true;
                     onboardingState++;
                 } else if(onboardingStateThief==3) {
                     state.topStatusMessage = 'Use the key to get through the locked doors.';
-                    state.topStatusMessageSticky = true;
                     onboardingState++;
                 } else if(onboardingStateThief==4) {
                     state.topStatusMessage = 'Stay behind the guards and they will not notice you.';
-                    state.topStatusMessageSticky = true;
                     onboardingState++;
                 }
             } else {
@@ -3390,8 +3405,8 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                         onboardingState++;
                     } else {
                         state.topStatusMessage = 'Steal the guard\'s key by bumping (not leaping) into him';
+                        state.topStatusMessageSticky = true;    
                     }
-                    state.topStatusMessageSticky = true;    
                 } else {
                     state.topStatusMessage = 'Good, you have latched on! Now bump again to take the key.';
                     state.topStatusMessageSticky = true;    
