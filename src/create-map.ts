@@ -3374,14 +3374,14 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                     const path = pathBetweenPoints(map, exitGate, holdingGuardEndPatrol);
                     if(path.length>0) {
                         holdingGuard.patrolPath = path;
-                        holdingGuard.patrolPathIndex = 0;
+                        if(holdingGuard.patrolPathIndex>=path.length) holdingGuard.patrolPathIndex = 0;
                     }
                 }
                 if(chaseGuardEndPatrol) {
                     const path = pathBetweenPoints(map, state.player.pos, exitGate);
                     if(path.length>0) {
                         chaseGuard.patrolPath = path;
-                        chaseGuard.patrolPathIndex = 0;
+                        if(chaseGuard.patrolPathIndex>=path.length) chaseGuard.patrolPathIndex = 0;
                     }
                 }
             } else if(state.player.hasVaultKey) {
