@@ -3208,6 +3208,9 @@ function clearRoom(room:Room, map:GameMap, type:TerrainType|null=TerrainType.Gro
         if(type===TerrainType.GardenDoorEW || type===TerrainType.GardenDoorNS) {
             type = TerrainType.GroundGrass;
         }
+        if(type===TerrainType.GroundWater) {
+            type = TerrainType.GroundWood;
+        }
     }
     for(let x=room.posMin[0];x<room.posMax[0];x++) {
         for(let y=room.posMin[1];y<room.posMax[1];y++) {
@@ -3319,19 +3322,28 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                 turnedChaser = true;
             } 
             if(holdingGuard.mode===GuardMode.Unconscious) {
-                if(holdingGuardEndPatrol && !holdingGuard.pos.equals(holdingGuardEndPatrol)
-                && !holdingGuard.pos.equals(holdingExit) && onboardingStateKO==0) {
-                    onboardingStateKO++;
+                if(onboardingStateKO==0) {
+                    if(holdingGuardEndPatrol && state.player.pos.equals(holdingGuardEndPatrol)) {
+                        onboardingStateKO = 1;     
+                    } else if(holdingGuardEndPatrol 
+                        && !holdingGuard.pos.equals(holdingGuardEndPatrol)
+                        && !holdingGuard.pos.equals(holdingExit)) {
+                        onboardingStateKO = 2;
+                    }
                 }
                 if(onboardingStateKO==0) {
                     state.topStatusMessage = 'You knocked the guard out. Push him out of the way and escape.';
                     state.topStatusMessageSticky = true;
                 } else if(onboardingStateKO==1) {
+                    state.topStatusMessage = 'Push again.'
+                    onboardingStateKO++;
+                    state.topStatusMessageSticky = true;
+                } else if(onboardingStateKO==2) {
                     state.topStatusMessage = 'Now leap over or around the remaing guard.'
                     onboardingStateKO++;
                     state.topStatusMessageSticky = true;
                 } else if(onboardingStateKO==2) {
-                    state.topStatusMessage = 'You take damage when you move past or over an alert guard.'
+                    state.topStatusMessage = 'You take damage when you move next to or over an alert guard.'
                     onboardingStateKO++;
                     state.topStatusMessageSticky = true;
                 } else if(onboardingStateKO==3) {
@@ -3380,7 +3392,7 @@ function customizeLevelGen(level:number, rooms:Room[], map:GameMap, rng:RNG):und
                     onboardingState++;
                 }
             } else {
-                const latchedOn = state.player.pickTarget===chaseGuard;
+                const latchedOn = state.player.pickTarget===holdingGuard;
                 if(!latchedOn) {
                     if(onboardingState==0) {
                         state.topStatusMessage = '"Who you got back there, Pew?" [Press rest]';
