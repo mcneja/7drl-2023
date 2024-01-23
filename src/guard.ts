@@ -176,6 +176,7 @@ class Guard {
                 if (modePrev == GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
                         popups.add(PopupType.Damage, this.pos);
+                        this.speaking = true;
                     }
                     const startend = vec2.create();
                     const middle = vec2.create();
@@ -272,12 +273,14 @@ class Guard {
             if (this.modeTimeout === 5) {
                 const popup = PopupType.GuardStirring;
                 popups.add(popup, this.pos);
+                this.speaking = true;
             } else if (this.modeTimeout <= 0) {
                 this.enterPatrolMode(map);
                 this.modeTimeout = 0;
                 this.angry = true;
                 shouts.push({pos_shouter: this.pos, pos_target: this.pos, target:this});
                 popups.add(PopupType.GuardAwakesWarning, this.pos);
+                this.speaking = true;
             }
             break;
         }
@@ -387,10 +390,12 @@ class Guard {
         const popupType = popupTypeForStateChange(modePrev, this.mode);
         if (popupType !== undefined) {
             popups.add(popupType, this.pos);
+            this.speaking = true;
         }
     
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
+            this.speaking = true;
         }
     }
 

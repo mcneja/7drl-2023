@@ -1500,32 +1500,38 @@ function renderParticles(state: State, renderer: Renderer) {
 }
 
 function renderIconOverlays(state: State, renderer: Renderer) {
-        const player = state.player
-        for (const guard of state.gameMap.guards) {
+    const player = state.player
+    const bubble_right = renderer.tileSet.namedTiles['speechBubbleR'];
+    const bubble_left = renderer.tileSet.namedTiles['speechBubbleL'];
+    for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.atVec(guard.pos);
         const visible = state.seeAll || cell.seen || guard.speaking;
         if (!visible && vec2.squaredDistance(state.player.pos, guard.pos) > 36) {
             continue;
         }
 
-        const guardState = guard.overheadIcon();
-        let gtile:TileInfo;
-        if (guardState!==GuardStates.Relaxed) {
-            gtile = renderer.tileSet.guardStateTiles[guardState]
-        } else {
-            // Render the shadowing indicator if player is shadowing a guard
-            if (guard === player.pickTarget) {
-                gtile = tileSet.namedTiles['pickTarget'];
+        let offset = guard.animation?.offset?? vec2.create();
+        const x = guard.pos[0] + offset[0];
+        const y = guard.pos[1] + offset[1];
+
+        if(guard.speaking) {
+            const dir = guard.dir[0];
+            if(dir>=0) {
+                renderer.addGlyph(x+1, y, x+2, y+1, bubble_right, 1);
             } else {
-                continue;
+                renderer.addGlyph(x-1, y, x, y+1, bubble_left, 1);
             }
         }
 
-        let offset = guard.animation?.offset?? vec2.create();
-        const x = guard.pos[0] + offset[0];
-        const y = guard.pos[1] + offset[1] + 0.625;
-
-        renderer.addGlyph(x, y, x+1, y+1, gtile, 1);
+        const guardState = guard.overheadIcon();
+        if (guardState!==GuardStates.Relaxed) {
+            const gtile = renderer.tileSet.guardStateTiles[guardState]
+            renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
+        } else if (guard === player.pickTarget) {
+            // Render the shadowing indicator if player is shadowing a guard
+            const gtile = tileSet.namedTiles['pickTarget'];
+            renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
+        } 
     }
 
     // Render an icon over the player if the player is being noisy

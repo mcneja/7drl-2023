@@ -82,6 +82,8 @@ const tileSet31Color:TileSet = {
         noise: {textureIndex: 0xbb, color: 0x80ffffff},
         crossHatch: {textureIndex:3, color:0xffffffff},
         patrolRoute: {textureIndex:0x1f, color:0xff80ff80},
+        speechBubbleR: {textureIndex:0xb7, color:0xffffffff},
+        speechBubbleL: {textureIndex:0xb8, color:0xffffffff},
 
     },
     touchButtons: {
