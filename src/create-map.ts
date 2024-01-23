@@ -41,6 +41,7 @@ type Room = {
     roomType: RoomType,
     group: number,
     depth: number,
+    betweenness: number,
     posMin: vec2,
     posMax: vec2,
     edges: Array<Adjacency>,
@@ -138,11 +139,16 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Connect rooms together.
 
-    const posStart = connectRooms(rooms, adjacencies, rng);
+    connectRooms(rooms, adjacencies, rng);
 
     // Join a pair of rooms together.
 
     makeDoubleRooms(rooms, adjacencies, rng);
+
+    // Compute room distances from entrance.
+
+    computeRoomBetweenness(rooms);
+    computeRoomDepths(rooms);
 
     // Assign types to the rooms.
 
@@ -162,7 +168,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Set player start position
 
-    vec2.copy(map.playerStartPos, posStart);
+    map.playerStartPos = playerStartPosition(adjacencies, map);
 
     // Additional decorations
 
@@ -413,6 +419,7 @@ function createRooms(
         roomType: RoomType.Exterior,
         group: 0,
         depth: 0,
+        betweenness: 0,
         posMin: vec2.fromValues(0, 0), // not meaningful for this room
         posMax: vec2.fromValues(0, 0), // not meaningful for this room
         edges: [],
@@ -427,7 +434,8 @@ function createRooms(
             rooms.push({
                 roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : RoomType.PublicCourtyard,
                 group: group_index,
-                depth: ry + 1,
+                depth: 0,
+                betweenness: 0,
                 posMin: vec2.fromValues(offsetX.get(rx, ry) + 1, offsetY.get(rx, ry) + 1),
                 posMax: vec2.fromValues(offsetX.get(rx + 1, ry), offsetY.get(rx, ry + 1)),
                 edges: [],
@@ -772,7 +780,7 @@ function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>) {
     }
 }
 
-function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG): vec2 {
+function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RNG) {
 
     // Collect sets of edges that are mirrors of each other
 
@@ -874,17 +882,10 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         }
     }
 
-    // Create the door to the surrounding exterior. It must be on the south side.
-
-    let posStart = vec2.fromValues(0, 0);
+    // Create a door to the surrounding exterior.
 
     const adjDoor = frontDoorAdjacency(edgeSets);
     if (adjDoor !== null) {
-        // Set the player's start position based on where the door is.
-
-        posStart[0] = adjDoor.origin[0] + adjDoor.dir[0] * Math.floor(adjDoor.length / 2);
-        posStart[1] = adjDoor.origin[1] - 1;
-
         adjDoor.door = true;
 
         // Break symmetry if the door is off center.
@@ -896,7 +897,22 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng: RN
         }
     }
 
-    return posStart;
+    // Occasionally create a back door to the exterior.
+
+    if (rng.randomInRange(100) < rooms.length) {
+        const adjDoor = backDoorAdjacency(edgeSets);
+        if (adjDoor !== null) {
+            adjDoor.door = true;
+
+            // Break symmetry if the door is off center.
+
+            let adjDoorMirror = adjDoor.nextMatching;
+            if (adjDoorMirror !== null && adjDoorMirror !== adjDoor) {
+                adjDoor.nextMatching = null;
+                adjDoorMirror.nextMatching = null;
+            }
+        }
+    }
 }
 
 function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Set<Adjacency>> {
@@ -937,7 +953,7 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
 }
 
 function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
-    let adjDoor: Adjacency | null = null;
+    const adjs = [];
 
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
@@ -945,41 +961,63 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
                 continue;
             }
 
-            if (adj.roomLeft.roomType === RoomType.Exterior &&
-                adj.roomRight.roomType !== RoomType.Exterior &&
-                adj.dir[0] < 0 &&
-                (adjDoor === null || adj.origin[1] < adjDoor.origin[1] || (adj.origin[1] === adjDoor.origin[1] && adj.origin[0] > adjDoor.origin[0]))) {
-                adjDoor = adj;
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior &&
-                adj.roomRight.roomType === RoomType.Exterior &&
-                adj.dir[0] > 0 &&
-                (adjDoor === null || adj.origin[1] < adjDoor.origin[1] || (adj.origin[1] === adjDoor.origin[1] && adj.origin[0] > adjDoor.origin[0]))) {
-                adjDoor = adj;
+            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
+                adjs.push(adj);
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] > 0) {
+                adjs.push(adj);
             }
         }
     }
 
-    return adjDoor;
+    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
+
+    if (adjs.length <= 0) {
+        return null;
+    }
+
+    return adjs[Math.floor(adjs.length / 2)];
 }
 
-function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
+function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | null {
+    const adjs = [];
 
-    // Assign rooms depth based on distance from the bottom row of rooms.
+    for (const edgeSet of edgeSets) {
+        for (const adj of edgeSet) {
+            if (adj.dir[0] == 0) {
+                continue;
+            }
 
-    // Assumes seed rooms already have a value of one, and rooms that need depth computed have
-    // a depth greater than one.
+            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
+                adjs.push(adj);
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] < 0) {
+                adjs.push(adj);
+            }
+        }
+    }
+
+    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
+
+    if (adjs.length <= 0) {
+        return null;
+    }
+
+    return adjs[Math.floor(adjs.length / 2)];
+}
+
+function computeRoomDepths(rooms: Array<Room>) {
+    // Start from rooms with exterior doors
 
     let unvisited = rooms.length;
 
     const roomsToVisit: Array<Room> = [];
 
     for (const room of rooms) {
-        if (room.roomType == RoomType.Exterior) {
-            continue;
-        }
-        if (room.depth === 1) {
+        if (room.roomType === RoomType.Exterior) {
+            room.depth = 0;
+        } else if (hasExteriorDoor(room)) {
+            room.depth = 1;
             roomsToVisit.push(room);
-        } else if (room.depth > 1) {
+        } else {
             room.depth = unvisited;
         }
     }
@@ -1004,6 +1042,121 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
             }
         }
     }
+}
+
+function computeRoomBetweenness(rooms: Array<Room>) {
+    // Start from rooms with exterior doors
+
+//    const sourceRooms = [];
+    for (const room of rooms) {
+        room.betweenness = 0;
+//        if (room.roomType === RoomType.Exterior) {
+//            sourceRooms.push(room);
+//        }
+    }
+
+    for (const roomSource of rooms) {
+        const roomNumPaths: Map<Room, number> = new Map();
+        const roomDependency: Map<Room, number> = new Map();
+        const roomDepth: Map<Room, number> = new Map();
+
+        for (const room of rooms) {
+            roomDepth.set(room, Infinity);
+            roomDependency.set(room, 0);
+            roomNumPaths.set(room, 0);
+        }
+
+        roomDepth.set(roomSource, 0);
+        roomNumPaths.set(roomSource, 1);
+
+        const roomsToVisit = [];
+        roomsToVisit.push(roomSource);
+        const roomStack = [];
+
+        while (true) {
+            const room = roomsToVisit.shift();
+            if (room === undefined) {
+                break;
+            }
+
+            roomStack.push(room);
+
+            const depthNext = (roomDepth.get(room) ?? 0) + 1;
+
+            for (const adj of room.edges) {
+                if (!adj.door) {
+                    continue;
+                }
+
+                const roomNext: Room = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
+                if (roomNext.roomType === RoomType.Exterior) {
+                    continue;
+                }
+
+                if (roomNext.depth === Infinity) {
+                    roomNext.depth = depthNext;
+                    roomsToVisit.push(roomNext);
+                }
+                if (roomNext.depth === depthNext) {
+                    roomNumPaths.set(roomNext, (roomNumPaths.get(roomNext) ?? 0) + (roomNumPaths.get(room) ?? 0));
+                }
+            }
+        }
+
+        const weight = (roomSource.roomType === RoomType.Exterior) ? 10 : 1;
+
+        while (true) {
+            const room = roomStack.pop();
+            if (room === undefined) {
+                break;
+            }
+
+            const depthRoomPrev = (roomDepth.get(room) ?? 0) - 1;
+            const numPathsRoom = roomNumPaths.get(room) ?? 1;
+            const depRoom = roomDependency.get(room) ?? 0;
+
+            for (const adj of room.edges) {
+                if (!adj.door) {
+                    continue;
+                }
+
+                const roomPrev: Room = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
+                if (roomDepth.get(roomPrev) !== depthRoomPrev) {
+                    continue;
+                }
+
+                const numPathsRoomPrev = roomNumPaths.get(roomPrev) ?? 0;
+                const depRoomPrev = (numPathsRoomPrev / numPathsRoom) * (1 + depRoom);
+
+                roomDependency.set(roomPrev, depRoomPrev);
+
+                if (room !== roomSource) {
+                    room.betweenness += depRoom * weight;
+                }
+            }
+        }
+    }
+}
+
+function hasExteriorDoor(room: Room): boolean {
+    for (const adj of room.edges) {
+        if (!adj.door) {
+            continue;
+        }
+        if (adj.roomLeft === room) {
+            if (adj.roomRight.roomType === RoomType.Exterior) {
+                return true;
+            }
+        } else {
+            if (adj.roomLeft.roomType === RoomType.Exterior) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 
     // Assign master-suite room type to the inner rooms.
 
@@ -1076,15 +1229,6 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
                 continue;
             }
 
-            // Bug: should be able to convert courtyard rooms to treasure rooms, but the walls are getting
-            // plotted much earlier, between rooms that have been designated inside and outside. So we
-            // can't change an outside room (a courtyard) into an inside room (treasure) and get correct
-            // walls around it.
-
-            if (room.roomType === RoomType.PrivateCourtyard || room.roomType === RoomType.PublicCourtyard) {
-                continue;
-            }
-
             let numDoors = 0;
             for (const adj of room.edges) {
                 if (adj.door) {
@@ -1098,7 +1242,9 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
         }
 
         if (deadEndRooms.length > 0) {
-            deadEndRooms[rng.randomInRange(deadEndRooms.length)].roomType = RoomType.Vault;
+            rng.shuffleArray(deadEndRooms);
+            deadEndRooms.sort((a, b) => roomArea(a) - roomArea(b));
+            deadEndRooms[0].roomType = RoomType.Vault;
         }
     }
 
@@ -1155,6 +1301,10 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
     for (const room of chooseRooms(rooms, roomCanBePrivateLibrary, Math.ceil(rooms.length / 42), rng)) {
         room.roomType = RoomType.PrivateLibrary;
     }
+}
+
+function roomArea(room: Room): number {
+    return (room.posMax[0] - room.posMin[0]) * (room.posMax[1] - room.posMin[1]);
 }
 
 function chooseRooms(rooms: Array<Room>, acceptRoom: (room: Room) => boolean, maxRooms: number, rng: RNG): Array<Room> {
@@ -1311,6 +1461,8 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 
     vec2.copy(room0.posMin, posMin);
     vec2.copy(room0.posMax, posMax);
+
+    room0.depth = Math.min(room0.depth, room1.depth);
 
     // Remove adj from its twin
 
@@ -1850,6 +2002,53 @@ function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) 
         }
     }
     vec2.zero(pos);
+}
+
+function playerStartPosition(adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
+    // Find lowest door to exterior
+
+    let adjFrontDoor: Adjacency | undefined = undefined;
+    let yMin = 0;
+
+    for (const adj of adjacencies) {
+        if (!adj.door) {
+            continue;
+        }
+
+        if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior) {
+            continue;
+        }
+
+        const y = adj.origin[1] + Math.max(0, adj.dir[1]) * adj.length;
+
+        if (adjFrontDoor === undefined) {
+            adjFrontDoor = adj;
+            yMin = y;
+            continue;
+        }
+
+        if (y < yMin) {
+            adjFrontDoor = adj;
+            yMin = y;
+        }
+    }
+
+    if (adjFrontDoor === undefined) {
+        return vec2.fromValues(0, 0);
+    }
+
+    let roomFrom, roomTo;
+    if (adjFrontDoor.roomLeft.roomType === RoomType.Exterior) {
+        roomFrom = adjFrontDoor.roomRight;
+        roomTo = adjFrontDoor.roomLeft;
+    } else {
+        roomFrom = adjFrontDoor.roomLeft;
+        roomTo = adjFrontDoor.roomRight;
+    }
+
+    const pos = vec2.create();
+    posBesideDoor(pos, roomTo, roomFrom, gameMap);
+    return pos;
 }
 
 function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
