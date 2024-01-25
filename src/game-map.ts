@@ -273,10 +273,10 @@ type Item = {
 
 function guardMoveCostForItemType(itemType: ItemType): number {
     switch (itemType) {
-        case ItemType.Chair: return 4;
-        case ItemType.Table: return 10;
-        case ItemType.BedL: return 10;
-        case ItemType.BedR: return 10;
+        case ItemType.Chair: return 32;
+        case ItemType.Table: return 64;
+        case ItemType.BedL: return 64;
+        case ItemType.BedR: return 64;
         case ItemType.DrawersShort: return Infinity;
         case ItemType.DrawersTall: return Infinity;
         case ItemType.Bookshelf: return Infinity;

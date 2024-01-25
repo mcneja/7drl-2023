@@ -1,6 +1,6 @@
 export { createGameMap, createGameMapRoughPlans, Adjacency };
 
-import { BooleanGrid, CellGrid, Int32Grid, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { RNG } from './random';
@@ -1257,12 +1257,9 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
         }
 
         const sizeX = room.posMax[0] - room.posMin[0];
-        if (sizeX < 3) {
-            continue;
-        }
-
         const sizeY = room.posMax[1] - room.posMin[1];
-        if (sizeY < 3) {
+
+        if (sizeX < 3 && sizeY < 3) {
             continue;
         }
 
@@ -1277,9 +1274,11 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
             }
         }
 
-        if (numDoors <= 2) {
-            room.roomType = RoomType.Bedroom;
+        if (numDoors > 2) {
+            continue;
         }
+
+        room.roomType = RoomType.Bedroom;
     }
 
     // TODO: All these rooms should be chosen in round-robin fashion, where we ensure we've got
@@ -2451,6 +2450,33 @@ function renderRoomVault(map: GameMap, room: Room) {
 function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
     // Look for a place to put the bed that doesn't block any doors and is against a wall
 
+    // Should I use indices for the graph positions, and convert to coordinates via a lookup table or something?
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    const sizeY = room.posMax[1] - room.posMin[1];
+    const usable = new BooleanGrid(sizeX, sizeY, true);
+    const unusable = new BooleanGrid(sizeX, sizeY, false);
+    const occupied = new BooleanGrid(sizeX, sizeY, false);
+
+    let rootX, rootY;
+
+    for (let x = 0; x < sizeX; ++x) {
+        for (let y = 0; y < sizeY; ++y) {
+            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
+                occupied.set(x, y, true);
+                unusable.set(x, y, true);
+            } else if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
+                unusable.set(x, y, true);
+                rootX = x;
+                rootY = y;
+            }
+        }
+    }
+
+    if (rootX === undefined || rootY === undefined) {
+        return;
+    }
+
     const potentialPositions = [];
     for (let x = room.posMin[0]; x < room.posMax[0] - 1; ++x) {
         for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
@@ -2469,28 +2495,180 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
                 continue;
             }
 
+            // If the room is only as wide as the bed, the bed must be at the top or bottom
+            // or it will split the room.
+
+            if (sizeX === 2 && y !== room.posMin[1] && y !== room.posMax[1] - 1) {
+                continue;
+            }
+
             potentialPositions.push(pos0);
         }
     }
+
+    const itemsInRoom = [];
 
     if (potentialPositions.length > 0) {
         const pos0 = potentialPositions[rng.randomInRange(potentialPositions.length)];
         const pos1 = vec2.fromValues(pos0[0] + 1, pos0[1]);
 
-        placeItem(map, pos0, ItemType.BedL);
-        placeItem(map, pos1, ItemType.BedR);
+        const itemBedL = { pos: vec2.clone(pos0), type: ItemType.BedL };
+        const itemBedR = { pos: vec2.clone(pos1), type: ItemType.BedR };
+        map.items.push(itemBedL);
+        map.items.push(itemBedR);
+        itemsInRoom.push(itemBedL); // will check adjacency for the right side of the bed with this too
+    
+        const x = pos0[0] - room.posMin[0];
+        const y = pos0[1] - room.posMin[1];
+        occupied.set(x, y, true);
+        occupied.set(x + 1, y, true);
+
+        unusable.set(x, y, true);
+        unusable.set(x + 1, y, true);
     }
 
-    for (const itemType of [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, randomlyLitTorch(level, rng), ItemType.Chair]) {
-        const positions = getOpenWallPositions(map, room);
+    const candidateItems = [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, randomlyLitTorch(level, rng)];
+    rng.shuffleArray(candidateItems);
+
+    for (const itemType of candidateItems) {
+        for (let j = 0; j < usable.values.length; ++j) {
+            usable.values[j] = unusable.values[j] ? 0 : 1;
+        }
+        updateUsable(usable, occupied, rootX, rootY);
+        updateUsableForReachability(usable, occupied, itemsInRoom, room);
+        const positions = getUsablePositions(usable);
         if (positions.length === 0) {
             break;
         }
 
         const pos = positions[rng.randomInRange(positions.length)];
 
-        placeItem(map, pos, itemType);
+        console.assert(usable.get(pos[0], pos[1]));
+        console.assert(!occupied.get(pos[0], pos[1]));
+
+        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: itemType };
+        map.items.push(item);
+        itemsInRoom.push(item);
+
+        occupied.set(pos[0], pos[1], true);
+        unusable.set(pos[0], pos[1], true);
     }
+}
+
+function updateUsableForReachability(usable: BooleanGrid, occupied: BooleanGrid, items: Array<Item>, room: Room) {
+    const sizeX = usable.sizeX;
+    const sizeY = usable.sizeY;
+
+    for (const item of items) {
+        const x = item.pos[0] - room.posMin[0];
+        const y = item.pos[1] - room.posMin[1];
+
+        const unoccupiedNeighbors = [];
+        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= sizeX || ny >= sizeY) {
+                continue;
+            }
+            if (!occupied.get(nx, ny)) {
+                unoccupiedNeighbors.push([nx, ny]);
+            }
+        }
+
+        // For beds, also consider positions around the right side of the bed
+
+        if (item.type === ItemType.BedL) {
+            for (const [dx, dy] of [[1, 0], [0, 1], [0, -1]]) {
+                const nx = x + dx + 1;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= sizeX || ny >= sizeY) {
+                    continue;
+                }
+                if (!occupied.get(nx, ny)) {
+                    unoccupiedNeighbors.push([nx, ny]);
+                }
+            }
+        }
+
+        if (unoccupiedNeighbors.length === 1) {
+            const [nx, ny] = unoccupiedNeighbors[0];
+            usable.set(nx, ny, false);
+        }
+    }
+}
+
+// Find "biconnected components" in the graph formed by occupied and mark them not usable.
+// These are squares that, if they were to become occupied, would split the graph into disjoint pieces.
+// Algorithm from Hopcroft/Tarjan via wikipedia.
+
+function updateUsable(usable: BooleanGrid, occupied: BooleanGrid, rootX: number, rootY: number) {
+    const sizeX = occupied.sizeX;
+    const sizeY = occupied.sizeY;
+    console.assert(usable.sizeX === sizeX);
+    console.assert(usable.sizeY === sizeY);
+    console.assert(rootX >= 0);
+    console.assert(rootY >= 0);
+    console.assert(rootX < sizeX);
+    console.assert(rootY < sizeY);
+    console.assert(!occupied.get(rootX, rootY));
+    const visited = new BooleanGrid(sizeX, sizeY, false);
+    const depth = new Int32Grid(sizeX, sizeY, 0);
+    const low = new Int32Grid(sizeX, sizeY, 0);
+
+    function dfs(x: number, y: number, depthCur: number, parentX: number, parentY: number) {
+        visited.set(x, y, true);
+        depth.set(x, y, depthCur);
+        low.set(x, y, depthCur);
+
+        let numChildren = 0;
+        let isArticulation = false;
+
+        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || nx >= sizeX || ny < 0 || ny >= sizeY) {
+                continue;
+            }
+
+            if (occupied.get(nx, ny)) {
+                continue;
+            }
+
+            if (!visited.get(nx, ny)) {
+                dfs(nx, ny, depthCur + 1, x, y);
+                ++numChildren;
+                if (low.get(nx, ny) >= depthCur) {
+                    isArticulation = true;
+                }
+                low.set(x, y, Math.min(low.get(x, y), low.get(nx, ny)));
+            } else if (nx !== parentX || ny !== parentY) {
+                low.set(x, y, Math.min(low.get(x, y), depth.get(nx, ny)));
+            }
+        }
+
+        const hasParent = parentX >= 0;
+        if (hasParent) {
+            if (isArticulation) {
+                usable.set(x, y, false);
+            }
+        } else {
+            if (numChildren > 1) {
+                usable.set(x, y, false);
+            }
+        }
+    }
+
+    dfs(rootX, rootY, 0, -1, -1);
+
+    /*
+    for (let y = sizeY - 1; y >= 0; --y) {
+        let s = '';
+        for (let x = 0; x < sizeX; ++x) {
+            s += occupied.get(x, y) ? 'O' : usable.get(x, y) ? '.' : 'X';
+        }
+        console.log('%d: %s', y, s);
+    }
+    */
 }
 
 function renderRoomDining(map: GameMap, room: Room, level: number, rng: RNG) {
@@ -2575,30 +2753,14 @@ function renderRoomLibrary(map: GameMap, room: Room, level: number, rng: RNG) {
     }
 }
 
-function getOpenWallPositions(map: GameMap, room: Room): Array<vec2> {
+function getUsablePositions(usable: BooleanGrid): Array<vec2> {
     const positions = [];
 
-    for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
-        for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
-            const pos = vec2.fromValues(x, y);
-
-            if (!wallAdjacent(map.cells, pos)) {
-                continue;
+    for (let x = 0; x < usable.sizeX; ++x) {
+        for (let y = 0; y < usable.sizeY; ++y) {
+            if (usable.get(x, y)) {
+                positions.push(vec2.fromValues(x, y));
             }
-
-            if (isItemAtPos(map, pos)) {
-                continue;
-            }
-
-            if (doorAdjacent(map.cells, pos)) {
-                continue;
-            }
-
-            if (wouldPartitionSpace(map, room, pos)) {
-                continue;
-            }
-
-            positions.push(pos);
         }
     }
 
@@ -2739,103 +2901,6 @@ function wallOrWindowAdjacent(map: CellGrid, pos: vec2): boolean {
     }
 
     return false;
-}
-
-function wouldPartitionSpace(map: GameMap, room: Room, pos: vec2): boolean {
-    const rx = room.posMax[0] - room.posMin[0];
-    const ry = room.posMax[1] - room.posMin[1];
-
-    const visited = new BooleanGrid(rx, ry, false);
-
-    let numToVisit = rx * ry;
-    for (let x = 0; x < rx; ++x) {
-        for (let y = 0; y < ry; ++y) {
-            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
-                visited.set(x, y, true);
-                --numToVisit;
-            }
-        }
-    }
-
-    for (const item of map.items) {
-        const x = item.pos[0] - room.posMin[0];
-        const y = item.pos[1] - room.posMin[1];
-        if (x < 0 || y < 0 || x >= rx || y >= ry)
-            continue;
-        visited.set(x, y, true);
-        --numToVisit;
-    }
-
-    const px = pos[0] - room.posMin[0];
-    const py = pos[1] - room.posMin[1];
-
-    console.assert(px >= 0);
-    console.assert(py >= 0);
-    console.assert(px < rx);
-    console.assert(py < ry);
-    console.assert(!visited.get(px, py));
-
-    visited.set(px, py, true);
-    --numToVisit;
-
-    const toVisit: Array<vec2> = [];
-    const posStart = unvisitedPos(visited);
-    if (posStart === undefined) {
-        return true;
-    }
-
-    toVisit.push(posStart);
-
-    while (true) {
-        const pos = toVisit.pop();
-        if (pos === undefined)
-            break;
-        const x = pos[0];
-        const y = pos[1];
-        if (visited.get(x, y))
-            continue;
-        visited.set(x, y, true);
-        --numToVisit;
-        if (x > 0 && !visited.get(x - 1, y))
-            toVisit.push(vec2.fromValues(x - 1, y));
-        if (y > 0 && !visited.get(x, y - 1))
-            toVisit.push(vec2.fromValues(x, y - 1));
-        if (x + 1 < rx && !visited.get(x + 1, y))
-            toVisit.push(vec2.fromValues(x + 1, y));
-        if (y + 1 < ry && !visited.get(x, y + 1))
-            toVisit.push(vec2.fromValues(x, y + 1));
-    }
-
-    /*
-    if (numToVisit > 0) {
-        console.log('blocking pos for room at %d,%d (numUnvisited=%d)', room.posMin[0], room.posMin[1], numToVisit);
-        for (let y = ry - 1; y >= 0; --y) {
-            let str = y + ': ';
-            for (let x = 0; x < rx; ++x) {
-                if (x === px && y === py)
-                    str += '*';
-                else if (visited.get(x, y))
-                    str += '.';
-                else
-                    str += 'X';
-            }
-            console.log(str);
-        }
-    }
-    */
-
-    return numToVisit > 0;
-}
-
-function unvisitedPos(visited: BooleanGrid): vec2 | undefined {
-    for (let x = 0; x < visited.sizeX; ++x) {
-        for (let y = 0; y < visited.sizeY; ++y) {
-            if (!visited.get(x, y)) {
-                return vec2.fromValues(x, y);
-            }
-        }
-    }
-    return undefined;
 }
 
 function isWalkableTerrainType(terrainType: TerrainType): boolean {
