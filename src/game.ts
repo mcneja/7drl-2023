@@ -1680,7 +1680,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const touchMode = window.localStorage.getItem('LLL/touchMode')?? 'Gamepad';
     const touchAsGamepad = touchMode==='Gamepad';
 
-    return {
+    const state: State = {
         gameStats: {    
             loot: 0,
             lootStolen: 0,
@@ -1695,7 +1695,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             win: false,
             daily: null,
         },
-        lightStates:[],
+        lightStates: Array(gameMap.lightCount).fill(0),
         particles:[],
         stats: stats,
         tLast: undefined,
@@ -1748,6 +1748,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         keyboardController: new KeyboardController(),
         popups: new Popups,
     };
+
+    setLights(gameMap, state);
+    setCellAnimations(gameMap, state);
+
+    return state;
 }
 
 function setCellAnimations(gameMap: GameMap, state: State) {
