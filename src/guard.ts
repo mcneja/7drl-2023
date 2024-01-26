@@ -704,7 +704,14 @@ class Guard {
         const start = vec2.create();
         vec2.subtract(start, this.pos, posNext) 
         const end = vec2.create();
-        this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
+        if(this.type===GuardType.Tracker) {
+            let dogTile = this.dir[0]>0 ? getTileSet().namedTiles['dogJumpRight']:getTileSet().namedTiles['dogJumpLeft'];
+            if(this.dir[0]===0) dogTile = this.dir[1]>0 ? getTileSet().namedTiles['dogJumpUp']:getTileSet().namedTiles['dogJumpDown'];
+            this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeInQuad}], [dogTile, dogTile]);
+        } else {
+            this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
+        }
+        this.animation.removeOnFinish = true;
         vec2.copy(this.pos, posNext);
         return MoveResult.Moved;
     }
@@ -726,7 +733,14 @@ class Guard {
         const start = vec2.create();
         vec2.subtract(start, this.pos, posNext) 
         const end = vec2.create();
-        this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
+        if(this.type===GuardType.Tracker) {
+            let dogTile = this.dir[0]>0 ? getTileSet().namedTiles['dogJumpRight']:getTileSet().namedTiles['dogJumpLeft'];
+            if(this.dir[0]===0) dogTile = this.dir[1]>0 ? getTileSet().namedTiles['dogJumpUp']:getTileSet().namedTiles['dogJumpDown'];
+            this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.easeInQuad}], [dogTile]);
+        } else {
+            this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
+        }
+        this.animation.removeOnFinish = true;
 
         vec2.copy(this.pos, posNext);
         return MoveResult.Moved;

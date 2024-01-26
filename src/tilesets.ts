@@ -86,6 +86,10 @@ const tileSet31Color:TileSet = {
         speechBubbleL: {textureIndex:0xb8, color:0xffffffff},
         shuriken1: {textureIndex:0xd7, color:0xffffffff},
         shuriken2: {textureIndex:0xd8, color:0xffffffff},
+        dogJumpLeft: {textureIndex:0x87, color:0xffffffff},
+        dogJumpRight: {textureIndex:0x86, color:0xffffffff},
+        dogJumpUp: {textureIndex:0x77, color:0xffffffff},
+        dogJumpDown: {textureIndex:0x76, color:0xffffffff},
     },
     touchButtons: {
         'menu':             {textureIndex: r([11,  1]), color:0xa0ffffff, unlitColor:0x80ffffff},

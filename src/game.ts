@@ -1321,7 +1321,7 @@ function renderWorld(state: State, renderer: Renderer) {
                 && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
                 renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lv);
             } else {
-                const tile = cell.animation? cell.animation.currentTile():renderer.tileSet.terrainTiles[terrainType];
+                const tile = cell.animation?.currentTile()??renderer.tileSet.terrainTiles[terrainType];
                 renderer.addGlyph(x, y, x+1, y+1, tile, lv);
             }
             //Draw border for water
@@ -1350,9 +1350,7 @@ function renderWorld(state: State, renderer: Renderer) {
                             continue; //Don't draw the door if someone standing in it                        
                         }
                     }
-                    const ti = item.animation? 
-                    item.animation.currentTile():
-                    renderer.tileSet.itemTiles[item.type];
+                    const ti = item.animation?.currentTile()??renderer.tileSet.itemTiles[item.type];
                     if (item.animation instanceof SpriteAnimation) {
                         const o = item.animation.offset;
                         renderer.addGlyph(x+o[0], y+o[1], x+o[0] + 1, y+o[1] + 1, ti, lv);
@@ -1420,10 +1418,8 @@ function renderPlayer(state: State, renderer: Renderer) {
     //     colorPreset.lightGray;
     const p = renderer.tileSet.playerTiles;
 
-    let tileInfo:TileInfo;
-    if(state.player.animation) {
-        tileInfo = state.player.animation.currentTile();
-    } else {
+    let tileInfo:TileInfo|undefined = state.player.animation?.currentTile();
+    if(tileInfo===undefined) {
         tileInfo = player.health<=0 ? p['dead'] :
         player.damagedLastTurn ? p['wounded'] :
         player.noisy ? p['noisy'] :
@@ -1452,13 +1448,18 @@ function renderGuards(state: State, renderer: Renderer) {
         else if(!visible) tileIndex+=4;
         else if(guard.mode === GuardMode.Patrol && !guard.speaking && cell.lit==0) lit=0;
         else tileIndex+=8;
-        const tileInfo = renderer.tileSet.npcTiles[guard.type][tileIndex];
+        let tileInfo = renderer.tileSet.npcTiles[guard.type][tileIndex];
+
+        let offset = guard.animation?.offset?? vec2.create();
+        if(guard.animation instanceof SpriteAnimation) {
+            tileInfo = guard.animation.currentTile()??tileInfo;
+        }
+
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
         let offX = (gate!==undefined && gate.pos.equals(guard.pos))? 0.25 : 0;
         offX += guard.type===GuardType.Sleeper? -0.25:0;
         const offY = guard.type===GuardType.Sleeper? 0.5 : 0;
 
-        let offset = guard.animation?.offset?? vec2.create();
         const x = guard.pos[0] + offset[0] + offX;
         const y = guard.pos[1] + offset[1] + offY;
     
@@ -1496,7 +1497,7 @@ function renderParticles(state: State, renderer: Renderer) {
             const x = p.pos[0] + offset[0];
             const y = p.pos[1] + offset[1];
             const tileInfo = a.currentTile();
-            renderer.addGlyph(x, y, x+1, y+1, tileInfo);
+            if(tileInfo!==undefined) renderer.addGlyph(x, y, x+1, y+1, tileInfo);
         }
     }
 }

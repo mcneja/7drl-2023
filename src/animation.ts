@@ -16,8 +16,8 @@ class Animator {
     update(dt:number):boolean {
         return false;
     }
-    currentTile():TileInfo {
-        return {};
+    currentTile():TileInfo|undefined {
+        return undefined;
     }
 }
 
@@ -43,7 +43,7 @@ class FrameAnimator extends Animator {
         }
         return false;
     }
-    currentTile():TileInfo {
+    currentTile():TileInfo|undefined {
         return this.tileInfo[this.activeFrame];
     }
 }
@@ -95,7 +95,7 @@ class SpriteAnimation extends Animator {
         }
         return this.activePt === this.tweenSeq.length;
     }
-    currentTile():TileInfo {
+    currentTile():TileInfo|undefined {
         return this.tileInfo[this.activeFrame];
     }
 }
