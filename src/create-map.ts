@@ -3209,9 +3209,9 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<PatrolRout
         let pathIndexStart = 0;
         const picker = rng.random();
         let type = level>5 && picker>0.8? GuardType.Defender : GuardType.Footman;
-        if(patrolPath.route.length>10 && !placeVaultKey) {
-            if(picker<0.3) type = GuardType.Worker;
-            else if(picker<0.6) type = GuardType.Owner;
+        if(patrolPath.route.length>10 && !placeVaultKey && patrolPath.type===PatrolType.IndoorGuard) {
+            if(picker<0.2) type = GuardType.Worker;
+            else if(picker<0.4) type = GuardType.Owner;
         }
         const guard = new Guard(type, patrolPath.route, pathIndexStart);
         if (level > 1 && rng.randomInRange(5 + level) < level) {

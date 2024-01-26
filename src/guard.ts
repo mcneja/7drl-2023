@@ -750,7 +750,10 @@ class Guard {
 function isRelaxedGuardMode(guardMode: GuardMode): boolean {
     return guardMode === GuardMode.Patrol ||
            guardMode === GuardMode.MoveToTorch ||
-           guardMode === GuardMode.LightTorch;
+           guardMode === GuardMode.LightTorch ||
+           guardMode === GuardMode.SleeperSleeping ||
+           guardMode === GuardMode.SleeperStirring ||
+           guardMode === GuardMode.DoingTasks;
 }
 
 type Shout = {
