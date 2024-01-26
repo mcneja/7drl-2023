@@ -173,7 +173,6 @@ const guardHearThiefSet:Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/What.mp3'), 'What?'],
     [require('url:./audio/guards/wha.mp3'), 'Wha...'],
     [require('url:./audio/guards/wait.mp3'), 'Wait!'],
-    [require('url:./audio/guards/who there.mp3'), 'Who\'s out there?'],
     [require('url:./audio/guards/hello.mp3'), 'Hello?'],
     [require('url:./audio/guards/ugh.mp3'), 'Ugh...'],
     [require('url:./audio/guards/hark.mp3'), 'Hark?'],
@@ -242,38 +241,38 @@ const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
 ];
 
 const guardHearGuardSet: Array<SubtitledSoundDesc> = [ //Repond to guards that enter the chase set
-    [require('url:./audio/guards/hey-3.mp3'), '(To other guard) Hey!'],
-    [require('url:./audio/guards/What.mp3'), '(To other guard) What?'],
-    [require('url:./audio/guards/where.mp3'), '(To other guard) Where!?'],
-    [require('url:./audio/guards/coming.mp3'), '(To other guard) Coming!'],
-    [require('url:./audio/guards/here I come.mp3'), '(To other guard) Here I come!'],
-    [require('url:./audio/guards/to arms.mp3'), '(To other guard) To arms!'],
-    [require('url:./audio/guards/what is it.mp3'), '(To other guard) What is it!?'],
-    [require('url:./audio/guards/i dont know how to whistle.mp3'), '(To other guard) I dont know how to whistle.'],
+    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
+    [require('url:./audio/guards/What.mp3'), 'What?'],
+    [require('url:./audio/guards/where.mp3'), 'Where!?'],
+    [require('url:./audio/guards/coming.mp3'), 'Coming!'],
+    [require('url:./audio/guards/here I come.mp3'), 'Here I come!'],
+    [require('url:./audio/guards/to arms.mp3'), 'To arms!'],
+    [require('url:./audio/guards/what is it.mp3'), 'What is it!?'],
+    [require('url:./audio/guards/i dont know how to whistle.mp3'), 'I dont know how to whistle.'],
 ];
 
 const guardChaseSet: Array<SubtitledSoundDesc> = [ //Yells a warning that will be heard by other guards
-    [require('url:./audio/guards/whistle.mp3'), '(Whistles to other guards)'],
-    [require('url:./audio/guards/whistle-2.mp3'), '(Whistles to other guards)'],
-    [require('url:./audio/guards/whistle-3.mp3'), '(Whistles to other guards)'],
-    [require('url:./audio/guards/get em.mp3'), '(Yells) Get \'em!'],
-    [require('url:./audio/guards/intruder.mp3'), '(Yells) Intruder!'],
-    [require('url:./audio/guards/oh no its a thief.mp3'), '(Yells) Oh no... it\'s a thief.'],
-    [require('url:./audio/guards/we coming for you.mp3'), '(Yells) We\'re coming for you!'],
-    [require('url:./audio/guards/coming for you.mp3'), '(Yells) Coming for you!'],
-    [require('url:./audio/guards/halt.mp3'), '(Yells) Halt!'],
-    [require('url:./audio/guards/see you.mp3'), '(Yells) We see you!'],
-    [require('url:./audio/guards/ill get you.mp3'), '(Yells) I\'ll get you!'],
-    [require('url:./audio/guards/a goner.mp3'), '(Yells) You\'re a goner!'],
-    [require('url:./audio/guards/just you wait.mp3'), '(Yells) Just you wait!'],
-    [require('url:./audio/guards/you wont get away.mp3'), '(Yells) You won\'t get away!'],
-    [require('url:./audio/guards/no you dont.mp3'), '(Yells) No you dont!'],
-    [require('url:./audio/guards/thief.mp3'), '(Yells) Thief!'],
-    [require('url:./audio/guards/thief-2.mp3'), '(Yells) Thief!'],
-    [require('url:./audio/guards/thief-3.mp3'), '(Yells) Thief!'],
-    [require('url:./audio/guards/after them.mp3'), '(Yells) After them!'],
-    [require('url:./audio/guards/what is thy business.mp3'), '(Yells) What is thy business with this gold?'],
-    [require('url:./audio/guards/no mercy for the wicked.mp3'), '(Yells) No mercy for the wicked!'],
+    [require('url:./audio/guards/whistle.mp3'), '*Whistles*'],
+    [require('url:./audio/guards/whistle-2.mp3'), '*Whistles*'],
+    [require('url:./audio/guards/whistle-3.mp3'), '*Whistles*'],
+    [require('url:./audio/guards/get em.mp3'), 'Get \'em!'],
+    [require('url:./audio/guards/intruder.mp3'), 'Intruder!'],
+    [require('url:./audio/guards/oh no its a thief.mp3'), 'Oh no... it\'s a thief.'],
+    [require('url:./audio/guards/we coming for you.mp3'), 'We\'re coming for you!'],
+    [require('url:./audio/guards/coming for you.mp3'), 'Coming for you!'],
+    [require('url:./audio/guards/halt.mp3'), 'Halt!'],
+    [require('url:./audio/guards/see you.mp3'), 'We see you!'],
+    [require('url:./audio/guards/ill get you.mp3'), 'I\'ll get you!'],
+    [require('url:./audio/guards/a goner.mp3'), 'You\'re a goner!'],
+    [require('url:./audio/guards/just you wait.mp3'), 'Just you wait!'],
+    [require('url:./audio/guards/you wont get away.mp3'), 'You won\'t get away!'],
+    [require('url:./audio/guards/no you dont.mp3'), 'No you dont!'],
+    [require('url:./audio/guards/thief.mp3'), 'Thief!'],
+    [require('url:./audio/guards/thief-2.mp3'), 'Thief!'],
+    [require('url:./audio/guards/thief-3.mp3'), 'Thief!'],
+    [require('url:./audio/guards/after them.mp3'), 'After them!'],
+    [require('url:./audio/guards/what is thy business.mp3'), 'What is thy business with this gold?'],
+    [require('url:./audio/guards/no mercy for the wicked.mp3'), 'No mercy for the wicked!'],
 ];
 
 const guardEndChaseSet: Array<SubtitledSoundDesc> = [
@@ -283,7 +282,7 @@ const guardEndChaseSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/where they go.mp3'), 'Where did they go?'],
     [require('url:./audio/guards/his holiness.mp3'), 'His Holiness would not be pleased!'],
     [require('url:./audio/guards/the boss.mp3'), 'The boss will not be pleased!'],
-    [require('url:./audio/guards/huff puff give up.mp3'), '(Huffing) I give up!'],
+    [require('url:./audio/guards/huff puff give up.mp3'), '*Huff* *Huff* *Huff* I give up!'],
     [require('url:./audio/guards/where did he go.mp3'), 'Where did he go!?'],
     [require('url:./audio/guards/drats lost him.mp3'), 'Drats lost him!'],
     [require('url:./audio/guards/gone.mp3'), 'Gone!'],
@@ -299,23 +298,23 @@ const guardEndChaseSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/i give up.mp3'), 'I give up...'],
     [require('url:./audio/guards/what do i do help me.mp3'), 'What do I do help me, help me...'],
     [require('url:./audio/guards/oh no he got away.mp3'), 'Oh no, he got away!'],
-    [require('url:./audio/guards/guard rant.mp3'), '(Guard rant)'],
+    [require('url:./audio/guards/guard rant.mp3'), '*Long and excessive rant that should have been cut from the game*'],
 ];
 
 const guardAwakesWarningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), '(Yelling) Someone smacked me!'],
-    [require('url:./audio/guards/ahh.mp3'), '(Yelling) Someone hit me!'],
-    [require('url:./audio/guards/ahh.mp3'), '(Yelling) Who hit me!?'],
+    [require('url:./audio/guards/ahh.mp3'), 'Someone smacked me!'],
+    [require('url:./audio/guards/ahh.mp3'), 'Someone hit me!'],
+    [require('url:./audio/guards/ahh.mp3'), 'Who hit me!?'],
 ]
 
 const guardDownWarningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), '(Yelling) We have a guard down'],
-    [require('url:./audio/guards/ahh.mp3'), '(Yelling) Man down!'],
-    [require('url:./audio/guards/ahh.mp3'), '(Yelling) Guard down!'],
+    [require('url:./audio/guards/ahh.mp3'), 'We have a guard down'],
+    [require('url:./audio/guards/ahh.mp3'), 'Man down!'],
+    [require('url:./audio/guards/ahh.mp3'), 'Guard down!'],
 ]
 
 const guardStirringSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), '(Guard stirring) Ahh...'],
+    [require('url:./audio/guards/ahh.mp3'), '*Stirring* Ahh...'],
 ]
 
 const guardWarningResponseSet: Array<SubtitledSoundDesc> = [
@@ -334,6 +333,28 @@ const guardDamageSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ha ya-3.mp3'), 'Hi-yah!'],
 ];
 
+const sleeperAwakesWarningSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/who there.mp3'), 'Who\'s out there?'],
+];
+
+const sleeperBackToSleepSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/ahh-2.mp3'), 'Zzzz...'],
+];
+
+const yellingForGuardsSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/thief.mp3'), 'Thief!!!'],
+    [require('url:./audio/guards/thief-2.mp3'), 'Thief!!!'],
+    [require('url:./audio/guards/thief-3.mp3'), 'Thief!!!'],
+];
+
+const trackerYellingForGuardsSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/dog/dog0.mp3'), '*Grr*'],
+    [require('url:./audio/dog/dog1.mp3'), '*Grr*'],
+    [require('url:./audio/dog/dog2.mp3'), '*Grr*'],
+    [require('url:./audio/dog/dog3.mp3'), '*Grr*'],
+    [require('url:./audio/dog/dog4.mp3'), '*Grr*'],
+    [require('url:./audio/dog/dog5.mp3'), '*Grr*'],
+];
 
 export class ActiveHowlPool {
     activeHowls: Array<[Howl, number]>;
@@ -497,4 +518,8 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardFinishListening = new SubtitledHowlGroup(guardFinishListeningSet, howlPool);
     subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet, howlPool);
     subtitledSounds.guardStirring = new SubtitledHowlGroup(guardStirringSet, howlPool);
+    subtitledSounds.sleeperAwakesWarning = new SubtitledHowlGroup(sleeperAwakesWarningSet, howlPool);
+    subtitledSounds.sleeperBackToSleep = new SubtitledHowlGroup(sleeperBackToSleepSet, howlPool);
+    subtitledSounds.yellingForGuards = new SubtitledHowlGroup(yellingForGuardsSet, howlPool);
+    subtitledSounds.trackerYellingForGuards = new SubtitledHowlGroup(trackerYellingForGuardsSet, howlPool);
 }

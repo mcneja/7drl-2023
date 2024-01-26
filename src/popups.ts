@@ -18,6 +18,10 @@ enum PopupType {
     GuardFinishLooking,
     GuardFinishListening,
     GuardStirring,
+    SleeperAwakesWarning,
+    SleeperBackToSleep,
+    YellingForGuards,
+    TrackerYellingForGuards,
 }
 
 type Popup = {
@@ -75,5 +79,9 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardFinishLooking: return 'guardFinishLooking';
         case PopupType.GuardFinishListening: return 'guardFinishListening';
         case PopupType.GuardStirring: return 'guardStirring';
+        case PopupType.SleeperAwakesWarning: return 'sleeperAwakesWarning';
+        case PopupType.SleeperBackToSleep: return 'sleeperBackToSleep';
+        case PopupType.YellingForGuards: return 'yellingForGuards';
+        case PopupType.TrackerYellingForGuards: return 'trackerYellingForGuards';
     }
 }

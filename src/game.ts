@@ -2,7 +2,7 @@ import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
-import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
+import { Guard, GuardMode, GuardType, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -1206,7 +1206,7 @@ function postTurn(state: State) {
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
     if (subtitle !== '') {
-        state.topStatusMessage = subtitle;
+        state.topStatusMessage = '"'+subtitle+'"';
         state.topStatusMessageSticky = true;
     } else if (state.finishedLevel) {
         if(state.lootAvailable>state.lootStolen) {
@@ -1446,17 +1446,21 @@ function renderGuards(state: State, renderer: Renderer) {
             continue;
         }
 
-        if(!visible && guard.mode !== GuardMode.Unconscious) tileIndex+=4;
+        if(guard.mode === GuardMode.Unconscious || 
+            guard.mode === GuardMode.SleeperSleeping || 
+            guard.mode === GuardMode.SleeperStirring) tileIndex+=12;
+        else if(!visible) tileIndex+=4;
         else if(guard.mode === GuardMode.Patrol && !guard.speaking && cell.lit==0) lit=0;
-        else if(guard.mode === GuardMode.Unconscious) tileIndex+=12;
         else tileIndex+=8;
-        const tileInfo = renderer.tileSet.npcTiles[tileIndex];
+        const tileInfo = renderer.tileSet.npcTiles[guard.type][tileIndex];
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
-        const offX = (gate!==undefined && gate.pos.equals(guard.pos))? 0.25 : 0;
+        let offX = (gate!==undefined && gate.pos.equals(guard.pos))? 0.25 : 0;
+        offX += guard.type===GuardType.Sleeper? -0.25:0;
+        const offY = guard.type===GuardType.Sleeper? 0.5 : 0;
 
         let offset = guard.animation?.offset?? vec2.create();
         const x = guard.pos[0] + offset[0] + offX;
-        const y = guard.pos[1] + offset[1];
+        const y = guard.pos[1] + offset[1] + offY;
     
         if(guard.hasTorch || guard.hasPurse || guard.hasVaultKey) {
             let t0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;

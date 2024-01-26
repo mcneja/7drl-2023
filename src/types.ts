@@ -7,7 +7,7 @@ import { TouchController, GamepadManager, KeyboardController } from './controlle
 import { TextWindow } from './ui';
 import { Animator } from './animation';
 
-export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry}
+export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry, Particle}
 
 type Camera = {
     position: vec2;

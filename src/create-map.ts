@@ -1,7 +1,7 @@
 export { createGameMap, createGameMapRoughPlans, Adjacency };
 
 import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
-import { Guard } from './guard';
+import { Guard, GuardType, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
 import { RNG } from './random';
 
@@ -1581,8 +1581,20 @@ type PatrolNode = {
     visited: boolean;
 }
 
+enum PatrolType {
+    IndoorGuard,
+    IndoorWorker, //unused
+    IndoorOwner, //unused
+    OutdoorGuard,
+}
+
+type PatrolRoute = {
+    type: PatrolType;
+    route: Array<vec2>;
+}
+
 function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
-    adjacencies: Array<Adjacency>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    adjacencies: Array<Adjacency>, outerPerimeter: Array<vec2>, rng: RNG): Array<PatrolRoute> {
 
     // Keep adjacencies that connect interior rooms via a door; shuffle them
 
@@ -1716,7 +1728,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
         node.visited = false;
     }
 
-    const patrolRoutes: Array<Array<vec2>> = [];
+    const patrolRoutes: Array<PatrolRoute> = [];
 
     for (const nodeIter of nodes) {
         if (nodeIter.visited) {
@@ -1785,7 +1797,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
             }
         }
 
-        patrolRoutes.push(shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length)));
+        patrolRoutes.push({type:PatrolType.IndoorGuard, route:shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length))});
     }
 
     // Shuffle the patrol routes generated so far, since they were created by iterating over the rooms in order.
@@ -1798,8 +1810,8 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     if (level > 5) {
         const patrolLength = outerPerimeter.length;
 
-        patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25)));
-        patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75)));
+        patrolRoutes.push({type:PatrolType.OutdoorGuard, route:shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25))});
+        patrolRoutes.push({type:PatrolType.OutdoorGuard, route:shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75))});
     }
 
     return patrolRoutes;
@@ -3188,14 +3200,20 @@ function isMasterSuiteRoomType(roomType: RoomType): boolean {
     return roomType === RoomType.PrivateRoom || roomType === RoomType.Bedroom;
 }
 
-function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>, guardLoot:number, placeVaultKey: boolean, rng: RNG) {
+function placeGuards(level: number, map: GameMap, patrolRoutes: Array<PatrolRoute>, guardLoot:number, placeVaultKey: boolean, rng: RNG) {
     if (level <= 0) {
         return;
     }
 
     for (const patrolPath of patrolRoutes) {
         let pathIndexStart = 0;
-        const guard = new Guard(patrolPath, pathIndexStart);
+        const picker = rng.random();
+        let type = level>5 && picker>0.8? GuardType.Defender : GuardType.Footman;
+        if(patrolPath.route.length>10 && !placeVaultKey) {
+            if(picker<0.3) type = GuardType.Worker;
+            else if(picker<0.6) type = GuardType.Owner;
+        }
+        const guard = new Guard(type, patrolPath.route, pathIndexStart);
         if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
         }
@@ -3209,6 +3227,19 @@ function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2
         map.guards.push(guard);
     }
 
+    for(let item of map.items) {
+        if(item.type===ItemType.BedR && rng.random()>0.5) {
+            map.guards.push(new Guard(GuardType.Sleeper, [vec2.fromValues(item.pos[0], item.pos[1])], 0))
+        }
+    }
+
+    if(level===7 || level===8) { 
+        map.guards.push(new Guard(GuardType.Tracker, [vec2.fromValues(0, 0)], 0));
+    }
+    if(level===9) {
+        map.guards.push(new Guard(GuardType.AssassinTracker, [vec2.fromValues(0, map.cells.sizeY-1)], 0));
+    }
+    
     console.assert(guardLoot===0);
 }
 

@@ -22,7 +22,7 @@ export type TileSet = {
     terrainTiles: Array<TileInfo>;
     itemTiles: Array<TileInfo>;
     guardStateTiles: Array<TileInfo>;
-    npcTiles: Array<TileInfo>;
+    npcTiles: Array<Array<TileInfo>>;
     playerTiles: {[id:string]:TileInfo};
     ledgeTiles: Array<TileInfo>;
     unlitTile: TileInfo;
@@ -84,7 +84,8 @@ const tileSet31Color:TileSet = {
         patrolRoute: {textureIndex:0x1f, color:0xff80ff80},
         speechBubbleR: {textureIndex:0xb7, color:0xffffffff},
         speechBubbleL: {textureIndex:0xb8, color:0xffffffff},
-
+        shuriken1: {textureIndex:0xd7, color:0xffffffff},
+        shuriken2: {textureIndex:0xd8, color:0xffffffff},
     },
     touchButtons: {
         'menu':             {textureIndex: r([11,  1]), color:0xa0ffffff, unlitColor:0x80ffffff},
@@ -167,25 +168,153 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.KeyCarry,    
     ],
     npcTiles: [
-        {textureIndex: r([3, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
-        {textureIndex: r([2, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
-        {textureIndex: r([4, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
-        {textureIndex: r([1, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        [ //FOOTMAN
+            {textureIndex: r([3, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([2, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([4, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([1, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
 
-        {textureIndex: r([3, 8]),    color:colorPreset.darkGray},//guardEnoLoS
-        {textureIndex: r([2, 8]),    color:colorPreset.darkGray},//guardNnoLoS
-        {textureIndex: r([4, 8]),    color:colorPreset.darkGray},//guardWnoLoS
-        {textureIndex: r([1, 8]),    color:colorPreset.darkGray},//guardSnoLoS
+            {textureIndex: r([3, 8]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([2, 8]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([4, 8]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([1, 8]),    color:colorPreset.darkGray},//guardSnoLoS
 
-        {textureIndex: r([3, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
-        {textureIndex: r([2, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
-        {textureIndex: r([4, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
-        {textureIndex: r([1, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
-        //KO'd
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            {textureIndex: r([3, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([2, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([4, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([1, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //KO'd
+            {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
+        [ //ADVANCED FOOTMAN
+            {textureIndex: r([3, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([2, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([4, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([1, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+
+            {textureIndex: r([3, 7]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([2, 7]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([4, 7]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([1, 7]),    color:colorPreset.darkGray},//guardSnoLoS
+
+            {textureIndex: r([3, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([2, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([4, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([1, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //KO'd
+            {textureIndex: r([0, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([0, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([0, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([0, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
+        [ //TRACKER
+            {textureIndex: r([8, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([7, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([9, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([6, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+
+            {textureIndex: r([8, 7]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([7, 7]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([9, 7]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([6, 7]),    color:colorPreset.darkGray},//guardSnoLoS
+
+            {textureIndex: r([8, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([7, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([9, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([6, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //KO'd
+            {textureIndex: r([5, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([5, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([5, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([5, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
+        [ //ASSASSIN TRACKER
+            {textureIndex: r([13, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([12, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([14, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([11, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+
+            {textureIndex: r([13, 7]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([12, 7]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([14, 7]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([11, 7]),    color:colorPreset.darkGray},//guardSnoLoS
+
+            {textureIndex: r([13, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([12, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([14, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([11, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //KO'd
+            {textureIndex: r([10, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([10, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([10, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([10, 7]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
+        [ //WORKER
+            {textureIndex: r([3, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([2, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([4, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([1, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+
+            {textureIndex: r([3, 10]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([2, 10]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([4, 10]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([1, 10]),    color:colorPreset.darkGray},//guardSnoLoS
+
+            {textureIndex: r([3, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([2, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([4, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([1, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //KO'd
+            {textureIndex: r([0, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([0, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([0, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([0, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
+        [ //OWNER
+            {textureIndex: r([8, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([7, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([9, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([6, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+
+            {textureIndex: r([8, 10]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([7, 10]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([9, 10]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([6, 10]),    color:colorPreset.darkGray},//guardSnoLoS
+
+            {textureIndex: r([8, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([7, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([9, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([6, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //KO'd
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
+        [ //SLEEPER
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+
+            {textureIndex: r([10, 10]),    color:colorPreset.darkGray},//guardEnoLoS
+            {textureIndex: r([10, 10]),    color:colorPreset.darkGray},//guardNnoLoS
+            {textureIndex: r([10, 10]),    color:colorPreset.darkGray},//guardWnoLoS
+            {textureIndex: r([10, 10]),    color:colorPreset.darkGray},//guardSnoLoS
+
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([10, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+            //Sleeping
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+            {textureIndex: r([5, 10]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        ],
     ],
     playerTiles: {
         normal:  {textureIndex: r([1, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},

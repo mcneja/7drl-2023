@@ -52,6 +52,7 @@ class SpriteAnimation extends Animator {
     offset: vec2;
     activeFrame: number;
     frameStep: number;
+    frameTime: number;
     time: number;
     tileInfo:Array<TileInfo>;
     activePt: number;
@@ -63,7 +64,8 @@ class SpriteAnimation extends Animator {
         this.offset = vec2.clone(tweenSeq[0].pt0);
         this.tileInfo = tileInfo;
         this.activeFrame = 0;
-        this.frameStep = 1;
+        this.frameStep = 1; //Frame flips per duration
+        this.frameTime = 0;
         this.activePt = 0;
         this.tweenSeq = tweenSeq;
         this.removeOnFinish = false;
@@ -79,10 +81,14 @@ class SpriteAnimation extends Animator {
         this.time=Math.min(this.time+dt, duration);
         this.offset[0] = fn(this.time, start[0], end[0], duration);
         this.offset[1] = fn(this.time, start[1], end[1], duration);
-        if(this.time == duration) {
+        if(this.time >= this.frameTime + duration/this.frameStep) {
+            this.activeFrame++;
+            this.frameTime+=duration/this.frameStep;
+        }
+        if(this.time === duration) {
             this.activePt++;
             this.time = 0;
-            this.activeFrame++;
+            this.frameTime = 0;
         }
         if(this.activeFrame>=this.tileInfo.length) {
             this.activeFrame = 0;
