@@ -380,6 +380,8 @@ class Guard {
                         if(this.modeTimeout===0) {
                             this.mode=GuardMode.SleeperAwake;
                             this.modeTimeout = 6;
+                            shouts.push({pos_shouter: this.pos, pos_target: player.pos, target:player});
+                            popups.add(PopupType.SleeperAwakesWarning, this.pos);
                         }
                 } else {
                     this.mode = GuardMode.SleeperSleeping;
