@@ -1262,21 +1262,23 @@ function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: 
 }
 
 function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>, seeAll: boolean):[number,number,number,number] {
+    const l =   cells.at(x,y).litAnim;
+    const scale = l>0? 1:0.0625;
+
     const llu = cells.at(x-1,y-1).litAnim;
     const lu =  cells.at(x,y-1).litAnim;
     const lru = cells.at(x+1,y-1).litAnim;
     const ll =  cells.at(x-1,y).litAnim;
-    const l =   cells.at(x,y).litAnim;
     const lr =  cells.at(x+1,y).litAnim;
     const lld = cells.at(x-1,y+1).litAnim;
     const ld =  cells.at(x,y+1).litAnim;
     const lrd = cells.at(x+1,y+1).litAnim;
     
     return [
-        (llu+lu+ll+l)/4, //top left vertex
-        (lru+lu+lr+l)/4, //top right
-        (lld+ld+ll+l)/4, //bottom left
-        (lrd+ld+lr+l)/4, //bottom right
+        scale*(llu+lu+ll+l)/4, //top left vertex
+        scale*(lru+lu+lr+l)/4, //top right
+        scale*(lld+ld+ll+l)/4, //bottom left
+        scale*(lrd+ld+lr+l)/4, //bottom right
     ];
 }
 
@@ -1433,6 +1435,7 @@ function renderPlayer(state: State, renderer: Renderer) {
     }
 
     renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
+
 }
 
 function renderGuards(state: State, renderer: Renderer) {
@@ -1531,6 +1534,17 @@ function renderIconOverlays(state: State, renderer: Renderer) {
             renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
         } 
     }
+
+    // DISABLING BUT MIGHT BE USEFUL AS AN ACCESSIBILITY OPTION
+    // Render the light status indicator if player is standing in the light
+    // const litVal = state.gameMap.cells.atVec(player.pos).lit?1:0;
+    // if(litVal) {
+    //     const litTile = tileSet.namedTiles['litPlayer'];
+    //     const offset = player.animation?.offset?? vec2.create();
+    //     const x = player.pos[0] + offset[0];
+    //     const y = player.pos[1] + offset[1];
+    //     renderer.addGlyph(x, y+0.625, x+1, y+1.625, litTile, litVal);                
+    // }
 
     // Render an icon over the player if the player is being noisy
     if (player.noisy) {

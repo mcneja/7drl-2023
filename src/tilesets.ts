@@ -78,6 +78,7 @@ const tileSet31Color:TileSet = {
     flattenTexture: true,
     unlitTile: {textureIndex: r([0, 0])}, //color:colorPreset.lightBlue
     namedTiles: {
+        litPlayer: {textureIndex:0xbc, color:0xffffffff},
         pickTarget: {textureIndex:0xbc, color:0xffffffff},
         noise: {textureIndex: 0xbb, color: 0x80ffffff},
         crossHatch: {textureIndex:3, color:0xffffffff},

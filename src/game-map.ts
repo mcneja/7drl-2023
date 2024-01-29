@@ -19,7 +19,7 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { Animator } from './animation';
+import { Animator, SpriteAnimation } from './animation';
 import { RNG } from './random';
 import { Adjacency } from './create-map';
 
@@ -308,7 +308,7 @@ class Player {
     hasVaultKey: boolean;
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
-    animation: Animator|null = null;
+    animation: SpriteAnimation|null = null;
     pickTarget: Guard|null = null;
 
     constructor(pos: vec2) {
