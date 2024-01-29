@@ -1493,23 +1493,8 @@ function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room)
                 continue;
             }
 
-            // Edges adj0 and adj1 need to have parallel directions and have the same rooms on either side
-            // Figure out which room is on the other side of the two edges from room0
-
-            let room1;
-            
-            if (adj0.roomLeft === room0) {
-                if (!(adj1.roomLeft  === room0 && adj0.roomRight === adj1.roomRight && adj0.dir[0] ===  adj1.dir[0] && adj0.dir[1] ===  adj1.dir[1]) &&
-                    !(adj1.roomRight === room0 && adj0.roomRight === adj1.roomLeft  && adj0.dir[0] === -adj1.dir[0] && adj0.dir[1] === -adj1.dir[1])) {
-                    continue;
-                }
-                room1 = adj0.roomRight;
-            } else {
-                if (!(adj1.roomRight === room0 && adj0.roomLeft === adj1.roomLeft  && adj0.dir[0] ===  adj1.dir[0] && adj1.dir[1] ===  adj1.dir[1]) &&
-                    !(adj1.roomLeft  === room0 && adj0.roomLeft === adj1.roomRight && adj0.dir[0] === -adj1.dir[0] && adj1.dir[1] === -adj1.dir[1])) {
-                    continue;
-                }
-                room1 = adj0.roomLeft;
+            if (!adjacenciesAreMergeable(adj0, adj1)) {
+                continue;
             }
 
             // Compute the new origin and length for the combined edge
@@ -1540,10 +1525,40 @@ function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room)
 
             // Remove edge adj1 from the rooms and the overall list of adjacencies
 
+            const room1 = (adj0.roomLeft === room0) ? adj0.roomRight : adj0.roomLeft;
+
             removeByValue(room0.edges, adj1);
             removeByValue(room1.edges, adj1);
             removeByValue(adjacencies, adj1);
 
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function adjacenciesAreMergeable(adj0: Adjacency, adj1: Adjacency): boolean {
+    // Edges have to be parallel to each other to be merged
+    if (Math.abs(adj0.dir.dot(adj1.dir)) !== 1) {
+        return false;
+    }
+
+    const posAdj0End = vec2.create();
+    vec2.scaleAndAdd(posAdj0End, adj0.origin, adj0.dir, adj0.length);
+    const posAdj1End = vec2.create();
+    vec2.scaleAndAdd(posAdj1End, adj1.origin, adj1.dir, adj1.length);
+
+    if (adj1.roomLeft === adj0.roomLeft && adj1.roomRight === adj0.roomRight) {
+        if (posAdj0End.equals(adj1.origin)) {
+            return true;
+        } else if (posAdj1End.equals(adj0.origin)) {
+            return true;
+        }
+    } else if (adj1.roomLeft === adj0.roomRight && adj1.roomRight === adj0.roomLeft) {
+        if (posAdj0End.equals(posAdj1End)) {
+            return true;
+        } else if (adj0.origin.equals(adj1.origin)) {
             return true;
         }
     }
