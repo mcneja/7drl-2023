@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid, isDoorItemType } from './game-map';
-import { SpriteAnimation, LightSourceAnimation, Animator, tween, LightState, FrameAnimator } from './animation';
+import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator } from './animation';
 import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
@@ -1780,14 +1780,20 @@ function setCellAnimations(gameMap: GameMap, state: State) {
 function setLights(gameMap: GameMap, state: State) {
     let id = 0;
     if(tileSet.candleAnimation.length>=3) {
+        const stoveSeq:[TileInfo, number][] = tileSet.stoveAnimation.slice(0,2).map((t)=>[t,0.5]);
+        const stoveDim = stoveSeq[0][0];
+        const stoveOff = stoveSeq[0][0];
         const candleSeq:[TileInfo, number][] = tileSet.candleAnimation.slice(0,3).map((t)=>[t,0.5]);
         const candleDim = tileSet.candleAnimation.at(-2)!;
         const candleOff = tileSet.candleAnimation.at(-1)!;
         for(let i of gameMap.items) {
-            if(i.type === ItemType.TorchLit) {
+            if (i.type === ItemType.Stove) {
+                i.animation = new LightSourceAnimation(LightState.idle, id, state.lightStates, i, stoveSeq, stoveDim, stoveOff);
+                id++;
+            } else if (i.type === ItemType.TorchLit) {
                 i.animation = new LightSourceAnimation(LightState.idle, id, state.lightStates, i, candleSeq, candleDim, candleOff);
-                id++;    
-            } else if(i.type === ItemType.TorchUnlit) {
+                id++;
+            } else if (i.type === ItemType.TorchUnlit) {
                 i.animation = new LightSourceAnimation(LightState.off, id, state.lightStates, i, candleSeq, candleDim, candleOff);
                 id++;
             }
@@ -1804,7 +1810,6 @@ function setLights(gameMap: GameMap, state: State) {
             }
         }    
     }
-
 }
 
 export function restartGame(state: State) {

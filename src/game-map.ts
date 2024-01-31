@@ -249,6 +249,8 @@ enum ItemType {
     DrawersShort,
     DrawersTall,
     Bookshelf,
+    Shelf,
+    Stove,
     Bush,
     Coin,
     DoorNS,
@@ -280,6 +282,8 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.DrawersShort: return Infinity;
         case ItemType.DrawersTall: return Infinity;
         case ItemType.Bookshelf: return Infinity;
+        case ItemType.Shelf: return Infinity;
+        case ItemType.Stove: return Infinity;
         case ItemType.Bush: return 10;
         case ItemType.Coin: return 0;
         case ItemType.DoorNS: return 0;
@@ -628,7 +632,7 @@ class GameMap {
         }
         let lightId = 0;
         for (const item of this.items) {
-            if (item.type == ItemType.TorchLit) {
+            if (item.type === ItemType.TorchLit || item.type === ItemType.Stove) {
                 this.castLight(item.pos, 45, lightId, occupied);
                 lightId++;
             }

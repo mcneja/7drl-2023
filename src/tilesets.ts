@@ -28,6 +28,7 @@ export type TileSet = {
     unlitTile: TileInfo;
     flattenTexture: boolean;
     waterAnimation: Array<TileInfo>;
+    stoveAnimation: Array<TileInfo>;
     candleAnimation: Array<TileInfo>;
     torchAnimation: Array<TileInfo>;
 }
@@ -152,6 +153,8 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([10, 14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DrawersShort,
         {textureIndex: r([9,  14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DrawersTall,
         {textureIndex: r([7,  12]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Bookshelf,
+        {textureIndex: r([5,  12]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Shelf,
+        {textureIndex: r([14, 14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Stove,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Bush,
         {textureIndex: r([5,  13]),  color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.Coin,
         {textureIndex: r([7,   3]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DoorNS,
@@ -218,6 +221,10 @@ const tileSet31Color:TileSet = {
         {textureIndex: 0x61, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
         {textureIndex: 0x62, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
         {textureIndex: 0x63, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray},
+    ],
+    stoveAnimation: [
+        {textureIndex: 0xee, color: colorPreset.white, unlitColor: colorPreset.midGray}, // stove cycle
+        {textureIndex: 0xef, color: colorPreset.white, unlitColor: colorPreset.midGray},
     ],
     candleAnimation: [
         {textureIndex: 0xe0, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray},
