@@ -147,44 +147,106 @@ class Rect extends Array<number> {
     }
 }
 
-function drawBanditBuilding(map:GameMap, building:Rect, rng:RNG) {
+function patchWall(map:GameMap, pos:vec2) {
+    let value = 0;
+    for(let c of map.cells.iterOrtho(pos)) {
+        value = 2*value+(c.type>=TerrainType.Wall0000?1:0);
+    }
+    map.cells.atVec(pos).type = TerrainType.Wall0000 + value;
+}
+
+function placeWallBetween(map:GameMap, p1:vec2, p2:vec2) {
+    const maxDist = Math.max(...p2.subtract(p1).abs());
+    const dir = p2.subtract(p1).scale(1/maxDist);
+    const grad = Math.abs(dir[0])>=Math.abs(dir[1]);
+    let p = p1;
+    let dist = 0;
+    let oldfp:vec2 = p1;
+    map.cells.atVec(p1).type = TerrainType.Wall0000;
+    const walls:vec2[] = [];
+    while(dist<=maxDist) {
+        p = p.add(dir);
+        const fp = vec2.fromValues(Math.floor(p[0]), Math.floor(p[1]));
+        const c = map.cells.atVec(fp);
+        c.type = TerrainType.Wall0000;
+        walls.push(fp);
+        const diff=fp.subtract(oldfp);
+        if(diff.abs().sum()===2) {
+            const deltaP = diff.abs()[0]>=diff.abs()[1]? vec2.fromValues(diff[0],0) :
+                vec2.fromValues(0,diff[1]);
+            const adjP = fp.add(deltaP)
+            map.cells.atVec(adjP).type = TerrainType.Wall0000;
+            walls.push(adjP);
+        }
+        oldfp = fp;
+        dist++;
+    }
+    // for(let wp of walls) {
+    //     patchWall(map, wp);
+    // }
+
+    return true;
+}
+
+function floodFill(map:GameMap, pos:vec2, fillType:TerrainType, blocker:TerrainType=TerrainType.Wall0000) {
+    for(let d of [[0,-1],[0,1],[-1,0],[1,0]]) {
+        const posD = pos.add(vec2.fromValues(d[0],d[1]))
+        if( posD[0]>=0 && posD[0]<map.cells.sizeX &&
+            posD[1]>=0 && posD[1]<map.cells.sizeY) {
+            const c = map.cells.atVec(posD)
+            if(c.type!==blocker) {
+                c.type = fillType;
+                floodFill(map, posD, fillType, blocker);
+            }
+        }
+    }
+}
+
+function placeWalledRect(map:GameMap, rect:Rect) {
+    for(let k=1; k<rect[2];k++) {
+        map.cells.at(rect[0]+k, rect[1]).type = TerrainType.Wall0011;
+        map.cells.at(rect[0]+k, rect[1]+rect[3]).type = TerrainType.Wall0011;
+    }
+    for(let k=1; k<rect[3];k++) {
+        map.cells.at(rect[0], rect[1]+k).type = TerrainType.Wall1100;
+        map.cells.at(rect[0]+rect[2], rect[1]+k).type = TerrainType.Wall1100;
+    }
+    map.cells.at(rect[0],rect[1]).type = TerrainType.Wall1010;
+    map.cells.at(rect[0],rect[1]+rect[3]).type = TerrainType.Wall0110;
+    map.cells.at(rect[0]+rect[2],rect[1]).type = TerrainType.Wall1001;
+    map.cells.at(rect[0]+rect[2],rect[1]+rect[3]).type = TerrainType.Wall0101;
+    return true;
+}
+
+function addDoorwayToWall(map:GameMap, pos:vec2, addDoor:boolean=true) {
+    const type = map.cells.atVec(pos).type;
+    if(type===TerrainType.Wall0011) {
+        map.cells.atVec(pos).type = TerrainType.DoorEW;
+        if(addDoor) placeItem(map, pos, ItemType.DoorEW);
+        return true
+    }
+    if(type===TerrainType.Wall1100) {
+        map.cells.atVec(pos).type = TerrainType.DoorNS;
+        if(addDoor) placeItem(map, pos, ItemType.DoorNS);
+        return true
+    }
+    return false;
+}
+
+function placeBanditBuilding(map:GameMap, building:Rect, rng:RNG) {
     for(let t of map.cells.iter(building[0]+1, building[1]+1, building[0]+building[2], building[1]+building[3])) {
         t.type = TerrainType.GroundWood;
     }
-    const numDoors = 2;
-    for(let k=1; k<building[2];k++) {
-        map.cells.at(building[0]+k, building[1]).type = TerrainType.Wall0011;
-        map.cells.at(building[0]+k, building[1]+building[3]).type = TerrainType.Wall0011;
-    }
-    for(let k=1; k<building[3];k++) {
-        map.cells.at(building[0], building[1]+k).type = TerrainType.Wall1100;
-        map.cells.at(building[0]+building[2], building[1]+k).type = TerrainType.Wall1100;
-    }
-    const doorPosX = building[0]+1+rng.randomInRange(building[2]-1);
-    const doorPosNS = rng.random()>0.5;
-    const doorPosY = building[1]+1+rng.randomInRange(building[3]-1);
-    const doorPosEW = rng.random()>0.5;
-    const dPos1 = vec2.fromValues(doorPosX, building[1]+(doorPosNS?building[3]:0));
-    const dPos2 = vec2.fromValues(building[0]+(doorPosEW?building[2]:0), doorPosY);
-    map.cells.atVec(dPos1).type = TerrainType.DoorEW;
-    map.items.push({
-        type:ItemType.DoorEW,
-        pos: dPos1,
-    })
-    map.cells.atVec(dPos2).type = TerrainType.DoorNS;
-    map.items.push({
-        type:ItemType.DoorNS,
-        pos: dPos2,
-    })
+    placeWalledRect(map, building)
 
-    map.cells.at(building[0],building[1]).type = TerrainType.Wall1010;
-    map.cells.at(building[0],building[1]+building[3]).type = TerrainType.Wall0110;
-    map.cells.at(building[0]+building[2],building[1]).type = TerrainType.Wall1001;
-    map.cells.at(building[0]+building[2],building[1]+building[3]).type = TerrainType.Wall0101;
+    const doorPosX = building[0]+1+rng.randomInRange(building[2]-1);
+    const doorPosY = building[1]+1+rng.randomInRange(building[3]-1);
+    addDoorwayToWall(map, vec2.fromValues(doorPosX, building[1]+(rng.random()>0.5?building[3]:0)))
+    addDoorwayToWall(map, vec2.fromValues(building[0]+(rng.random()>0.5?building[2]:0), doorPosY));
+
 }
 
-function traceBanditPath(map:GameMap, r1:Rect, r2:Rect, spaces:Rect[], type:TerrainType) {
-    const bSpaces = spaces.filter((s)=>(s!==r1 && s!==r2));
+function traceBanditPath(map:GameMap, r1:Rect, r2:Rect, spaces:Rect[], type:TerrainType, clearType:TerrainType=TerrainType.GroundWater) {
     const p1 = r1.flCenter;
     const p2 = r2.flCenter;
     const maxDist = Math.max(...p2.subtract(p1).abs());
@@ -196,7 +258,7 @@ function traceBanditPath(map:GameMap, r1:Rect, r2:Rect, spaces:Rect[], type:Terr
         for(let adj of [[0,0],[1,0],[0,1]]) {
             const rpAdj = vec2.fromValues(rp[0]+adj[0], rp[1]+adj[1]);
             const c = map.cells.atVec(rpAdj);
-            if(c.type===TerrainType.GroundWater) {
+            if(c.type===clearType) {
                 c.type = type;
             }
         }
@@ -204,6 +266,87 @@ function traceBanditPath(map:GameMap, r1:Rect, r2:Rect, spaces:Rect[], type:Terr
         p = p.add(dir);
     }
 }
+
+function createDocksMap(level: number, plan:GameMapRoughPlan) {
+    const rng = plan.rng;
+    const X = Math.max(plan.numRoomsX*12, plan.numRoomsY*12);
+    const Y = Math.min(plan.numRoomsX*12, plan.numRoomsY*12);
+    const cells = new CellGrid(X, Y);
+    const map = new GameMap(cells);
+
+    const landHeight = Math.floor( Math.max(cells.sizeY - cells.sizeX/2, cells.sizeY/4) );
+
+    setRectTerrainType(map, 0, 0, cells.sizeX, cells.sizeY, TerrainType.GroundWater);    
+    setRectTerrainType(map, 0, 0, cells.sizeX, landHeight, TerrainType.GroundGrass);
+
+    let dock = 0;
+    let dockPosX = 0;
+    while(dockPosX+12<X) {
+        dockPosX += 12 + Math.floor(rng.randomInRange(5) );
+        const dockLen = Math.min(6 + rng.randomInRange(5), cells.sizeY-landHeight-10);
+        setRectTerrainType(map, dockPosX, landHeight, dockPosX+3, landHeight+dockLen, TerrainType.GroundWood);
+        for(let y=landHeight+dockLen-1;y>=landHeight;y-=3) {
+            cells.at(dockPosX-1, y).type = TerrainType.Wall0000;
+            cells.at(dockPosX+3, y).type = TerrainType.Wall0000;
+        }
+        dock++;
+    }
+
+    fixupWalls(map.cells);
+
+    //Set the tile hints on the tiles
+    cacheCellInfo(map);
+
+    //    markExteriorAsSeen(map);
+    map.playerStartPos = vec2.fromValues(map.cells.sizeX/2, 0);
+    map.computeLighting();
+    map.recomputeVisibility(map.playerStartPos);
+
+    return map;
+}
+
+
+function createCastleMap(level: number, plan:GameMapRoughPlan) {
+    const rng = plan.rng;
+    const cells = new CellGrid(plan.numRoomsX*8, plan.numRoomsY*8);
+    const map = new GameMap(cells);
+
+    setRectTerrainType(map, 0, 0, cells.sizeX, cells.sizeY, TerrainType.GroundWater);    
+    
+    fixupWalls(map.cells);
+
+    //Set the tile hints on the tiles
+    cacheCellInfo(map);
+
+    //    markExteriorAsSeen(map);
+    map.playerStartPos = vec2.fromValues(map.cells.sizeX/2, 0);
+    map.computeLighting();
+    map.recomputeVisibility(map.playerStartPos);
+
+    return map;
+}
+
+function createDungeonMap(level: number, plan:GameMapRoughPlan) {
+    const rng = plan.rng;
+    const cells = new CellGrid(plan.numRoomsX*8, plan.numRoomsY*8);
+    const map = new GameMap(cells);
+
+    setRectTerrainType(map, 0, 0, cells.sizeX, cells.sizeY, TerrainType.GroundWater);    
+
+    fixupWalls(map.cells);
+
+    //Set the tile hints on the tiles
+    cacheCellInfo(map);
+    
+    //    markExteriorAsSeen(map);
+    map.playerStartPos = vec2.fromValues(map.cells.sizeX/2, 0);
+    map.computeLighting();
+    map.recomputeVisibility(map.playerStartPos);
+
+    return map;
+
+}
+
 
 
 function createBanditMap(level: number, plan:GameMapRoughPlan) {
@@ -257,7 +400,7 @@ function createBanditMap(level: number, plan:GameMapRoughPlan) {
 
     //Render buildings into map
     for(let b of buildings) {
-        drawBanditBuilding(map, b, rng);
+        placeBanditBuilding(map, b, rng);
     }
 
     //Render clearings into map
@@ -294,7 +437,7 @@ function createBanditMap(level: number, plan:GameMapRoughPlan) {
     //For all spaces that are GroundWater we'll now fill them with grass, trees and pillars
     for(let p of cells.iterPos()) {
         let wallAdj = false;
-        for(let t of cells.iterRadius(p, 1)) {
+        for(let t of cells.iterOrtho(p)) {
              if(t.type>=TerrainType.Wall0000) wallAdj = true;
         }
         const t = map.cells.atVec(p);
@@ -304,6 +447,8 @@ function createBanditMap(level: number, plan:GameMapRoughPlan) {
             if(r>0.5) map.items.push({pos: p, type:ItemType.Bush})
         }
     }
+
+    fixupWalls(map.cells);
 
     //Set the tile hints on the tiles
     cacheCellInfo(map);
@@ -335,7 +480,6 @@ function createBanditMap(level: number, plan:GameMapRoughPlan) {
     }
 
     // Final setup
-
 //    markExteriorAsSeen(map);
     map.playerStartPos = vec2.fromValues(map.cells.sizeX/2, 0);
     map.computeLighting();
@@ -351,6 +495,9 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     if(level===4) {
         return createBanditMap(level, plan);
+    }
+    if(level===5) {
+        return createDocksMap(level, plan);
     }
 
     const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY, rng);

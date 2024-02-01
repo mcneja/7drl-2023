@@ -219,10 +219,10 @@ class CellGrid {
      * @param pos 
      */
     *iterOrtho(pos:vec2) {
-        yield this.at(pos[0]+1, pos[1]);
         yield this.at(pos[0], pos[1]+1);
-        yield this.at(pos[0]-1, pos[1]);
         yield this.at(pos[0], pos[1]-1);
+        yield this.at(pos[0]+1, pos[1]);
+        yield this.at(pos[0]-1, pos[1]);
     }
 
     /**

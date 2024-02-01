@@ -34,6 +34,9 @@ class vec2 extends Array<number> {
         this[0] = x0;
         this[1] = x1;
     }
+    sum() {
+        return this[0]+this[1];
+    }
     abs() :vec2 {
         return vec2.fromValues(Math.abs(this[0]), Math.abs(this[1]));
     }
