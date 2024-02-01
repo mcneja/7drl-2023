@@ -194,6 +194,62 @@ class CellGrid {
         };
     }
 
+    *iter(startX:number=0, startY:number=0, endX:number=-1, endY:number=-1) {
+        if(endX<0) endX = this.sizeX;
+        if(endY<0) endY = this.sizeY;
+        for(let x=startX;x<endX;x++) {
+            for(let y=startY;y<endY;y++) {
+                yield this.at(x, y);
+            }
+        }
+    }
+
+    *iterPos(startX:number=0, startY:number=0, endX:number=-1, endY:number=-1) {
+        if(endX<0) endX = this.sizeX;
+        if(endY<0) endY = this.sizeY;
+        for(let x=startX;x<endX;x++) {
+            for(let y=startY;y<endY;y++) {
+                yield vec2.fromValues(x, y);
+            }
+        }
+    }
+
+    /**
+     * Yields the 4 orthogonally adjacent cell spaces of `pos`
+     * @param pos 
+     */
+    *iterOrtho(pos:vec2) {
+        yield this.at(pos[0]+1, pos[1]);
+        yield this.at(pos[0], pos[1]+1);
+        yield this.at(pos[0]-1, pos[1]);
+        yield this.at(pos[0], pos[1]-1);
+    }
+
+    /**
+     * Yields the 8 adjacent cell spaces of `pos`
+     * @param pos 
+     */
+    *iterAdjacent(pos:vec2) {
+        yield this.at(pos[0]+1, pos[1]);
+        yield this.at(pos[0], pos[1]+1);
+        yield this.at(pos[0]-1, pos[1]);
+        yield this.at(pos[0], pos[1]-1);
+        yield this.at(pos[0]+1, pos[1]+1);
+        yield this.at(pos[0]+1, pos[1]-1);
+        yield this.at(pos[0]-1, pos[1]+1);
+        yield this.at(pos[0]-1, pos[1]-1);
+    }
+
+
+    *iterRadius(center:vec2, radius:number) {
+        for(let x=center[0]-radius;x<=center[0]+radius;x++) {
+            for(let y=center[1]-radius;y<=center[1]+radius;y++) {
+                if(vec2.fromValues(x, y).distance(center)<=radius) yield this.at(x, y);
+            }
+        }
+    }
+
+
     at(x: number, y: number): Cell {
         if(x<0 || x>=this.sizeX || y<0 || y>=this.sizeY) {
             return this.emptyCell();

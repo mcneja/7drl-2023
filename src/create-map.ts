@@ -1,5 +1,6 @@
 export { createGameMap, createGameMapRoughPlans, Adjacency };
 
+    import { clear } from 'console';
 import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
@@ -20,7 +21,7 @@ const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     [3,7,3,6,21,30],
     [5,7,4,6,24,36],
     [5,9,4,6,30,42],
-    [7,9,4,6,36,48],
+    [6,9,5,9,50,80],
 ];
 
 enum RoomType
@@ -118,9 +119,235 @@ function makeLevelSize(level:number, rng:RNG) : [number, number] {
 }
 
 
+class Rect extends Array<number> {
+    constructor(x:number=0, y:number=0, w:number=0, h:number=0) {
+        super(x,y,w,h);
+    }
+    collide(r:Rect) {
+        if(this[0] < r[0] + r[2] &&
+            this[0] + this[2] > r[0] &&
+            this[1] < r[1] + r[3] &&
+            this[1] + this[3] > r[1])
+            return true;
+        return false;
+    }
+    grow(amount:number) {
+        return new Rect(this[0]-amount,this[1]-amount,this[2]+2*amount, this[3]+2*amount);
+    }
+    get center() {
+        return vec2.fromValues(this[0]+this[2]/2, this[1]+this[3]/2);
+    }
+    get flCenter() {
+        return vec2.fromValues(Math.floor(this[0]+this[2]/2), Math.floor(this[1]+this[3]/2));
+    }
+}
+
+function drawBanditBuilding(map:GameMap, building:Rect, rng:RNG) {
+    for(let t of map.cells.iter(building[0]+1, building[1]+1, building[0]+building[2], building[1]+building[3])) {
+        t.type = TerrainType.GroundWood;
+    }
+    const numDoors = 2;
+    for(let k=1; k<building[2];k++) {
+        map.cells.at(building[0]+k, building[1]).type = TerrainType.Wall0011;
+        map.cells.at(building[0]+k, building[1]+building[3]).type = TerrainType.Wall0011;
+    }
+    for(let k=1; k<building[3];k++) {
+        map.cells.at(building[0], building[1]+k).type = TerrainType.Wall1100;
+        map.cells.at(building[0]+building[2], building[1]+k).type = TerrainType.Wall1100;
+    }
+    const doorPosX = building[0]+1+rng.randomInRange(building[2]-1);
+    const doorPosNS = rng.random()>0.5;
+    const doorPosY = building[1]+1+rng.randomInRange(building[3]-1);
+    const doorPosEW = rng.random()>0.5;
+    const dPos1 = vec2.fromValues(doorPosX, building[1]+(doorPosNS?building[3]:0));
+    const dPos2 = vec2.fromValues(building[0]+(doorPosEW?building[2]:0), doorPosY);
+    map.cells.atVec(dPos1).type = TerrainType.DoorEW;
+    map.items.push({
+        type:ItemType.DoorEW,
+        pos: dPos1,
+    })
+    map.cells.atVec(dPos2).type = TerrainType.DoorNS;
+    map.items.push({
+        type:ItemType.DoorNS,
+        pos: dPos2,
+    })
+
+    map.cells.at(building[0],building[1]).type = TerrainType.Wall1010;
+    map.cells.at(building[0],building[1]+building[3]).type = TerrainType.Wall0110;
+    map.cells.at(building[0]+building[2],building[1]).type = TerrainType.Wall1001;
+    map.cells.at(building[0]+building[2],building[1]+building[3]).type = TerrainType.Wall0101;
+}
+
+function traceBanditPath(map:GameMap, r1:Rect, r2:Rect, spaces:Rect[], type:TerrainType) {
+    const bSpaces = spaces.filter((s)=>(s!==r1 && s!==r2));
+    const p1 = r1.flCenter;
+    const p2 = r2.flCenter;
+    const maxDist = Math.max(...p2.subtract(p1).abs());
+    const dir = p2.subtract(p1).scale(1/maxDist);
+    let p = p1;
+    let dist = 0;
+    while(dist<maxDist) {
+        const rp = vec2.fromValues(Math.floor(p[0]), Math.floor(p[1]));
+        for(let adj of [[0,0],[1,0],[0,1]]) {
+            const rpAdj = vec2.fromValues(rp[0]+adj[0], rp[1]+adj[1]);
+            const c = map.cells.atVec(rpAdj);
+            if(c.type===TerrainType.GroundWater) {
+                c.type = type;
+            }
+        }
+        dist++;
+        p = p.add(dir);
+    }
+}
+
+
+function createBanditMap(level: number, plan:GameMapRoughPlan) {
+    const rng = plan.rng;
+    const cells = new CellGrid(plan.numRoomsX*8, plan.numRoomsY*8);
+    const map = new GameMap(cells);
+
+    setRectTerrainType(map, 0, 0, cells.sizeX, cells.sizeY, TerrainType.GroundWater);    
+
+    //Place buildings
+    let numBuildings = 4+rng.randomInRange(4);
+    const buildings:Rect[] = [];
+    let b = 0;
+    let i = 0;
+    while(b<numBuildings && i<10000) {
+        const w = 4 + rng.randomInRange(i<100?5:3);
+        const h = 4 + rng.randomInRange(i<100?5:3);
+        const x = 2 + rng.randomInRange(cells.sizeX - w - 4);
+        const y = 2 + rng.randomInRange(cells.sizeY - h - 4);
+        const building = new Rect(x, y, w, h);
+        if(!buildings.find((bld)=>(building.grow(2).collide(bld)))) {
+            buildings.push(building);
+            b++;
+        }
+        i++;
+    }
+
+    if(b<numBuildings) {
+        numBuildings = b;
+    }
+
+    //Place clearings
+    let numClearings = 10 - numBuildings;
+    const clearings:Rect[] = [];
+    let c=0;
+    i=0;
+    while(c<numClearings && i<10000) {
+        const w = 4 + rng.randomInRange(i<100?5:2);
+        const h = 4 + rng.randomInRange(i<100?5:2);
+        const x = 2 + rng.randomInRange(cells.sizeX - w - 4);
+        const y = 2 + rng.randomInRange(cells.sizeY - h - 4);
+
+        const clearing = new Rect(x, y, w, h);
+        if(!buildings.find((bld)=>(clearing.grow(2).collide(bld))) &&
+           !clearings.find((clr)=>(clearing.grow(2).collide(clr)))) {
+            clearings.push(clearing);
+            c++;
+        }
+        i++;
+    }
+
+    //Render buildings into map
+    for(let b of buildings) {
+        drawBanditBuilding(map, b, rng);
+    }
+
+    //Render clearings into map
+    for(let c of clearings) {
+        for(let t of cells.iterRadius(c.flCenter, Math.floor(Math.min(c[2], c[3])/2))) {
+            t.type = TerrainType.GroundNormal;
+        }
+    }
+
+    //Connect a path to each building and clearing to at least two other buildings/clearings
+    const spaces = [...buildings, ...clearings];
+    const patrolRoutes:vec2[][] = [];
+    while(spaces.length>0) {
+        const s = spaces.pop()!;
+        const closestBuilding = spaces.filter(sp=>sp!==s)
+            .reduce((p, c)=>
+                s.flCenter.distance(c.flCenter)<s.flCenter.distance(p.flCenter)?c:p
+            );
+        if(closestBuilding) {
+            traceBanditPath(map, s, closestBuilding, spaces, TerrainType.GroundNormal);
+            patrolRoutes.push([s.flCenter, s.flCenter, s.flCenter, s.flCenter, closestBuilding.flCenter, closestBuilding.flCenter, closestBuilding.flCenter, closestBuilding.flCenter]);
+        }
+        if(spaces.length===1) break;
+        const nClosestBuilding = spaces.filter(sp=>sp!==closestBuilding && sp!==s)
+            .reduce((p, c)=>
+                s.flCenter.distance(c.flCenter)<s.flCenter.distance(p.flCenter)?c:p
+            );
+        if(nClosestBuilding) {
+            traceBanditPath(map, s, nClosestBuilding, spaces, TerrainType.GroundNormal);
+            // patrolRoutes.push([s.flCenter, nClosestBuilding.flCenter]);
+        }
+    }
+
+    //For all spaces that are GroundWater we'll now fill them with grass, trees and pillars
+    for(let p of cells.iterPos()) {
+        let wallAdj = false;
+        for(let t of cells.iterRadius(p, 1)) {
+             if(t.type>=TerrainType.Wall0000) wallAdj = true;
+        }
+        const t = map.cells.atVec(p);
+        if(t.type===TerrainType.GroundWater) {
+            const r = rng.random();
+            t.type = r>0.02 || wallAdj?TerrainType.GroundGrass:TerrainType.Wall0000;
+            if(r>0.5) map.items.push({pos: p, type:ItemType.Bush})
+        }
+    }
+
+    //Set the tile hints on the tiles
+    cacheCellInfo(map);
+
+    //Place loot
+    let lootPlaced = 0;
+    for(let s of buildings) {
+        map.items.push({
+            type:ItemType.Coin,
+            pos: vec2.fromValues(
+                s[0]+1+rng.randomInRange(s[2]-2),
+                s[1]+1+rng.randomInRange(s[3]-2),
+            )
+        });
+        lootPlaced++;
+        if(lootPlaced>=plan.totalLoot) break;
+    }
+
+    // Put guards on the patrol routes
+    rng.shuffleArray(patrolRoutes);
+    for(let pr of patrolRoutes) {
+        const guard = new Guard(pr, 0);
+        if(lootPlaced<plan.totalLoot) {
+            guard.hasPurse = true;
+            guard.hasTorch = true;
+            lootPlaced++;    
+        }
+        map.guards.push(guard);
+    }
+
+    // Final setup
+
+//    markExteriorAsSeen(map);
+    map.playerStartPos = vec2.fromValues(map.cells.sizeX/2, 0);
+    map.computeLighting();
+    map.recomputeVisibility(map.playerStartPos);
+
+    return map;
+}
+
+
 function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const rng = plan.rng;
     rng.reset();
+
+    if(level===4) {
+        return createBanditMap(level, plan);
+    }
+
     const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY, rng);
 
     const mirrorX: boolean = true;
