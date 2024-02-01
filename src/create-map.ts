@@ -1166,7 +1166,9 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
         maxDepth = Math.max(maxDepth, room.depth);
     }
 
-    const targetNumMasterRooms = Math.floor((rooms.length - 1) / 4);
+    const numRooms = rooms.length - 1; // subtract off the RoomType.Exterior room
+
+    const targetNumMasterRooms = Math.floor((numRooms) / 4);
 
     let numMasterRooms = 0;
 
@@ -1288,20 +1290,13 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 
     // Pick rooms to be kitchens
 
-    {
+    if (numRooms >= 8) {
         const kitchenRooms = rooms.filter((room)=>roomCanBeKitchen(room));
         if (kitchenRooms.length > 0) {
             rng.shuffleArray(kitchenRooms);
             kitchenRooms[0].roomType = RoomType.Kitchen;
         }
     }
-    /*
-    for (const room of rooms) {
-        if (roomCanBeKitchen(room)) {
-            room.roomType = RoomType.Kitchen;
-        }
-    }
-    */
 
     // Pick rooms to be dining rooms
 
@@ -1331,14 +1326,14 @@ function chooseRooms(rooms: Array<Room>, acceptRoom: (room: Room) => boolean, ma
 }
 
 function roomCanBeKitchen(room: Room): boolean {
-    if (room.roomType !== RoomType.PublicRoom) {
+    if (room.roomType !== RoomType.PublicRoom && room.roomType !== RoomType.PrivateRoom) {
         return false;
     }
 
     const sizeX = room.posMax[0] - room.posMin[0];
     const sizeY = room.posMax[1] - room.posMin[1];
 
-    if (Math.min(sizeX, sizeY) < 4) {
+    if (Math.min(sizeX, sizeY) < 3) {
         return false;
     }
 
@@ -1346,7 +1341,25 @@ function roomCanBeKitchen(room: Room): boolean {
         return false;
     }
 
+    if (roomHasExteriorDoor(room)) {
+        return false;
+    }
+
     return true;
+}
+
+function roomHasExteriorDoor(room: Room): boolean {
+    for (const adj of room.edges) {
+        if (!adj.door) {
+            continue;
+        }
+        if (adj.roomLeft === room && adj.roomRight.roomType === RoomType.Exterior) {
+            return true;
+        } else if (adj.roomRight === room && adj.roomLeft.roomType === RoomType.Exterior) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function roomCanBeDining(room: Room): boolean {
@@ -2729,59 +2742,109 @@ function updateUsable(usable: BooleanGrid, occupied: BooleanGrid, rootX: number,
 function renderRoomKitchen(map: GameMap, room: Room, level: number, rng: RNG) {
     const sizeX = room.posMax[0] - room.posMin[0];
     const sizeY = room.posMax[1] - room.posMin[1];
-    const usable = new BooleanGrid(sizeX, sizeY, true);
-    const unusable = new BooleanGrid(sizeX, sizeY, false);
-    const occupied = new BooleanGrid(sizeX, sizeY, false);
 
-    let rootX, rootY;
+    // Work out a major axis for the kitchen, based on dimensions first, and exits second
 
-    for (let x = 0; x < sizeX; ++x) {
+    let positions: Array<vec2> = [];
+
+    const axisEW = sizeX > sizeY || (sizeX === sizeY && numExitsNS(room) <= numExitsEW(room));
+
+    if (axisEW) {
+        for (let x = 0; x < sizeX; ++x) {
+            positions.push(vec2.fromValues(x + room.posMin[0], room.posMin[1]));
+            positions.push(vec2.fromValues(x + room.posMin[0], room.posMax[1] - 1));
+        }
+        const centerX = (room.posMin[0] + room.posMax[0]) / 2;
+        positions.sort((pos0, pos1)=>Math.abs(pos0[0] - centerX) - Math.abs(pos1[0] - centerX));
+    } else {
         for (let y = 0; y < sizeY; ++y) {
-            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
-                occupied.set(x, y, true);
-                unusable.set(x, y, true);
-            } else if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
-                unusable.set(x, y, true);
-                rootX = x;
-                rootY = y;
+            positions.push(vec2.fromValues(room.posMin[0], y + room.posMin[1]));
+            positions.push(vec2.fromValues(room.posMax[0] - 1, y + room.posMin[1]));
+        }
+        const centerY = (room.posMin[1] + room.posMax[1]) / 2;
+        positions.sort((pos0, pos1)=>Math.abs(pos0[1] - centerY) - Math.abs(pos1[1] - centerY));
+    }
+
+    positions = positions.filter((pos)=>!doorAdjacent(map.cells, pos) && wallOrWindowAdjacent(map.cells, pos));
+
+    let numStoves = numberToIntegral(sizeX * sizeY / 10, rng);
+    let numShelves = numberToIntegral(positions.length / 3, rng);
+    let numTables = numberToIntegral(positions.length / 2, rng);
+
+    for (const pos of positions) {
+        if (windowAdjacent(map.cells, pos)) {
+            if (numTables > 0) {
+                placeItem(map, pos, ItemType.Table);
+                --numTables;
+            }
+        } else {
+            if (numStoves > 0) {
+                placeItem(map, pos, ItemType.Stove);
+                --numStoves;
+            } else if (numTables > 0) {
+                placeItem(map, pos, ItemType.Table);
+                --numTables;
+            } else if (numShelves > 0) {
+                placeItem(map, pos, ItemType.Shelf);
+                --numShelves;
             }
         }
     }
 
-    if (rootX === undefined || rootY === undefined) {
-        return;
-    }
+    // Put tables in the middle if the room is big enough
 
-    const itemsInRoom = [];
-
-    const candidateItems = [ItemType.Stove, ItemType.Table, ItemType.Shelf, ItemType.Table];
-
-    const numItems = Math.floor((sizeX * sizeY) / 3);
-
-    for (let i = 0; i < numItems; ++i) {
-        const itemType = candidateItems[i % candidateItems.length];
-        for (let j = 0; j < usable.values.length; ++j) {
-            usable.values[j] = unusable.values[j] ? 0 : 1;
+    if (axisEW) {
+        if (sizeY >= 5) {
+            for (let x = room.posMin[0] + 1; x < room.posMax[0] - 1; x += 2) {
+                for (let y = room.posMin[1] + 2; y < room.posMax[1] - 2; ++y) {
+                    placeItem(map, vec2.fromValues(x, y), ItemType.Table);
+                }
+            }
         }
-        updateUsable(usable, occupied, rootX, rootY);
-        updateUsableForReachability(usable, occupied, itemsInRoom, room);
-        const positions = getUsablePositions(usable);
-        if (positions.length === 0) {
-            break;
+    } else {
+        if (sizeX >= 5) {
+            for (let y = room.posMin[1] + 1; y < room.posMax[1] - 1; y += 2) {
+                for (let x = room.posMin[0] + 2; x < room.posMax[0] - 2; ++x) {
+                    placeItem(map, vec2.fromValues(x, y), ItemType.Table);
+                }
+            }
         }
-
-        const pos = positions[rng.randomInRange(positions.length)];
-
-        console.assert(usable.get(pos[0], pos[1]));
-        console.assert(!occupied.get(pos[0], pos[1]));
-
-        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: itemType };
-        map.items.push(item);
-        itemsInRoom.push(item);
-
-        occupied.set(pos[0], pos[1], true);
-        unusable.set(pos[0], pos[1], true);
     }
+}
+
+function numberToIntegral(n: number, rng: RNG): number {
+    const fraction = n - Math.floor(n);
+    n = Math.floor(n);
+    if (rng.random() < fraction) {
+        ++n;
+    }
+    return n;
+}
+
+function numExitsEW(room: Room): number {
+    let numExits = 0;
+    for (const adj of room.edges) {
+        if (adj.dir[0] !== 0) {
+            continue;
+        }
+        if (adj.door) {
+            ++numExits;
+        }
+    }
+    return numExits;
+}
+
+function numExitsNS(room: Room): number {
+    let numExits = 0;
+    for (const adj of room.edges) {
+        if (adj.dir[1] !== 0) {
+            continue;
+        }
+        if (adj.door) {
+            ++numExits;
+        }
+    }
+    return numExits;
 }
 
 function renderRoomDining(map: GameMap, room: Room, level: number, rng: RNG) {
