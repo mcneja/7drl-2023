@@ -34,6 +34,9 @@ class vec2 extends Array<number> {
         this[0] = x0;
         this[1] = x1;
     }
+    abs() :vec2 {
+        return vec2.fromValues(Math.abs(this[0]), Math.abs(this[1]));
+    }
     add(b: vec2):vec2 {
         return vec2.fromValues(this[0] + b[0], this[1] + b[1])
     }
