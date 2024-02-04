@@ -81,7 +81,6 @@ type State = {
     rng: RNG;
     dailyRun: string|null;
     tLast: number | undefined;
-    initialSeen: number;
     lightStates: Array<number>;
     dt: number;
     idleTimer: number;

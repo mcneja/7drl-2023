@@ -333,8 +333,7 @@ export function setupLevel(state: State, level: number) {
 }
 
 export function calculateTimeBonus(state:State):number {
-    const c = state.gameMap.cells;
-    const s = Math.ceil((c.sizeX*c.sizeY)*(1-state.initialSeen)/4);
+    const s = Math.ceil((state.gameMap.numCells() - state.gameMap.numPreRevealedCells)/4);
     const t = state.turns;
     return Math.max(5 - Math.max(Math.floor(t/s)-1,0),0);
 }
@@ -1734,7 +1733,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         tLast: undefined,
         dt: 0,
         idleTimer: 0,
-        initialSeen: 0,
         rng: rng,
         dailyRun: null,
         leapToggleActive: false,
@@ -1872,7 +1870,6 @@ export function restartGame(state: State) {
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
-    state.initialSeen = gameMap.percentSeen()/100;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -1892,7 +1889,6 @@ function resetState(state: State) {
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
-    state.initialSeen = gameMap.percentSeen()/100;
 
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
@@ -2458,16 +2454,14 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     // Mapping percentage
 
-    const percentSeen = state.gameMap.percentSeen();
+    const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
 
     const ptsLeft = calculateTimeBonus(state);
-    const c = state.gameMap.cells;
-    const scale = Math.ceil((c.sizeX*c.sizeY)*(1-state.initialSeen)/4);
+    const scale = Math.ceil((state.gameMap.numCells() - state.gameMap.numPreRevealedCells)/4);
     let turnsLeft = (6-ptsLeft)*scale + scale - 1 - state.turns;
 
-
     const turnsLeftText = ptsLeft>0 ? 'Timer ' + turnsLeft + " (+" + ptsLeft + ")" : 'Turns ' + state.turns + " (--)";
-    const seenMsg = 'Mansion ' + (state.level + 1) + ' - ' + percentSeen + '% Mapped - ' + turnsLeftText;
+    const seenMsg = 'Lvl ' + (state.level + 1) + ' - Map ' + percentRevealed + '% - ' + turnsLeftText;
 
     const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
     putString(renderer, seenX, seenMsg, colorPreset.lightGray);

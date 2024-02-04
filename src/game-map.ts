@@ -408,6 +408,7 @@ class GameMap {
     guards: Array<Guard>;
     playerStartPos: vec2;
     lightCount: number;
+    numPreRevealedCells: number;
     adjacencies: Array<Adjacency>;
 
     constructor(cells: CellGrid) {
@@ -418,6 +419,7 @@ class GameMap {
         this.guards = [];
         this.playerStartPos = vec2.create();
         this.lightCount = 0;
+        this.numPreRevealedCells = 0;
         this.adjacencies = [];
     }
 
@@ -475,17 +477,24 @@ class GameMap {
         return true;
     }
 
-    percentSeen(): number {
+    numCells(): number {
+        return this.cells.values.length;
+    }
+
+    numCellsSeen(): number {
         let numSeen = 0;
         for (const cell of this.cells.values) {
             if (cell.seen) {
                 ++numSeen;
             }
         }
-    
-        return Math.floor((numSeen * 100) / this.cells.values.length);
+        return numSeen;
     }
-    
+
+    fractionRevealed(): number {
+        return (this.numCellsSeen() - this.numPreRevealedCells) / (this.numCells() - this.numPreRevealedCells);
+    }
+
     markAllSeen() {
         for (const cell of this.cells.values) {
             cell.seen = true;

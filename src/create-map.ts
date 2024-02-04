@@ -3506,6 +3506,7 @@ function markExteriorAsSeen(map: GameMap) {
         }
         visited.set(p[0], p[1], true);
         map.cells.atVec(p).seen = true;
+        ++map.numPreRevealedCells;
 
         if (map.cells.atVec(p).type >= TerrainType.Wall0000) {
             continue;
