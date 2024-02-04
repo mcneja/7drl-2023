@@ -170,7 +170,7 @@ function updateControllerState(state:State) {
             state.camera.panning = false;
             state.camera.snapped = false;
         }
-        if (activated('left') || activated('heal')) {
+        if (activated('left')) {
             if (state.leapToggleActive || controller.controlStates['jump']) {
                 tryPlayerLeap(state, -1, 0);
             } else {
@@ -311,7 +311,6 @@ export function setupLevel(state: State, level: number) {
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
-    state.healCost += 1;
 
     state.turns = 0;
     state.lootStolen = 0;
@@ -1251,21 +1250,6 @@ function postTurn(state: State) {
     }
 }
 
-export function tryHealPlayer(state: State) {
-    if (state.player.health >= maxPlayerHealth) {
-        return;
-    }
-
-    if (state.player.loot < state.healCost) {
-        return;
-    }
-
-    state.player.loot -= state.healCost;
-    state.gameStats.lootSpent += state.healCost;
-    state.player.health += 1;
-    state.healCost *= 2;
-}
-
 function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         img.onload = () => resolve(img);
@@ -1767,7 +1751,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         topStatusMessage: startingTopStatusMessage,
         topStatusMessageSticky: true,
         finishedLevel: false,
-        healCost: 1,
         zoomLevel: 3,
         seeAll: false,
         seeGuardSight: false,
@@ -1877,7 +1860,6 @@ export function restartGame(state: State) {
     state.topStatusMessage = startingTopStatusMessage;
     state.topStatusMessageSticky = true;
     state.finishedLevel = false;
-    state.healCost = 1;
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
@@ -2146,7 +2128,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const bw = buttonAlloc[0]-x;
     const bh = buttonAlloc[1]-y;
     const offZoom = state.helpActive || state.gameMode!=GameMode.Mansion?100:0;
-    const offHealNext = state.helpActive || state.gameMode!=GameMode.BetweenMansions?100:0;
     const offRestart = !state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
     const offForceRestartFullscreen = state.helpActive ? 0:100;
     let tt = renderer.tileSet.touchButtons;

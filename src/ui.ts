@@ -592,7 +592,6 @@ Timely delivery: $timeBonus$
 Mansion total:   $totalScore$
 
 Current loot:    $loot$
-[H|heal]: Heal one heart for $$healCost$
 [N|startLevel]: Next mansion`
     ];
     update(state:State) {
@@ -603,7 +602,6 @@ Current loot:    $loot$
         this.state['timeBonus'] = game.calculateTimeBonus(state);
         this.state['totalScore'] = this.state['lootStolen'] + this.state['timeBonus'] + this.state['ghostBonus'];
         this.state['loot'] = state.player.loot;
-        this.state['healCost'] = state.healCost;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -617,8 +615,6 @@ Current loot:    $loot$
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
-        } else if (activated('heal') || action=='heal') {
-            game.tryHealPlayer(state);
         } else if (activated('startLevel') || action=='startLevel') {
             game.setupLevel(state, state.level + 1);
         } else if (activated('menu') || action == 'menu') {
@@ -766,7 +762,7 @@ Mouse, touch and gamepad also supported
 
 #${getTileSet().playerTiles['normal'].textureIndex}# Thief: You!
 #${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
-#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Collect for score, or spend to heal
+#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Collect for score
 #${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
 #${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
 #${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Not a hiding place

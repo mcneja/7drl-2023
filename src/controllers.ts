@@ -37,7 +37,6 @@ const controlStates:ControlStates = {
     'homeOptions':false,
     'jumpToggle': false,
     'restart': false,
-    'heal': false,
     'startLevel': false,
     'exitLevel': false,
     'guardMute': false,
@@ -103,7 +102,6 @@ const defaultKeyMap:KeyMap = {
     'KeyR': ['restart'],
     'KeyC': ['copyScore'],
     'Control+KeyC': ['copyScore'],
-    'KeyH': ['heal'],
     'KeyN': ['startLevel'],
     'Digit9' : ['guardMute'],
     'Digit0': ['volumeMute', 'today'],
@@ -348,7 +346,6 @@ class GamepadManager {
             let c = this.gamepads[g.index];
             c.gamepad = g; //put the latest state in the gamepad object
             c.set("jump", buttonPressed(g, 0));
-//            c.set("heal", buttonPressed(g, 1));
             c.set("wait", buttonPressed(g, 2));
 //            c.set("startLevel", buttonPressed(g, 3));
             c.set("zoomIn", buttonPressed(g, 6));

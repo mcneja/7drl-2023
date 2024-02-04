@@ -94,7 +94,6 @@ type State = {
     topStatusMessage: string;
     topStatusMessageSticky: boolean;
     finishedLevel: boolean;
-    healCost: number;
     zoomLevel: number;
     seeAll: boolean;
     seeGuardSight: boolean;
