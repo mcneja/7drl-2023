@@ -198,6 +198,8 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     placeLoot(plan.totalLoot - guardLoot, rooms, map, rng);
 
+    placeHealth(level, map, rooms, rng);
+
     // Put guards on the patrol routes
 
     placeGuards(level, map, patrolRoutes, guardLoot, needKey, rng);
@@ -3202,6 +3204,10 @@ function canHoldLoot(itemType: ItemType): boolean {
     }
 }
 
+function canHoldHealth(itemType: ItemType): boolean {
+    return itemType === ItemType.Table;
+}
+
 function isValidGroundLootPos(pos: vec2, map: GameMap): boolean {
     let cellType = map.cells.atVec(pos).type;
 
@@ -3269,6 +3275,59 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 
     placeItem(map, positions[rng.randomInRange(positions.length)], ItemType.Coin);
     return true;
+}
+
+function placeHealth(level: number, map: GameMap, rooms: Array<Room>, rng: RNG) {
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.Kitchen && room.roomType !== RoomType.Dining) {
+            continue;
+        }
+
+        tryPlaceHealth(room.posMin, room.posMax, map, rng);
+    }
+}
+
+function tryPlaceHealth(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean
+{
+    const positions: Array<vec2> = [];
+
+    for (let x = posMin[0]; x < posMax[0]; ++x) {
+        for (let y = posMin[1]; y < posMax[1]; ++y) {
+            const pos = vec2.fromValues(x, y);
+
+            if (isHealthAllowedAtPos(pos, map)) {
+                positions.push(pos);
+            }
+        }
+    }
+
+    if (positions.length === 0) {
+        return false;
+    }
+
+    placeItem(map, positions[rng.randomInRange(positions.length)], ItemType.Health);
+    return true;
+}
+
+function isHealthAllowedAtPos(pos: vec2, map: GameMap): boolean {
+    let cellType = map.cells.atVec(pos).type;
+
+    if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
+        return false;
+    }
+
+    let foundHealthHoldingItem = false;
+
+    for (const item of map.items) {
+        if (item.pos.equals(pos)) {
+            if (!canHoldHealth(item.type)) {
+                return false;
+            }
+            foundHealthHoldingItem = true;
+        }
+    }
+
+    return foundHealthHoldingItem;
 }
 
 function setRectTerrainType(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number, terrainType: TerrainType) {

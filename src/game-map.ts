@@ -253,6 +253,7 @@ enum ItemType {
     Stove,
     Bush,
     Coin,
+    Health,
     DoorNS,
     DoorEW,
     LockedDoorNS,
@@ -286,6 +287,7 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.Stove: return Infinity;
         case ItemType.Bush: return 10;
         case ItemType.Coin: return 0;
+        case ItemType.Health: return 0;
         case ItemType.DoorNS: return 0;
         case ItemType.DoorEW: return 0;
         case ItemType.LockedDoorNS: return 0;
@@ -422,16 +424,18 @@ class GameMap {
     }
 
     collectLootAt(pos:vec2): Array<Item> {
-        let coins:Array<Item> = [];
-        this.items = this.items.filter( (item) => {
-            if (item.type == ItemType.Coin && item.pos.equals(pos)) {
-                coins.push(item);
+        let items:Array<Item> = [];
+        this.items = this.items.filter((item) => {
+            if (!item.pos.equals(pos)) {
+                return true;
+            } else if (item.type === ItemType.Coin || item.type === ItemType.Health) {
+                items.push(item);
                 return false;
             } else {
                 return true;
             }
         })
-        return coins;
+        return items;
     }
     
     collectAllLoot(): number {
