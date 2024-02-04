@@ -394,11 +394,12 @@ function advanceToWin(state: State) {
     state.topStatusMessageSticky = false;
 }
 
-function collectLoot(state: State, pos: vec2, posFlyToward: vec2) {
+function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
     const lootCollected = state.gameMap.collectLootAt(pos);
-    if (lootCollected.length > 0) {
-        state.sounds.coin.play(1.0);
+    if (lootCollected.length === 0) {
+        return false;
     }
+    state.sounds.coin.play(1.0);
     for (const loot of lootCollected) {
         ++state.player.loot;
         ++state.lootStolen;
@@ -418,6 +419,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2) {
         loot.animation = animation;
         state.particles.push(loot);
     }
+    return true;
 }
 
 function canStepToPos(state: State, pos: vec2): boolean {
@@ -718,7 +720,14 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     const cellNew = state.gameMap.cells.atVec(posNew);
     if (cellNew.blocksPlayerMove) {
-        bumpFail(state, dx, dy);
+        if (collectLoot(state, posNew, player.pos)) {
+            preTurn(state);
+            player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
+        } else {
+            bumpFail(state, dx, dy);
+        }
         return;
     }
 
@@ -763,7 +772,14 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
                 state.topStatusMessage = 'Shift+move to leap';
                 state.topStatusMessageSticky = false;
             }
-            bumpFail(state, dx, dy);
+            if (collectLoot(state, posNew, player.pos)) {
+                preTurn(state);
+                player.pickTarget = null;
+                bumpAnim(state, dx, dy);
+                advanceTime(state);
+            } else {
+                bumpFail(state, dx, dy);
+            }
             return;
 
         case ItemType.TorchUnlit:

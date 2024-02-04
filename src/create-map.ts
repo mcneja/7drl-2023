@@ -3187,29 +3187,88 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, r
     console.assert(totalLootPlaced === totalLootToPlace);
 }
 
-function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean
-{
-    let dx = posMax[0] - posMin[0];
-    let dy = posMax[1] - posMin[1];
+function canHoldLoot(itemType: ItemType): boolean {
+    switch (itemType) {
+        case ItemType.Chair:
+        case ItemType.Table:
+        case ItemType.DrawersShort:
+        case ItemType.DrawersTall:
+        case ItemType.Bookshelf:
+        case ItemType.Shelf:
+        case ItemType.Bush:
+            return true;
+        default:
+            return false;
+    }
+}
 
-    for (let i = 1000; i > 0; --i) {
-        let pos = vec2.fromValues(posMin[0] + rng.randomInRange(dx), posMin[1] + rng.randomInRange(dy));
+function isValidGroundLootPos(pos: vec2, map: GameMap): boolean {
+    let cellType = map.cells.atVec(pos).type;
 
-        let cellType = map.cells.at(pos[0], pos[1]).type;
-
-        if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
-            continue;
-        }
-
-        if (isItemAtPos(map, pos)) {
-            continue;
-        }
-
-        placeItem(map, pos, ItemType.Coin);
-        return true;
+    if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
+        return false;
     }
 
-    return false;
+    if (isItemAtPos(map, pos)) {
+        return false;
+    }
+
+    return true;
+}
+
+function isLootPreferredAtPos(pos: vec2, map: GameMap): boolean {
+    let cellType = map.cells.atVec(pos).type;
+
+    if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
+        return false;
+    }
+
+    let foundLootHoldingItem = false;
+
+    for (const item of map.items) {
+        if (item.pos.equals(pos)) {
+            if (!canHoldLoot(item.type)) {
+                return false;
+            }
+            foundLootHoldingItem = true;
+        }
+    }
+
+    return foundLootHoldingItem;
+}
+
+function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean
+{
+    const positions: Array<vec2> = [];
+
+    for (let x = posMin[0]; x < posMax[0]; ++x) {
+        for (let y = posMin[1]; y < posMax[1]; ++y) {
+            const pos = vec2.fromValues(x, y);
+
+            if (isLootPreferredAtPos(pos, map)) {
+                positions.push(pos);
+            }
+        }
+    }
+
+    if (positions.length === 0) {
+        for (let x = posMin[0]; x < posMax[0]; ++x) {
+            for (let y = posMin[1]; y < posMax[1]; ++y) {
+                const pos = vec2.fromValues(x, y);
+    
+                if (isValidGroundLootPos(pos, map)) {
+                    positions.push(pos);
+                }
+            }
+        }
+
+        if (positions.length === 0) {
+            return false;
+        }
+    }
+
+    placeItem(map, positions[rng.randomInRange(positions.length)], ItemType.Coin);
+    return true;
 }
 
 function setRectTerrainType(map: GameMap, xMin: number, yMin: number, xMax: number, yMax: number, terrainType: TerrainType) {
