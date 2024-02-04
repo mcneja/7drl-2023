@@ -1,4 +1,4 @@
-export { createGameMap, createGameMapRoughPlans, Adjacency };
+export { createGameMap, createGameMapRoughPlans, Adjacency, levelLeapTrainer };
 
 import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
@@ -8,6 +8,8 @@ import { RNG } from './random';
 const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
+
+const levelLeapTrainer = 2;
 
 const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     //xmin,xmax,ymin,ymax,areamin,areamax -- params used to constrain the map size
@@ -1859,12 +1861,25 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
 
     rng.shuffleArray(patrolRoutes);
 
-    // Past level 5, start including patrols around the outside of the mansion. Keep these ones at the end
-    // so they won't get keys or purses.
+    // On the leap-training level, and past level 5, include patrols around the outside of
+    // the mansion. Keep these ones at the end so they won't get keys or purses.
 
-    if (level > 5) {
-        const patrolLength = outerPerimeter.length;
+    const patrolLength = outerPerimeter.length;
+    if (level === levelLeapTrainer) {
+        // Find the top-rightmost point in the patrol path and shift the patrol path to start there
+        const posTopRight = vec2.fromValues(gameMap.cells.sizeX - 1, gameMap.cells.sizeY - 1);
+        let i = 0;
+        let distI = outerPerimeter[i].squaredDistance(posTopRight);
+        for (let j = 1; j < patrolLength; ++j) {
+            let distJ = outerPerimeter[j].squaredDistance(posTopRight);
+            if (distJ < distI) {
+                distI = distJ;
+                i = j;
+            }
+        }
 
+        patrolRoutes.push(shiftedPathCopy(outerPerimeter, (i + patrolLength - 1) % patrolLength));
+    } else if (level > 5) {
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25)));
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75)));
     }
@@ -2071,7 +2086,34 @@ function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) 
 }
 
 function playerStartPosition(level: number, adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
-    return playerStartPositionFrontDoor(adjacencies, gameMap);
+    if (level === levelLeapTrainer) {
+        return playerStartPositionLeapTrainer(adjacencies, gameMap);
+    } else {
+        return playerStartPositionFrontDoor(adjacencies, gameMap);
+    }
+}
+
+function playerStartPositionLeapTrainer(adjacencies: Array<Adjacency>, gameMap: GameMap) {
+    // Find top-rightmost horizontal adjacency
+
+    const posTopRight = vec2.fromValues(gameMap.cells.sizeX - 1, gameMap.cells.sizeY - 1);
+    let posBest = playerStartPositionFrontDoor(adjacencies, gameMap);
+    let distBest = Infinity;
+    for (const adj of adjacencies) {
+        if (adj.dir[1] !== 0) {
+            continue;
+        }
+
+        const posAdjTopRight = vec2.create();
+        vec2.scaleAndAdd(posAdjTopRight, adj.origin, vec2.fromValues(Math.max(0, adj.dir[0]), 0), adj.length + 1);
+        const dist = vec2.squaredDistance(posTopRight, posAdjTopRight);
+        if (dist < distBest) {
+            distBest = dist;
+            posBest.set(posAdjTopRight[0], posAdjTopRight[1] + 1);
+        }
+    }
+
+    return posBest;
 }
 
 function playerStartPositionFrontDoor(adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
@@ -3523,6 +3565,7 @@ function markExteriorAsSeen(map: GameMap) {
         }
         visited.set(p[0], p[1], true);
         map.cells.atVec(p).seen = true;
+        ++map.numPreRevealedCells;
 
         if (map.cells.atVec(p).type >= TerrainType.Wall0000) {
             continue;
