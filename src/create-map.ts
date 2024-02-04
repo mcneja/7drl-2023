@@ -3320,13 +3320,39 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 }
 
 function placeHealth(level: number, map: GameMap, rooms: Array<Room>, rng: RNG) {
-    for (const room of rooms) {
-        if (room.roomType !== RoomType.Kitchen && room.roomType !== RoomType.Dining) {
-            continue;
-        }
-
-        tryPlaceHealth(room.posMin, room.posMax, map, rng);
+    if (level < 1) {
+        return;
     }
+
+    let numHealthToPlace = 1 + Math.floor((9 - level) / 4);
+
+    if (tryPlaceHealthInRoomTypes([RoomType.Kitchen], map, rooms, rng)) {
+        --numHealthToPlace;
+    }
+
+    if (numHealthToPlace > 0 && tryPlaceHealthInRoomTypes([RoomType.Kitchen, RoomType.Dining], map, rooms, rng)) {
+        --numHealthToPlace;
+    }
+
+    for (let iTry = 10; iTry > 0 && numHealthToPlace > 0; --iTry) {
+        if (tryPlaceHealthInRoomTypes([RoomType.Kitchen, RoomType.Dining, RoomType.Bedroom], map, rooms, rng)) {
+            --numHealthToPlace;
+        }
+    }
+}
+
+function tryPlaceHealthInRoomTypes(roomTypes: Array<RoomType>, map: GameMap, rooms: Array<Room>, rng: RNG): boolean {
+    const healthRooms = rooms.filter((room)=>roomTypes.includes(room.roomType));
+    if (healthRooms.length === 0) {
+        return false;
+    }
+    for (let iTry = 0; iTry < 10; ++iTry) {
+        const room = healthRooms[rng.randomInRange(healthRooms.length)];
+        if (tryPlaceHealth(room.posMin, room.posMax, map, rng)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function tryPlaceHealth(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean

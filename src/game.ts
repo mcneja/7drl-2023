@@ -398,11 +398,16 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
     if (itemsCollected.length === 0) {
         return false;
     }
-    state.sounds.coin.play(1.0);
+    let coinCollected = false;
+    let healthCollected = false;
     for (const item of itemsCollected) {
         if (item.type === ItemType.Coin) {
             ++state.player.loot;
             ++state.lootStolen;
+            coinCollected = true;
+        } else if (item.type === ItemType.Health) {
+            state.player.health = Math.min(maxPlayerHealth, state.player.health + 1);
+            healthCollected = true;
         }
         const pt0 = vec2.create();
         const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]));
@@ -420,6 +425,14 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         item.animation = animation;
         state.particles.push(item);
     }
+
+    if (coinCollected) {
+        state.sounds.coin.play(1.0);
+    }
+    if (healthCollected) {
+        // TODO: Play health pickup sound
+    }
+
     return true;
 }
 
