@@ -169,11 +169,11 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Set player start position
 
-    map.playerStartPos = playerStartPosition(adjacencies, map);
+    map.playerStartPos = playerStartPosition(level, adjacencies, map);
 
     // Additional decorations
 
-    const outerPerimeter = outerBuildingPerimeter(map, map.playerStartPos);
+    const outerPerimeter = outerBuildingPerimeter(adjacencies, map);
 
     placeExteriorBushes(map, outerPerimeter, rng);
     placeFrontPillars(map);
@@ -2068,7 +2068,11 @@ function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) 
     vec2.zero(pos);
 }
 
-function playerStartPosition(adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
+function playerStartPosition(level: number, adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
+    return playerStartPositionFrontDoor(adjacencies, gameMap);
+}
+
+function playerStartPositionFrontDoor(adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
     // Find lowest door to exterior
 
     let adjFrontDoor: Adjacency | undefined = undefined;
@@ -3268,8 +3272,9 @@ function isAdjacentToWall(map: GameMap, pos: vec2): boolean {
     return false;
 }
 
-function outerBuildingPerimeter(map: GameMap, posStart: vec2): Array<vec2> {
+function outerBuildingPerimeter(adjacencies: Array<Adjacency>, map: GameMap): Array<vec2> {
     const path: Array<vec2> = [];
+    const posStart = playerStartPositionFrontDoor(adjacencies, map);
     const pos = vec2.clone(posStart);
     const dir = vec2.fromValues(1, 0);
 
