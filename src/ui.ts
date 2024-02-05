@@ -739,7 +739,7 @@ Mansion bonuses:
   Move: Arrows / WASD / HJKL
   Wait: Space / Z / Period / Numpad5
   Leap/Run: Shift + move (unlimited!)
-  Leap (Toggle): F / Numpad+
+  Leap/Run (Toggle): F / Numpad+
   Zoom View: [ / ]
   Volume: (Mute/Down/Up) 0 / - / =
   Guard Mute (Toggle): 9
