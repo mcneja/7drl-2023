@@ -58,7 +58,6 @@ type Statistics = {
 type GameStats = {
     loot: number;
     lootStolen: number;
-    lootSpent: number;
     ghostBonuses: number;
     timeBonuses: number;
     maxGhostBonuses: number;
@@ -103,7 +102,6 @@ type State = {
     turns: number;
     totalTurns: number;
     lootStolen: number;
-    lootSpent: number;
     lootAvailable: number;
     ghostBonus: number;
     maxTimeBonus: number;

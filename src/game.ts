@@ -291,7 +291,6 @@ function scoreCurrentLevel(state: State) {
         es.maxGhostBonuses += 5;
         es.timeBonuses += calculateTimeBonus(state);
         es.maxTimeBonuses += state.maxTimeBonus;
-        es.lootSpent += state.lootSpent;
         state.gameMapRoughPlans[state.level].played = true;
     }
 }
@@ -314,7 +313,6 @@ export function setupLevel(state: State, level: number) {
 
     state.turns = 0;
     state.lootStolen = 0;
-    state.lootSpent = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;   
@@ -1223,7 +1221,10 @@ function advanceTime(state: State) {
 }
 
 function postTurn(state: State) {
-    if (state.gameMap.allSeen()) {
+    const allSeen = state.gameMap.allSeen();
+    const allLooted = state.lootStolen >= state.lootAvailable;
+
+    if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
         }
@@ -1237,13 +1238,14 @@ function postTurn(state: State) {
     if (subtitle !== '') {
         state.topStatusMessage = subtitle;
         state.topStatusMessageSticky = true;
-    } else if (state.finishedLevel) {
-        if(state.lootAvailable>state.lootStolen) {
-            state.topStatusMessage = 'Mansion fully mapped! You may exit any side but loot remains.'
+    } else if (allSeen) {
+        if (allLooted) {
+            state.topStatusMessage = 'Looting complete! Exit any side.'
+            state.topStatusMessageSticky = false;
         } else {
-            state.topStatusMessage = 'Mansion fully mapped and looted! Exit any side.'
+            state.topStatusMessage = 'Collect all remaining loot.'
+            state.topStatusMessageSticky = false;
         }
-        state.topStatusMessageSticky = true;
     } else if (state.level === levelLeapTrainer && state.turns < 16) {
         state.topStatusMessage = 'Shift+move to leap';
         state.topStatusMessageSticky = false;
@@ -1715,7 +1717,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         gameStats: {    
             loot: 0,
             lootStolen: 0,
-            lootSpent: 0,
             ghostBonuses: 0,
             timeBonuses: 0,
             maxGhostBonuses: 0,
@@ -1760,7 +1761,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         turns: 0,
         totalTurns: 0,
         lootStolen: 0,
-        lootSpent: 0,
         lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
         ghostBonus: 5,
         maxTimeBonus: 5,   
@@ -1841,7 +1841,6 @@ export function restartGame(state: State) {
     state.gameStats = { 
         loot: 0,   
         lootStolen: 0,
-        lootSpent: 0,
         ghostBonuses: 0,
         timeBonuses: 0,
         maxGhostBonuses: 0,
@@ -1863,7 +1862,6 @@ export function restartGame(state: State) {
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
-    state.lootSpent = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
@@ -1882,7 +1880,6 @@ function resetState(state: State) {
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
-    state.lootSpent = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
@@ -2464,7 +2461,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     // Total loot and turn
 
-    let lootMsg = 'Loot ' + state.player.loot;
+    let lootMsg = 'Loot ' + state.lootStolen + '/' + (percentRevealed >= 100 ? state.lootAvailable : '?');
     const lootX = statusBarTileSizeX - (lootMsg.length + 1);
     putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
 

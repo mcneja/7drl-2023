@@ -18,7 +18,6 @@ function scoreToClipboard(stats:GameStats) {
     const maxGhostBonuses = stats.maxGhostBonuses;
     const timeBonuses = stats.timeBonuses;
     const maxTimeBonuses = stats.maxTimeBonuses;
-    const lootSpent = stats.lootSpent;
     const loot = stats.loot;
     const turns = stats.turns;
     const level = stats.level;
@@ -37,7 +36,6 @@ function scoreToClipboard(stats:GameStats) {
         `🪙 stolen:   ${lootStolen} / ${maxLootStolen}\n`+
         `🥷 bonuses:  ${ghostBonuses} / ${maxGhostBonuses}\n`+
         `🕰️ bonuses:  ${timeBonuses} / ${maxTimeBonuses}\n`+
-        `🪙 spent:    ${lootSpent}\n\n`+
         scoreText
     )
 }
@@ -523,7 +521,6 @@ class DailyHubScreen extends TextWindow {
             stats.maxTimeBonuses = stats.maxTimeBonuses??0;
             stats.lootStolen = stats.lootStolen??0;
             stats.maxLootStolen = stats.maxLootStolen??0;
-            stats.lootSpent = stats.lootSpent??0;
             stats.turns = stats.turns??0;
             stats.win = stats.win??false;
             stats.level = stats.level??1;
@@ -586,7 +583,7 @@ class BetweenMansionsScreen extends TextWindow {
 `   Mansion $level$ Complete!
 
 Mansion Statistics
-Loot stolen:     $lootStolen$ / $lootAvailable$
+Loot stolen:     $lootAvailable$
 Ghost bonus:     $ghostBonus$
 Timely delivery: $timeBonus$
 Mansion total:   $totalScore$
@@ -595,12 +592,12 @@ Current loot:    $loot$
 [N|startLevel]: Next mansion`
     ];
     update(state:State) {
+        const timeBonus = game.calculateTimeBonus(state);
         this.state['level'] = state.level+1;
-        this.state['lootStolen'] = state.lootStolen;
         this.state['lootAvailable'] = state.lootAvailable;
         this.state['ghostBonus'] = state.ghostBonus;
-        this.state['timeBonus'] = game.calculateTimeBonus(state);
-        this.state['totalScore'] = this.state['lootStolen'] + this.state['timeBonus'] + this.state['ghostBonus'];
+        this.state['timeBonus'] = timeBonus;
+        this.state['totalScore'] = state.lootAvailable + timeBonus + state.ghostBonus;
         this.state['loot'] = state.player.loot;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -631,7 +628,6 @@ Statistics
 Loot stolen:   $lootStolen$ / $maxLootStolen$
 Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
 Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
-Loot spent:    $lootSpent$
 
 Final loot:    $loot$
 
@@ -647,7 +643,6 @@ $copyState$
         this.state['maxGhostBonuses'] = state.gameStats.maxGhostBonuses;
         this.state['timeBonuses'] = state.gameStats.timeBonuses;
         this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
-        this.state['lootSpent'] = state.gameStats.lootSpent;
         this.state['loot'] = state.player.loot;
         if(!('copyState' in this.state)) this.state['copyState'] = '';
     }
@@ -682,7 +677,6 @@ Statistics
 Loot stolen:   $lootStolen$ / $maxLootStolen$
 Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
 Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
-Loot spent:    $lootSpent$
 
 Score:         $loot$
 
@@ -698,7 +692,6 @@ $copyState$
         this.state['maxGhostBonuses'] = state.gameStats.maxGhostBonuses;
         this.state['timeBonuses'] = state.gameStats.timeBonuses;
         this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
-        this.state['lootSpent'] = state.gameStats.lootSpent;
         this.state['loot'] = state.player.loot;
         if(!('copyState' in this.state)) this.state['copyState'] = '';
     }
@@ -732,12 +725,10 @@ class HelpScreen extends TextWindow {
     pages = [
 `Lurk Leap Loot
 
-Your mission from the thieves\' guild is to
-map $numGameMaps$ mansions. You can keep any loot you
-find ($totalGameLoot$ total).
+Loot $numGameMaps$ mansions.
 
 Mansion bonuses:
-- Up to 5 gold for a timely map delivery.
+- Up to 5 gold for completing quickly.
 - 5 gold if you avoid alerting guards.
 
 [X|home] Exit to home screen (abort game)
