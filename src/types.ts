@@ -92,6 +92,9 @@ type State = {
     player: Player;
     topStatusMessage: string;
     topStatusMessageSticky: boolean;
+    numStepMoves: number;
+    numLeapMoves: number;
+    hasOpenedMenu: boolean;
     finishedLevel: boolean;
     zoomLevel: number;
     seeAll: boolean;

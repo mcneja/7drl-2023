@@ -37,7 +37,7 @@ const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Esc or / for help';
+const startingTopStatusMessage = 'Left/right/up/down to move';
 
 function loadResourcesThenRun() {
     Promise.all([
@@ -213,6 +213,7 @@ function updateControllerState(state:State) {
         } else if (activated('menu')) {
             if(state.player.health>0) {
                 state.helpActive = true;
+                state.hasOpenedMenu = true;
             } else {
                 state.gameMode = GameMode.Dead;
             }
@@ -272,7 +273,6 @@ function updateControllerState(state:State) {
             Howler.volume(Math.max(vol+0.1,1.0));
         }
     }
-
 }
 
 function scoreCurrentLevel(state: State) {
@@ -307,8 +307,8 @@ export function setupLevel(state: State, level: number) {
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
-    state.topStatusMessage = startingTopStatusMessage;
-    state.topStatusMessageSticky = true;
+    state.topStatusMessage = '';
+    state.topStatusMessageSticky = false;
     state.finishedLevel = false;
 
     state.turns = 0;
@@ -763,7 +763,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     // Trying to move into a one-way window instead of leaping through?
 
     if (isOneWayWindowTerrainType(cellNew.type)) {
-        state.topStatusMessage = 'Shift+move to leap';
+        state.topStatusMessage = 'Shift+move to leap/run';
         state.topStatusMessageSticky = false;
 
         if (state.level === 0) {
@@ -780,7 +780,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         switch (item.type) {
         case ItemType.DrawersShort:
             if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
-                state.topStatusMessage = 'Shift+move to leap';
+                state.topStatusMessage = 'Shift+move to leap/run';
                 state.topStatusMessageSticky = false;
             }
             if (collectLoot(state, posNew, player.pos)) {
@@ -813,7 +813,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
-            state.topStatusMessage = 'Shift+move to leap';
+            state.topStatusMessage = 'Shift+move to leap/run';
             state.topStatusMessageSticky = false;
             state.sounds['gate'].play(0.3);
             if (state.level === 0) {
@@ -872,6 +872,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     preTurn(state);
 
     vec2.copy(player.pos, posNew);
+    ++state.numStepMoves;
 
     // Identify creaky floors nearby
 
@@ -1061,6 +1062,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // Update player position
 
     vec2.copy(player.pos, posNew);
+    ++state.numLeapMoves;
 
     // Identify creaky floor under player
 
@@ -1244,8 +1246,14 @@ function postTurn(state: State) {
             state.topStatusMessage = 'Collect all remaining loot.'
             state.topStatusMessageSticky = false;
         }
-    } else if (state.level === levelLeapTrainer && state.turns < 16) {
-        state.topStatusMessage = 'Shift+move to leap';
+    } else if (state.numStepMoves < 4) {
+        state.topStatusMessage = startingTopStatusMessage;
+        state.topStatusMessageSticky = false;
+    } else if (state.numLeapMoves < 4) {
+        state.topStatusMessage = 'Shift+move to leap/run';
+        state.topStatusMessageSticky = false;
+    } else if (!state.hasOpenedMenu) {
+        state.topStatusMessage = 'Esc or / for more help';
         state.topStatusMessageSticky = false;
     }
 }
@@ -1748,7 +1756,10 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         helpActive: false,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: startingTopStatusMessage,
-        topStatusMessageSticky: true,
+        topStatusMessageSticky: false,
+        numStepMoves: 0,
+        numLeapMoves: 0,
+        hasOpenedMenu: false,
         finishedLevel: false,
         zoomLevel: 3,
         seeAll: false,
@@ -1855,7 +1866,10 @@ export function restartGame(state: State) {
     setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = startingTopStatusMessage;
-    state.topStatusMessageSticky = true;
+    state.topStatusMessageSticky = false;
+    state.numStepMoves = 0;
+    state.numLeapMoves = 0;
+    state.hasOpenedMenu = false;
     state.finishedLevel = false;
     state.turns = 0;
     state.totalTurns = 0;
@@ -1882,8 +1896,8 @@ function resetState(state: State) {
     state.ghostBonus = 5;
     state.maxTimeBonus = 5;
 
-    state.topStatusMessage = startingTopStatusMessage;
-    state.topStatusMessageSticky = true;
+    state.topStatusMessage = '';
+    state.topStatusMessageSticky = false;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
