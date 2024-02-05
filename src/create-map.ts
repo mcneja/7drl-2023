@@ -3652,7 +3652,9 @@ function cacheCellInfo(map: GameMap) {
             cell.blocksSight = true;
         }
         if (itemType === ItemType.Table ||
-            itemType === ItemType.Bush) {
+            itemType === ItemType.Bush ||
+            itemType === ItemType.BedL ||
+            itemType === ItemType.BedR) {
             cell.hidesPlayer = true;
         }
         if (itemType === ItemType.DrawersTall ||

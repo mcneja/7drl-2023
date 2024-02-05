@@ -1115,8 +1115,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
 function canLeapOntoItemType(itemType: ItemType): boolean {
     switch (itemType) {
-        case ItemType.BedL:
-        case ItemType.BedR:
         case ItemType.DrawersShort:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
