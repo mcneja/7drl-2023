@@ -838,7 +838,6 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     // Trying to move onto a guard?
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
-    let needGuardLootCollect = false;
     if (guard === undefined) {
         player.pickTarget = null;
     } else if (guard.mode === GuardMode.Unconscious) {
@@ -848,6 +847,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         bumpFail(state, dx, dy);
         return;
     } else {
+        let needGuardLootCollect = false;
         if (guard.hasPurse || guard.hasVaultKey) {
             // If we have already targeted this guard, pick their pocket; otherwise target them
             if (player.pickTarget === guard) {
@@ -882,7 +882,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.125));
+    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
     const hid = player.hidden(state.gameMap);
     const tile = dx<0? tileSet.playerTiles['left']:
         dx>0? tileSet.playerTiles['right']:
@@ -1073,7 +1073,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.5));
+    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.25));
     const tile = dx<0? tileSet.playerTiles['left']:
                  dx>0? tileSet.playerTiles['right']:
                  dy>0? tileSet.playerTiles['up']:
