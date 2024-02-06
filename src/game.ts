@@ -1553,7 +1553,8 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         if (guardState!==GuardStates.Relaxed) {
             const gtile = renderer.tileSet.guardStateTiles[guardState]
             renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
-        } else if (guard === player.pickTarget) {
+        }
+        if (guard === player.pickTarget) {
             // Render the shadowing indicator if player is shadowing a guard
             const gtile = tileSet.namedTiles['pickTarget'];
             renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
