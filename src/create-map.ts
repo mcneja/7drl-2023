@@ -2564,7 +2564,7 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
 
     // TODO: This is all largely a copy of renderRoomBedroom. Need to commonize
 
-    const candidateItems = [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.TorchUnlit];
+    const candidateItems = [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.Shelf, ItemType.TorchUnlit];
     rng.shuffleArray(candidateItems);
 
     const sizeX = room.posMax[0] - room.posMin[0];
@@ -2594,7 +2594,7 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
 
     const itemsInRoom = [];
 
-    for (const itemType of candidateItems) {
+    for (let iItemType = 0; ; iItemType = (iItemType + 1) % candidateItems.length) {
         for (let j = 0; j < usable.values.length; ++j) {
             usable.values[j] = unusable.values[j] ? 0 : 1;
         }
@@ -2610,7 +2610,7 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
         console.assert(usable.get(pos[0], pos[1]));
         console.assert(!occupied.get(pos[0], pos[1]));
 
-        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: itemType };
+        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: candidateItems[iItemType] };
         map.items.push(item);
         itemsInRoom.push(item);
 
