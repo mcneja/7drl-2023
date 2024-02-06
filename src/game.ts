@@ -37,7 +37,7 @@ const statusBarCharPixelSizeY: number = 16;
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 
-const startingTopStatusMessage = 'Left/right/up/down to move';
+const leapPrompt = 'Shift+Move: Leap/Run';
 
 function loadResourcesThenRun() {
     Promise.all([
@@ -327,6 +327,8 @@ export function setupLevel(state: State, level: number) {
 
     state.camera = createCamera(state.gameMap.playerStartPos);
     state.gameMode = GameMode.Mansion;
+
+    postTurn(state);
 }
 
 export function calculateTimeBonus(state:State):number {
@@ -686,6 +688,8 @@ function tryPlayerWait(state: State) {
 
     player.pickTarget = null;
 
+    ++state.numWaitMoves;
+
     advanceTime(state);
 }
 
@@ -763,7 +767,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     // Trying to move into a one-way window instead of leaping through?
 
     if (isOneWayWindowTerrainType(cellNew.type)) {
-        state.topStatusMessage = 'Shift+move to leap/run';
+        state.topStatusMessage = leapPrompt;
         state.topStatusMessageSticky = false;
 
         if (state.level === 0) {
@@ -780,7 +784,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         switch (item.type) {
         case ItemType.DrawersShort:
             if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
-                state.topStatusMessage = 'Shift+move to leap/run';
+                state.topStatusMessage = leapPrompt;
                 state.topStatusMessageSticky = false;
             }
             if (collectLoot(state, posNew, player.pos)) {
@@ -813,7 +817,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
-            state.topStatusMessage = 'Shift+move to leap/run';
+            state.topStatusMessage = leapPrompt;
             state.topStatusMessageSticky = false;
             state.sounds['gate'].play(0.3);
             if (state.level === 0) {
@@ -1240,20 +1244,31 @@ function postTurn(state: State) {
         state.topStatusMessageSticky = true;
     } else if (allSeen) {
         if (allLooted) {
-            state.topStatusMessage = 'Looting complete! Exit any side.'
+            state.topStatusMessage = 'Loot collected! Exit any map edge'
             state.topStatusMessageSticky = false;
         } else {
-            state.topStatusMessage = 'Collect all remaining loot.'
+            state.topStatusMessage = 'Collect all loot'
             state.topStatusMessageSticky = false;
         }
     } else if (state.numStepMoves < 4) {
-        state.topStatusMessage = startingTopStatusMessage;
+        state.topStatusMessage = 'Left, Right, Up, Down: Move';
         state.topStatusMessageSticky = false;
     } else if (state.numLeapMoves < 4) {
-        state.topStatusMessage = 'Shift+move to leap/run';
+        state.topStatusMessage = leapPrompt;
         state.topStatusMessageSticky = false;
-    } else if (!state.hasOpenedMenu) {
-        state.topStatusMessage = 'Esc or / for more help';
+    } else if (state.level === 0) {
+        state.topStatusMessage = 'Map entire mansion';
+        state.topStatusMessageSticky = false;
+    } else if (state.level === 1) {
+        if (state.numWaitMoves < 4) {
+            state.topStatusMessage = 'Z, Period, or Space: Wait';
+            state.topStatusMessageSticky = false;
+        } else if (!state.hasOpenedMenu) {
+            state.topStatusMessage = 'Esc or Slash: More help';
+            state.topStatusMessageSticky = false;
+        }
+    } else if (state.level === 3 && state.turns === 0) {
+        state.topStatusMessage = 'Zoom view with brackets [ and ]';
         state.topStatusMessageSticky = false;
     }
 }
@@ -1756,10 +1771,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         },
         helpActive: false,
         player: new Player(gameMap.playerStartPos),
-        topStatusMessage: startingTopStatusMessage,
+        topStatusMessage: '',
         topStatusMessageSticky: false,
         numStepMoves: 0,
         numLeapMoves: 0,
+        numWaitMoves: 0,
         hasOpenedMenu: false,
         finishedLevel: false,
         zoomLevel: 3,
@@ -1790,6 +1806,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
+    postTurn(state);
 
     return state;
 }
@@ -1866,10 +1883,11 @@ export function restartGame(state: State) {
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
-    state.topStatusMessage = startingTopStatusMessage;
+    state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
+    state.numWaitMoves = 0;
     state.hasOpenedMenu = false;
     state.finishedLevel = false;
     state.turns = 0;
@@ -1883,6 +1901,8 @@ export function restartGame(state: State) {
     state.gameMap = gameMap;
     state.activeSoundPool.empty();
     state.popups.clear();
+
+    postTurn(state);
 }
 
 function resetState(state: State) {
@@ -1905,6 +1925,8 @@ function resetState(state: State) {
     state.gameMap = gameMap;
     state.popups.clear();
     state.activeSoundPool.empty();
+
+    postTurn(state);
 }
 
 

@@ -94,6 +94,7 @@ type State = {
     topStatusMessageSticky: boolean;
     numStepMoves: number;
     numLeapMoves: number;
+    numWaitMoves: number;
     hasOpenedMenu: boolean;
     finishedLevel: boolean;
     zoomLevel: number;
