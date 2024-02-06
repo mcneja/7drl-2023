@@ -2447,7 +2447,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         } else if (room.roomType === RoomType.PublicRoom || room.roomType === RoomType.PrivateRoom) {
             renderRoomGeneric(map, room, level, rng);
         } else if (room.roomType === RoomType.Vault) {
-            renderRoomVault(map, room);
+            renderRoomVault(map, room, rng);
         } else if (room.roomType === RoomType.Bedroom) {
             renderRoomBedroom(map, room, level, rng);
         } else if (room.roomType === RoomType.Dining) {
@@ -2552,7 +2552,7 @@ function renderRoomGeneric(map: GameMap, room: Room, level: number, rng: RNG) {
     }
 }
 
-function renderRoomVault(map: GameMap, room: Room) {
+function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
     const dx = room.posMax[0] - room.posMin[0];
     const dy = room.posMax[1] - room.posMin[1];
     if (dx >= 5 && dy >= 5) {
@@ -2560,6 +2560,62 @@ function renderRoomVault(map: GameMap, room: Room) {
         map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
         map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
         map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
+    }
+
+    // TODO: This is all largely a copy of renderRoomBedroom. Need to commonize
+
+    const candidateItems = [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.TorchUnlit];
+    rng.shuffleArray(candidateItems);
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    const sizeY = room.posMax[1] - room.posMin[1];
+    const usable = new BooleanGrid(sizeX, sizeY, true);
+    const unusable = new BooleanGrid(sizeX, sizeY, false);
+    const occupied = new BooleanGrid(sizeX, sizeY, false);
+
+    let rootX, rootY;
+
+    for (let x = 0; x < sizeX; ++x) {
+        for (let y = 0; y < sizeY; ++y) {
+            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
+                occupied.set(x, y, true);
+                unusable.set(x, y, true);
+            } else if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
+                unusable.set(x, y, true);
+                rootX = x;
+                rootY = y;
+            }
+        }
+    }
+
+    if (rootX === undefined || rootY === undefined) {
+        return;
+    }
+
+    const itemsInRoom = [];
+
+    for (const itemType of candidateItems) {
+        for (let j = 0; j < usable.values.length; ++j) {
+            usable.values[j] = unusable.values[j] ? 0 : 1;
+        }
+        updateUsable(usable, occupied, rootX, rootY);
+        updateUsableForReachability(usable, occupied, itemsInRoom, room);
+        const positions = getUsablePositions(usable);
+        if (positions.length === 0) {
+            break;
+        }
+
+        const pos = positions[rng.randomInRange(positions.length)];
+
+        console.assert(usable.get(pos[0], pos[1]));
+        console.assert(!occupied.get(pos[0], pos[1]));
+
+        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: itemType };
+        map.items.push(item);
+        itemsInRoom.push(item);
+
+        occupied.set(pos[0], pos[1], true);
+        unusable.set(pos[0], pos[1], true);
     }
 }
 
