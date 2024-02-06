@@ -316,7 +316,7 @@ class TextWindow {
             }
         } else if(this.highlightedAction>=0 
                     && this.touchTargets[this.actionSequence[this.highlightedAction]]?.active 
-                    && activated('wait')) {
+                    && activated('menuAccept')) {
             action = this.actionSequence[this.highlightedAction];
         }
         return action;

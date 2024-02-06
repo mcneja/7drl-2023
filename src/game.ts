@@ -2136,7 +2136,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const h = screenAlloc[1]-y;
     const bw = buttonAlloc[0]-x;
     const bh = buttonAlloc[1]-y;
-    const offZoom = state.helpActive || state.gameMode!=GameMode.Mansion?100:0;
+    const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
     const offRestart = !state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode) ? 0:100;
     const offForceRestartFullscreen = state.helpActive ? 0:100;
     let tt = renderer.tileSet.touchButtons;
@@ -2146,18 +2146,19 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
 
     if(touchAsGamepad) {
         var buttonData:{[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}} = {
-            'menu':     {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['menu']},
-            'zoomIn':  {game:new Rect(x+w-bw+offZoom,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['zoomIn']},
-            'zoomOut':   {game:new Rect(x+w-bw+offZoom,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['zoomOut']},
+            'menu':        {game:new Rect(x,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['menu']},
+            'zoomIn':      {game:new Rect(inGame?x+w-bw:-100,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['zoomIn']},
+            'zoomOut':     {game:new Rect(inGame?x+w-bw:-100,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['zoomOut']},
             'fullscreen':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['fullscreen']},
-            'restart':  {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
-            'forceRestart':  {game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
-            'left':     {game:new Rect(x,y+bh,bw,bh), view: new Rect(), tileInfo:tt['left']},
-            'right':    {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['right']},
-            'up':       {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), tileInfo:tt['up']},
-            'down':     {game:new Rect(x+bw,y,bw,bh), view: new Rect(), tileInfo:tt['down']},
-            'wait':     {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['wait']},
-            'jump':     {game:new Rect(x+w-1.5*bw,y+0.75*bw,1.5*bw,1.5*bh), view: new Rect(), tileInfo:tt['jump']},
+            'restart':     {game:new Rect(x+w-bw+offRestart,y+h-bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
+            'forceRestart':{game:new Rect(x+w-bw+offForceRestartFullscreen,y+h-2*bh,bw,bh), view: new Rect(), tileInfo:tt['restart']},
+            'left':        {game:new Rect(x,y+bh,bw,bh), view: new Rect(), tileInfo:tt['left']},
+            'right':       {game:new Rect(x+2*bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['right']},
+            'up':          {game:new Rect(x+bw,y+2*bh,bw,bh), view: new Rect(), tileInfo:tt['up']},
+            'down':        {game:new Rect(x+bw,y,bw,bh), view: new Rect(), tileInfo:tt['down']},
+            'wait':        {game:new Rect(x+bw,y+bh,bw,bh), view: new Rect(), tileInfo:tt['wait']},
+            'jump':        {game:new Rect(inGame?x+w-1.5*bw:-100,y+0.75*bw,1.5*bw,1.5*bh), view: new Rect(), tileInfo:tt['jump']},
+            'menuAccept':  {game:new Rect(inGame?-100:x+w-1.5*bw,y+0.75*bw,1.5*bw,1.5*bh), view: new Rect(), tileInfo:tt['menuAccept']},
         }    
     } else {
         const s = 4/state.zoomLevel;
@@ -2180,6 +2181,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
             buttonData['exitLevel'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['exitLevel']};
         }
         buttonData['jump'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['jump']};
+        buttonData['menuAccept'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['menuAccept']};
         for(const vals of [['left',[-1,0]],['right',[1,0]],['up',[0,1]],['down',[0,-1]]] as Array<[string, [number,number]]>) {
             const name = vals[0];
             const p = vals[1];

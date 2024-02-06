@@ -22,6 +22,7 @@ const controlStates:ControlStates = {
     'zoomIn':false,
     'zoomOut':false,
     'snapToPlayer':false,
+    'menuAccept':false,
     'panUp':false,
     'panDown':false,
     'panLeft':false,
@@ -89,9 +90,9 @@ const defaultKeyMap:KeyMap = {
     'KeyS': ['down','homeStats'],
     'Numpad2': ['down'],
     'KeyJ': ['down'],
-    'Period': ['wait'],
-    'Space': ['wait'],
-    'KeyZ': ['wait'],
+    'Period': ['wait', 'menuAccept'],
+    'Space': ['wait', 'menuAccept'],
+    'KeyZ': ['wait', 'menuAccept'],
     'Shift': ['jump'],
     'KeyF': ['jumpToggle', 'fullscreen'],
     'NumpadAdd': ['jumpToggle', 'nextDay'],
@@ -347,6 +348,7 @@ class GamepadManager {
             c.gamepad = g; //put the latest state in the gamepad object
             c.set("jump", buttonPressed(g, 0));
             c.set("wait", buttonPressed(g, 2));
+            c.set("menuAccept", buttonPressed(g, 2)||buttonPressed(g, 0));
 //            c.set("startLevel", buttonPressed(g, 3));
             c.set("zoomIn", buttonPressed(g, 6));
             c.set("zoomOut", buttonPressed(g, 7));
@@ -419,6 +421,7 @@ class TouchController extends Controller {
             'wait':         {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'exitLevel':    {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
             'jump':         {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
+            'menuAccept':   {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
             'pan':          {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
             'zoomIn':       {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
             'zoomOut':      {id:-1, active:true, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
@@ -432,7 +435,7 @@ class TouchController extends Controller {
     }
     setTouchConfig(asGamepad:boolean) {
         if(asGamepad) {
-            for (let c of ['up','down','left','right','wait','jump','pan']) {
+            for (let c of ['up','down','left','right','wait','jump','pan','menuAccept']) {
                 this.coreTouchTargets[c].trigger = 'press';
                 this.coreTouchTargets[c].show = 'always';
             }
@@ -445,7 +448,8 @@ class TouchController extends Controller {
                 this.coreTouchTargets[c].trigger = 'press';
                 this.coreTouchTargets[c].show = 'always';
             }
-            for (let c of ['up','down','left','right','pan','jumpUp','jumpDown','jumpLeft','jumpRight','wait','jump']) {
+            for (let c of ['up','down','left','right','pan','jumpUp','jumpDown',
+                'jumpLeft','jumpRight','wait','jump','menuAccept']) {
                 this.coreTouchTargets[c].trigger = 'release';
                 this.coreTouchTargets[c].show = 'press';
             }
@@ -467,7 +471,7 @@ class TouchController extends Controller {
         b0.tileInfo = tileInfo;
         if(!b0.view.collide(b0.touchXY[0], this.canvas.clientHeight-b0.touchXY[1])) {
             if(this.controlStates[id] && b0.id!=-1) {
-                this.set(id, false, false); // , b0.trigger=='press'
+                this.set(id, false, false);
                 b0.id = -1;
             }
         }

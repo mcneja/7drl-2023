@@ -97,6 +97,7 @@ const tileSet31Color:TileSet = {
         'wait':             {textureIndex: r([4,   1]), color:0xa0ffffff, unlitColor:0x80ffffff},
         'exitLevel':        {textureIndex: r([9,   1]), color:0xff00ffff, unlitColor:0xff00ffff},
         'jump':             {textureIndex: r([5,   1]), color:0xa0ffffff, unlitColor:0x80ffffff},
+        'menuAccept':       {textureIndex: r([4,   1]), color:0xa0ffffff, unlitColor:0x80ffffff},
         'zoomIn':           {textureIndex: r([6,   1]), color:0xa0ffffff, unlitColor:0x80ffffff},
         'zoomOut':          {textureIndex: r([7,  1]),  color:0xa0ffffff, unlitColor:0x80ffffff},
         'heal':             {textureIndex: r([8,  1]),  color:0xa0ffffff, unlitColor:0x80ffffff},
