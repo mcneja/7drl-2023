@@ -1,5 +1,5 @@
 import { vec2, mat4 } from './my-matrix';
-import { createGameMapRoughPlans, createGameMap, Adjacency, levelLeapTrainer } from './create-map';
+import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator } from './animation';
 import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';

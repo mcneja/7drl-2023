@@ -1,4 +1,4 @@
-export { createGameMap, createGameMapRoughPlans, Adjacency, levelLeapTrainer };
+export { createGameMap, createGameMapRoughPlans, Adjacency };
 
 import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
@@ -9,7 +9,9 @@ const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
 
+/*
 const levelLeapTrainer = 2;
+*/
 
 const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     //xmin,xmax,ymin,ymax,areamin,areamax -- params used to constrain the map size
@@ -1865,6 +1867,7 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
     // the mansion. Keep these ones at the end so they won't get keys or purses.
 
     const patrolLength = outerPerimeter.length;
+    /*
     if (level === levelLeapTrainer) {
         // Find the top-rightmost point in the patrol path and shift the patrol path to start there
         const posTopRight = vec2.fromValues(gameMap.cells.sizeX - 1, gameMap.cells.sizeY - 1);
@@ -1879,7 +1882,9 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
         }
 
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, (i + patrolLength - 1) % patrolLength));
-    } else if (level > 5) {
+    } else
+    */
+    if (level > 5) {
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25)));
         patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75)));
     }
@@ -2086,9 +2091,12 @@ function posBesideDoor(pos: vec2, room: Room, roomNext: Room, gameMap: GameMap) 
 }
 
 function playerStartPosition(level: number, adjacencies: Array<Adjacency>, gameMap: GameMap): vec2 {
+    /*
     if (level === levelLeapTrainer) {
         return playerStartPositionLeapTrainer(adjacencies, gameMap);
-    } else {
+    } else
+    */
+    {
         return playerStartPositionFrontDoor(adjacencies, gameMap);
     }
 }
