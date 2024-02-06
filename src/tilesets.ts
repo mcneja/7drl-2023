@@ -158,7 +158,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([14, 14]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Stove,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.Bush,
         {textureIndex: r([5,  13]),  color:colorPreset.white,      unlitColor:0xffffffff}, // ItemType.Coin,
-        {textureIndex: r([15,  1]),  color:colorPreset.lightCyan,  unlitColor:colorPreset.lightCyan}, // ItemType.Health,
+        {textureIndex: r([15, 11]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Health,
         {textureIndex: r([7,   3]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DoorNS,
         {textureIndex: r([4,   3]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.DoorEW,
         {textureIndex: r([9,   3]),  color:colorPreset.white,      unlitColor:colorPreset.midGray}, // ItemType.LockedDoorNS,
