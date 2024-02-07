@@ -309,6 +309,7 @@ export function setupLevel(state: State, level: number) {
     setCellAnimations(state.gameMap, state);
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
+    state.topStatusMessageAnim = 0;
     state.finishedLevel = false;
 
     state.turns = 0;
@@ -354,6 +355,7 @@ function advanceToBetweenMansions(state: State) {
     }
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
+    state.topStatusMessageAnim = 0;
 }
 
 function advanceToWin(state: State) {
@@ -390,6 +392,7 @@ function advanceToWin(state: State) {
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
+    state.topStatusMessageAnim = 0;
 }
 
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
@@ -753,8 +756,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        state.topStatusMessage = 'Window cannot be accessed from outside';
-        state.topStatusMessageSticky = false;
+        setStatusMessage(state, 'Window cannot be accessed from outside');
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
@@ -767,8 +769,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     // Trying to move into a one-way window instead of leaping through?
 
     if (isOneWayWindowTerrainType(cellNew.type)) {
-        state.topStatusMessage = leapPrompt;
-        state.topStatusMessageSticky = false;
+        setStatusMessage(state, leapPrompt);
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['jump'].play(0.3), 250);
@@ -784,8 +785,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         switch (item.type) {
         case ItemType.DrawersShort:
             if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
-                state.topStatusMessage = leapPrompt;
-                state.topStatusMessageSticky = false;
+                setStatusMessage(state, leapPrompt);
             }
             if (collectLoot(state, posNew, player.pos)) {
                 preTurn(state);
@@ -817,8 +817,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
-            state.topStatusMessage = leapPrompt;
-            state.topStatusMessageSticky = false;
+            setStatusMessage(state, leapPrompt);
             state.sounds['gate'].play(0.3);
             if (state.level === 0) {
                 setTimeout(()=>state.sounds['jump'].play(0.3), 1000);
@@ -829,8 +828,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         case ItemType.LockedDoorEW:
         case ItemType.LockedDoorNS:
             if (!player.hasVaultKey) {
-                state.topStatusMessage = 'Locked!';
-                state.topStatusMessageSticky = false;
+                setStatusMessage(state, 'Locked!');
 
                 bumpFail(state, dx, dy);
                 return;
@@ -1174,9 +1172,6 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
 }
 
 function preTurn(state: State) {
-    if (!state.topStatusMessageSticky) {
-        state.topStatusMessage = '';
-    }
     state.popups.clear();
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
@@ -1218,8 +1213,7 @@ function advanceTime(state: State) {
                 setStat('dailyWinStreak',state.stats.dailyWinStreak)    
                 setStat('lastDaily', state.gameStats);
             }
-            state.topStatusMessage = 'You were killed. Press Escape/Menu to see score.'
-            state.topStatusMessageSticky = true;
+            setStatusMessageSticky(state, 'You were killed. Press Escape/Menu to see score.');
         }
     }
 }
@@ -1240,37 +1234,52 @@ function postTurn(state: State) {
     const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
 
     if (subtitle !== '') {
-        state.topStatusMessage = subtitle;
-        state.topStatusMessageSticky = true;
+        setStatusMessageSticky(state, subtitle);
     } else if (allSeen) {
         if (allLooted) {
-            state.topStatusMessage = 'Loot collected! Exit any map edge'
-            state.topStatusMessageSticky = false;
+            setStatusMessage(state, 'Loot collected! Exit any map edge');
         } else {
-            state.topStatusMessage = 'Collect all loot'
-            state.topStatusMessageSticky = false;
+            setStatusMessage(state, 'Collect all loot');
         }
     } else if (state.numStepMoves < 4) {
-        state.topStatusMessage = 'Left, Right, Up, Down: Move';
-        state.topStatusMessageSticky = false;
+        setStatusMessage(state, 'Left, Right, Up, Down: Move');
     } else if (state.numLeapMoves < 4) {
-        state.topStatusMessage = leapPrompt;
-        state.topStatusMessageSticky = false;
+        setStatusMessage(state, leapPrompt);
     } else if (state.level === 0) {
-        state.topStatusMessage = 'Map entire mansion';
-        state.topStatusMessageSticky = false;
+        setStatusMessage(state, 'Map entire mansion');
     } else if (state.level === 1) {
         if (state.numWaitMoves < 4) {
-            state.topStatusMessage = 'Z, Period, or Space: Wait';
-            state.topStatusMessageSticky = false;
+            setStatusMessage(state, 'Z, Period, or Space: Wait');
         } else if (!state.hasOpenedMenu) {
-            state.topStatusMessage = 'Esc or Slash: More help';
-            state.topStatusMessageSticky = false;
+            setStatusMessage(state, 'Esc or Slash: More help');
+        } else if (!state.topStatusMessageSticky) {
+            setStatusMessage(state, '');
         }
     } else if (state.level === 3 && state.turns === 0) {
-        state.topStatusMessage = 'Zoom view with brackets [ and ]';
-        state.topStatusMessageSticky = false;
+        setStatusMessage(state, 'Zoom view with brackets [ and ]');
+    } else if (!state.topStatusMessageSticky) {
+        setStatusMessage(state, '');
     }
+}
+
+function setStatusMessage(state: State, msg: string) {
+    if (state.topStatusMessage === msg) {
+        return;
+    }
+
+    state.topStatusMessage = msg;
+    state.topStatusMessageSticky = false;
+    state.topStatusMessageAnim = (msg.length === 0) ? 0 : 1;
+}
+
+function setStatusMessageSticky(state: State, msg: string) {
+    if (state.topStatusMessage === msg) {
+        return;
+    }
+
+    state.topStatusMessage = msg;
+    state.topStatusMessageSticky = true;
+    state.topStatusMessageAnim = (msg.length === 0) ? 0 : 1;
 }
 
 function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
@@ -1773,6 +1782,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: '',
         topStatusMessageSticky: false,
+        topStatusMessageAnim: 0,
         numStepMoves: 0,
         numLeapMoves: 0,
         numWaitMoves: 0,
@@ -1885,6 +1895,7 @@ export function restartGame(state: State) {
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
+    state.topStatusMessageAnim = 0;
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
     state.numWaitMoves = 0;
@@ -1919,6 +1930,7 @@ function resetState(state: State) {
 
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
+    state.topStatusMessageAnim = 0;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
@@ -1974,6 +1986,8 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     state.tLast = t;
 
     updateIdle(state, dt);
+
+    state.topStatusMessageAnim = Math.max(0, state.topStatusMessageAnim - 4 * dt);
 
     const screenSize = vec2.create();
     renderer.getScreenSize(screenSize);
@@ -2079,7 +2093,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
             state.helpScreen.render(renderer);
             renderBottomStatusBar(renderer, screenSize, state);
         } else {
-            renderTopStatusBar(renderer, screenSize, state.topStatusMessage, state);
+            renderTopStatusBar(renderer, screenSize, state);
             renderBottomStatusBar(renderer, screenSize, state);
         }    
     }
@@ -2397,7 +2411,7 @@ function statusBarZoom(screenSizeX: number): number {
     return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
-function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: string, state: State) {
+function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
     const tileZoom = statusBarZoom(screenSize[0]);
 
     const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
@@ -2419,16 +2433,37 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, message: strin
     renderer.start(matScreenFromWorld, 0);
 
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, fontTileSet.background);
+    const colorBackground = colorLerp(0xff101010, 0xff404040, 1 - (1 - state.topStatusMessageAnim)**2);
+    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
 
     if(state.dailyRun) {
         putString(renderer, 0, 'Daily run', colorPreset.lightYellow);    
     }
 
+    const message = state.topStatusMessage;
     const messageX = Math.floor((statusBarTileSizeX - message.length) / 2 + 0.5);
     putString(renderer, messageX, message, colorPreset.lightGray);
 
     renderer.flush();
+}
+
+function colorLerp(color0: number, color1: number, u: number): number {
+    const r0 = (color0 & 255);
+    const g0 = ((color0 >> 8) & 255);
+    const b0 = ((color0 >> 16) & 255);
+    const a0 = ((color0 >> 24) & 255);
+
+    const r1 = (color1 & 255);
+    const g1 = ((color1 >> 8) & 255);
+    const b1 = ((color1 >> 16) & 255);
+    const a1 = ((color1 >> 24) & 255);
+
+    const r = Math.max(0, Math.min(255, r0 + (r1 - r0) * u));
+    const g = Math.max(0, Math.min(255, g0 + (g1 - g0) * u));
+    const b = Math.max(0, Math.min(255, b0 + (b1 - b0) * u));
+    const a = Math.max(0, Math.min(255, a0 + (a1 - a0) * u));
+
+    return r + (b << 8) + (g << 16) + (a << 24);
 }
 
 function putString(renderer: Renderer, x: number, s: string, color: number) {

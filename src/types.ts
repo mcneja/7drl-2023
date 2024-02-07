@@ -92,6 +92,7 @@ type State = {
     player: Player;
     topStatusMessage: string;
     topStatusMessageSticky: boolean;
+    topStatusMessageAnim: number;
     numStepMoves: number;
     numLeapMoves: number;
     numWaitMoves: number;
