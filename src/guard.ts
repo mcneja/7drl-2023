@@ -545,21 +545,22 @@ class Guard {
             return vec2.fromValues(x, y + 1);
         }
 
-        // If there is a table or lamp adjacent to us, look at it
-        const tables = map.items.filter((item)=>
-            (Math.abs(item.pos[0] - x) < 2 && Math.abs(item.pos[1] - y) < 2) &&
-            (item.type === ItemType.Table || item.type === ItemType.TorchLit || item.type === ItemType.TorchUnlit));
-        if (tables.find((item)=>item.pos[0] === x - 1 && item.pos[1] === y)) {
-            return vec2.fromValues(x - 1, y);
-        }
-        if (tables.find((item)=>item.pos[0] === x + 1 && item.pos[1] === y)) {
-            return vec2.fromValues(x + 1, y);
-        }
-        if (tables.find((item)=>item.pos[0] === x && item.pos[1] === y - 1)) {
-            return vec2.fromValues(x, y - 1);
-        }
-        if (tables.find((item)=>item.pos[0] === x && item.pos[1] === y + 1)) {
-            return vec2.fromValues(x, y + 1);
+        // If guard is on a chair, and there is a table adjacent to us, look at it
+        if (map.items.find((item)=>item.pos.equals(this.pos) && item.type === ItemType.Chair)) {
+            const tables = map.items.filter((item)=>
+                (Math.abs(item.pos[0] - x) < 2 && Math.abs(item.pos[1] - y) < 2) && item.type === ItemType.Table);
+            if (tables.find((item)=>item.pos[0] === x - 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x - 1, y);
+            }
+            if (tables.find((item)=>item.pos[0] === x + 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x + 1, y);
+            }
+            if (tables.find((item)=>item.pos[0] === x && item.pos[1] === y - 1)) {
+                return vec2.fromValues(x, y - 1);
+            }
+            if (tables.find((item)=>item.pos[0] === x && item.pos[1] === y + 1)) {
+                return vec2.fromValues(x, y + 1);
+            }
         }
 
         return undefined;
