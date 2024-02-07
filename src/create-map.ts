@@ -2635,20 +2635,28 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
     const sizeX = room.posMax[0] - room.posMin[0];
     const sizeY = room.posMax[1] - room.posMin[1];
     const usable = new BooleanGrid(sizeX, sizeY, true);
-    const unusable = new BooleanGrid(sizeX, sizeY, false);
+    const unusableShort = new BooleanGrid(sizeX, sizeY, false);
+    const unusableTall = new BooleanGrid(sizeX, sizeY, false);
     const occupied = new BooleanGrid(sizeX, sizeY, false);
 
     let rootX, rootY;
 
+    const pos = vec2.create();
     for (let x = 0; x < sizeX; ++x) {
         for (let y = 0; y < sizeY; ++y) {
-            if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
+            pos.set(x + room.posMin[0], y + room.posMin[1]);
+            if (!isWalkableTerrainType(map.cells.atVec(pos).type)) {
                 occupied.set(x, y, true);
-                unusable.set(x, y, true);
-            } else if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
-                unusable.set(x, y, true);
+                unusableShort.set(x, y, true);
+                unusableTall.set(x, y, true);
+            } else if (doorAdjacent(map.cells, pos)) {
+                unusableShort.set(x, y, true);
+                unusableTall.set(x, y, true);
                 rootX = x;
                 rootY = y;
+            }
+            if (windowAdjacent(map.cells, pos) || !isAdjacentToWall(map, pos)) {
+                unusableTall.set(x, y, true);
             }
         }
     }
@@ -2703,14 +2711,18 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
         occupied.set(x, y, true);
         occupied.set(x + 1, y, true);
 
-        unusable.set(x, y, true);
-        unusable.set(x + 1, y, true);
+        unusableShort.set(x, y, true);
+        unusableShort.set(x + 1, y, true);
+
+        unusableTall.set(x, y, true);
+        unusableTall.set(x + 1, y, true);
     }
 
     const candidateItems = [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, randomlyLitTorch(level, rng)];
     rng.shuffleArray(candidateItems);
 
     for (const itemType of candidateItems) {
+        const unusable = isTallItemType(itemType) ? unusableTall : unusableShort;
         for (let j = 0; j < usable.values.length; ++j) {
             usable.values[j] = unusable.values[j] ? 0 : 1;
         }
@@ -2731,7 +2743,23 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
         itemsInRoom.push(item);
 
         occupied.set(pos[0], pos[1], true);
-        unusable.set(pos[0], pos[1], true);
+        unusableShort.set(pos[0], pos[1], true);
+        unusableTall.set(pos[0], pos[1], true);
+    }
+}
+
+function isTallItemType(itemType: ItemType): boolean {
+    switch (itemType) {
+        case ItemType.Bookshelf:
+        case ItemType.DrawersShort:
+        case ItemType.DrawersTall:
+        case ItemType.Shelf:
+        case ItemType.TorchUnlit:
+        case ItemType.TorchLit:
+        case ItemType.Stove:
+            return true;
+        default:
+            return false;
     }
 }
 
