@@ -176,6 +176,7 @@ class TextWindow {
             }
             lines[row] = line;
         }
+        this.highlightedAction = this.actionSequence.length>0?0:-1;
     }
     updateScreenSize(screenSize: vec2) {
         this.screenSize = screenSize;
