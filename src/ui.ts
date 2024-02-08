@@ -378,6 +378,7 @@ class OptionsScreen extends TextWindow {
 `                  Options
 
 [T|gamepadStyleTouch]      Touch controls as $touchMode$
+[K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
 [Ctrl+R|forceRestart] Reset data
 
 [Esc|menu]    Back to menu`,
@@ -388,6 +389,7 @@ class OptionsScreen extends TextWindow {
             touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
             window.localStorage.setItem('LLL/touchMode', touchMode);
         }
+        this.state['keyRepeatRate'] = state.keyRepeatRate;
         this.state['touchMode'] = touchMode;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -395,8 +397,7 @@ class OptionsScreen extends TextWindow {
         if(activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
         } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
-            let touchMode = window.localStorage.getItem('LLL/touchMode');
-            if(touchMode=='Gamepad') {
+            if(state.touchAsGamepad) {
                 state.touchAsGamepad = false;
                 state.touchController.setTouchConfig(false);
                 window.localStorage.setItem('LLL/touchMode','Mouse');
@@ -405,6 +406,10 @@ class OptionsScreen extends TextWindow {
                 state.touchController.setTouchConfig(true);
                 window.localStorage.setItem('LLL/touchMode','Gamepad');
             }
+        } else if(activated('keyRepeatRate') || action=='keyRepeatRate') {
+            state.keyRepeatRate -= 50;
+            if(state.keyRepeatRate<100) state.keyRepeatRate = 400;
+            window.localStorage.setItem('LLL/keyRepeatRate', ''+state.keyRepeatRate);
         } else if(activated('forceRestart') || action=='forceRestart') {
             //TODO: Prompt??
             for(let k=0;k<window.localStorage.length;k++) {

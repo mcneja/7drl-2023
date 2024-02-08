@@ -122,7 +122,7 @@ function updateControllerState(state:State) {
                 return result;
             }
         }
-        result = lastController.currentFramePresses.has(action) || controlStates[action] && Date.now()-lastController.controlTimes[action]>250;
+        result = lastController.currentFramePresses.has(action) || controlStates[action] && Date.now()-lastController.controlTimes[action]>state.keyRepeatRate;
         if(result) lastController.controlTimes[action] = Date.now();
         return result;
     }
@@ -1743,6 +1743,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const stats = loadStats();
     const touchMode = window.localStorage.getItem('LLL/touchMode')?? 'Gamepad';
     const touchAsGamepad = touchMode==='Gamepad';
+    let keyRepeatRate = parseInt(window.localStorage.getItem('LLL/keyRepeatRate')??'250');
+    if(isNaN(keyRepeatRate)) keyRepeatRate = 250;
 
     const state: State = {
         gameStats: {    
@@ -1807,6 +1809,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         activeSoundPool: activeSoundPool,
         guardMute: false,
         volumeMute: false,
+        keyRepeatRate: keyRepeatRate,
         touchAsGamepad: touchAsGamepad,
         touchController: touchController,
         gamepadManager: new GamepadManager(),

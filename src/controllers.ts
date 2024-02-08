@@ -85,7 +85,7 @@ const defaultKeyMap:KeyMap = {
     'ArrowUp': ['up'],
     'KeyW': ['up'],
     'Numpad8': ['up'],
-    'KeyK': ['up'],
+    'KeyK': ['up', 'keyRepeatRate'],
     'ArrowDown': ['down'],
     'KeyS': ['down','homeStats'],
     'Numpad2': ['down'],
