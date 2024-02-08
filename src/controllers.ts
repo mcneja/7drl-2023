@@ -93,6 +93,8 @@ const defaultKeyMap:KeyMap = {
     'Period': ['wait', 'menuAccept'],
     'Space': ['wait', 'menuAccept'],
     'KeyZ': ['wait', 'menuAccept'],
+    'Enter': ['wait', 'menuAccept'],
+    'NumpadEnter': ['menuAccept'],
     'Shift': ['jump'],
     'KeyF': ['jumpToggle', 'fullscreen'],
     'NumpadAdd': ['jumpToggle', 'nextDay'],
