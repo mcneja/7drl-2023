@@ -1034,6 +1034,11 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     if (!canLeapToPos(state, posNew)) {
         if (canStepToPos(state, posMid)) {
             tryPlayerStep(state, dx, dy);
+        } else if (collectLoot(state, posMid, player.pos)) {
+            preTurn(state);
+            player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
         } else {
             bumpFail(state, dx, dy);
         }
