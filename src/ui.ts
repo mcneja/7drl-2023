@@ -379,6 +379,7 @@ class OptionsScreen extends TextWindow {
 
 [T|gamepadStyleTouch]      Touch controls as $touchMode$
 [K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
+[D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
 [Ctrl+R|forceRestart] Reset data
 
 [Esc|menu]    Back to menu`,
@@ -390,6 +391,7 @@ class OptionsScreen extends TextWindow {
             window.localStorage.setItem('LLL/touchMode', touchMode);
         }
         this.state['keyRepeatRate'] = state.keyRepeatRate;
+        this.state['keyRepeatDelay'] = state.keyRepeatDelay;
         this.state['touchMode'] = touchMode;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -410,6 +412,10 @@ class OptionsScreen extends TextWindow {
             state.keyRepeatRate -= 50;
             if(state.keyRepeatRate<100) state.keyRepeatRate = 400;
             window.localStorage.setItem('LLL/keyRepeatRate', ''+state.keyRepeatRate);
+        } else if(activated('keyRepeatDelay') || action=='keyRepeatDelay') {
+            state.keyRepeatDelay -= 50;
+            if(state.keyRepeatDelay<100) state.keyRepeatDelay = 500;
+            window.localStorage.setItem('LLL/keyRepeatDelay', ''+state.keyRepeatDelay);
         } else if(activated('forceRestart') || action=='forceRestart') {
             //TODO: Prompt??
             for(let k=0;k<window.localStorage.length;k++) {

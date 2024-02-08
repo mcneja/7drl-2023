@@ -79,7 +79,7 @@ const defaultKeyMap:KeyMap = {
     'KeyX': ['home'],
     'KeyP': ['homePlay'],
     'KeyO': ['homeOptions'],
-    'KeyD': ['right','homeDaily','menuNext'],
+    'KeyD': ['right','homeDaily','menuNext','keyRepeatDelay'],
     'Numpad6': ['right','menuNext'],
     'KeyL': ['right','menuNext'],
     'ArrowUp': ['up'],
