@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
-import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, GuardStates, CellGrid, isDoorItemType } from './game-map';
+import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator } from './animation';
 import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
@@ -30,7 +30,7 @@ const fontTileSet = getFontTileSet();
 
 window.onload = loadResourcesThenRun;
 
-const targetStatusBarWidthInChars: number = 65;
+const targetStatusBarWidthInChars: number = 80;
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 //TODO: The constants live in the tileset and code should reference the tileset
@@ -323,7 +323,7 @@ export function setupLevel(state: State, level: number) {
     state.player.noisy = false;
     state.player.hasVaultKey = false;
     state.player.damagedLastTurn = false;
-    state.player.turnsRemainingUnderwater = 0;
+    state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos);
@@ -1191,7 +1191,7 @@ function advanceTime(state: State) {
             --state.player.turnsRemainingUnderwater;
         }
     } else {
-        state.player.turnsRemainingUnderwater = 7;
+        state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
     }
 
     state.gameMap.computeLighting(state.gameMap.cells.atVec(state.player.pos));
@@ -2501,64 +2501,84 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
     renderer.addGlyph(0, 0, statusBarTileSizeX, 1, fontTileSet.background);
 
-    const healthX = 1;
+    let leftSideX = 1;
 
-    putString(renderer, healthX, "Health", colorPreset.darkRed);
+    const msgHealth = 'Health';
+    putString(renderer, leftSideX, msgHealth, colorPreset.darkRed);
+    leftSideX += msgHealth.length + 1;
 
     const glyphHeart = fontTileSet.heart.textureIndex;
     for (let i = 0; i < maxPlayerHealth; ++i) {
-        const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.black;
-        renderer.addGlyph(i + healthX + 7, 0, i + healthX + 8, 1, {textureIndex:glyphHeart, color:color});
+        const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.darkGray;
+        renderer.addGlyph(leftSideX, 0, leftSideX + 1, 1, {textureIndex:glyphHeart, color:color});
+        ++leftSideX;
     }
 
     // Underwater indicator
 
     const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
+    const msgAir = 'Air';
     if (playerUnderwater) {
-        const breathX = healthX + maxPlayerHealth + 10;
-
-        putString(renderer, breathX, "Air", colorPreset.lightCyan);
+        ++leftSideX;
+        putString(renderer, leftSideX, msgAir, colorPreset.lightCyan);
+        leftSideX += msgAir.length + 1;
 
         const glyphBubble = fontTileSet.air.textureIndex;
-        for (let i = 0; i < state.player.turnsRemainingUnderwater; ++i) {
-            renderer.addGlyph(breathX + 4 + i, 0, breathX + 5 + i, 1, {textureIndex:glyphBubble, color:colorPreset.lightCyan});
+        for (let i = 0; i < maxPlayerTurnsUnderwater - 2; ++i) {
+            const color = (i < state.player.turnsRemainingUnderwater - 1) ? colorPreset.lightCyan : colorPreset.darkGray;
+            renderer.addGlyph(leftSideX, 0, leftSideX + 1, 1, {textureIndex:glyphBubble, color:color});
+            ++leftSideX;
         }
-    }
-
-    // Mapping percentage
-
-    const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
-
-    const ptsLeft = calculateTimeBonus(state);
-    const scale = Math.ceil((state.gameMap.numCells() - state.gameMap.numPreRevealedCells)/4);
-    let turnsLeft = (6-ptsLeft)*scale + scale - 1 - state.turns;
-
-    const turnsLeftText = ptsLeft>0 ? 'Timer ' + turnsLeft + " (+" + ptsLeft + ")" : 'Turns ' + state.turns + " (--)";
-    const seenMsg = 'Lvl ' + (state.level + 1) + ' - Map ' + percentRevealed + '% - ' + turnsLeftText;
-
-    const seenX = Math.floor((statusBarTileSizeX - seenMsg.length) / 2 + 0.5);
-    putString(renderer, seenX, seenMsg, colorPreset.lightGray);
-
-    // Total loot and turn
-
-    let lootMsg = 'Loot ' + state.lootStolen + '/' + (percentRevealed >= 100 ? state.lootAvailable : '?');
-    const lootX = statusBarTileSizeX - (lootMsg.length + 1);
-    putString(renderer, lootX, lootMsg, colorPreset.lightYellow);
-
-    // Key possession
-
-    if (state.player.hasVaultKey) {
-        const keyX = lootX - 4;
-        putString(renderer, keyX, 'Key', colorPreset.lightCyan);
     }
 
     // Leap toggle indicator
 
+    const msgLeapToggle = 'Leap';
     if (state.leapToggleActive) {
-        const msg = 'Leap';
-        const msgX = lootX - (msg.length + 2);
-        putString(renderer, msgX, msg, colorPreset.lightGreen);
+        ++leftSideX;
+        putString(renderer, leftSideX, msgLeapToggle, colorPreset.lightGreen);
+        leftSideX += msgLeapToggle.length;
     }
+
+    // Total loot
+
+    const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
+
+    let rightSideX = statusBarTileSizeX;
+
+    let msgLoot = 'Loot ' + state.lootStolen + '/' + (percentRevealed >= 100 ? state.lootAvailable : '?');
+    rightSideX -= msgLoot.length + 1;
+    putString(renderer, rightSideX, msgLoot, colorPreset.lightYellow);
+
+    // Mapping percentage
+
+    let msgSeen = 'Map ' + percentRevealed + '%';
+    rightSideX -= msgSeen.length + 1;
+    putString(renderer, rightSideX, msgSeen, colorPreset.white);
+
+    // Key possession
+
+    const msgKey = 'Key';
+    if (state.player.hasVaultKey) {
+        rightSideX -= msgKey.length + 1;
+        putString(renderer, rightSideX, msgKey, colorPreset.lightCyan);
+    }
+
+    // Level number, turn count, and speed bonus
+
+    const msgLevel = 'Lvl ' + (state.level + 1);
+
+    let msgTimer = 'Turn ' + state.turns;
+    const ptsLeft = calculateTimeBonus(state);
+    if (ptsLeft > 0) {
+        const scale = Math.ceil((state.gameMap.numCells() - state.gameMap.numPreRevealedCells)/4);
+        const turnsLeft = (6-ptsLeft)*scale + scale - 1 - state.turns;
+        msgTimer += ' (' + turnsLeft + ' +' + ptsLeft + ')';
+    }
+
+    const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);
+    putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
+    putString(renderer, centeredX + msgLevel.length + 1, msgTimer, colorPreset.darkGray);
 
     renderer.flush();
 }

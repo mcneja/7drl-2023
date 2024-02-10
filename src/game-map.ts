@@ -15,6 +15,7 @@ export {
     isWindowTerrainType,
     isDoorItemType,
     maxPlayerHealth,
+    maxPlayerTurnsUnderwater,
 };
 
 import { Guard, GuardMode } from './guard';
@@ -304,6 +305,7 @@ function guardMoveCostForItemType(itemType: ItemType): number {
 }
 
 const maxPlayerHealth: number = 5;
+const maxPlayerTurnsUnderwater: number = 7;
 
 class Player {
     pos: vec2;
@@ -325,7 +327,7 @@ class Player {
         this.noisy = false;
         this.hasVaultKey = false;
         this.damagedLastTurn = false;
-        this.turnsRemainingUnderwater = 0;
+        this.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
     }
 
     applyDamage(d: number) {
