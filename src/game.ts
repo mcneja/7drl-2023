@@ -110,6 +110,7 @@ function updateControllerState(state:State) {
         for(const g in state.gamepadManager.gamepads) state.gamepadManager.gamepads[g].endFrame();
     }
     function activated(action:string):boolean {
+        const dt = Date.now()
         let result = false;
         if(lastController===null) return false;
         const controlStates = lastController.controlStates;
@@ -118,12 +119,21 @@ function updateControllerState(state:State) {
             const t = state.touchController;
             if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
                 result = lastController.currentFrameReleases.has(action);
-                if(result) lastController.controlTimes[action] = Date.now();
+                if(result) lastController.controlTimes[action] = dt;
                 return result;
             }
         }
-        result = lastController.currentFramePresses.has(action) || controlStates[action] && Date.now()-lastController.controlTimes[action]>state.keyRepeatRate;
-        if(result) lastController.controlTimes[action] = Date.now();
+        const threshold = state.keyRepeatActive===action? state.keyRepeatRate:state.keyRepeatDelay;
+        result = lastController.currentFramePresses.has(action) || 
+                 controlStates[action] && 
+                 dt-lastController.controlTimes[action]>threshold;
+        if(result) {
+            if(controlStates[action] && dt-lastController.controlTimes[action]>threshold) {
+                state.keyRepeatActive = action;
+            }
+            lastController.controlTimes[action] = dt;
+        }
+        if(!controlStates[action] && state.keyRepeatActive===action) state.keyRepeatActive = undefined;
         return result;
     }
     function menuActivated(action:string):boolean {
@@ -1748,8 +1758,10 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const stats = loadStats();
     const touchMode = window.localStorage.getItem('LLL/touchMode')?? 'Gamepad';
     const touchAsGamepad = touchMode==='Gamepad';
-    let keyRepeatRate = parseInt(window.localStorage.getItem('LLL/keyRepeatRate')??'250');
-    if(isNaN(keyRepeatRate)) keyRepeatRate = 250;
+    let keyRepeatRate = parseInt(window.localStorage.getItem('LLL/keyRepeatRate')??'175');
+    if(isNaN(keyRepeatRate)) keyRepeatRate = 175;
+    let keyRepeatDelay = parseInt(window.localStorage.getItem('LLL/keyRepeatDelay')??'250');
+    if(isNaN(keyRepeatDelay)) keyRepeatDelay = 250;
 
     const state: State = {
         gameStats: {    
@@ -1814,7 +1826,9 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         activeSoundPool: activeSoundPool,
         guardMute: false,
         volumeMute: false,
+        keyRepeatActive: undefined,
         keyRepeatRate: keyRepeatRate,
+        keyRepeatDelay: keyRepeatDelay,
         touchAsGamepad: touchAsGamepad,
         touchController: touchController,
         gamepadManager: new GamepadManager(),

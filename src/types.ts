@@ -83,7 +83,9 @@ type State = {
     lightStates: Array<number>;
     dt: number;
     idleTimer: number;
+    keyRepeatActive: string|undefined;
     keyRepeatRate: number;
+    keyRepeatDelay: number;
     leapToggleActive: boolean;
     gameMode: GameMode;
     helpScreen: TextWindow;

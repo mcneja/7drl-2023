@@ -713,11 +713,11 @@ class GameMap {
         dx *= 2;
         dy *= 2;
 
-        // The cell is lit
+        // Grab the cell
         const cell = this.cells.at(targetX, targetY);
 
-        // A solid target square blocks all further light through it.
-        if (cell.blocksSight && !occupied.has(cell)) {
+        // A wall is never lit and does not pass light through.
+        if (cell.type>=TerrainType.Wall0000 && cell.type<=TerrainType.Wall1111) {
             return;
         }
 
@@ -727,6 +727,11 @@ class GameMap {
             cell.lit += 1/(dist2+1);
             if(cell.lit>1) cell.lit=1;
             cell.litSrc.add(lightId);
+        }
+
+        // A solid target square blocks all further light through it.
+        if (cell.blocksSight && !occupied.has(cell)) {
+            return;
         }
 
         // Mark diagonally-adjacent squares as lit if their corners are lit
