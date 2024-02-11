@@ -880,6 +880,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     }
 
     // Execute the move
+    const fromHid = player.hidden(state.gameMap);
 
     preTurn(state);
 
@@ -896,10 +897,6 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     const end = vec2.create();
     let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
     const hid = player.hidden(state.gameMap);
-    const tile = dx<0? tileSet.playerTiles['left']:
-        dx>0? tileSet.playerTiles['right']:
-        dy>0? tileSet.playerTiles['up']:
-        tileSet.playerTiles['down']
 
     let tweenSeq;
 
@@ -918,8 +915,14 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     }
 
-    const tile2 = hid? tileSet.playerTiles['hidden']:tile;
-    player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles['left']]);
+    const baseTile =    dx<0? tileSet.playerTiles['left']:
+                        dx>0? tileSet.playerTiles['right']:
+                        dy>0? tileSet.playerTiles['up']:
+                        tileSet.playerTiles['down'];
+    const tile1 = fromHid? tileSet.playerTiles['hidden']:baseTile;
+    const tile2 = hid? tileSet.playerTiles['hidden']:baseTile;
+    const tile3 = hid? tileSet.playerTiles['hidden']:tileSet.playerTiles['left'];
+    player.animation = new SpriteAnimation(tweenSeq, [tile1, tile2, tile2, tile3]);
 
     // Collect loot
 
