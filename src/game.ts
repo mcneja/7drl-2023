@@ -1469,13 +1469,13 @@ function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer
 
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
-    const a = state.player.animation
+    const a = state.player.animation;
     const offset = a &&  a instanceof SpriteAnimation ? a.offset : vec2.create();
     const x = player.pos[0] + offset[0];
     const y = player.pos[1] + offset[1];
     const x0 = player.pos[0];
     const y0 = player.pos[1];
-    const cell = state.gameMap.cells.at(x0, y0)
+    const cell = state.gameMap.cells.at(x0, y0);
     const lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, state.seeAll || cell.seen);
     const hidden = player.hidden(state.gameMap);
 
@@ -1484,19 +1484,13 @@ function renderPlayer(state: State, renderer: Renderer) {
         tileInfo = state.player.animation.currentTile();
     } else {
         const p = renderer.tileSet.playerTiles;
-        tileInfo = player.health<=0 ? p.dead :
-        player.damagedLastTurn ? p.wounded :
-        player.noisy ? p.noisy :
-        hidden ? p.hidden :
-        !lit ? p.unlit :
-        p.normal;
-
-    // const color =
-    //     player.damagedLastTurn ? 0xff0000ff :
-    //     player.noisy ? colorPreset.lightCyan :
-    //     hidden ? 0xd0101010 :
-    //     !lit ? colorPreset.lightBlue :
-    //     colorPreset.lightGray;
+        tileInfo =
+            player.health<=0 ? p.dead :
+            player.damagedLastTurn ? p.wounded :
+            player.noisy ? p.noisy :
+            hidden ? p.hidden :
+            !lit ? p.unlit :
+            p.normal;
     }
 
     renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
@@ -2479,10 +2473,10 @@ function colorLerp(color0: number, color1: number, u: number): number {
     const b1 = ((color1 >> 16) & 255);
     const a1 = ((color1 >> 24) & 255);
 
-    const r = Math.max(0, Math.min(255, r0 + (r1 - r0) * u));
-    const g = Math.max(0, Math.min(255, g0 + (g1 - g0) * u));
-    const b = Math.max(0, Math.min(255, b0 + (b1 - b0) * u));
-    const a = Math.max(0, Math.min(255, a0 + (a1 - a0) * u));
+    const r = Math.max(0, Math.min(255, Math.trunc(r0 + (r1 - r0) * u)));
+    const g = Math.max(0, Math.min(255, Math.trunc(g0 + (g1 - g0) * u)));
+    const b = Math.max(0, Math.min(255, Math.trunc(b0 + (b1 - b0) * u)));
+    const a = Math.max(0, Math.min(255, Math.trunc(a0 + (a1 - a0) * u)));
 
     return r + (b << 8) + (g << 16) + (a << 24);
 }
