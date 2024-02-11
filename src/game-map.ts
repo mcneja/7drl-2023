@@ -637,9 +637,10 @@ class GameMap {
         //not changing and not changing their order during play to avoid ugly flickering when lights
         //switch on/off
         const occupied:Set<Cell> = new Set();
-        if(playerCell!==null) occupied.add(playerCell);
+        if(playerCell!==null && playerCell.type>=TerrainType.Wall0000) occupied.add(playerCell);
         for(let g of this.guards) {
-            occupied.add(this.cells.at(g.pos[0],g.pos[1]));
+            const gCell = this.cells.at(g.pos[0],g.pos[1]);
+            if(gCell.type>=TerrainType.Wall0000) occupied.add(gCell);
         }
         for (const cell of this.cells.values) {
             cell.lit = 0;
