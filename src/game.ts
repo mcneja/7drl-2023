@@ -1319,15 +1319,20 @@ function lightAnimator(baseVal:number, lightStates:Array<number>, srcIds:Set<num
 function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: boolean) {
     for(let x=0; x<cells.sizeX; x++) {
         for(let y=0;y<cells.sizeY; y++) {
-            const c = cells.at(x,y);            
-            cells.at(x,y).litAnim = lightAnimator(c.lit,   lightStates, c.litSrc, seeAll || c.seen);
+            const c = cells.at(x,y);
+            if(c.type<TerrainType.Wall0000 || c.type>TerrainType.DoorEW) {
+                cells.at(x,y).litAnim = lightAnimator(c.lit,   lightStates, c.litSrc, seeAll || c.seen);
+            } else {
+                //Walls and portals get rendered unlit regardless of light sources
+                cells.at(x,y).litAnim = 0;                
+            }
         }
     }
 }
 
 function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>, seeAll: boolean):[number,number,number,number] {
-    const l =   cells.at(x,y).litAnim;
-    const scale = l>0? 1:0.0625;
+    const l =  cells.at(x,y).litAnim;
+    const scale = l>0? 1:0.03;
 
     const llu = cells.at(x-1,y-1).litAnim;
     const lu =  cells.at(x,y-1).litAnim;
