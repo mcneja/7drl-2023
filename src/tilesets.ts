@@ -23,7 +23,18 @@ export type TileSet = {
     itemTiles: Array<TileInfo>;
     guardStateTiles: Array<TileInfo>;
     npcTiles: Array<TileInfo>;
-    playerTiles: {[id:string]:TileInfo};
+    playerTiles: {
+        normal:  TileInfo;
+        wounded: TileInfo;
+        hidden:  TileInfo;
+        noisy:   TileInfo;
+        unlit:   TileInfo;
+        right:   TileInfo;
+        left:    TileInfo;
+        down:    TileInfo;
+        up:      TileInfo;
+        dead:    TileInfo;
+    };
     ledgeTiles: Array<TileInfo>;
     unlitTile: TileInfo;
     flattenTexture: boolean;
