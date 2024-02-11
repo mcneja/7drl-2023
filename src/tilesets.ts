@@ -64,7 +64,7 @@ const basicFontTileset:FontTileSet = {
     tileSize: [16,16],
     offset: [0,0],
     letterMap: [],  
-    background: {textureIndex:219, color: 0xf0101010},
+    background: {textureIndex:219, color: 0xff101010},
     heart: {textureIndex: 3},
     air: {textureIndex: 9},
 }
