@@ -588,7 +588,7 @@ function bumpAnim(state: State, dx: number, dy: number) {
             {pt0:pos0, pt1:pos1, duration:0.05, fn:tween.linear},
             {pt0:pos1, pt1:pos0, duration:0.05, fn:tween.linear}
         ],
-        [tileSet.playerTiles['normal']]);
+        [tileSet.playerTiles.normal]);
 }
 
 function bumpFail(state: State, dx: number, dy: number) {
@@ -915,13 +915,13 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     }
 
-    const baseTile =    dx<0? tileSet.playerTiles['left']:
-                        dx>0? tileSet.playerTiles['right']:
-                        dy>0? tileSet.playerTiles['up']:
-                        tileSet.playerTiles['down'];
-    const tile1 = fromHid? tileSet.playerTiles['hidden']:baseTile;
-    const tile2 = hid? tileSet.playerTiles['hidden']:baseTile;
-    const tile3 = hid? tileSet.playerTiles['hidden']:tileSet.playerTiles['left'];
+    const baseTile =    dx<0? tileSet.playerTiles.left:
+                        dx>0? tileSet.playerTiles.right:
+                        dy>0? tileSet.playerTiles.up:
+                        tileSet.playerTiles.down;
+    const tile1 = fromHid? tileSet.playerTiles.hidden:baseTile;
+    const tile2 = hid? tileSet.playerTiles.hidden:baseTile;
+    const tile3 = hid? tileSet.playerTiles.hidden:tileSet.playerTiles.left;
     player.animation = new SpriteAnimation(tweenSeq, [tile1, tile2, tile2, tile3]);
 
     // Collect loot
@@ -1094,10 +1094,10 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
     let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.25));
-    const tile = dx<0? tileSet.playerTiles['left']:
-                 dx>0? tileSet.playerTiles['right']:
-                 dy>0? tileSet.playerTiles['up']:
-                 tileSet.playerTiles['down'];
+    const tile = dx<0? tileSet.playerTiles.left:
+                 dx>0? tileSet.playerTiles.right:
+                 dy>0? tileSet.playerTiles.up:
+                 tileSet.playerTiles.down;
 
     const hid = player.hidden(state.gameMap);
     const tweenSeq = [
@@ -1107,8 +1107,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     ]
     if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
 
-    const tile2 = hid? tileSet.playerTiles['hidden']:tile;
-    player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles['left']]);
+    const tile2 = hid? tileSet.playerTiles.hidden : tile;
+    player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles.left]);
 
     // Collect any loot from posNew
 
@@ -1477,37 +1477,31 @@ function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer
 
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
-    const a = state.player.animation
+    const a = state.player.animation;
     const offset = a &&  a instanceof SpriteAnimation ? a.offset : vec2.create();
     const x = player.pos[0] + offset[0];
     const y = player.pos[1] + offset[1];
     const x0 = player.pos[0];
     const y0 = player.pos[1];
-    const cell = state.gameMap.cells.at(x0, y0)
+    const cell = state.gameMap.cells.at(x0, y0);
     const lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, state.seeAll || cell.seen);
     const hidden = player.hidden(state.gameMap);
-    // const color =
-    //     player.damagedLastTurn ? 0xff0000ff :
-    //     player.noisy ? colorPreset.lightCyan :
-    //     hidden ? 0xd0101010 :
-    //     !lit ? colorPreset.lightBlue :
-    //     colorPreset.lightGray;
-    const p = renderer.tileSet.playerTiles;
 
     let tileInfo:TileInfo;
-    if(state.player.animation) {
+    if (state.player.animation) {
         tileInfo = state.player.animation.currentTile();
     } else {
-        tileInfo = player.health<=0 ? p['dead'] :
-        player.damagedLastTurn ? p['wounded'] :
-        player.noisy ? p['noisy'] :
-        hidden ? p['hidden'] :
-        !lit ? p['unlit'] :
-        p['normal'];
+        const p = renderer.tileSet.playerTiles;
+        tileInfo =
+            player.health<=0 ? p.dead :
+            player.damagedLastTurn ? p.wounded :
+            player.noisy ? p.noisy :
+            hidden ? p.hidden :
+            !lit ? p.unlit :
+            p.normal;
     }
 
     renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
-
 }
 
 function renderGuards(state: State, renderer: Renderer) {
@@ -1992,7 +1986,7 @@ function updateIdle(state:State, dt:number) {
                 {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
                 {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
             ];
-            tiles = hid? [p['hidden']] : [p['normal']];
+            tiles = hid? [p.hidden] : [p.normal];
         } else {
             tweenSeq = [
                 {pt0:start, pt1:left, duration:0.1, fn:tween.easeOutQuad},
@@ -2002,7 +1996,7 @@ function updateIdle(state:State, dt:number) {
                 {pt0:right, pt1:right, duration:0.5, fn:tween.easeOutQuad},
                 {pt0:right, pt1:start, duration:0.1, fn:tween.easeInQuad},
             ];
-            tiles = [p['left'], p['left'], p['normal'], p['right'], p['right'], p['normal']];        
+            tiles = [p.left, p.left, p.normal, p.right, p.right, p.normal];        
         }
         player.animation = new SpriteAnimation(tweenSeq, tiles);
     }
@@ -2175,7 +2169,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
 
     const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
@@ -2438,7 +2431,7 @@ function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: numb
 }
 
 function statusBarZoom(screenSizeX: number): number {
-    return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
+    return screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX);
 }
 
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
@@ -2488,10 +2481,10 @@ function colorLerp(color0: number, color1: number, u: number): number {
     const b1 = ((color1 >> 16) & 255);
     const a1 = ((color1 >> 24) & 255);
 
-    const r = Math.max(0, Math.min(255, r0 + (r1 - r0) * u));
-    const g = Math.max(0, Math.min(255, g0 + (g1 - g0) * u));
-    const b = Math.max(0, Math.min(255, b0 + (b1 - b0) * u));
-    const a = Math.max(0, Math.min(255, a0 + (a1 - a0) * u));
+    const r = Math.max(0, Math.min(255, Math.trunc(r0 + (r1 - r0) * u)));
+    const g = Math.max(0, Math.min(255, Math.trunc(g0 + (g1 - g0) * u)));
+    const b = Math.max(0, Math.min(255, Math.trunc(b0 + (b1 - b0) * u)));
+    const a = Math.max(0, Math.min(255, Math.trunc(a0 + (a1 - a0) * u)));
 
     return r + (b << 8) + (g << 16) + (a << 24);
 }

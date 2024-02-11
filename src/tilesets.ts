@@ -23,7 +23,18 @@ export type TileSet = {
     itemTiles: Array<TileInfo>;
     guardStateTiles: Array<TileInfo>;
     npcTiles: Array<TileInfo>;
-    playerTiles: {[id:string]:TileInfo};
+    playerTiles: {
+        normal:  TileInfo;
+        wounded: TileInfo;
+        hidden:  TileInfo;
+        noisy:   TileInfo;
+        unlit:   TileInfo;
+        right:   TileInfo;
+        left:    TileInfo;
+        down:    TileInfo;
+        up:      TileInfo;
+        dead:    TileInfo;
+    };
     ledgeTiles: Array<TileInfo>;
     unlitTile: TileInfo;
     flattenTexture: boolean;
@@ -64,7 +75,7 @@ const basicFontTileset:FontTileSet = {
     tileSize: [16,16],
     offset: [0,0],
     letterMap: [],  
-    background: {textureIndex:219, color: 0xf0101010},
+    background: {textureIndex:219, color: 0xff101010},
     heart: {textureIndex: 3},
     air: {textureIndex: 9},
 }
