@@ -716,15 +716,11 @@ class GameMap {
         // Grab the cell
         const cell = this.cells.at(targetX, targetY);
 
-        // A wall is never lit and does not pass light through.
-        if (cell.type>=TerrainType.Wall0000 && cell.type<=TerrainType.Wall1111) {
-            return;
-        }
 
         // The cell is lit
         if(!cell.litSrc.has(lightId)) {
             const dist2 =  (targetX-lightX)**2+(targetY-lightY)**2;
-            cell.lit += 1/(dist2+1);
+            cell.lit += 1/(5*dist2+1);
             if(cell.lit>1) cell.lit=1;
             cell.litSrc.add(lightId);
         }
@@ -749,11 +745,11 @@ class GameMap {
                     !aRightOfB(ldx, ldy, cdx, cdy) &&
                     !aRightOfB(cdx, cdy, rdx, rdy)) {
                     const c = this.cells.at(nx, ny);
-                    if(!c.blocksSight && !c.litSrc.has(lightId)) {
+                    if((!c.blocksSight || occupied.has(cell)) && !c.litSrc.has(lightId)) {
                         const dx = (nx-lightX);
                         const dy = (ny-lightY);
                         const dist2 = dx**2 + dy**2;
-                        c.lit += 1/(dist2+1);
+                        c.lit += 1/(5*dist2+1);
                         if(c.lit>1) c.lit=1;
                         c.litSrc.add(lightId);    
                     }
