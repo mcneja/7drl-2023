@@ -2167,7 +2167,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
 
     const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
     const pt = createPosTranslator(screenSize, worldSize, state.camera.position, state.zoomLevel);
@@ -2430,7 +2429,7 @@ function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: numb
 }
 
 function statusBarZoom(screenSizeX: number): number {
-    return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
+    return screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX);
 }
 
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
