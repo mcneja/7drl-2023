@@ -50,6 +50,8 @@ type Room = {
     posMin: vec2,
     posMax: vec2,
     edges: Array<Adjacency>,
+    gridX: number,
+    gridY: number,
 }
 
 type Adjacency = {
@@ -192,7 +194,12 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Place patrol routes
 
-    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outerPerimeter, rng);
+//    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outerPerimeter, rng);
+    const patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, outerPerimeter, rng);
+//    const patrolRoutes = placePatrolRouteSingle(level, map, rooms, outerPerimeter, rng);
+//    const patrolRoutes = placePatrolRouteSingleDense(level, map, rooms, outerPerimeter, rng);
+//    const patrolRoutes = placePatrolRoutesLong(level, map, rooms, outerPerimeter, rng);
+//    const patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outerPerimeter, rng);
 
     // Place loot
 
@@ -430,6 +437,8 @@ function createRooms(
         posMin: vec2.fromValues(0, 0), // not meaningful for this room
         posMax: vec2.fromValues(0, 0), // not meaningful for this room
         edges: [],
+        gridX: -1,
+        gridY: -1,
     });
 
     for (let rx = 0; rx < roomsX; ++rx) {
@@ -446,6 +455,8 @@ function createRooms(
                 posMin: vec2.fromValues(offsetX.get(rx, ry) + 1, offsetY.get(rx, ry) + 1),
                 posMax: vec2.fromValues(offsetX.get(rx + 1, ry), offsetY.get(rx, ry + 1)),
                 edges: [],
+                gridX: rx,
+                gridY: ry,
             });
         }
     }
@@ -1652,8 +1663,676 @@ type PatrolNode = {
     visited: boolean;
 }
 
-function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>, 
+function placePatrolRoutesLong(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    let numGuards = Math.floor(rooms.length / 2);
+
+    let patrolRoutes: Array<Array<vec2>> = [];
+
+    for (let i = 0; i < numGuards; ++i) {
+        patrolRoutes = patrolRoutes.concat(placePatrolRouteSingle(level, gameMap, rooms, outerPerimeter, rng));
+    }
+
+    return patrolRoutes;
+}
+
+function placePatrolRouteSingle(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    const roomsValid: Set<Room> = new Set();
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
+            roomsValid.add(room);
+        }
+    }
+
+    const roomVisited: Set<Room> = new Set();
+    const roomSequence: Array<Room> = [];
+
+    function visitRoom(room: Room) {
+        roomSequence.push(room);
+        roomVisited.add(room);
+
+        const adjShuffled = [...room.edges];
+        rng.shuffleArray(adjShuffled);
+        for (const adj of adjShuffled) {
+            if (!adj.door) {
+                continue;
+            }
+            const roomNext = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
+            if (roomVisited.has(roomNext)) {
+                continue;
+            }
+            if (!roomsValid.has(roomNext)) {
+                continue;
+            }
+
+            visitRoom(roomNext);
+            roomSequence.push(room);
+        }
+    }
+
+    const roomsToVisit = Array.from(roomsValid);
+    const roomStart = roomsToVisit[rng.randomInRange(roomsToVisit.length)];
+    visitRoom(roomStart);
+    --roomSequence.length;
+
+    const nodes = generatePatrolNodesFromRoomSequence(roomSequence);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+
+    console.assert(patrolRoutes.length === 1);
+
+    return patrolRoutes;
+}
+
+function placePatrolRouteSingleDense(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    const roomsValid: Set<Room> = new Set();
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
+            roomsValid.add(room);
+        }
+    }
+
+    const adjUsed: Set<Adjacency> = new Set();
+    const roomSequence: Array<Room> = [];
+
+    function visitRoom(room: Room) {
+        roomSequence.push(room);
+
+        const adjShuffled = [...room.edges];
+        rng.shuffleArray(adjShuffled);
+        for (const adj of adjShuffled) {
+            if (!adj.door) {
+                continue;
+            }
+            if (adjUsed.has(adj)) {
+                continue;
+            }
+            adjUsed.add(adj);
+            const roomNext = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
+            if (!roomsValid.has(roomNext)) {
+                continue;
+            }
+
+            visitRoom(roomNext);
+            roomSequence.push(room);
+        }
+    }
+
+    const roomsToVisit = Array.from(roomsValid);
+    const roomStart = roomsToVisit[rng.randomInRange(roomsToVisit.length)];
+    visitRoom(roomStart);
+    --roomSequence.length;
+
+    const nodes = generatePatrolNodesFromRoomSequence(roomSequence);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+
+    console.assert(patrolRoutes.length === 1);
+
+    return patrolRoutes;
+}
+
+type Visit = {
+    stackLen: number;
+    room: Room;
+}
+
+function placePatrolRouteLargeLoop(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    const roomsValid: Set<Room> = new Set();
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
+            roomsValid.add(room);
+        }
+    }
+
+    let roomStart = randomSetMember(roomsValid, rng);
+    if (roomStart === undefined) {
+        return [];
+    }
+
+    let roomLoopLongest: Array<Room> = [];
+    const roomsVisited: Array<Room> = [];
+    const roomsToVisit: Array<Visit> = [];
+    roomsToVisit.push({stackLen: 0, room: roomStart});
+
+    while (true) {
+        const visit = roomsToVisit.pop();
+        if (visit === undefined) {
+            break;
+        }
+
+        roomsVisited.length = visit.stackLen;
+
+        const i = roomsVisited.indexOf(visit.room);
+        if (i >= 0) {
+            if (roomsVisited.length - i > roomLoopLongest.length) {
+                roomLoopLongest = roomsVisited.slice(i);
+            }
+            continue;
+        }
+
+        roomsVisited.push(visit.room);
+        const stackLen = roomsVisited.length;
+
+        const adjShuffled: Array<Adjacency> = [...visit.room.edges];
+        rng.shuffleArray(adjShuffled);
+        for (const adj of adjShuffled) {
+            if (!adj.door) {
+                continue;
+            }
+            const roomNext = (adj.roomLeft === visit.room) ? adj.roomRight : adj.roomLeft;
+            if (!roomsValid.has(roomNext)) {
+                continue;
+            }
+            roomsToVisit.push({stackLen: stackLen, room: roomNext});
+        }
+    }
+
+    const nodes = generatePatrolNodesFromRoomSequence(roomLoopLongest);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+
+    console.assert(patrolRoutes.length === 1);
+
+    return patrolRoutes;
+}
+
+function randomSetMember<T>(items: Set<T>, rng: RNG): T | undefined {
+    const itemsAsList = Array.from(items);
+    if (itemsAsList.length === 0) {
+        return undefined;
+    }
+
+    return itemsAsList[rng.randomInRange(itemsAsList.length)];
+}
+
+function generatePatrolNodesFromRoomSequence(roomSequence: Array<Room>): Array<PatrolNode> {
+    const nodes: Array<PatrolNode> = [];
+    for (const room of roomSequence) {
+        nodes.push({
+            room: room,
+            nodeNext: null,
+            nodePrev: null,
+            visited: false
+        });
+    }
+
+    for (let i = 0; i < roomSequence.length; ++i) {
+        nodes[i].nodeNext = nodes[(i + 1) % nodes.length];
+        nodes[i].nodePrev = nodes[(i + nodes.length - 1) % nodes.length];
+    }
+
+    return nodes;
+}
+
+function deadEndPatrolNode(nodes: Array<PatrolNode>): PatrolNode | undefined {
+    for (const node of nodes) {
+        if (node.nodeNext !== null && node.nodePrev !== null && node.nodeNext.room === node.nodePrev.room) {
+            return node;
+        }
+    }
+    return undefined;
+}
+
+function placePatrolRoutesDense(level: number, gameMap: GameMap, rooms: Array<Room>, 
     adjacencies: Array<Adjacency>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+
+    // Keep adjacencies that connect interior rooms via a door; shuffle them
+
+    const adjacenciesShuffled = adjacencies.filter((adj) =>
+        adj.door &&
+        isPatrolledRoom(adj.roomLeft) &&
+        isPatrolledRoom(adj.roomRight));
+
+    rng.shuffleArray(adjacenciesShuffled);
+
+    // Track nodes for each room. Each node represents a visit to that room by a patrol route.
+
+    const nodes: Array<PatrolNode> = [];
+    const roomNodes: Map<Room, Array<PatrolNode>> = new Map();
+
+    // Add edges one at a time.
+
+    // If the room at an edge end has a single node, that means it's a dead-end on a route.
+    // Extend that route using this edge, so long as doing so does not make the route too
+    // long.
+    
+    // If there is not a dead-end in the room, then the new edge will dead-end in the room.
+
+    // If the new edge joins two ends of a route to form a loop, remove one path around the
+    // loop, transferring all side-loops from the removed path to the remaining path around
+    // the loop.
+
+    //console.log('Start with %d rooms and %d adjacencies', rooms.length, adjacenciesShuffled.length);
+
+    const maxRouteLength = 26 - 2*level;
+
+    for (const adj of adjacenciesShuffled) {
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+
+        let nodes0 = roomNodes.get(room0);
+        if (nodes0 === undefined) {
+            nodes0 = [];
+            roomNodes.set(room0, nodes0);
+        }
+
+        let nodes1 = roomNodes.get(room1);
+        if (nodes1 === undefined) {
+            nodes1 = [];
+            roomNodes.set(room1, nodes1);
+        }
+
+        const deadEnd0 = deadEndPatrolNode(nodes0);
+        const deadEnd1 = deadEndPatrolNode(nodes1);
+
+        // TODO:
+        //  Reserve activity stations in rooms so multiple people can stop in them
+        //  Join single-room-pair routes to adjacent routes
+        //  Join unvisited rooms to adjacent routes
+
+        if (deadEnd0) {
+            if (deadEnd1) {
+                if (!canJoinNodes(deadEnd0, deadEnd1, maxRouteLength)) {
+                    continue;
+                }
+
+                // Join deadEnd0 and deadEnd1 together.
+                // Before: ... -> deadEnd0 -> nodeNext0 -> ...
+                //         ... -> deadEnd1 -> nodeNext1 -> ...
+                // After:  ... -> deadEnd0 -> node1 -> nodeNext1 -> ... -> deadEnd1 -> node0 -> nodeNext0 -> ...
+                const node0: PatrolNode = { room: room0, nodeNext: null, nodePrev: null, visited: false };
+                const node1: PatrolNode = { room: room1, nodeNext: null, nodePrev: null, visited: false };
+                const nodeNext0 = deadEnd0.nodeNext;
+                const nodeNext1 = deadEnd1.nodeNext;
+                deadEnd0.nodeNext = node1;
+                node1.nodePrev = deadEnd0;
+                node1.nodeNext = nodeNext1;
+                if (nodeNext1 !== null) {
+                    nodeNext1.nodePrev = node1;
+                }
+                deadEnd1.nodeNext = node0;
+                node0.nodePrev = deadEnd1;
+                node0.nodeNext = nodeNext0;
+                if (nodeNext0 !== null) {
+                    nodeNext0.nodePrev = node0;
+                }
+                nodes0.push(node0);
+                nodes1.push(node1);
+                nodes.push(node0);
+                nodes.push(node1);
+                if (!nodesAreConnected(deadEnd0, deadEnd1)) {
+                    if (rng.random() < 0.5) {
+                        deletePatrolRoute(deadEnd0, nodes, roomNodes);
+                        //console.log('Join %d,%d and %d,%d into a loop; new route length = %d', room0.gridX, room0.gridY, room1.gridX, room1.gridY, loopingPatrolRouteLength(deadEnd1));
+                    } else {
+                        deletePatrolRoute(deadEnd1, nodes, roomNodes);
+                        //console.log('Join %d,%d and %d,%d into a loop; new route length = %d', room0.gridX, room0.gridY, room1.gridX, room1.gridY, loopingPatrolRouteLength(deadEnd0));
+                    }
+                } else {
+                    //console.log('Join %d,%d and %d,%d; combined route length = %d', room0.gridX, room0.gridY, room1.gridX, room1.gridY, loopingPatrolRouteLength(node0));
+                }
+            } else {
+                const length0 = loopingPatrolRouteLength(deadEnd0);
+                if (length0 + 2 > maxRouteLength) {
+                    //console.log('Skip extend %d,%d to %d,%d because it would create length %d+2 = %d > %d', room0.gridX, room0.gridY, room1.gridX, room1.gridY, length0, length0 + 2, maxRouteLength);
+                    continue;
+                }
+
+                // Create a new dead end in room1, extending from the dead end in room0.
+                //console.log('Extend %d,%d to %d,%d', room0.gridX, room0.gridY, room1.gridX, room1.gridY);
+                const node0: PatrolNode = { room: room0, nodeNext: null, nodePrev: null, visited: false };
+                const node1: PatrolNode = { room: room1, nodeNext: null, nodePrev: null, visited: false };
+                const nodeNext = deadEnd0.nodeNext;
+                deadEnd0.nodeNext = node1;
+                node1.nodePrev = deadEnd0;
+                node1.nodeNext = node0;
+                node0.nodePrev = node1;
+                node0.nodeNext = nodeNext;
+                if (nodeNext !== null) {
+                    nodeNext.nodePrev = node0;
+                }
+                nodes0.push(node0);
+                nodes1.push(node1);
+                nodes.push(node0);
+                nodes.push(node1);
+            }
+        } else {
+            if (deadEnd1) {
+                const length1 = loopingPatrolRouteLength(deadEnd1);
+                if (length1 + 2 > maxRouteLength) {
+                    //console.log('Skip extend %d,%d to %d,%d because it would create length %d+2 = %d > %d', room1.gridX, room1.gridY, room0.gridX, room0.gridY, length1, length1 + 2, maxRouteLength);
+                    continue;
+                }
+
+                // Create a new dead end in room0, extending from the dead end in room1.
+                //console.log('Extend %d,%d to %d,%d', room1.gridX, room1.gridY, room0.gridX, room0.gridY);
+                const node0: PatrolNode = { room: room0, nodeNext: null, nodePrev: null, visited: false };
+                const node1: PatrolNode = { room: room1, nodeNext: null, nodePrev: null, visited: false };
+                const nodeNext = deadEnd1.nodeNext;
+                deadEnd1.nodeNext = node0;
+                node0.nodePrev = deadEnd1;
+                node0.nodeNext = node1;
+                node1.nodePrev = node0;
+                node1.nodeNext = nodeNext;
+                if (nodeNext !== null) {
+                    nodeNext.nodePrev = node1;
+                }
+                nodes0.push(node0);
+                nodes1.push(node1);
+                nodes.push(node0);
+                nodes.push(node1);
+            } else {
+                // Neither end is a dead end, so add this as its own standalone segment.
+                //console.log('Create %d,%d to %d,%d', room0.gridX, room0.gridY, room1.gridX, room1.gridY);
+                const node0: PatrolNode = { room: room0, nodeNext: null, nodePrev: null, visited: false };
+                const node1: PatrolNode = { room: room1, nodeNext: null, nodePrev: null, visited: false };
+                node0.nodeNext = node1;
+                node0.nodePrev = node1;
+                node1.nodeNext = node0;
+                node1.nodePrev = node0;
+                nodes0.push(node0);
+                nodes1.push(node1);
+                nodes.push(node0);
+                nodes.push(node1);
+            }
+        }
+    }
+
+    // Find unvisited rooms and generate segments from them
+
+    for (const room of rooms) {
+        if (!isPatrolledRoom(room)) {
+            continue;
+        }
+
+        {
+            const nodes = roomNodes.get(room);
+            if (nodes !== undefined && nodes.length > 0) {
+                continue;
+            }
+        }
+
+        const adjPotential = room.edges.filter((adj)=>adj.door && isPatrolledRoom(adj.roomLeft) && isPatrolledRoom(adj.roomRight));
+        if (adjPotential.length === 0) {
+            continue;
+        }
+
+        const adj = adjPotential[rng.randomInRange(adjPotential.length)];
+
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+
+        let nodes0 = roomNodes.get(room0);
+        if (nodes0 === undefined) {
+            nodes0 = [];
+            roomNodes.set(room0, nodes0);
+        }
+
+        let nodes1 = roomNodes.get(room1);
+        if (nodes1 === undefined) {
+            nodes1 = [];
+            roomNodes.set(room1, nodes1);
+        }
+
+        //console.log('Connect unvisited %d,%d to %d,%d', room.gridX, room.gridY, (adj.roomLeft === room) ? adj.roomRight.gridX : adj.roomLeft.gridX, (adj.roomLeft === room) ? adj.roomRight.gridY : adj.roomLeft.gridY);
+        const node0: PatrolNode = { room: room0, nodeNext: null, nodePrev: null, visited: false };
+        const node1: PatrolNode = { room: room1, nodeNext: null, nodePrev: null, visited: false };
+        node0.nodeNext = node1;
+        node0.nodePrev = node1;
+        node1.nodeNext = node0;
+        node1.nodePrev = node0;
+        nodes0.push(node0);
+        nodes1.push(node1);
+        nodes.push(node0);
+        nodes.push(node1);
+    }
+
+    // Find single-segment routes and stitch them into routes passing through their endpoints, where possible
+
+    for (const node of nodes) {
+        node.visited = false;
+    }
+
+    for (const node of nodes) {
+        if (node.visited) {
+            continue;
+        }
+
+        const routeLength = loopingPatrolRouteLength(node);
+        if (routeLength > 2) {
+            markLoopingPatrolRouteVisited(node);
+            continue;
+        }
+
+        // Find the shortest patrol route we can join
+
+        let minLength = Number.MAX_SAFE_INTEGER;
+        const potentialJoins: Array<[PatrolNode, PatrolNode]> = [];
+        const node0 = node;
+        const node1: PatrolNode = node.nodeNext!;
+        const room0 = node0.room;
+        const room1 = node1.room;
+        const room0Nodes: Array<PatrolNode> = roomNodes.get(room0)!;
+        const room1Nodes: Array<PatrolNode> = roomNodes.get(room1)!;
+        for (const nodeOther of room0Nodes) {
+            if (nodeOther === node0) {
+                continue;
+            }
+            const length = loopingPatrolRouteLength(nodeOther);
+            if (length > minLength) {
+                continue;
+            }
+            if (length < minLength) {
+                minLength = length;
+                potentialJoins.length = 0;
+            }
+            potentialJoins.push([node0, nodeOther]);
+        }
+        for (const nodeOther of room1Nodes) {
+            if (nodeOther === node1) {
+                continue;
+            }
+            const length = loopingPatrolRouteLength(nodeOther);
+            if (length > minLength) {
+                continue;
+            }
+            if (length < minLength) {
+                minLength = length;
+                potentialJoins.length = 0;
+            }
+            potentialJoins.push([node1, nodeOther]);
+        }
+        if (potentialJoins.length === 0) {
+            markLoopingPatrolRouteVisited(node);
+            continue;
+        }
+
+        const [nodeJoin0, nodeJoin1] = potentialJoins[rng.randomInRange(potentialJoins.length)];
+        const nodeJoin0Prev: PatrolNode = nodeJoin0.nodePrev!;
+        const nodeJoin1Prev: PatrolNode = nodeJoin1.nodePrev!;
+        //console.log('Join single-segment patrol route ending in %d,%d with patrol route passing through %d,%d', nodeJoin0Prev.room.gridX, nodeJoin0Prev.room.gridY, nodeJoin1.room.gridX, nodeJoin1.room.gridY);
+        nodeJoin0Prev.nodeNext = nodeJoin1;
+        nodeJoin1.nodePrev = nodeJoin0Prev;
+        nodeJoin1Prev.nodeNext = nodeJoin0;
+        nodeJoin0.nodePrev = nodeJoin1Prev;
+
+        markLoopingPatrolRouteVisited(node);
+    }
+
+    // Search for adjacencies that will stitch in single-segment patrol routes
+
+    for (const adj of adjacenciesShuffled) {
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+
+        let nodes0 = roomNodes.get(room0);
+        if (nodes0 === undefined) {
+            nodes0 = [];
+            roomNodes.set(room0, nodes0);
+        }
+        let nodes1 = roomNodes.get(room1);
+        if (nodes1 === undefined) {
+            nodes1 = [];
+            roomNodes.set(room1, nodes1);
+        }
+
+        const node0 = shortestPatrolRoute(nodes0);
+        const node1 = shortestPatrolRoute(nodes1);
+        if (node0 === undefined || node1 === undefined) {
+            continue;
+        }
+
+        if (nodesAreConnected(node0, node1)) {
+            continue;
+        }
+
+        const length0 = loopingPatrolRouteLength(node0);
+        const length1 = loopingPatrolRouteLength(node1);
+        if (length0 > 2 && length1 > 2) {
+            continue;
+        }
+
+        // Before: ... -> node0 -> nodeNext0 -> ...
+        //         ... -> nodePrev1 -> node1 -> ...
+        // After:  ... -> node0 -> node1 -> ...
+        //         ... -> nodePrev1 -> node3 -> node2 -> nodeNext0 -> ...
+        //console.log('Join %d-segment route through %d,%d with %d-segment route through %d,%d', length0, room0.gridX, room0.gridY, length1, room1.gridX, room1.gridY);
+        const node2: PatrolNode = { room: room0, nodeNext: null, nodePrev: null, visited: false };
+        const node3: PatrolNode = { room: room1, nodeNext: null, nodePrev: null, visited: false };
+        const nodeNext0 = node0.nodeNext!;
+        const nodePrev1 = node1.nodePrev!;
+        node0.nodeNext = node1;
+        node1.nodePrev = node0;
+        nodePrev1.nodeNext = node3;
+        node3.nodePrev = nodePrev1;
+        node3.nodeNext = node2;
+        node2.nodePrev = node3;
+        node2.nodeNext = nodeNext0;
+        nodeNext0.nodePrev = node2;
+        nodes0.push(node2);
+        nodes1.push(node3);
+        nodes.push(node2);
+        nodes.push(node3);
+    }
+
+    // Convert the node-based patrol routes to actual patrol routes
+
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+
+    //console.log('End with %d patrol routes for %d rooms', patrolRoutes.length, rooms.length);
+
+    return patrolRoutes;
+}
+
+function shortestPatrolRoute(nodes: Array<PatrolNode> | undefined): PatrolNode | undefined {
+    if (nodes === undefined) {
+        return undefined;
+    }
+
+    let nodeShortest = undefined;
+    let lengthShortest = Number.MAX_SAFE_INTEGER;
+
+    for (const node of nodes) {
+        const length = loopingPatrolRouteLength(node);
+        if (length < lengthShortest) {
+            lengthShortest = length;
+            nodeShortest = node;
+        }
+    }
+
+    return nodeShortest;
+}
+
+function isPatrolledRoom(room: Room): boolean {
+    return room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault;
+}
+
+function canJoinNodes(node0: PatrolNode, node1: PatrolNode, maxRouteLength: number): boolean {
+    if (nodesAreConnected(node0, node1)) {
+        if (!isSimpleChain(node0, node1)) {
+            console.log('Skip join %d,%d to %d,%d because it would form a complex loop', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY);
+            return false;
+        }
+
+        const length = loopingPatrolRouteLength(node0);
+        if (length <= 4) {
+            console.log('Skip join %d,%d to %d,%d because it would form a short loop', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY);
+            return false;
+        }
+    } else {
+        const length0 = loopingPatrolRouteLength(node0);
+        const length1 = loopingPatrolRouteLength(node1);
+        if (length0 + length1 + 2 > maxRouteLength) {
+            console.log('Skip join %d,%d to %d,%d because length %d+%d+2 = %d > %d', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY, length0, length1, length0 + length1 + 2, maxRouteLength);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function isSimpleChain(node0: PatrolNode, node1: PatrolNode): boolean {
+    let nodePrev = node0.nodePrev;
+    let nodeNext = node0.nodeNext;
+    while (true) {
+        if (nodePrev === nodeNext) {
+            return nodePrev === node1;
+        }
+        if (nodePrev === null || nodeNext === null) {
+            return false;
+        }
+        if (nodePrev === node0 || nodeNext === node0) {
+            return false;
+        }
+        if (nodePrev.room !== nodeNext.room) {
+            return false;
+        }
+
+        nodePrev = nodePrev.nodePrev;
+        nodeNext = nodeNext.nodeNext;
+    }
+}
+
+function deletePatrolRoute(node: PatrolNode, nodes: Array<PatrolNode>, roomNodes: Map<Room, Array<PatrolNode>>) {
+    if (node.nodePrev === null) {
+        return;
+    }
+
+    node.nodePrev.nodeNext = null;
+
+    while (true) {
+        const nodeNext: PatrolNode | null = node.nodeNext;
+        node.nodePrev = null;
+        node.nodeNext = null;
+        removeByValue(nodes, node);
+        const nodesInRoom = roomNodes.get(node.room);
+        if (nodesInRoom !== undefined) {
+            removeByValue(nodesInRoom, node);
+        }
+        if (nodeNext === null) {
+            break;
+        }
+        node = nodeNext;
+    }
+}
+
+function placePatrolRoutesDFS(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    const numActivityStationsForRoom: Map<Room, number> = new Map();
+    for (const room of rooms) {
+        const positions = activityStationPositions(gameMap, room);
+        numActivityStationsForRoom.set(room, positions.length);
+    }
+
+    const adjUsed: Set<Adjacency> = new Set();
+
+    return [];
+}
+
+function placePatrolRoutes(
+    level: number,
+    gameMap: GameMap,
+    rooms: Array<Room>, 
+    adjacencies: Array<Adjacency>,
+    outerPerimeter: Array<vec2>,
+    rng: RNG):
+    Array<Array<vec2>> {
 
     // Keep adjacencies that connect interior rooms via a door; shuffle them
 
@@ -1775,6 +2454,10 @@ function placePatrolRoutes(level: number, gameMap: GameMap, rooms: Array<Room>,
         }
     }
 
+    return generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+}
+
+function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, gameMap: GameMap, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
     // Generate sub-paths within each room along the paths
     // Each room is responsible for the path from the
     // incoming door to the outgoing door, including the
@@ -1984,6 +2667,53 @@ function startingNode(node: PatrolNode): PatrolNode {
         }
     }
     return nodeStart;
+}
+
+function nodesAreConnected(node0: PatrolNode, node1: PatrolNode): boolean {
+    let node = node0;
+    while (true) {
+        if (node === node1) {
+            return true;
+        }
+        if (node.nodeNext === null) {
+            break;
+        }
+        node = node.nodeNext;
+        if (node === node0) {
+            break;
+        }
+    }
+    return false;
+}
+
+function loopingPatrolRouteLength(nodeStart: PatrolNode): number {
+    let c = 0;
+    let node = nodeStart;
+    while (true) {
+        ++c;
+        if (node.nodeNext === null) {
+            break;
+        }
+        node = node.nodeNext;
+        if (node === nodeStart) {
+            break;
+        }
+    }
+    return c;
+}
+
+function markLoopingPatrolRouteVisited(nodeStart: PatrolNode) {
+    let node = nodeStart;
+    while (true) {
+        node.visited = true;
+        if (node.nodeNext === null) {
+            break;
+        }
+        node = node.nodeNext;
+        if (node === nodeStart) {
+            break;
+        }
+    }
 }
 
 function isLoopingPatrolRoute(nodeStart: PatrolNode): boolean {
