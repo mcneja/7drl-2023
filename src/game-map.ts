@@ -156,9 +156,6 @@ enum TerrainType {
     GardenDoorEW,
 }
 
-type ActorCheckFunc = (actor:Guard|Player)=>boolean;
-type ActorFunc = (actor:Guard|Player)=>void;
-
 type Cell = {
     type: TerrainType;
     moveCost: number;
@@ -173,11 +170,6 @@ type Cell = {
     seen: boolean;
     identified: boolean;
     animation?: Animator;
-    enterable?: ActorCheckFunc;
-    leapable?: ActorCheckFunc;
-    enter?: ActorFunc;
-    leap?: ActorFunc;
-    bump?: ActorFunc;
 }
 
 class CellGrid {
@@ -715,7 +707,6 @@ class GameMap {
 
         // Grab the cell
         const cell = this.cells.at(targetX, targetY);
-
 
         // The cell is lit
         if(!cell.litSrc.has(lightId)) {
