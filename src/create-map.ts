@@ -201,12 +201,19 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Place patrol routes
 
-//    const patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outerPerimeter, rng);
-    const patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, outerPerimeter, rng);
-//    const patrolRoutes = placePatrolRouteSingle(level, map, rooms, outerPerimeter, rng);
-//    const patrolRoutes = placePatrolRouteSingleDense(level, map, rooms, outerPerimeter, rng);
-//    const patrolRoutes = placePatrolRoutesLong(level, map, rooms, outerPerimeter, rng);
-//    const patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outerPerimeter, rng);
+    let patrolRoutes: Array<Array<vec2>>;
+    if (level < 1) {
+        patrolRoutes = [];
+    } else if (level < 2) {
+        patrolRoutes = placePatrolRouteSingle(level, map, rooms, outerPerimeter, rng);
+    } else {
+        patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, outerPerimeter, rng);
+//        patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outerPerimeter, rng);
+//        patrolRoutes = placePatrolRouteSingle(level, map, rooms, outerPerimeter, rng);
+//        patrolRoutes = placePatrolRouteSingleDense(level, map, rooms, outerPerimeter, rng);
+//        patrolRoutes = placePatrolRoutesLong(level, map, rooms, outerPerimeter, rng);
+//        patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outerPerimeter, rng);
+    }
 
     // Place loot
 
@@ -1759,7 +1766,7 @@ function placePatrolRoutesLong(level: number, gameMap: GameMap, rooms: Array<Roo
     return patrolRoutes;
 }
 
-function placePatrolRouteSingle(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function generatePatrolRouteSingle(rooms: Array<Room>, rng: RNG): Array<PatrolNode> {
     const roomsValid: Set<Room> = new Set();
     for (const room of rooms) {
         if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
@@ -1799,8 +1806,14 @@ function placePatrolRouteSingle(level: number, gameMap: GameMap, rooms: Array<Ro
     --roomSequence.length;
 
     const nodes = generatePatrolNodesFromRoomSequence(roomSequence);
-    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
 
+    return nodes;
+}
+
+function placePatrolRouteSingle(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+    const nodes = generatePatrolRouteSingle(rooms, rng);
+
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
     console.assert(patrolRoutes.length === 1);
 
     return patrolRoutes;
@@ -1968,7 +1981,7 @@ function placePatrolRoutesDense(level: number, gameMap: GameMap, rooms: Array<Ro
 
     // Track nodes for each room. Each node represents a visit to that room by a patrol route.
 
-    const nodes: Array<PatrolNode> = [];
+    let nodes: Array<PatrolNode> = [];
     const roomNodes: Map<Room, Array<PatrolNode>> = new Map();
 
     // Add edges one at a time.
@@ -2008,8 +2021,6 @@ function placePatrolRoutesDense(level: number, gameMap: GameMap, rooms: Array<Ro
 
         // TODO:
         //  Reserve activity stations in rooms so multiple people can stop in them
-        //  Join single-room-pair routes to adjacent routes
-        //  Join unvisited rooms to adjacent routes
 
         if (deadEnd0) {
             if (deadEnd1) {
@@ -2294,6 +2305,13 @@ function placePatrolRoutesDense(level: number, gameMap: GameMap, rooms: Array<Ro
         nodes1.push(node3);
         nodes.push(node2);
         nodes.push(node3);
+    }
+
+    // On the last couple of levels, add an additional guard who patrols all rooms.
+    // TODO: Avoid picking the same activity stations for guards who stop in the same room.
+
+    if (level >= 8) {
+        nodes = nodes.concat(generatePatrolRouteSingle(rooms, rng));
     }
 
     // Convert the node-based patrol routes to actual patrol routes
