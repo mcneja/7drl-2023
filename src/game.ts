@@ -1979,6 +1979,8 @@ export function restartGame(state: State) {
     state.popups.clear();
 
     postTurn(state);
+
+    Howler.stop();
 }
 
 function resetState(state: State) {
@@ -2004,6 +2006,8 @@ function resetState(state: State) {
     state.activeSoundPool.empty();
 
     postTurn(state);
+
+    Howler.stop();
 }
 
 
