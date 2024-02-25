@@ -2481,7 +2481,7 @@ function viewWorldSize(viewportPixelSize: vec2, mapSizeX: number, mapSizeY: numb
 }
 
 function statusBarZoom(screenSizeX: number): number {
-    return screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX);
+    return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
 }
 
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
