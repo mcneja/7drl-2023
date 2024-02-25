@@ -13,7 +13,6 @@ import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenM
 import {Camera, GameMode, State, Statistics} from './types';
 
 import * as colorPreset from './color-preset';
-import { stat } from 'fs';
 
 export const gameConfig = {
     numGameMaps: 10,
