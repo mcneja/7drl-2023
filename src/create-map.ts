@@ -2349,20 +2349,20 @@ function isPatrolledRoom(room: Room): boolean {
 function canJoinNodes(node0: PatrolNode, node1: PatrolNode, maxRouteLength: number): boolean {
     if (nodesAreConnected(node0, node1)) {
         if (!isSimpleChain(node0, node1)) {
-            console.log('Skip join %d,%d to %d,%d because it would form a complex loop', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY);
+//            console.log('Skip join %d,%d to %d,%d because it would form a complex loop', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY);
             return false;
         }
 
         const length = loopingPatrolRouteLength(node0);
         if (length <= 4) {
-            console.log('Skip join %d,%d to %d,%d because it would form a short loop', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY);
+//            console.log('Skip join %d,%d to %d,%d because it would form a short loop', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY);
             return false;
         }
     } else {
         const length0 = loopingPatrolRouteLength(node0);
         const length1 = loopingPatrolRouteLength(node1);
         if (length0 + length1 + 2 > maxRouteLength) {
-            console.log('Skip join %d,%d to %d,%d because length %d+%d+2 = %d > %d', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY, length0, length1, length0 + length1 + 2, maxRouteLength);
+//            console.log('Skip join %d,%d to %d,%d because length %d+%d+2 = %d > %d', node0.room.gridX, node0.room.gridY, node1.room.gridX, node1.room.gridY, length0, length1, length0 + length1 + 2, maxRouteLength);
             return false;
         }
     }
