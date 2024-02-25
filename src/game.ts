@@ -735,12 +735,33 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         if (!state.finishedLevel) {
             setStatusMessage(state, 'Collect all loot before leaving');
             bumpFail(state, dx, dy);
-        } else if (state.level >= gameConfig.numGameMaps - 1) {
-            preTurn(state);
-            advanceToWin(state);
         } else {
             preTurn(state);
-            advanceToBetweenMansions(state);
+            if (state.level < gameConfig.numGameMaps - 1) {
+                advanceToBetweenMansions(state);
+            } else {
+                advanceToWin(state);
+            }
+
+            // Animate the player moving off the map edge
+            // This is largely a simplified copy of the normal player-movement animation;
+            // should probably be commonized
+
+            const start = vec2.create();
+            const end = vec2.clone(posNew).subtract(posOld);
+            let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
+
+            const tweenSeq = [
+                {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
+                {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+                {pt0:end, pt1:end, duration:(dy>0)?0.5:0.1, fn:tween.easeOutQuad}
+            ];
+        
+            const tile = dx<0? tileSet.playerTiles.left:
+                         dx>0? tileSet.playerTiles.right:
+                         dy>0? tileSet.playerTiles.up:
+                         tileSet.playerTiles.down;
+            player.animation = new SpriteAnimation(tweenSeq, [tile, tile, tile, tile]);
         }
         return;
     }
@@ -1072,11 +1093,30 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         posNew[1] < 0 ||
         posNew[0] >= state.gameMap.cells.sizeX ||
         posNew[1] >= state.gameMap.cells.sizeY) {
-        if (state.level >= gameConfig.numGameMaps - 1) {
-            advanceToWin(state);
-        } else {
+        if (state.level < gameConfig.numGameMaps - 1) {
             advanceToBetweenMansions(state);
+        } else {
+            advanceToWin(state);
         }
+
+        // Animate player moving off the map
+
+        const start = vec2.create();
+        const end = vec2.clone(posNew).subtract(posOld);
+        let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.25));
+        const tile = dx<0? tileSet.playerTiles.left:
+                     dx>0? tileSet.playerTiles.right:
+                     dy>0? tileSet.playerTiles.up:
+                     tileSet.playerTiles.down;
+    
+        const tweenSeq = [
+            {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
+            {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+            {pt0:end, pt1:end, duration:(dy>0)?0.5:0.1, fn:tween.easeOutQuad}
+        ]
+    
+        player.animation = new SpriteAnimation(tweenSeq, [tile, tile, tile]);
+    
         return;
     }
 
@@ -1478,7 +1518,7 @@ function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer
 
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
-    const a = state.player.animation;
+    const a = player.animation;
     const offset = a &&  a instanceof SpriteAnimation ? a.offset : vec2.create();
     const x = player.pos[0] + offset[0];
     const y = player.pos[1] + offset[1];
@@ -1489,8 +1529,8 @@ function renderPlayer(state: State, renderer: Renderer) {
     const hidden = player.hidden(state.gameMap);
 
     let tileInfo:TileInfo;
-    if (state.player.animation) {
-        tileInfo = state.player.animation.currentTile();
+    if (a) {
+        tileInfo = a.currentTile();
     } else {
         const p = renderer.tileSet.playerTiles;
         tileInfo =
@@ -2096,10 +2136,15 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderGuardPatrolPaths(state, renderer);
     }
     renderGuards(state, renderer);
-    if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.Dead) {
-        renderPlayer(state, renderer);
-        renderParticles(state, renderer);
+    if (state.gameMode === GameMode.Mansion ||
+        state.gameMode === GameMode.BetweenMansions ||
+        state.gameMode === GameMode.Win ||
+        state.gameMode === GameMode.Dead) {
+        if ((state.gameMode !== GameMode.BetweenMansions && state.gameMode !== GameMode.Win) || state.player.animation) {
+            renderPlayer(state, renderer);
+        }
     }
+    renderParticles(state, renderer);
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);
     }
