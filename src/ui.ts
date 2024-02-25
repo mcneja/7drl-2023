@@ -1,7 +1,6 @@
 import { Renderer } from './render';
 import { vec2, mat4 } from './my-matrix';
-//import { TileInfo} from './tilesets';
-import { Rect, TouchTargets, lastController, Controller, TouchController } from './controllers';
+import { Rect, TouchTargets, lastController } from './controllers';
 import {State, GameMode, GameStats} from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
@@ -592,7 +591,7 @@ $achievements$
 
 class BetweenMansionsScreen extends TextWindow {
     pages = [
-`   Mansion $level$ Complete!
+`Mansion $level$ Complete!
 
 Mansion Statistics
 Loot stolen:     $lootAvailable$
@@ -692,7 +691,7 @@ Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
 
 Score:         $loot$
 
-[R|restartGame]:   Start new game
+[R|restart]:   Start new game
 [C|copyScore]:   Copy score to clipboard
 $copyState$
 [Esc|menu]: Exit to home screen`
