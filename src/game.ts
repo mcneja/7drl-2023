@@ -733,6 +733,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
         posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
 
         if (!state.finishedLevel) {
+            setStatusMessage(state, 'Collect all loot before leaving');
             bumpFail(state, dx, dy);
         } else if (state.level >= gameConfig.numGameMaps - 1) {
             preTurn(state);
