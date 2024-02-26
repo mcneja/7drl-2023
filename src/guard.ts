@@ -306,7 +306,7 @@ class Guard {
                 } else {
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
-            } else if (this.mode === GuardMode.ChaseVisibleTarget) {
+            } else if (this.mode === GuardMode.ChaseVisibleTarget && modePrev === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
             }
