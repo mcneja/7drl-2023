@@ -659,12 +659,7 @@ function pushOrSwapGuard(state: State, guard: Guard) {
 
     let pulledGuard = false;
 
-    if (posGuardNew[0] < 0 ||
-        posGuardNew[1] < 0 ||
-        posGuardNew[0] >= state.gameMap.cells.sizeX ||
-        posGuardNew[1] >= state.gameMap.cells.sizeY ||
-        state.gameMap.cells.atVec(posGuardNew).moveCost === Infinity ||
-        state.gameMap.guards.find((guard)=>guard.pos.equals(posGuardNew))) {
+    if (blocksPushedGuard(state, posGuardNew)) {
         vec2.copy(posGuardNew, posPlayer);
         pulledGuard = true;
     }
@@ -694,6 +689,38 @@ function pushOrSwapGuard(state: State, guard: Guard) {
     }
 
     guard.animation = new SpriteAnimation(tweenSeq, []);
+}
+
+function blocksPushedGuard(state: State, posGuardNew: vec2): boolean {
+    if (posGuardNew[0] < 0 ||
+        posGuardNew[1] < 0 ||
+        posGuardNew[0] >= state.gameMap.cells.sizeX ||
+        posGuardNew[1] >= state.gameMap.cells.sizeY) {
+        return true;
+    }
+    if (state.gameMap.cells.atVec(posGuardNew).moveCost === Infinity) {
+        return true;
+    }
+    if (state.gameMap.guards.find((guard)=>guard.pos.equals(posGuardNew))) {
+        return true;
+    }
+
+    for (const item of state.gameMap.items.filter((item) => item.pos.equals(posGuardNew))) {
+        switch (item.type) {
+        case ItemType.PortcullisEW:
+        case ItemType.PortcullisNS:
+            return true;
+
+        case ItemType.LockedDoorEW:
+        case ItemType.LockedDoorNS:
+            if (!state.player.hasVaultKey) {
+                return true;
+            }
+            break;
+        }
+    }
+
+    return false;
 }
 
 function tryPlayerWait(state: State) {
