@@ -58,13 +58,11 @@ type Statistics = {
 type GameStats = {
     loot: number;
     lootStolen: number;
-    ghostBonuses: number;
-    timeBonuses: number;
-    maxGhostBonuses: number;
-    maxTimeBonuses: number;
-    maxLootStolen: number;
+    totalScore: number;
     turns: number;
-    level: number;
+    numLevels: number;
+    numCompletedLevels: number;
+    numGhostedLevels: number;
     win: boolean;
     daily: string|null;
 }
@@ -111,8 +109,7 @@ type State = {
     totalTurns: number;
     lootStolen: number;
     lootAvailable: number;
-    ghostBonus: number;
-    maxTimeBonus: number;
+    ghostedLevel: boolean;
     gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;

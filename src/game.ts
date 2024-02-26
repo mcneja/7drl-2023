@@ -285,23 +285,20 @@ function updateControllerState(state:State) {
 }
 
 function scoreCurrentLevel(state: State) {
-    if(!state.gameMapRoughPlans[state.level].played) {
-        const timeBonus = calculateTimeBonus(state);
-        state.player.loot += timeBonus + state.ghostBonus;
-        const es = state.gameStats;
-        es.daily = state.dailyRun;
-        es.loot = state.player.loot;
-        es.turns = state.totalTurns;
-        es.level = state.level+1;
-        es.win = state.level===9 && state.player.health>0;
-        es.lootStolen += state.lootStolen;
-        es.maxLootStolen += state.lootAvailable;
-        es.ghostBonuses += state.ghostBonus;
-        es.maxGhostBonuses += 5;
-        es.timeBonuses += calculateTimeBonus(state);
-        es.maxTimeBonuses += state.maxTimeBonus;
-        state.gameMapRoughPlans[state.level].played = true;
+    if(state.gameMapRoughPlans[state.level].played) {
+        return;
     }
+    state.gameMapRoughPlans[state.level].played = true;
+    const es = state.gameStats;
+    es.loot = state.player.loot;
+    es.lootStolen += state.lootStolen;
+    es.totalScore += calculateTimeBonus(state) * (state.ghostedLevel ? 2 : 1);
+    es.turns = state.totalTurns;
+    es.numLevels = state.gameMapRoughPlans.length;
+    es.numCompletedLevels = state.level;
+    es.numGhostedLevels += state.ghostedLevel ? 1 : 0;
+    es.win = state.level===9 && state.player.health>0;
+    es.daily = state.dailyRun;
 }
 
 export function setupLevel(state: State, level: number) {
@@ -324,8 +321,7 @@ export function setupLevel(state: State, level: number) {
     state.turns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
-    state.ghostBonus = 5;
-    state.maxTimeBonus = 5;   
+    state.ghostedLevel = true;
 
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
@@ -342,9 +338,9 @@ export function setupLevel(state: State, level: number) {
 }
 
 export function calculateTimeBonus(state:State):number {
-    const s = Math.ceil((state.gameMap.numCells() - state.gameMap.numPreRevealedCells)/4);
-    const t = state.turns;
-    return Math.max(5 - Math.max(Math.floor(t/s)-1,0),0);
+    const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
+    const numTurnsPar = numDiscoverableCells;
+    return Math.max(0, numTurnsPar - state.turns);
 }
 
 
@@ -358,7 +354,7 @@ function advanceToBetweenMansions(state: State) {
         state.stats.totalLootSweeps++;
         setStat('totalLootSweeps',state.stats.totalLootSweeps);
     }
-    if(state.ghostBonus>0) {
+    if(state.ghostedLevel) {
         state.stats.totalGhosts++;
         setStat('totalGhosts',state.stats.totalGhosts);
     }
@@ -1253,7 +1249,7 @@ function advanceTime(state: State) {
 
     if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
         //TODO: Play a disappointed sound if the first time this happens on the level
-        state.ghostBonus = 0;
+        state.ghostedLevel = false;
     }
 
     state.gameMap.recomputeVisibility(state.player.pos);
@@ -1809,13 +1805,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         gameStats: {    
             loot: 0,
             lootStolen: 0,
-            ghostBonuses: 0,
-            timeBonuses: 0,
-            maxGhostBonuses: 0,
-            maxTimeBonuses: 0,
-            maxLootStolen: 0,
+            totalScore: 0,
             turns: 0,
-            level: 0,
+            numLevels: 0,
+            numCompletedLevels: 0,
+            numGhostedLevels: 0,
             win: false,
             daily: null,
         },
@@ -1859,8 +1853,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         totalTurns: 0,
         lootStolen: 0,
         lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
-        ghostBonus: 5,
-        maxTimeBonus: 5,   
+        ghostedLevel: true,
         gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
@@ -1942,13 +1935,11 @@ export function restartGame(state: State) {
     state.gameStats = { 
         loot: 0,   
         lootStolen: 0,
-        ghostBonuses: 0,
-        timeBonuses: 0,
-        maxGhostBonuses: 0,
-        maxTimeBonuses: 0,
-        maxLootStolen: 0,
+        totalScore: 0,
         turns: 0,
-        level: 0,
+        numLevels: 0,
+        numCompletedLevels: 0,
+        numGhostedLevels: 0,
         win: false,
         daily: state.dailyRun,
     };
@@ -1969,8 +1960,7 @@ export function restartGame(state: State) {
     state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
-    state.ghostBonus = 5;
-    state.maxTimeBonus = 5;
+    state.ghostedLevel = true;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -1991,8 +1981,7 @@ function resetState(state: State) {
     state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
-    state.ghostBonus = 5;
-    state.maxTimeBonus = 5;
+    state.ghostedLevel = true;
 
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -2152,9 +2141,6 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderIconOverlays(state, renderer);
     }
     renderer.flush();
-
-// Needed to update the endgame stats -- move to an update method
-//    const timeBonus = calculateTimeBonus(state);
 
     const menuWindow = state.textWindows[state.gameMode];
     if(menuWindow !== undefined) {
@@ -2633,11 +2619,9 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const msgLevel = 'Lvl ' + (state.level + 1);
 
     let msgTimer = 'Turn ' + state.turns;
-    const ptsLeft = calculateTimeBonus(state);
-    if (ptsLeft > 0) {
-        const scale = Math.ceil((state.gameMap.numCells() - state.gameMap.numPreRevealedCells)/4);
-        const turnsLeft = (6-ptsLeft)*scale + scale - 1 - state.turns;
-        msgTimer += ' (' + turnsLeft + ' +' + ptsLeft + ')';
+    const speedScore = calculateTimeBonus(state);
+    if (speedScore > 0) {
+        msgTimer += ' (Speed ' + speedScore + ')';
     }
 
     const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);

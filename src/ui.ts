@@ -11,30 +11,27 @@ import { ItemType, TerrainType } from './game-map';
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen };
 
 function scoreToClipboard(stats:GameStats) {
-    const lootStolen = stats.lootStolen;
-    const maxLootStolen = stats.maxLootStolen;
-    const ghostBonuses = stats.ghostBonuses;
-    const maxGhostBonuses = stats.maxGhostBonuses;
-    const timeBonuses = stats.timeBonuses;
-    const maxTimeBonuses = stats.maxTimeBonuses;
+    const numGhostedLevels = stats.numGhostedLevels;
+    const totalScore = stats.totalScore;
     const loot = stats.loot;
     const turns = stats.turns;
-    const level = stats.level;
+    const numCompletedLevels = stats.numCompletedLevels;
+    const numLevels = stats.numLevels;
     const win = stats.win;
     const daily = stats.daily;
 
     const runText = daily!==null? '📅 Daily run for '+daily:
         '🎲 Random game';
     const endText = win? 'Completed mission in '+turns+' turns.':
-        '💀 Died in mansion '+level+' after '+turns+' turns.';
+        '💀 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
     const scoreText = win?  `Walked away with ${loot} 🪙.`:
         `Guards recovered ${loot} 🪙 that you stole.`
 
     navigator.clipboard.writeText(
         `🏛️ Lurk Leap Loot 🏛️\n${runText}\n${endText}\n`+
-        `🪙 stolen:   ${lootStolen} / ${maxLootStolen}\n`+
-        `🥷 bonuses:  ${ghostBonuses} / ${maxGhostBonuses}\n`+
-        `🕰️ bonuses:  ${timeBonuses} / ${maxTimeBonuses}\n`+
+        `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
+        `Ghosted:     ${numGhostedLevels}\n`+
+        `Total score: ${totalScore}\n`+
         scoreText
     )
 }
@@ -526,15 +523,12 @@ class DailyHubScreen extends TextWindow {
         } else if(activated('copyScore') || action=='copyScore') {
             const stats:GameStats = game.getStat('lastDaily');
             stats.daily = stats.daily??null;
-            stats.ghostBonuses = stats.ghostBonuses??0;
-            stats.maxGhostBonuses = stats.maxGhostBonuses??0;
-            stats.timeBonuses = stats.timeBonuses??0;
-            stats.maxTimeBonuses = stats.maxTimeBonuses??0;
+            stats.numGhostedLevels = stats.numGhostedLevels??0;
+            stats.totalScore = stats.totalScore??0;
             stats.lootStolen = stats.lootStolen??0;
-            stats.maxLootStolen = stats.maxLootStolen??0;
             stats.turns = stats.turns??0;
             stats.win = stats.win??false;
-            stats.level = stats.level??1;
+            stats.numCompletedLevels = stats.numCompletedLevels??0;
             stats.loot = stats.loot??0;
             scoreToClipboard(stats);
             this.state['copyState'] = '    COPIED!';
@@ -593,23 +587,19 @@ class BetweenMansionsScreen extends TextWindow {
     pages = [
 `Mansion $level$ Complete!
 
-Mansion Statistics
-Loot stolen:     $lootAvailable$
-Ghost bonus:     $ghostBonus$
-Timely delivery: $timeBonus$
-Mansion total:   $totalScore$
+Speed: $timeBonus$
+Ghost: $ghostBonus$
+Score: $totalScore$
 
-Current loot:    $loot$
 [N|startLevel]: Next mansion`
     ];
     update(state:State) {
         const timeBonus = game.calculateTimeBonus(state);
+        const ghostBonusMultiplier = state.ghostedLevel ? 2 : 1;
         this.state['level'] = state.level+1;
-        this.state['lootAvailable'] = state.lootAvailable;
-        this.state['ghostBonus'] = state.ghostBonus;
         this.state['timeBonus'] = timeBonus;
-        this.state['totalScore'] = state.lootAvailable + timeBonus + state.ghostBonus;
-        this.state['loot'] = state.player.loot;
+        this.state['ghostBonus'] = state.ghostedLevel ? 'Yes (2x)' : 'No';
+        this.state['totalScore'] = timeBonus * ghostBonusMultiplier;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -636,11 +626,9 @@ class DeadScreen extends TextWindow{
 `         You are dead!
 
 Statistics
-Loot stolen:   $lootStolen$ / $maxLootStolen$
-Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
-Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
-
-Final loot:    $loot$
+Completed:     $level$ of $numLevels$
+Ghosted:       $numGhostedLevels$
+Total score:   $totalScore$
 
 [R|restart]:   Start new game
 [C|copyScore]:   Copy score to clipboard
@@ -648,13 +636,10 @@ $copyState$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
-        this.state['lootStolen'] = state.gameStats.lootStolen;
-        this.state['maxLootStolen'] = state.gameStats.maxLootStolen;
-        this.state['ghostBonuses'] = state.gameStats.ghostBonuses;
-        this.state['maxGhostBonuses'] = state.gameStats.maxGhostBonuses;
-        this.state['timeBonuses'] = state.gameStats.timeBonuses;
-        this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
-        this.state['loot'] = state.player.loot;
+        this.state['level'] = state.level;
+        this.state['numLevels'] = state.gameMapRoughPlans.length;
+        this.state['numGhostedLevels'] = state.gameStats.numGhostedLevels;
+        this.state['totalScore'] = state.gameStats.totalScore;
         if(!('copyState' in this.state)) this.state['copyState'] = '';
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -685,11 +670,9 @@ class WinScreen extends TextWindow {
 `   Mission Complete!
 
 Statistics
-Loot stolen:   $lootStolen$ / $maxLootStolen$
-Ghost bonuses: $ghostBonuses$ / $maxGhostBonuses$
-Time bonuses:  $timeBonuses$ / $maxTimeBonuses$
-
-Score:         $loot$
+Completed:     $level$ of $numLevels$
+Ghosted:       $numGhostedLevels$
+Total score:   $totalScore$
 
 [R|restart]:   Start new game
 [C|copyScore]:   Copy score to clipboard
@@ -697,13 +680,10 @@ $copyState$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
-        this.state['lootStolen'] = state.gameStats.lootStolen;
-        this.state['maxLootStolen'] = state.gameStats.maxLootStolen;
-        this.state['ghostBonuses'] = state.gameStats.ghostBonuses;
-        this.state['maxGhostBonuses'] = state.gameStats.maxGhostBonuses;
-        this.state['timeBonuses'] = state.gameStats.timeBonuses;
-        this.state['maxTimeBonuses'] = state.gameStats.maxTimeBonuses;
-        this.state['loot'] = state.player.loot;
+        this.state['level'] = state.level;
+        this.state['numLevels'] = state.gameMapRoughPlans.length;
+        this.state['numGhostedLevels'] = state.gameStats.numGhostedLevels;
+        this.state['totalScore'] = state.gameStats.totalScore;
         if(!('copyState' in this.state)) this.state['copyState'] = '';
     }
     onControls(state:State, activated:(action:string)=>boolean) {
