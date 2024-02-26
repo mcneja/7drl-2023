@@ -290,10 +290,11 @@ function scoreCurrentLevel(state: State) {
     }
     state.gameMapRoughPlans[state.level].played = true;
     const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
+    const score = Math.ceil(calculateTimeBonus(state) * ghostMultiplier(state.levelStats));
     const es = state.gameStats;
     es.loot = state.player.loot;
     es.lootStolen += state.lootStolen;
-    es.totalScore += Math.ceil(calculateTimeBonus(state) * ghostMultiplier(state.levelStats));
+    es.totalScore += score;
     es.turns = state.totalTurns;
     es.numLevels = state.gameMapRoughPlans.length;
     es.numCompletedLevels = state.level;
