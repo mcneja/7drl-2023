@@ -680,7 +680,7 @@ $copyState$
 [Esc|menu]: Exit to home screen`
     ];
     update(state:State) {
-        this.state['level'] = state.level;
+        this.state['level'] = state.level + 1;
         this.state['numLevels'] = state.gameMapRoughPlans.length;
         this.state['numGhostedLevels'] = state.gameStats.numGhostedLevels;
         this.state['totalScore'] = state.gameStats.totalScore;
