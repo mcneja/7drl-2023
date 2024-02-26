@@ -7,7 +7,7 @@ import { TouchController, GamepadManager, KeyboardController } from './controlle
 import { TextWindow } from './ui';
 import { Animator } from './animation';
 
-export {Camera, GameMode, GameStats, State, Statistics, ScoreEntry}
+export {Camera, GameMode, GameStats, LevelStats, State, Statistics, ScoreEntry}
 
 type Camera = {
     position: vec2;
@@ -67,6 +67,12 @@ type GameStats = {
     daily: string|null;
 }
 
+type LevelStats = {
+    numKnockouts: number;
+    numSpottings: number;
+    damageTaken: number;
+}
+
 interface Particle {
     pos:vec2;
     animation?: Animator;
@@ -109,7 +115,7 @@ type State = {
     totalTurns: number;
     lootStolen: number;
     lootAvailable: number;
-    ghostedLevel: boolean;
+    levelStats: LevelStats;
     gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;

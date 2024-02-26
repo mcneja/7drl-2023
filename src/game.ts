@@ -10,7 +10,7 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './au
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen } from './ui'
-import {Camera, GameMode, State, Statistics} from './types';
+import {Camera, GameMode, LevelStats, State, Statistics} from './types';
 
 import * as colorPreset from './color-preset';
 
@@ -289,16 +289,23 @@ function scoreCurrentLevel(state: State) {
         return;
     }
     state.gameMapRoughPlans[state.level].played = true;
+    const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
     const es = state.gameStats;
     es.loot = state.player.loot;
     es.lootStolen += state.lootStolen;
-    es.totalScore += calculateTimeBonus(state) * (state.ghostedLevel ? 2 : 1);
+    es.totalScore += Math.ceil(calculateTimeBonus(state) * ghostMultiplier(state.levelStats));
     es.turns = state.totalTurns;
     es.numLevels = state.gameMapRoughPlans.length;
     es.numCompletedLevels = state.level;
-    es.numGhostedLevels += state.ghostedLevel ? 1 : 0;
+    es.numGhostedLevels += ghosted ? 1 : 0;
     es.win = state.level===9 && state.player.health>0;
     es.daily = state.dailyRun;
+}
+
+function clearLevelStats(levelStats: LevelStats) {
+    levelStats.numKnockouts = 0;
+    levelStats.numSpottings = 0;
+    levelStats.damageTaken = 0;
 }
 
 export function setupLevel(state: State, level: number) {
@@ -321,7 +328,8 @@ export function setupLevel(state: State, level: number) {
     state.turns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
-    state.ghostedLevel = true;
+
+    clearLevelStats(state.levelStats);
 
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
@@ -343,7 +351,19 @@ export function calculateTimeBonus(state:State):number {
     return Math.max(0, numTurnsPar - state.turns);
 }
 
-
+export function ghostMultiplier(levelStats: LevelStats): number {
+    let multiplier = 1;
+    if (levelStats.numKnockouts === 0) {
+        multiplier += 1/3;
+    }
+    if (levelStats.numSpottings === 0) {
+        multiplier += 1/3;
+    }
+    if (levelStats.damageTaken === 0) {
+        multiplier += 1/3;
+    }
+    return multiplier;
+}
 
 function advanceToBetweenMansions(state: State) {
     scoreCurrentLevel(state);
@@ -354,7 +374,7 @@ function advanceToBetweenMansions(state: State) {
         state.stats.totalLootSweeps++;
         setStat('totalLootSweeps',state.stats.totalLootSweeps);
     }
-    if(state.ghostedLevel) {
+    if(state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) {
         state.stats.totalGhosts++;
         setStat('totalGhosts',state.stats.totalGhosts);
     }
@@ -998,6 +1018,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
             collectGuardLoot(state, player, guardMid, posOld);
         }
         player.pickTarget = null;
+        ++state.levelStats.numKnockouts;
         state.sounds.hitGuard.play(0.25);
     
         advanceTime(state);
@@ -1246,11 +1267,6 @@ function advanceTime(state: State) {
     state.gameMap.computeLighting(state.gameMap.cells.atVec(state.player.pos));
 
     guardActAll(state, state.gameMap, state.popups, state.player);
-
-    if(state.gameMap.guards.find((guard)=> guard.mode===GuardMode.ChaseVisibleTarget || guard.mode===GuardMode.Unconscious)!==undefined) {
-        //TODO: Play a disappointed sound if the first time this happens on the level
-        state.ghostedLevel = false;
-    }
 
     state.gameMap.recomputeVisibility(state.player.pos);
 
@@ -1853,7 +1869,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         totalTurns: 0,
         lootStolen: 0,
         lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
-        ghostedLevel: true,
+        levelStats: {
+            numKnockouts: 0,
+            numSpottings: 0,
+            damageTaken: 0,
+        },
         gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
@@ -1960,7 +1980,7 @@ export function restartGame(state: State) {
     state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
-    state.ghostedLevel = true;
+    clearLevelStats(state.levelStats);
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos);
     state.gameMap = gameMap;
@@ -1981,7 +2001,7 @@ function resetState(state: State) {
     state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
-    state.ghostedLevel = true;
+    clearLevelStats(state.levelStats);
 
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;

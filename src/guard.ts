@@ -5,7 +5,7 @@ import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
-import { State } from './types';
+import { LevelStats, State } from './types';
 
 enum MoveResult {
     StoodStill,
@@ -140,7 +140,7 @@ class Guard {
         }
     }
 
-    act(map: GameMap, popups: Popups, player: Player, shouts: Array<Shout>) {
+    act(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
         const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
 
@@ -189,6 +189,7 @@ class Guard {
                         ],
                         []);
                     player.applyDamage(1);
+                    ++levelStats.damageTaken;
                 }
             } else {
                 this.moveTowardPosition(this.goal, map, player);
@@ -396,6 +397,7 @@ class Guard {
         if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
             this.speaking = true;
+            ++levelStats.numSpottings;
         }
     }
 
@@ -621,7 +623,7 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
-        guard.act(map, popups, player, shouts);
+        guard.act(map, popups, player, state.levelStats, shouts);
         guard.hasMoved = true;
         ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
     }

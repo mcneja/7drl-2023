@@ -587,19 +587,31 @@ class BetweenMansionsScreen extends TextWindow {
     pages = [
 `Mansion $level$ Complete!
 
-Speed: $timeBonus$
-Ghost: $ghostBonus$
-Score: $totalScore$
+Speed:      $timeBonus$
+$levelStats$Ghosted:    $ghosted$
+Score:      $totalScore$
 
 [N|startLevel]: Next mansion`
     ];
     update(state:State) {
         const timeBonus = game.calculateTimeBonus(state);
-        const ghostBonusMultiplier = state.ghostedLevel ? 2 : 1;
+
+        let levelStats = '';
+        if (state.levelStats.numSpottings > 0) {
+            levelStats += 'Spottings:  ' + state.levelStats.numSpottings + '\n';
+        }
+        if (state.levelStats.damageTaken > 0) {
+            levelStats += 'Injuries:   ' + state.levelStats.damageTaken + '\n';
+        }
+        if (state.levelStats.numKnockouts > 0) {
+            levelStats += 'Knockouts:  ' + state.levelStats.numKnockouts + '\n';
+        }
+
         this.state['level'] = state.level+1;
         this.state['timeBonus'] = timeBonus;
-        this.state['ghostBonus'] = state.ghostedLevel ? 'Yes (2x)' : 'No';
-        this.state['totalScore'] = timeBonus * ghostBonusMultiplier;
+        this.state['levelStats'] = levelStats;
+        this.state['ghosted'] = (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) ? 'Yes' : 'No';
+        this.state['totalScore'] = Math.ceil(timeBonus * game.ghostMultiplier(state.levelStats));
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
