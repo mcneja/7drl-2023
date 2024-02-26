@@ -148,10 +148,12 @@ class Guard {
         // this lets us start moving toward the player on this turn rather than
         // wait for next turn.
 
-        if (this.mode !== GuardMode.Unconscious &&
-            !isRelaxedGuardMode(this.mode) &&
-            this.seesActor(map, player, 1)) {
-            this.mode = GuardMode.ChaseVisibleTarget;
+        if (this.mode !== GuardMode.Unconscious && !isRelaxedGuardMode(this.mode)) {
+            // If guard expects to move, ignore squares in line with their current position
+            const offset = this.moving() ? 1 : 0;
+            if (this.seesActor(map, player, offset)) {
+                this.mode = GuardMode.ChaseVisibleTarget;
+            }
         }
 
         // Pass time in the current mode
