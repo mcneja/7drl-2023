@@ -42,7 +42,7 @@ class TextWindow {
 
     activePage: number = 0;
     activePageData: Array<string> = [];
-    highlightedAction:number = -1;
+    highlightedAction:number = 0;
     actionSequence: Array<string> = [];
     cachedPageText:string = '';
 
@@ -172,7 +172,7 @@ class TextWindow {
             }
             lines[row] = line;
         }
-        this.highlightedAction = this.actionSequence.length>0?0:-1;
+        this.highlightedAction = Math.max(0, Math.min(this.actionSequence.length, this.highlightedAction));
     }
     updateScreenSize(screenSize: vec2) {
         this.screenSize = screenSize;
@@ -249,21 +249,24 @@ class TextWindow {
         // Draw background areas for touchTargets
         renderer.start(matScreenFromTextArea, 0);
         for (let a in this.touchTargets) {
+            if(lastController?.controlStates[a]) {
+                this.highlightedAction = this.actionSequence.indexOf(a);
+            }
             const r = this.touchTargets[a].game;
-            if(lastController?.controlStates[a]) this.highlightedAction = this.actionSequence.indexOf(a);
+            const isHighlightedAction =
+                this.highlightedAction < this.actionSequence.length &&
+                this.actionSequence[this.highlightedAction]===a;
             if(this.touchTargets[a].active) {
-                const color = this.actionSequence[this.highlightedAction]===a? uiSelectColor : buttonColor;
+                const color = isHighlightedAction? uiSelectColor : buttonColor;
                 renderer.addGlyph(
                     r[0], r[1], r[0]+r[2], r[1]+r[3],
                     {textureIndex: bg.textureIndex, color:color}
                 );    
-            } else {
-                if(this.actionSequence[this.highlightedAction]===a) {
-                        renderer.addGlyph(
-                            r[0], r[1], r[0]+r[2], r[1]+r[3],
-                            {textureIndex: bg.textureIndex, color:buttonDisabled}
-                        );            
-                }
+            } else if(isHighlightedAction) {
+                renderer.addGlyph(
+                    r[0], r[1], r[0]+r[2], r[1]+r[3],
+                    {textureIndex: bg.textureIndex, color:buttonDisabled}
+                );            
             }
         }
         renderer.flush();
@@ -301,17 +304,17 @@ class TextWindow {
     }
     navigateUI(activated:(action:string)=>boolean):string {
         let action = ''
-        if(activated('up')) {
+        if (activated('up')) {
             this.highlightedAction--;
-            if(this.highlightedAction<0) {
+            if (this.highlightedAction<0) {
                 this.highlightedAction = this.actionSequence.length-1;
             }
-        } else if(activated('down')) {
+        } else if (activated('down')) {
             this.highlightedAction++;
-            if(this.highlightedAction>=this.actionSequence.length) {
+            if (this.highlightedAction>=this.actionSequence.length) {
                 this.highlightedAction = 0;
             }
-        } else if(this.highlightedAction>=0 
+        } else if (this.highlightedAction < this.actionSequence.length
                     && this.touchTargets[this.actionSequence[this.highlightedAction]]?.active 
                     && activated('menuAccept')) {
             action = this.actionSequence[this.highlightedAction];
@@ -472,10 +475,9 @@ class DailyHubScreen extends TextWindow {
         const dm = new Date(d);
         dm.setUTCHours(24,0,0,0);
         const duration = dm.getTime() - d.getTime();
-        var milliseconds = Math.floor((duration % 1000) / 100),
-          seconds = Math.floor((duration / 1000) % 60),
-          minutes = Math.floor((duration / (1000 * 60)) % 60),
-          hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+        const seconds = Math.floor((duration / 1000) % 60);
+        const minutes = Math.floor((duration / (1000 * 60)) % 60);
+        const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
         
         return hours.toString().padStart(2,'0') + ":" 
             + minutes.toString().padStart(2,'0') + ":" 
@@ -679,7 +681,7 @@ $copyState$
 
 class WinScreen extends TextWindow {
     pages = [
-`   Mission Complete!
+`Mission Complete!
 
 Statistics
 Completed:     $level$ of $numLevels$
