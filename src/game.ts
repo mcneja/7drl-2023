@@ -348,7 +348,7 @@ export function setupLevel(state: State, level: number) {
 
 export function calculateTimeBonus(state:State):number {
     const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
-    const numTurnsPar = numDiscoverableCells;
+    const numTurnsPar = Math.ceil(numDiscoverableCells / 2);
     return Math.max(0, numTurnsPar - state.turns);
 }
 
