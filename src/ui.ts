@@ -172,7 +172,7 @@ class TextWindow {
             }
             lines[row] = line;
         }
-        this.highlightedAction = Math.max(0, Math.min(this.actionSequence.length, this.highlightedAction));
+        this.highlightedAction = Math.max(0, Math.min(this.actionSequence.length - 1, this.highlightedAction));
     }
     updateScreenSize(screenSize: vec2) {
         this.screenSize = screenSize;
@@ -232,7 +232,6 @@ class TextWindow {
         const maxLineLength = this.maxLineLength;
 
         const colorText = 0xffeef0ff;
-        const colorBackground = 0xf0101010;
         const buttonColor = 0xff802060;
         const uiSelectColor = 0xffd020b0;
         const buttonDisabled = 0xff707070;
