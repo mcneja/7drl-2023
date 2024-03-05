@@ -869,19 +869,28 @@ class GameMap {
         return patrolIndexBest;
     }
 
-    computeDistancesToPosition(pos_goal: vec2): Float64Grid {
-        console.assert(pos_goal[0] >= 0);
-        console.assert(pos_goal[1] >= 0);
-        console.assert(pos_goal[0] < this.cells.sizeX);
-        console.assert(pos_goal[1] < this.cells.sizeY);
+    computeDistancesToPosition(posGoal: vec2): Float64Grid {
+        console.assert(posGoal[0] >= 0);
+        console.assert(posGoal[1] >= 0);
+        console.assert(posGoal[0] < this.cells.sizeX);
+        console.assert(posGoal[1] < this.cells.sizeY);
     
-        return this.computeDistanceField([{ priority: 0, pos: vec2.clone(pos_goal) }]);
+        return this.computeDistanceField([{ priority: 0, pos: vec2.clone(posGoal) }]);
     }
 
-    computeDistancesToAdjacentToPosition(pos_goal: vec2): Float64Grid {
+    computeDistancesToPositionSubrect(posGoal: vec2, xMin: number, yMin: number, xMax: number, yMax: number): Float64Grid {
+        console.assert(posGoal[0] >= xMin);
+        console.assert(posGoal[1] >= yMin);
+        console.assert(posGoal[0] < xMax);
+        console.assert(posGoal[1] < yMax);
+
+        return this.computeDistanceFieldSubrect([{ priority: 0, pos: vec2.clone(posGoal) }], xMin, yMin, xMax, yMax);
+    }
+
+    computeDistancesToAdjacentToPosition(posGoal: vec2): Float64Grid {
         const goal: Array<DistPos> = [];
         for (const dir of cardinalDirections) {
-            const pos = vec2.clone(pos_goal).add(dir);
+            const pos = vec2.clone(posGoal).add(dir);
             if (pos[0] < 0 || pos[1] < 0 || pos[0] >= this.cells.sizeX || pos[1] >= this.cells.sizeY) {
                 continue;
             }
@@ -919,6 +928,56 @@ class GameMap {
                 }
     
                 const moveCost = this.guardMoveCost(distPos.pos, posNew);
+                if (moveCost == Infinity) {
+                    continue;
+                }
+    
+                const distNew = distPos.priority + moveCost + adjacentMove.cost;
+    
+                if (distNew < distField.get(posNew[0], posNew[1])) {
+                    priorityQueuePush(toVisit, { priority: distNew, pos: posNew });
+                }
+            }
+        }
+    
+        return distField;
+    }
+
+    computeDistanceFieldSubrect(initialDistances: Array<DistPos>, xMin: number, yMin: number, xMax: number, yMax: number): Float64Grid {
+        console.assert(xMin >= 0);
+        console.assert(yMin >= 0);
+        console.assert(xMax <= this.cells.sizeX);
+        console.assert(yMax <= this.cells.sizeY);
+
+        const sizeX = xMax - xMin;
+        const sizeY = yMax - yMin;
+
+        const toVisit: PriorityQueue<DistPos> = [];
+        const distField = new Float64Grid(sizeX, sizeY, Infinity);
+    
+        for (const distPos of initialDistances) {
+            priorityQueuePush(toVisit, { priority: distPos.priority, pos: [distPos.pos[0] - xMin, distPos.pos[1] - yMin] });
+        }
+    
+        while (toVisit.length > 0) {
+            const distPos = priorityQueuePop(toVisit);
+            if (distPos.priority >= distField.get(distPos.pos[0], distPos.pos[1])) {
+                continue;
+            }
+    
+            distField.set(distPos.pos[0], distPos.pos[1], distPos.priority);
+
+            const posOldMap = vec2.fromValues(distPos.pos[0] + xMin, distPos.pos[1] + yMin);
+            
+            for (const adjacentMove of adjacentMoves) {
+                const posNew = vec2.fromValues(distPos.pos[0] + adjacentMove.dx, distPos.pos[1] + adjacentMove.dy);
+                if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
+                    continue;
+                }
+    
+                const posNewMap = vec2.fromValues(posNew[0] + xMin, posNew[1] + yMin);
+
+                const moveCost = this.guardMoveCost(posOldMap, posNewMap);
                 if (moveCost == Infinity) {
                     continue;
                 }

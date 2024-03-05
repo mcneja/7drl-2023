@@ -2621,7 +2621,7 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
                     posBesideDoor(posMid, room, roomPrev, gameMap);
                 }
 
-                for (const pos of pathBetweenPoints(gameMap, posStart, posMid)) {
+                for (const pos of pathBetweenPointsInRoom(gameMap, room, posStart, posMid)) {
                     patrolPositions.push(pos);
                 }
 
@@ -2635,7 +2635,7 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
             const posEnd = vec2.create();
             posInDoor(posEnd, room, roomNext, gameMap);
 
-            const path = pathBetweenPoints(gameMap, posStart, posEnd);
+            const path = pathBetweenPointsInRoom(gameMap, room, posStart, posEnd);
             for (const pos of path) {
                 patrolPositions.push(pos);
             }
@@ -3053,13 +3053,17 @@ function activityStationPositions(gameMap: GameMap, room: Room): Array<vec2> {
     return positions;
 }
 
-function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2> {
-    const distanceField = gameMap.computeDistancesToPosition(pos1);
+function pathBetweenPointsInRoom(gameMap: GameMap, room: Room, pos0: vec2, pos1: vec2): Array<vec2> {
+    const distanceFieldMinX = Math.max(0, room.posMin[0] - 1);
+    const distanceFieldMinY = Math.max(0, room.posMin[1] - 1);
+    const distanceFieldMaxX = Math.min(gameMap.cells.sizeX, room.posMax[0] + 1);
+    const distanceFieldMaxY = Math.min(gameMap.cells.sizeY, room.posMax[1] + 1);
+    const distanceFieldRoom = gameMap.computeDistancesToPositionSubrect(pos1, distanceFieldMinX, distanceFieldMinY, distanceFieldMaxX, distanceFieldMaxY);
     const pos = vec2.clone(pos0);
     const path: Array<vec2> = [];
     while (!pos.equals(pos1)) {
         path.push(vec2.clone(pos));
-        const posNext = posNextBest(gameMap, distanceField, pos);
+        const posNext = posNextBestInRoom(gameMap, room, distanceFieldRoom, pos);
         if (posNext.equals(pos)) {
             break;
         }
@@ -3068,16 +3072,21 @@ function pathBetweenPoints(gameMap: GameMap, pos0: vec2, pos1: vec2): Array<vec2
     return path;
 }
 
-function posNextBest(gameMap: GameMap, distanceField: Float64Grid, posFrom: vec2): vec2 {
+function posNextBestInRoom(gameMap: GameMap, room: Room, distanceFieldRoom: Float64Grid, posFrom: vec2): vec2 {
     let costBest = Infinity;
     let posBest = vec2.clone(posFrom);
 
-    const posMin = vec2.fromValues(Math.max(0, posFrom[0] - 1), Math.max(0, posFrom[1] - 1));
-    const posMax = vec2.fromValues(Math.min(gameMap.cells.sizeX, posFrom[0] + 2), Math.min(gameMap.cells.sizeY, posFrom[1] + 2));
+    const distanceFieldMinX = Math.max(0, room.posMin[0] - 1);
+    const distanceFieldMinY = Math.max(0, room.posMin[1] - 1);
+    const distanceFieldMaxX = Math.min(gameMap.cells.sizeX, room.posMax[0] + 1);
+    const distanceFieldMaxY = Math.min(gameMap.cells.sizeY, room.posMax[1] + 1);
+
+    const posMin = vec2.fromValues(Math.max(distanceFieldMinX, posFrom[0] - 1), Math.max(distanceFieldMinY, posFrom[1] - 1));
+    const posMax = vec2.fromValues(Math.min(distanceFieldMaxX, posFrom[0] + 2), Math.min(distanceFieldMaxY, posFrom[1] + 2));
 
     for (let x = posMin[0]; x < posMax[0]; ++x) {
         for (let y = posMin[1]; y < posMax[1]; ++y) {
-            const cost = distanceField.get(x, y);
+            const cost = distanceFieldRoom.get(x - distanceFieldMinX, y - distanceFieldMinY);
             if (cost == Infinity) {
                 continue;
             }
@@ -3098,7 +3107,7 @@ function posNextBest(gameMap: GameMap, distanceField: Float64Grid, posFrom: vec2
         console.log('failed to proceed');
         for (let x = posMin[0]; x < posMax[0]; ++x) {
             for (let y = posMin[1]; y < posMax[1]; ++y) {
-                const cost = distanceField.get(x, y);
+                const cost = distanceFieldRoom.get(x - distanceFieldMinX, y - distanceFieldMinY);
                 console.log(x, y, cost);
             }
         }
