@@ -7,7 +7,7 @@ import { TouchController, GamepadManager, KeyboardController } from './controlle
 import { TextWindow } from './ui';
 import { Animator } from './animation';
 
-export {Camera, GameMode, GameStats, LevelStats, State, Statistics, ScoreEntry}
+export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, ScoreEntry}
 
 type Camera = {
     position: vec2;
@@ -26,7 +26,6 @@ enum GameMode {
     Dead,
     Win,
     DailyHub,
-    ServerConfig,
 }
 
 type ScoreEntry = {
@@ -36,14 +35,13 @@ type ScoreEntry = {
     date: string;
 }
 
-type Statistics = {
+type PersistedStats = {
     highScores: Array<ScoreEntry>;
     dailyScores: Array<ScoreEntry>;
-    lastDaily: ScoreEntry;
+    lastDaily: ScoreEntry | undefined;
     dailyWinStreak: number;
     dailyPlays: number;
     dailyWins: number;
-    dailyPerfect: number;
     bestScore: number;
     bestDailyScore: number;
     totalGold: number;
@@ -80,7 +78,8 @@ interface Particle {
 
 type State = {
     gameStats: GameStats;
-    stats: Statistics;
+    persistedStats: PersistedStats;
+    levelStats: LevelStats;
     rng: RNG;
     dailyRun: string|null;
     tLast: number | undefined;
@@ -115,7 +114,6 @@ type State = {
     totalTurns: number;
     lootStolen: number;
     lootAvailable: number;
-    levelStats: LevelStats;
     gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;

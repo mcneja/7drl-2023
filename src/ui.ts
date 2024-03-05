@@ -1,7 +1,7 @@
 import { Renderer } from './render';
 import { vec2, mat4 } from './my-matrix';
 import { Rect, TouchTargets, lastController } from './controllers';
-import {State, GameMode, GameStats} from './types';
+import { GameMode, GameStats, State } from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
@@ -49,7 +49,7 @@ class TextWindow {
     touchTargetsDirty: boolean = false;
     touchTargets: TouchTargets;
 
-    state: {[id:string]: any} = {};
+    state: Map<string, string> = new Map();
     glyphs: [spriteNum:number, r:Rect][] = [];
     screenSize: vec2;
     mat: mat4;
@@ -142,9 +142,8 @@ class TextWindow {
     parseUI() {
         //TODO: Parse Glyphs and convert to double spaces
         let pageText = this.pages[this.activePage];
-        const stateData = this.state;
-        for(const t in stateData) {
-            pageText = pageText.replace('$'+t+'$', String(stateData[t]))
+        for (const [key, value] of this.state) {
+            pageText = pageText.replace('$'+key+'$', value);
         }
         if(pageText === this.cachedPageText) return;
         this.cachedPageText = pageText;
@@ -389,9 +388,9 @@ class OptionsScreen extends TextWindow {
             touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
             window.localStorage.setItem('LLL/touchMode', touchMode);
         }
-        this.state['keyRepeatRate'] = state.keyRepeatRate;
-        this.state['keyRepeatDelay'] = state.keyRepeatDelay;
-        this.state['touchMode'] = touchMode;
+        this.state.set('keyRepeatRate', state.keyRepeatRate.toString());
+        this.state.set('keyRepeatDelay', state.keyRepeatDelay.toString());
+        this.state.set('touchMode', touchMode);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -421,7 +420,7 @@ class OptionsScreen extends TextWindow {
                 const key = window.localStorage.key(k);
                 if(key?.startsWith('LLL/')) window.localStorage.removeItem(key);
             }
-            state.stats = game.loadStats();
+            state.persistedStats = game.loadStats();
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -442,20 +441,12 @@ class DailyHubScreen extends TextWindow {
             Best winning score: $bestScore$
             Total daily runs:   $dailyPlays$
             Total daily wins:   $dailyWins$
-            Perfect runs:       $dailyPerfect$
             Win streak:         $dailyWinStreak$
 
 
                                         [Esc|menuClose] Back to menu`,
     ];
-    scoreTablePos:number = 0;
-    scoreTableCount: number = 8;
-    scoreTableDate: Date|null = null;
-    endTimeForDate(d:Date):Date {
-        const dm = new Date(d);
-        dm.setUTCHours(24,0,0,0);
-        return dm //utc?dm.toUTCString():dm.toDateString();
-    }
+    stateCopied: boolean = false;
     prevDay(d:Date):Date {
         const pd = new Date(d);
         pd.setDate(pd.getDate()-1);
@@ -483,43 +474,34 @@ class DailyHubScreen extends TextWindow {
             + seconds.toString().padStart(2,'0');
       }    
     update(state:State) {
-        const store = window.localStorage;
-        const lastDaily = store.getItem("LLL/lastDaily");
-        if(lastDaily !== null && lastDaily === game.getCurrentDateFormatted()) {        
-            this.state['dailyStatus'] = "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC();
-            this.state['playMode'] = '[P|homePlay] Play it again';
+        const lastDaily = state.persistedStats.lastDaily;
+        if(lastDaily !== undefined && lastDaily.date === game.getCurrentDateFormatted()) {        
+            this.state.set('dailyStatus', "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC());
+            this.state.set('playMode', '[P|homePlay] Play it again');
         } else {
-            this.state['dailyStatus'] = '[P|homePlay] Play daily game now\n            Time left to play: '+this.timeToMidnightUTC();
-            this.state['playMode'] ='';
+            this.state.set('dailyStatus', '[P|homePlay] Play daily game now\n            Time left to play: '+this.timeToMidnightUTC());
+            this.state.set('playMode', '');
         }
 
-
-        if(this.activePage==0) {
-            this.state['date'] = game.getCurrentDateFormatted()+ ' UTC';
-            this.state['lastPlayed'] = state.stats.lastDaily.date;
-            this.state['lastScore'] = state.stats.lastDaily.score;
-            this.state['bestScore'] = state.stats.bestDailyScore;
-            this.state['dailyPlays'] = state.stats.dailyPlays;
-            this.state['dailyWins'] = state.stats.dailyWins;
-            this.state['dailyPerfect'] = state.stats.dailyPerfect;
-            this.state['dailyWinStreak'] = state.stats.dailyWinStreak;
-            if(!('copyState' in this.state)) this.state['copyState'] = '';
-        }
+        this.state.set('date', game.getCurrentDateFormatted()+ ' UTC');
+        this.state.set('lastPlayed', (lastDaily !== undefined) ? lastDaily.date : '');
+        this.state.set('lastScore', ((lastDaily !== undefined) ? lastDaily.score : 0).toString());
+        this.state.set('bestScore', state.persistedStats.bestDailyScore.toString());
+        this.state.set('dailyPlays', state.persistedStats.dailyPlays.toString());
+        this.state.set('dailyWins', state.persistedStats.dailyWins.toString());
+        this.state.set('dailyWinStreak', state.persistedStats.dailyWinStreak.toString());
+        this.state.set('copyState', this.stateCopied ? '    COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
+            this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
-        } else if ((activated('homePlay') || action=='homePlay')) {
+        } else if (activated('homePlay') || action=='homePlay') {
+            this.stateCopied = false;
             let date = game.getCurrentDateFormatted();
             state.rng = new RNG('Daily '+date);
-            if(this.state['dailyStatus'][0]!=='T') { //This is a challenge run
-                const store = window.localStorage;
-                store.setItem("LLL/lastDaily", date);
-                state.dailyRun = date;    
-            } else {
-                state.dailyRun = null;
-            }
+            state.dailyRun = date;    
             game.restartGame(state);
         } else if(activated('copyScore') || action=='copyScore') {
             const stats:GameStats = game.getStat('lastDaily');
@@ -532,8 +514,7 @@ class DailyHubScreen extends TextWindow {
             stats.numCompletedLevels = stats.numCompletedLevels??0;
             stats.loot = stats.loot??0;
             scoreToClipboard(stats);
-            this.state['copyState'] = '    COPIED!';
-            setTimeout(()=>{this.state['copyState']=''},3000)
+            this.stateCopied = true;
         }
     };        
 }
@@ -560,17 +541,16 @@ $achievements$
     ];
     update(state:State) {
         if(this.activePage==0) {
-            this.state['totalPlays'] = state.stats.totalPlays;
-            this.state['totalWins'] = state.stats.totalWins;
-            this.state['totalGold'] = state.stats.totalGold;
-            this.state['totalGhosts'] = state.stats.totalGhosts;
-            this.state['totalLootSweeps'] = state.stats.totalLootSweeps;
-            this.state['bestScore'] = state.stats.bestScore;    
+            this.state.set('totalPlays', state.persistedStats.totalPlays.toString());
+            this.state.set('totalWins', state.persistedStats.totalWins.toString());
+            this.state.set('totalGold', state.persistedStats.totalGold.toString());
+            this.state.set('totalGhosts', state.persistedStats.totalGhosts.toString());
+            this.state.set('totalLootSweeps', state.persistedStats.totalLootSweeps.toString());
+            this.state.set('bestScore', state.persistedStats.bestScore.toString());
         }
         else if(this.activePage==1) {
-            this.state['achievements'] = '';            
+            this.state.set('achievements', '');
         }
-
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -608,11 +588,11 @@ Score:      $totalScore$
             levelStats += 'Knockouts:  ' + state.levelStats.numKnockouts + '\n';
         }
 
-        this.state['level'] = state.level+1;
-        this.state['timeBonus'] = timeBonus;
-        this.state['levelStats'] = levelStats;
-        this.state['ghosted'] = (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) ? 'Yes' : 'No';
-        this.state['totalScore'] = Math.ceil(timeBonus * game.ghostMultiplier(state.levelStats));
+        this.state.set('level', (state.level+1).toString());
+        this.state.set('timeBonus', timeBonus.toString());
+        this.state.set('levelStats', levelStats);
+        this.state.set('ghosted', (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) ? 'Yes' : 'No');
+        this.state.set('totalScore', Math.ceil(timeBonus * game.ghostMultiplier(state.levelStats)).toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -648,12 +628,13 @@ Total score:   $totalScore$
 $copyState$
 [Esc|menu]: Exit to home screen`
     ];
+    stateCopied: boolean = false;
     update(state:State) {
-        this.state['level'] = state.level;
-        this.state['numLevels'] = state.gameMapRoughPlans.length;
-        this.state['numGhostedLevels'] = state.gameStats.numGhostedLevels;
-        this.state['totalScore'] = state.gameStats.totalScore;
-        if(!('copyState' in this.state)) this.state['copyState'] = '';
+        this.state.set('level', state.level.toString());
+        this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
+        this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
+        this.state.set('totalScore', state.gameStats.totalScore.toString());
+        this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -664,16 +645,17 @@ $copyState$
             state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
+            this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
+            this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
             // state.helpActive = true;
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
-            this.state['copyState'] = '       COPIED!';
-            setTimeout(()=>{this.state['copyState']=''},3000)
+            this.stateCopied = true;
         }
     }   
 };
@@ -692,12 +674,13 @@ Total score:   $totalScore$
 $copyState$
 [Esc|menu]: Exit to home screen`
     ];
+    stateCopied: boolean = false;
     update(state:State) {
-        this.state['level'] = state.level + 1;
-        this.state['numLevels'] = state.gameMapRoughPlans.length;
-        this.state['numGhostedLevels'] = state.gameStats.numGhostedLevels;
-        this.state['totalScore'] = state.gameStats.totalScore;
-        if(!('copyState' in this.state)) this.state['copyState'] = '';
+        this.state.set('level', (state.level + 1).toString());
+        this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
+        this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
+        this.state.set('totalScore', state.gameStats.totalScore.toString());
+        this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -708,16 +691,17 @@ $copyState$
             state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
         } else if (activated('restart') || action=='restart') {
+            this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
+            this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
             // state.helpActive = true;
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
-            this.state['copyState'] = '       COPIED!';
-            setTimeout(()=>{this.state['copyState']=''},3000)
+            this.stateCopied = true;
         }
     };
 }
@@ -784,8 +768,8 @@ Special thanks to Mendi Carroll
 4/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
     ];
     update(state:State) {
-        this.state['numGameMaps'] = game.gameConfig.numGameMaps;
-        this.state['totalGameLoot'] = game.gameConfig.totalGameLoot;
+        this.state.set('numGameMaps', game.gameConfig.numGameMaps.toString());
+        this.state.set('totalGameLoot', game.gameConfig.totalGameLoot.toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);

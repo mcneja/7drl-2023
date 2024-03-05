@@ -10,7 +10,7 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './au
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen } from './ui'
-import {Camera, GameMode, LevelStats, State, Statistics} from './types';
+import {Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
 
@@ -241,14 +241,14 @@ function updateControllerState(state:State) {
             restartGame(state);
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
-                scoreCurrentLevel(state);
+                scoreCompletedLevel(state);
                 setupLevel(state, state.level+1);
             }
         } else if (activated('resetState')) {
             resetState(state);
         } else if (activated('prevLevel')) {
             if (state.level > 0) {
-                scoreCurrentLevel(state);
+                scoreCompletedLevel(state);
                 setupLevel(state, state.level-1);
             }
         } else if (activated('guardSight')) {
@@ -284,23 +284,24 @@ function updateControllerState(state:State) {
     }
 }
 
-function scoreCurrentLevel(state: State) {
+function scoreCompletedLevel(state: State) {
     if(state.gameMapRoughPlans[state.level].played) {
         return;
     }
     state.gameMapRoughPlans[state.level].played = true;
+
     const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
     const score = Math.ceil(calculateTimeBonus(state) * ghostMultiplier(state.levelStats));
-    const es = state.gameStats;
-    es.loot = state.player.loot;
-    es.lootStolen += state.lootStolen;
-    es.totalScore += score;
-    es.turns = state.totalTurns;
-    es.numLevels = state.gameMapRoughPlans.length;
-    es.numCompletedLevels = state.level;
-    es.numGhostedLevels += ghosted ? 1 : 0;
-    es.win = state.level===9 && state.player.health>0;
-    es.daily = state.dailyRun;
+
+    state.gameStats.loot = state.player.loot;
+    state.gameStats.lootStolen += state.lootStolen;
+    state.gameStats.totalScore += score;
+    state.gameStats.turns = state.totalTurns;
+    state.gameStats.numLevels = state.gameMapRoughPlans.length;
+    state.gameStats.numCompletedLevels = state.level + 1;
+    state.gameStats.numGhostedLevels += ghosted ? 1 : 0;
+    state.gameStats.win = state.level === (gameConfig.numGameMaps - 1) && state.player.health > 0;
+    state.gameStats.daily = state.dailyRun;
 }
 
 function clearLevelStats(levelStats: LevelStats) {
@@ -367,17 +368,17 @@ export function ghostMultiplier(levelStats: LevelStats): number {
 }
 
 function advanceToBetweenMansions(state: State) {
-    scoreCurrentLevel(state);
+    scoreCompletedLevel(state);
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
     state.gameMode = GameMode.BetweenMansions;
     if(state.lootStolen === state.lootAvailable) {
-        state.stats.totalLootSweeps++;
-        setStat('totalLootSweeps',state.stats.totalLootSweeps);
+        state.persistedStats.totalLootSweeps++;
+        setStat('totalLootSweeps',state.persistedStats.totalLootSweeps);
     }
     if(state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) {
-        state.stats.totalGhosts++;
-        setStat('totalGhosts',state.stats.totalGhosts);
+        state.persistedStats.totalGhosts++;
+        setStat('totalGhosts',state.persistedStats.totalGhosts);
     }
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -385,40 +386,36 @@ function advanceToBetweenMansions(state: State) {
 }
 
 function advanceToWin(state: State) {
-    scoreCurrentLevel(state);
+    scoreCompletedLevel(state);
     state.activeSoundPool.empty();
     if (state.player.loot>95 && Math.random()>0.9) state.sounds['easterEgg'].play(0.5);
     else state.sounds['victorySong'].play(0.5);
-    state.stats.totalWins++;
-    setStat('totalWins',state.stats.totalWins);
-    state.stats.bestScore = Math.max(state.stats.bestScore, state.player.loot);
-    setStat('bestScore',state.stats.bestScore);
-    state.stats.totalGold+= state.player.loot;
-    setStat('totalGold',state.stats.totalGold);
-    const score = {score:state.player.loot, date:getCurrentDateFormatted(), turns:state.totalTurns, level:state.level+1};
-    state.stats.highScores.push(score);    
+    state.persistedStats.totalWins++;
+    const score = state.gameStats.totalScore;
+    state.persistedStats.bestScore = Math.max(state.persistedStats.bestScore, score);
+    state.persistedStats.totalGold+= state.gameStats.lootStolen;
+    const scoreEntry: ScoreEntry = {
+        score: score,
+        date: getCurrentDateFormatted(),
+        turns: state.totalTurns,
+        level: state.level+1
+    };
+    state.persistedStats.highScores.push(scoreEntry);
     if(state.dailyRun) {
-        state.stats.bestDailyScore = Math.max(state.stats.bestDailyScore, state.player.loot);
-        setStat('bestDailyScore',state.stats.bestDailyScore);
-        state.stats.dailyWins++;
-        setStat('dailyWins',state.stats.dailyWins)    
-        state.stats.dailyWinStreak++;
-        setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-        if(state.player.loot==200) {
-            state.stats.dailyPerfect++;
-            setStat('dailyPerfect', state.stats.dailyPerfect);
-        }
-        // const dscore = {date:state.dailyRun, ...state.gameStats};
-        // state.stats.lastDaily = dscore;
-        // state.stats.dailyScores.push(state.stats.lastDaily);
-        setStat('lastDaily', state.gameStats);
+        state.persistedStats.bestDailyScore = Math.max(state.persistedStats.bestDailyScore, state.player.loot);
+        state.persistedStats.dailyWins++;
+        state.persistedStats.dailyWinStreak++;
+        state.persistedStats.lastDaily = scoreEntry;
+        state.persistedStats.dailyScores.push(scoreEntry);
         //TODO: notify user if the game was finished after the deadline
-        // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(state.player.loot, state.totalTurns, state.level+1);
+        // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(score, state.totalTurns, state.level+1);
     }
     state.gameMode = GameMode.Win;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
     state.topStatusMessageAnim = 0;
+
+    saveStats(state.persistedStats);
 }
 
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
@@ -1305,11 +1302,10 @@ function advanceTime(state: State) {
 
         if (state.player.health <= 0) {
             setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
-            scoreCurrentLevel(state);
             if(state.dailyRun) {
-                state.stats.dailyWinStreak=0;
-                setStat('dailyWinStreak',state.stats.dailyWinStreak)    
-                setStat('lastDaily', state.gameStats);
+                state.persistedStats.dailyWinStreak=0;
+                setStat('dailyWinStreak',state.persistedStats.dailyWinStreak)    
+//                setStat('lastDaily', state.gameStats);
             }
             setStatusMessageSticky(state, 'You were killed. Press Escape/Menu to see score.');
         }
@@ -1810,17 +1806,16 @@ export function setStat<T>(name:string, value:T) {
     window.localStorage.setItem('LLL/stat/'+name, JSON.stringify(value));
 }
 
-export function loadStats(): Statistics {
-    const stats0:Statistics = {
+export function loadStats(): PersistedStats {
+    return {
         highScores: getStat('highScores') ?? [],
         dailyScores: getStat('dailyScores') ?? [],
-        bestScore: getStat('bestScore') ?? 0,
-        bestDailyScore: getStat('bestDailyScores') ?? 0,
-        lastDaily: getStat('lastDaily') ?? {score:0, date:''},
+        lastDaily: getStat('lastDaily') ?? undefined,
         dailyWinStreak: getStat('dailyWinStreak') ?? 0,
         dailyPlays: getStat('dailyPlays') ?? 0,
         dailyWins: getStat('dailyWins') ?? 0,
-        dailyPerfect: getStat('dailyPerfect') ?? 0,
+        bestScore: getStat('bestScore') ?? 0,
+        bestDailyScore: getStat('bestDailyScore') ?? 0,
         totalGold: getStat('totalGold') ?? 0,
         totalPlays: getStat('totalPlays') ?? 0,
         totalWins: getStat('totalWins') ?? 0,
@@ -1828,8 +1823,25 @@ export function loadStats(): Statistics {
         totalGhosts: getStat('totalGhosts') ?? 0,
         totalLootSweeps: getStat('totalLootSweeps') ?? 0,
         achievements: getStat('achievements') ?? new Set(),
-    }
-    return stats0;
+    };
+}
+
+function saveStats(persistedStats: PersistedStats) {
+    setStat('highScores', persistedStats.highScores);
+    setStat('dailyScores', persistedStats.dailyScores);
+    setStat('lastDaily', persistedStats.lastDaily);
+    setStat('dailyWinStreak', persistedStats.dailyWinStreak);
+    setStat('dailyPlays', persistedStats.dailyPlays);
+    setStat('dailyWins', persistedStats.dailyWins);
+    setStat('bestScore', persistedStats.bestScore);
+    setStat('bestDailyScore', persistedStats.bestDailyScore);
+    setStat('totalGold', persistedStats.totalGold);
+    setStat('totalPlays', persistedStats.totalPlays);
+    setStat('totalWins', persistedStats.totalWins);
+    setStat('totalPerfect', persistedStats.totalPerfect);
+    setStat('totalGhosts', persistedStats.totalGhosts);
+    setStat('totalLootSweeps', persistedStats.totalLootSweeps);
+    setStat('achievements', persistedStats.achievements);
 }
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
@@ -1857,9 +1869,14 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             win: false,
             daily: null,
         },
+        persistedStats: stats,
+        levelStats: {
+            numKnockouts: 0,
+            numSpottings: 0,
+            damageTaken: 0,
+        },
         lightStates: Array(gameMap.lightCount).fill(0),
         particles:[],
-        stats: stats,
         tLast: undefined,
         dt: 0,
         idleTimer: 0,
@@ -1897,11 +1914,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         totalTurns: 0,
         lootStolen: 0,
         lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
-        levelStats: {
-            numKnockouts: 0,
-            numSpottings: 0,
-            damageTaken: 0,
-        },
         gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
@@ -1973,11 +1985,11 @@ export function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
     state.level = 0;
 
-    state.stats.totalPlays++;
-    setStat('totalPlays',state.stats.totalPlays);
+    state.persistedStats.totalPlays++;
+    setStat('totalPlays',state.persistedStats.totalPlays);
     if(state.dailyRun) {
-        state.stats.dailyPlays++;
-        setStat('dailyPlays',state.stats.dailyPlays);    
+        state.persistedStats.dailyPlays++;
+        setStat('dailyPlays',state.persistedStats.dailyPlays);    
     }
 
     state.gameStats = { 
