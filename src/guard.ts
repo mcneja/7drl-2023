@@ -246,7 +246,9 @@ class Guard {
             break;
 
         case GuardMode.MoveToTorch:
-            {
+            if (map.items.some((item)=>item.pos.equals(this.goal) && item.type === ItemType.TorchLit)) {
+                this.enterPatrolMode(map);
+            } else {
                 const moveResult = this.moveTowardAdjacentToPosition(this.goal, map, player);
                 if (this.cardinallyAdjacentTo(this.goal)) {
                     this.mode = GuardMode.LightTorch;
