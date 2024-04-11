@@ -207,8 +207,11 @@ class KeyboardController extends Controller {
             keyMap = defaultKeyMap;
         this.keyMap = keyMap;
         let that = this;
-        document.body.addEventListener('keydown', e=>that.keyDownHandler(e));
-        document.body.addEventListener('keyup', e=>that.keyUpHandler(e));
+        const html = document.querySelector("html");
+        if(html) {
+            html.onkeydown = function(e) {that.keyDownHandler(e)};
+            html.onkeyup = function(e) {that.keyUpHandler(e)};
+        }
     }
     getCode(e:KeyboardEvent, modifyShift:boolean=false):string {
         let code = e.code;
