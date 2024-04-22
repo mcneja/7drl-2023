@@ -354,7 +354,7 @@ class GamepadManager {
 //            c.set("startLevel", buttonPressed(g, 3));
             c.set("zoomIn", buttonPressed(g, 6));
             c.set("zoomOut", buttonPressed(g, 7));
-            c.set("fullscreen", buttonPressed(g, 8));
+//            c.set("fullscreen", buttonPressed(g, 8));
 //            c.set("restart", buttonPressed(g, 5));
             c.set("menu", buttonPressed(g, 9));
             c.set("left", buttonPressed(g, 14) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
