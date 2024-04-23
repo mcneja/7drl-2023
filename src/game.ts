@@ -2280,140 +2280,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     const touchAsGamepad = state.touchAsGamepad && !(lastController===state.touchController && state.touchController.mouseActive);
     state.touchController.setTouchConfig(touchAsGamepad);
 
-    if (touchAsGamepad) {
-        updateTouchButtonsGamepad(touchController, renderer, screenSize, state);
-        return;
-    }
-
-    const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
-
-    const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
-    const sw = screenSize[0];
-    const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
-    const pt = createPosTranslator(screenSize, state.camera.position, state.zoomLevel);
-    if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
-        const p0 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x0, touchController.lastMotion.y0));
-        const p1 = pt.screenToWorld(vec2.fromValues(touchController.lastMotion.x, touchController.lastMotion.y));
-        state.camera.panning = true;
-        let d = p1.subtract(p0);
-        state.camera.position[0] -= d[0]-state.camera.anchor[0];
-        state.camera.position[1] -= d[1]-state.camera.anchor[1];
-        state.camera.anchor[0] = d[0];
-        state.camera.anchor[1] = d[1];
-    } else {
-        state.camera.anchor[0] = 0;
-        state.camera.anchor[1] = 0;
-    }
-
-    const buttonSizePixels = Math.floor(Math.min(sh,sw)/6);
-    const [x, y] = pt.screenToWorld(vec2.fromValues(0,statusBarCharPixelSizeY));
-    const buttonAlloc = pt.screenToWorld(vec2.fromValues(buttonSizePixels,buttonSizePixels));
-    const screenAlloc = pt.screenToWorld(vec2.fromValues(sw, sh));
-    const w = screenAlloc[0]-x;
-    const h = screenAlloc[1]-y;
-    const bw = buttonAlloc[0]-x;
-    const bh = buttonAlloc[1]-y;
-    const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
-    const showButtonRestart = !state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode);
-    const showButtonForceRestart = state.helpActive;
-    const offRestart = (!state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode)) ? 0:100;
-    const offForceRestart = state.helpActive ? 0:100;
-    let tt = renderer.tileSet.touchButtons;
-    if(tt === undefined) tt = {};
-    state.touchController.setTouchConfig(touchAsGamepad);
-
-    let buttonData: {[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}};
-
-    const s = 4/state.zoomLevel;
-    buttonData = {
-        'menu':     {game:new Rect(x,y+h-1.5*s,s,s), view: new Rect(), tileInfo:tt['menu']},
-        'zoomIn':  {game:new Rect(x,y+h-2.5*s,s,s), view: new Rect(), tileInfo:tt['zoomIn']},
-        'zoomOut':   {game:new Rect(x,y+h-3.5*s,s,s), view: new Rect(), tileInfo:tt['zoomOut']},
-    }
-    if (showButtonRestart) {
-        buttonData['restart'] = {game:new Rect(x,y+h-5.5*s,s,s), view: new Rect(), tileInfo:tt['restart']};
-    } else {
-        buttonData['restart'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['restart']};
-    }
-    if (showButtonForceRestart) {
-        buttonData['forceRestart'] = {game:new Rect(x,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']};
-    } else {
-        buttonData['forceRestart'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['restart']};
-    }
-    const pp = state.player.pos;
-    buttonData['wait'] = (state.gameMode==GameMode.Mansion && !state.helpActive)? 
-                    {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
-                    : {game:new Rect(-1-1,1,1), view: new Rect(), tileInfo:tt['wait']};
-    if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
-            && (pp[0]==0 || pp[1]==0 || pp[0]==worldSize[0]-1 || pp[1]==worldSize[1]-1)) {
-        buttonData['exitLevel'] = {game:new Rect(x,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['exitLevel']};
-    } else {
-        buttonData['exitLevel'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['exitLevel']};
-    }
-    buttonData['jump'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['jump']};
-    buttonData['menuAccept'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['menuAccept']};
-    for(const vals of [['left',[-1,0]],['right',[1,0]],['up',[0,1]],['down',[0,-1]]] as Array<[string, [number,number]]>) {
-        const name = vals[0];
-        const p = vals[1];
-        const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
-        if(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) continue;
-        if(state.gameMode==GameMode.Mansion &&  !state.helpActive
-            && !state.gameMap.cells.atVec(pt).blocksPlayerMove 
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowE)
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowW)
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowN)
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowS)
-            && !state.gameMap.items.find((item)=>item.pos.equals(pt) 
-                    && [ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type))
-            && !state.gameMap.guards.find((guard)=>guard.pos.equals(pt))
-            ) {
-                buttonData[name] = {game:new Rect(...pt,1,1), view: new Rect(), tileInfo:tt['picker']}
-            } else {
-                buttonData[name] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['picker']}
-            }
-    }
-    for(const vals of [['jumpLeft',[-1,0]],['jumpRight',[1,0]],['jumpUp',[0,1]],['jumpDown',[0,-1]]] as Array<[string, [number,number]]>) {
-        const name = vals[0];
-        const p = vec2.fromValues(...vals[1]);
-        const pt = pp.add(p);
-        const pt2 = pp.scaleAndAdd(p, 2);
-        if( state.gameMode==GameMode.Mansion && !state.helpActive
-            && !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1]) 
-            && !(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1])
-            && !state.gameMap.cells.atVec(pt).blocksPlayerMove
-            && !state.gameMap.cells.atVec(pt2).blocksPlayerMove 
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowE && name=='jumpLeft')
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowW && name=='jumpRight')
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowN && name=='jumpDown')
-            && !(state.gameMap.cells.atVec(pt).type==TerrainType.OneWayWindowS && name=='jumpUp')
-            && !state.gameMap.items.find((item)=>item.pos.equals(pt2) 
-                    && [ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type))
-            && !state.gameMap.guards.find((guard)=>guard.pos.equals(pt2))
-            ) {
-                buttonData[name] = {game:new Rect(...pt2,1,1), view: new Rect(), tileInfo:tt['picker']}
-            } else {
-                buttonData[name] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['picker']}
-            }
-    }
-
-    for(const bkey in buttonData) {
-        const b = buttonData[bkey];
-        const game = b.game;
-        const xy0 = pt.worldToScreen(vec2.fromValues(game[0],game[1]));
-        const xy1 = pt.worldToScreen(vec2.fromValues(game[0]+game[2],game[1]+game[3]));
-        touchController.updateCoreTouchTarget(bkey, game, 
-            new Rect(
-                xy0[0],xy0[1],xy1[0]-xy0[0],xy1[1]-xy0[1]
-            ), 
-            b.tileInfo
-        )
-    }
-    if(menu) {
-        touchController.activateTouchTargets(menu.getTouchData());
-    }
-}
-
-function updateTouchButtonsGamepad(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
     const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
 
     if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
@@ -2431,6 +2297,18 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
         state.camera.anchor[1] = 0;
     }
 
+    if (touchAsGamepad) {
+        updateTouchButtonsGamepad(touchController, renderer, screenSize, state);
+    } else {
+        updateTouchButtonsMouse(touchController, renderer, screenSize, state);
+    }
+
+    if(menu) {
+        touchController.activateTouchTargets(menu.getTouchData());
+    }
+}
+
+function updateTouchButtonsGamepad(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
     let tt = renderer.tileSet.touchButtons;
     if(tt === undefined) tt = {};
 
@@ -2470,9 +2348,93 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     for(const b of buttonData) {
         touchController.updateCoreTouchTarget(b.action, emptyRect, b.visible ? b.rect : emptyRect, b.tileInfo);
     }
+}
 
-    if(menu) {
-        touchController.activateTouchTargets(menu.getTouchData());
+function updateTouchButtonsMouse(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
+    const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
+    const sw = screenSize[0];
+    const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
+    const buttonSizePixels = Math.floor(Math.min(sh,sw)/6);
+    const pt = createPosTranslator(screenSize, state.camera.position, state.zoomLevel);
+    const [x, y] = pt.screenToWorld(vec2.fromValues(0,statusBarCharPixelSizeY));
+    const buttonAlloc = pt.screenToWorld(vec2.fromValues(buttonSizePixels,buttonSizePixels));
+    const screenAlloc = pt.screenToWorld(vec2.fromValues(sw, sh));
+    const w = screenAlloc[0]-x;
+    const h = screenAlloc[1]-y;
+    const bw = buttonAlloc[0]-x;
+    const bh = buttonAlloc[1]-y;
+    const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
+    const showButtonRestart = !state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode);
+    const showButtonForceRestart = state.helpActive;
+    let tt = renderer.tileSet.touchButtons;
+    if(tt === undefined) tt = {};
+
+    let buttonData: {[id:string]:{game:Rect,view:Rect,tileInfo:TileInfo}};
+
+    const s = 4/state.zoomLevel;
+    buttonData = {
+        'menu':     {game:new Rect(x,y+h-1.5*s,s,s), view: new Rect(), tileInfo:tt['menu']},
+        'zoomIn':  {game:new Rect(x,y+h-2.5*s,s,s), view: new Rect(), tileInfo:tt['zoomIn']},
+        'zoomOut':   {game:new Rect(x,y+h-3.5*s,s,s), view: new Rect(), tileInfo:tt['zoomOut']},
+    }
+    if (showButtonRestart) {
+        buttonData['restart'] = {game:new Rect(x,y+h-5.5*s,s,s), view: new Rect(), tileInfo:tt['restart']};
+    } else {
+        buttonData['restart'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['restart']};
+    }
+    if (showButtonForceRestart) {
+        buttonData['forceRestart'] = {game:new Rect(x,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']};
+    } else {
+        buttonData['forceRestart'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['restart']};
+    }
+    const pp = state.player.pos;
+    buttonData['wait'] = (state.gameMode==GameMode.Mansion && !state.helpActive)? 
+                    {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
+                    : {game:new Rect(-1-1,1,1), view: new Rect(), tileInfo:tt['wait']};
+    if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
+            && (pp[0]==0 || pp[1]==0 || pp[0]==worldSize[0]-1 || pp[1]==worldSize[1]-1)) {
+        buttonData['exitLevel'] = {game:new Rect(x,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['exitLevel']};
+    } else {
+        buttonData['exitLevel'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['exitLevel']};
+    }
+    buttonData['jump'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['jump']};
+    buttonData['menuAccept'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['menuAccept']};
+    for(const vals of [['left',[-1,0]],['right',[1,0]],['up',[0,1]],['down',[0,-1]]] as Array<[string, [number,number]]>) {
+        const name = vals[0];
+        const p = vals[1];
+        const pt = vec2.fromValues(pp[0]+p[0],pp[1]+p[1]);
+        if (state.gameMode==GameMode.Mansion &&
+            !state.helpActive &&
+            !(pt[0]<0 || pt[1]<0 || pt[0]>=worldSize[0] || pt[1]>=worldSize[1])) {
+            buttonData[name] = {game:new Rect(...pt,1,1), view: new Rect(), tileInfo:tt['picker']}
+        } else {
+            buttonData[name] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['picker']}
+        }
+    }
+    for(const vals of [['jumpLeft',[-1,0]],['jumpRight',[1,0]],['jumpUp',[0,1]],['jumpDown',[0,-1]]] as Array<[string, [number,number]]>) {
+        const name = vals[0];
+        const p = vec2.fromValues(...vals[1]);
+        const pt2 = pp.scaleAndAdd(p, 2);
+        if (state.gameMode==GameMode.Mansion &&
+            !state.helpActive &&
+            !(pt2[0]<0 || pt2[1]<0 || pt2[0]>=worldSize[0] || pt2[1]>=worldSize[1])) {
+            buttonData[name] = {game:new Rect(...pt2,1,1), view: new Rect(), tileInfo:tt['picker']}
+        } else {
+            buttonData[name] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['picker']}
+        }
+    }
+
+    for(const bkey in buttonData) {
+        const b = buttonData[bkey];
+        const game = b.game;
+        const xy0 = pt.worldToScreen(vec2.fromValues(game[0],game[1]));
+        const xy1 = pt.worldToScreen(vec2.fromValues(game[0]+game[2],game[1]+game[3]));
+        touchController.updateCoreTouchTarget(bkey, game, 
+            new Rect(
+                xy0[0],xy0[1],xy1[0]-xy0[0],xy1[1]-xy0[1]
+            ), 
+            b.tileInfo
+        )
     }
 }
 
