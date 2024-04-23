@@ -2354,18 +2354,10 @@ function updateTouchButtonsMouse(touchController:TouchController, renderer:Rende
     const worldSize = vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY);
     const sw = screenSize[0];
     const sh = screenSize[1] - 2*statusBarCharPixelSizeY;
-    const buttonSizePixels = Math.floor(Math.min(sh,sw)/6);
     const pt = createPosTranslator(screenSize, state.camera.position, state.zoomLevel);
     const [x, y] = pt.screenToWorld(vec2.fromValues(0,statusBarCharPixelSizeY));
-    const buttonAlloc = pt.screenToWorld(vec2.fromValues(buttonSizePixels,buttonSizePixels));
     const screenAlloc = pt.screenToWorld(vec2.fromValues(sw, sh));
-    const w = screenAlloc[0]-x;
     const h = screenAlloc[1]-y;
-    const bw = buttonAlloc[0]-x;
-    const bh = buttonAlloc[1]-y;
-    const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
-    const showButtonRestart = !state.helpActive && [GameMode.Dead, GameMode.Win].includes(state.gameMode);
-    const showButtonForceRestart = state.helpActive;
     let tt = renderer.tileSet.touchButtons;
     if(tt === undefined) tt = {};
 
@@ -2376,16 +2368,6 @@ function updateTouchButtonsMouse(touchController:TouchController, renderer:Rende
         'menu':     {game:new Rect(x,y+h-1.5*s,s,s), view: new Rect(), tileInfo:tt['menu']},
         'zoomIn':  {game:new Rect(x,y+h-2.5*s,s,s), view: new Rect(), tileInfo:tt['zoomIn']},
         'zoomOut':   {game:new Rect(x,y+h-3.5*s,s,s), view: new Rect(), tileInfo:tt['zoomOut']},
-    }
-    if (showButtonRestart) {
-        buttonData['restart'] = {game:new Rect(x,y+h-5.5*s,s,s), view: new Rect(), tileInfo:tt['restart']};
-    } else {
-        buttonData['restart'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['restart']};
-    }
-    if (showButtonForceRestart) {
-        buttonData['forceRestart'] = {game:new Rect(x,y+h-6.5*s,s,s), view: new Rect(), tileInfo:tt['restart']};
-    } else {
-        buttonData['forceRestart'] = {game:new Rect(-1,-1,0,0), view: new Rect(), tileInfo:tt['restart']};
     }
     const pp = state.player.pos;
     buttonData['wait'] = (state.gameMode==GameMode.Mansion && !state.helpActive)? 
