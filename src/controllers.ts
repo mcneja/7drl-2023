@@ -158,9 +158,8 @@ export class Rect extends Array<number> {
 }
 
 class Controller {
-    preventDefault:boolean = true;
     controlStates: ControlStates;
-    controlTimes : ControlTimes;
+    controlTimes: ControlTimes;
     currentFramePresses: Set<string> = new Set();
     currentFrameReleases: Set<string> = new Set();
     constructor() {
@@ -187,9 +186,6 @@ class Controller {
         this.currentFramePresses.clear();
         this.currentFrameReleases.clear();
     }
-    vibrate(intensity1:number, intensity2:number, duration:number) {
-
-    } 
 }
 
 class KeyboardController extends Controller {
@@ -264,7 +260,7 @@ class KeyboardController extends Controller {
             this.updateModifierDown(code);
         }
         if(code in this.keyMap) {
-            if(this.preventDefault) e.preventDefault();
+            e.preventDefault();
             const keys = this.keyMap[code];
             for (let key of keys) {
                 if (!this.controlStates[key]) this.set(key, true);
@@ -277,7 +273,7 @@ class KeyboardController extends Controller {
             this.updateModifierUp(code);
         }
         if(code in this.keyMap) {
-            if(this.preventDefault) e.preventDefault();
+            e.preventDefault();
             const keys = this.keyMap[code];
             for (let key of keys) {
                 this.set(key, false);
@@ -302,19 +298,6 @@ class GamepadController extends Controller {
         this.internalStates[action] = state;
         super.set(action, state);
     }   
-    vibrate(intensity1:number, intensity2:number, duration:number) {
-        // if(this.gamepad.hapticActuators.length>0) {
-        //     for(let h of this.gamepad.hapticActuators) {
-        //         h.pulse(intensity1, duration);
-        //     }
-        //     this.gamepad.hapticActuators.playEffect('dual-rumble', 
-        //         {
-        //             startDelay: 0,
-        //             duration: duration,
-        //             weakMagnitude: intensity1,
-        //             strongMagnitude: intensity2 });
-        // }
-    }
 }
 
 class GamepadManager {
@@ -367,15 +350,15 @@ function buttonPressed(g: Gamepad, b: number): boolean {
 }
 
 type TouchTargets = {
-    [id:string]: 
+    [id:string]:
     {
-        id:number, 
-        active:boolean, 
-        view:Rect, 
-        game:Rect, 
-        tileInfo:TileInfo|null, 
-        trigger:'press'|'release', 
-        show:'always'|'press', 
+        id:number,
+        active:boolean,
+        view:Rect,
+        game:Rect,
+        tileInfo:TileInfo|null,
+        trigger:'press'|'release',
+        show:'always'|'press',
         touchXY:[number, number]
     }
 };
@@ -500,7 +483,7 @@ class TouchController extends Controller {
                 this.targetOnTouchDown = bname;
             }
         }
-        if(this.preventDefault) ev.preventDefault();
+        ev.preventDefault();
     }
     // touchmove handler
     process_mousemove(ev:MouseEvent) {
@@ -532,11 +515,10 @@ class TouchController extends Controller {
                 }        
             }
         }   
-        if(this.preventDefault) ev.preventDefault();
+        ev.preventDefault();
     }
     // mouseup handler
     process_mouseup(ev:MouseEvent) {
-//        this.mouseActive = true;
         for(const bname in this.touchTargets) {
             const b = this.touchTargets[bname];
             if(this.controlStates[bname]) {
@@ -546,7 +528,7 @@ class TouchController extends Controller {
             }
         }
         this.clearMotion();
-        if(this.preventDefault) ev.preventDefault();
+        ev.preventDefault();
     }
     //touchstart handler
     process_touchstart(ev: TouchEvent) {
@@ -573,7 +555,7 @@ class TouchController extends Controller {
                 }
             }
         }   
-        if(this.preventDefault) ev.preventDefault();
+        ev.preventDefault();
     }
     // touchmove handler
     process_touchmove(ev:TouchEvent) {
@@ -607,7 +589,7 @@ class TouchController extends Controller {
                 }
             }
         }   
-        if(this.preventDefault) ev.preventDefault();
+        ev.preventDefault();
     }
     // touchend handler
     process_touchend(ev:TouchEvent) {
@@ -625,10 +607,7 @@ class TouchController extends Controller {
                 this.clearMotion();
             }
         }
-        if(this.preventDefault) ev.preventDefault();
-    }
-    vibrate(intensity1:number, intensity2:number, duration:number) {
-        window.navigator.vibrate(duration); //default vibration does not support intensity -- could simulate by staggering pulses over the duration
+        ev.preventDefault();
     }
 }
 
