@@ -1,4 +1,3 @@
-import * as internal from "stream";
 import { TileInfo } from "./tilesets";
 
 export {lastController, Controller, TouchTargets, TouchController, GamepadManager, KeyboardController};
@@ -146,21 +145,15 @@ export class Rect extends Array<number> {
         super(x,y,w,h);
     }
     collide(x:number, y:number, w:number=0, h:number=0) {
-        if(this[0] < x + w &&
-            this[0] + this[2] > x &&
-            this[1] < y + h &&
-            this[1] + this[3] > y)
-            return true;
-        return false;
-    }
-}
-
-class Activations {
-    presses: {[id:string]:Array<[Controller]>} = {};
-    releases: {[id:string]:Array<[Controller]>} = {};
-    clear() {
-        this.presses = {};
-        this.releases = {};
+        if (x + w < this[0])
+            return false;
+        if (y + h < this[1])
+            return false;
+        if (x >= this[0] + this[2])
+            return false;
+        if (y >= this[1] + this[3])
+            return false;
+        return true;
     }
 }
 
@@ -389,7 +382,6 @@ type TouchTargets = {
 
 class TouchController extends Controller {
     canvas: HTMLCanvasElement;
-    screenDimensions: [number, number];
     lastMotion: {id:number, active: boolean, x0:number, y0:number, x:number, y:number};
     coreTouchTargets: TouchTargets;
     touchTargets: TouchTargets;
@@ -407,8 +399,6 @@ class TouchController extends Controller {
         canvas.addEventListener('mousedown', function(ev){that.process_mousedown(ev);}, true);
         canvas.addEventListener('mouseup', function(ev){that.process_mouseup(ev);}, true);
         canvas.addEventListener('mousemove', function(ev){that.process_mousemove(ev);}, true);
-        const nullRect:[number,number,number,number] = [0,0,0,0];
-        this.screenDimensions = [0,0];
         this.lastMotion = {id:-1,active:false,x0:0,y0:0,x:0,y:0};
 
         this.coreTouchTargets = {
@@ -471,7 +461,9 @@ class TouchController extends Controller {
         b0.view = view;
         b0.game = game;
         b0.tileInfo = tileInfo;
-        if(!b0.view.collide(b0.touchXY[0], this.canvas.clientHeight-b0.touchXY[1])) {
+        const x = b0.touchXY[0];
+        const y = this.canvas.clientHeight - (b0.touchXY[1] + 1);
+        if(!b0.view.collide(x, y)) {
             if(this.controlStates[id] && b0.id!=-1) {
                 this.set(id, false, false);
                 b0.id = -1;
@@ -488,17 +480,19 @@ class TouchController extends Controller {
     //touchstart handler
     process_mousedown(ev: MouseEvent) {
         lastController = this;
+        const x = ev.clientX;
+        const y = this.canvas.clientHeight - (ev.clientY + 1);
         this.mouseActive = true;
-        this.lastMotion.id=-2
+        this.lastMotion.id=-2;
         this.lastMotion.active = false;
-        this.lastMotion.x0 = ev.clientX;
-        this.lastMotion.y0 = this.canvas.clientHeight-ev.clientY;
-        this.lastMotion.x = ev.clientX;
-        this.lastMotion.y = this.canvas.clientHeight-ev.clientY;
+        this.lastMotion.x0 = x;
+        this.lastMotion.y0 = y;
+        this.lastMotion.x = x;
+        this.lastMotion.y = y;
         this.targetOnTouchDown = null;
         for(let bname in this.touchTargets) {
             let b = this.touchTargets[bname]
-            const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
+            const touching = b.view.collide(x, y);
             if(touching) {
                 b.touchXY = [ev.clientX, ev.clientY];
                 b.id = -2;
@@ -512,16 +506,17 @@ class TouchController extends Controller {
     process_mousemove(ev:MouseEvent) {
         lastController = this;
         this.mouseActive = true;
-        let state:{[id:string]:boolean} = {};
+        const x = ev.clientX;
+        const y = this.canvas.clientHeight - (ev.clientY + 1);
         if(this.lastMotion.id == -2) {
             this.lastMotion.active = true;
-            this.lastMotion.x = ev.clientX;
-            this.lastMotion.y = this.canvas.clientHeight-ev.clientY;
+            this.lastMotion.x = x;
+            this.lastMotion.y = y;
         }        
         for(let bname in this.touchTargets) {
             let b = this.touchTargets[bname]
             if(b.id == -2) { //already pressing this button down
-                const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
+                const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY]; //update touch info but don't trigger another activation
                 } else {
@@ -529,7 +524,7 @@ class TouchController extends Controller {
                     b.id = -1;
                 }    
             } else if(b.trigger=='release' && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
-                const touching = b.view.collide(ev.clientX, this.canvas.clientHeight-ev.clientY);
+                const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY];
                     this.set(bname, true);
@@ -558,16 +553,18 @@ class TouchController extends Controller {
         lastController = this;
         this.mouseActive = false;
         this.targetOnTouchDown = null;
-        for(let t of ev.changedTouches) { 
+        for(let t of ev.changedTouches) {
+            const x = t.clientX;
+            const y = this.canvas.clientHeight - (t.clientY + 1);
             this.lastMotion.id = t.identifier;
             this.lastMotion.active = false;
-            this.lastMotion.x0 = t.clientX; 
-            this.lastMotion.y0 = this.canvas.clientHeight-t.clientY;
-            this.lastMotion.x = t.clientX;
-            this.lastMotion.y = this.canvas.clientHeight-t.clientY;
+            this.lastMotion.x0 = x; 
+            this.lastMotion.y0 = y;
+            this.lastMotion.x = x;
+            this.lastMotion.y = y;
             for(let bname in this.touchTargets) {
                 let b = this.touchTargets[bname]
-                const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
+                const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [t.clientX, t.clientY];
                     b.id = t.identifier;
@@ -581,17 +578,18 @@ class TouchController extends Controller {
     // touchmove handler
     process_touchmove(ev:TouchEvent) {
         this.mouseActive = false;
-        let state:{[id:string]:boolean} = {};
-        for(let t of ev.changedTouches) { 
+        for(let t of ev.changedTouches) {
+            const x = t.clientX;
+            const y = this.canvas.clientHeight - (t.clientY + 1);
             if(this.lastMotion.id == t.identifier) {
                 this.lastMotion.active = true;
-                this.lastMotion.x = t.clientX;
-                this.lastMotion.y = this.canvas.clientHeight-t.clientY;                    
+                this.lastMotion.x = x;
+                this.lastMotion.y = y;
             }
             for(let bname in this.touchTargets) {
                 let b = this.touchTargets[bname]
                 if(b.id == t.identifier) {
-                    const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
+                    const touching = b.view.collide(x, y);
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
                     } else {
@@ -600,7 +598,7 @@ class TouchController extends Controller {
                     }
                 }
                 else if(b.id==-1 && b.trigger=='release'  && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
-                    const touching = b.view.collide(t.clientX, this.canvas.clientHeight-t.clientY);
+                    const touching = b.view.collide(x, y);
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
                         b.id = t.identifier;
