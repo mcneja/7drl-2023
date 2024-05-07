@@ -259,10 +259,10 @@ function updateControllerState(state:State) {
             state.gameMap.markAllSeen();
             postTurn(state);
         } else if (activated('zoomIn')) {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
+            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
             state.camera.snapped = false;
         } else if (activated('zoomOut')) {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
+            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
             state.camera.snapped = false;
         } else if (activated('seeAll')) {
             state.seeAll = !state.seeAll;
@@ -2371,8 +2371,8 @@ function updateTouchButtonsMouse(touchController:TouchController, renderer:Rende
     }
     const pp = state.player.pos;
     buttonData['wait'] = (state.gameMode==GameMode.Mansion && !state.helpActive)? 
-                    {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['wait']}
-                    : {game:new Rect(-1-1,1,1), view: new Rect(), tileInfo:tt['wait']};
+                    {game:new Rect(...pp,1,1), view: new Rect(), tileInfo:tt['picker']}
+                    : {game:new Rect(-1-1,1,1), view: new Rect(), tileInfo:tt['picker']};
     if(state.finishedLevel && state.gameMode==GameMode.Mansion && !state.helpActive 
             && (pp[0]==0 || pp[1]==0 || pp[0]==worldSize[0]-1 || pp[1]==worldSize[1]-1)) {
         buttonData['exitLevel'] = {game:new Rect(x,y+h-4.5*s,s,s), view: new Rect(), tileInfo:tt['exitLevel']};
