@@ -169,7 +169,7 @@ class Controller {
             this.controlTimes[c] = Date.now();
         }
     }
-    set(action:string, state:boolean=true, updateFrame:boolean=true) {
+    set(action:string, state:boolean, updateFrame:boolean=true) {
         this.controlStates[action] = state;
         controlStates[action] = state;
         this.controlTimes[action] = Date.now();
@@ -359,7 +359,7 @@ type TouchTargets = {
         tileInfo:TileInfo|null,
         trigger:'press'|'release',
         show:'always'|'press',
-        touchXY:[number, number]
+        touchXY:[number, number],
     }
 };
 
@@ -473,8 +473,7 @@ class TouchController extends Controller {
         this.lastMotion.x = x;
         this.lastMotion.y = y;
         this.targetOnTouchDown = null;
-        for(let bname in this.touchTargets) {
-            let b = this.touchTargets[bname]
+        for (const [bname, b] of Object.entries(this.touchTargets)) {
             const touching = b.view.collide(x, y);
             if(touching) {
                 b.touchXY = [ev.clientX, ev.clientY];
@@ -495,10 +494,9 @@ class TouchController extends Controller {
             this.lastMotion.active = true;
             this.lastMotion.x = x;
             this.lastMotion.y = y;
-        }        
-        for(let bname in this.touchTargets) {
-            let b = this.touchTargets[bname]
-            if(b.id == -2) { //already pressing this button down
+        }
+        for (const [bname, b] of Object.entries(this.touchTargets)) {
+            if(b.id === -2) { //already pressing this button down
                 const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY]; //update touch info but don't trigger another activation
@@ -506,7 +504,7 @@ class TouchController extends Controller {
                     this.set(bname, false, false);
                     b.id = -1;
                 }    
-            } else if(b.trigger=='release' && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
+            } else if(b.trigger==='release' && (this.targetOnTouchDown===null || this.targetOnTouchDown===bname)) {
                 const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY];
@@ -519,8 +517,7 @@ class TouchController extends Controller {
     }
     // mouseup handler
     process_mouseup(ev:MouseEvent) {
-        for(const bname in this.touchTargets) {
-            const b = this.touchTargets[bname];
+        for (const [bname, b] of Object.entries(this.touchTargets)) {
             if(this.controlStates[bname]) {
                 b.id = -1;
                 this.set(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
@@ -544,8 +541,7 @@ class TouchController extends Controller {
             this.lastMotion.y0 = y;
             this.lastMotion.x = x;
             this.lastMotion.y = y;
-            for(let bname in this.touchTargets) {
-                let b = this.touchTargets[bname]
+            for (const [bname, b] of Object.entries(this.touchTargets)) {
                 const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [t.clientX, t.clientY];
@@ -568,8 +564,7 @@ class TouchController extends Controller {
                 this.lastMotion.x = x;
                 this.lastMotion.y = y;
             }
-            for(let bname in this.touchTargets) {
-                let b = this.touchTargets[bname]
+            for (const [bname, b] of Object.entries(this.touchTargets)) {
                 if(b.id == t.identifier) {
                     const touching = b.view.collide(x, y);
                     if(touching) {
@@ -594,9 +589,8 @@ class TouchController extends Controller {
     // touchend handler
     process_touchend(ev:TouchEvent) {
         this.mouseActive = false;
-        for(let t of ev.changedTouches) { 
-            for(const bname in this.touchTargets) {
-                const b = this.touchTargets[bname];
+        for(let t of ev.changedTouches) {
+            for (const [bname, b] of Object.entries(this.touchTargets)) {
                 if(b.id==t.identifier) {
                     b.id = -1;
                     this.set(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
