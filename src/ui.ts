@@ -51,18 +51,10 @@ class TextWindow {
 
     state: Map<string, string> = new Map();
     glyphs: [spriteNum:number, r:Rect][] = [];
-    screenSize: vec2;
     mat: mat4;
     maxLineLength: number = 0;
-    scaleLargestX: number = 0;
-    scaleLargestY: number = 0;
-    scaleFactor: number = 0;
     pixelsPerCharX: number = 0;
     pixelsPerCharY: number = 0;
-    linesPixelSizeX: number = 0;
-    linesPixelSizeY: number = 0;
-    numCharsX: number = 0;
-    numCharsY: number = 0;
     offsetX: number = 0;
     offsetY: number = 0;
     textW: number = 8; //width of character in pixels
@@ -70,7 +62,6 @@ class TextWindow {
 
     constructor() {
         this.mat = mat4.create();
-        this.screenSize = vec2.create();
         this.touchTargets = {};
     }
     initAction(action:string) {
@@ -88,12 +79,10 @@ class TextWindow {
     nextPage() {
         this.activePage = Math.min(this.pages.length - 1, this.activePage + 1);
         this.touchTargetsDirty = true;
-        // this.parseUI(state);
     }
     prevPage() {
         this.activePage = Math.max(0, this.activePage - 1);
         this.touchTargetsDirty = true;
-        // this.parseUI(state);
     }
     parseImage(line:string, base:number, row:number, rows:number): [string, number] {
         const end = line.slice(base+2).indexOf('#');
@@ -139,22 +128,22 @@ class TextWindow {
         base = pipe;
         return [line, base];
     }
-    parseUI() {
+    parseUI(screenSize: vec2) {
         //TODO: Parse Glyphs and convert to double spaces
         let pageText = this.pages[this.activePage];
         for (const [key, value] of this.state) {
             pageText = pageText.replace('$'+key+'$', value);
         }
-        if(pageText === this.cachedPageText) return;
+        if (pageText === this.cachedPageText)
+            return;
+
         this.cachedPageText = pageText;
         this.activePageData = pageText.split('\n');
         const lines = this.activePageData;
         this.glyphs.length = 0;
         this.actionSequence = [];
         this.touchTargets = {};
-        // if(this.touchTargetsDirty) {
-        //     this.touchTargetsDirty = false;
-        // }
+
         for (let row=0; row<lines.length; ++row) {
             let line = lines[row];
             let base = 0;
@@ -172,58 +161,47 @@ class TextWindow {
             lines[row] = line;
         }
         this.highlightedAction = Math.max(0, Math.min(this.actionSequence.length - 1, this.highlightedAction));
-    }
-    updateScreenSize(screenSize: vec2) {
-        this.screenSize = screenSize;
+
         this.maxLineLength = 0;
         for (const line of this.activePageData) {
             this.maxLineLength = Math.max(this.maxLineLength, line.length);
-        }    
+        }
+
+        this.updateScreenSize(screenSize);
+
+        // Now that screen size has been determined, compute touch targets' screen extents
+
+        for(let a in this.touchTargets) {
+            const tt = this.touchTargets[a];
+            tt.view[0] = (tt.game[0] - this.offsetX) * this.pixelsPerCharX;
+            tt.view[1] = (tt.game[1] - this.offsetY) * this.pixelsPerCharY;
+            tt.view[2] = tt.game[2] * this.pixelsPerCharX;
+            tt.view[3] = tt.game[3] * this.pixelsPerCharY;
+        }
+    }
+    updateScreenSize(screenSize: vec2) {
         const minCharsX = 65;
         const minCharsY = 22;
-        this.scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (this.textW * minCharsX)));
-        this.scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (this.textH * minCharsY)));
-        this.scaleFactor = Math.min(this.scaleLargestX, this.scaleLargestY);
-        this.pixelsPerCharX = 8 * this.scaleFactor;
-        this.pixelsPerCharY = 16 * this.scaleFactor;
-        this.linesPixelSizeX = this.maxLineLength * this.pixelsPerCharX;
-        this.linesPixelSizeY = this.activePageData.length * this.pixelsPerCharY;
-        this.numCharsX = screenSize[0] / this.pixelsPerCharX;
-        this.numCharsY = screenSize[1] / this.pixelsPerCharY;
-        this.offsetX = Math.floor((screenSize[0] - this.linesPixelSizeX) / -2) / this.pixelsPerCharX;
-        this.offsetY = Math.floor((screenSize[1] - this.linesPixelSizeY) / -2) / this.pixelsPerCharY;
+        const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (this.textW * minCharsX)));
+        const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (this.textH * minCharsY)));
+        const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+        this.pixelsPerCharX = this.textW * scaleFactor;
+        this.pixelsPerCharY = this.textH * scaleFactor;
+        const linesPixelSizeX = this.maxLineLength * this.pixelsPerCharX;
+        const linesPixelSizeY = this.activePageData.length * this.pixelsPerCharY;
+        const numCharsX = screenSize[0] / this.pixelsPerCharX;
+        const numCharsY = screenSize[1] / this.pixelsPerCharY;
+        this.offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / this.pixelsPerCharX;
+        this.offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / this.pixelsPerCharY;
     
-        this.mat = mat4.create();
         mat4.ortho(
             this.mat,
             this.offsetX,
-            this.offsetX + this.numCharsX,
+            this.offsetX + numCharsX,
             this.offsetY,
-            this.offsetY + this.numCharsY,
+            this.offsetY + numCharsY,
             1,
             -1);    
-    }
-    pixelCoords(textCoords: [number, number]): [number, number] {
-        return [
-            (textCoords[0] - this.offsetX) * this.pixelsPerCharX,
-            (textCoords[1] - this.offsetY) * this.pixelsPerCharY
-        ];
-    }
-    textCoords(pixelCoords: [number, number]): [number, number] {
-        return [
-            pixelCoords[0] / this.pixelsPerCharX + this.offsetX,
-            pixelCoords[1] / this.pixelsPerCharY + this.offsetY
-        ];
-        }
-    getTouchData(): TouchTargets  {
-        for(let a in this.touchTargets) {
-            const tt = this.touchTargets[a];
-            const r = tt.game;
-            const [vx0,vy0] = this.pixelCoords([r[0], r[1]]);
-            const [vx1,vy1] = this.pixelCoords([r[2]+r[0], r[3]+r[1]]);
-            tt.view = new Rect(vx0, vy0, vx1-vx0-1, vy1-vy0-1);
-        }
-        return this.touchTargets;
     }
     render(renderer: Renderer) {
         const lines = this.activePageData;
