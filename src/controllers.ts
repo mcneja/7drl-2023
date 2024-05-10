@@ -169,7 +169,7 @@ class Controller {
             this.controlTimes[c] = Date.now();
         }
     }
-    set(action:string, state:boolean, updateFrame:boolean=true) {
+    setPressed(action:string, state:boolean, updateFrame:boolean=true) {
         this.controlStates[action] = state;
         controlStates[action] = state;
         this.controlTimes[action] = Date.now();
@@ -263,7 +263,7 @@ class KeyboardController extends Controller {
             e.preventDefault();
             const keys = this.keyMap[code];
             for (let key of keys) {
-                if (!this.controlStates[key]) this.set(key, true);
+                if (!this.controlStates[key]) this.setPressed(key, true);
             }
         }
     }
@@ -276,7 +276,7 @@ class KeyboardController extends Controller {
             e.preventDefault();
             const keys = this.keyMap[code];
             for (let key of keys) {
-                this.set(key, false);
+                this.setPressed(key, false);
             }
         }
     }
@@ -292,11 +292,11 @@ class GamepadController extends Controller {
         this.thresh = 0.4;
         this.internalStates = {... this.controlStates};
     }
-    set(action:string, state:boolean=true) {
+    setPressed(action:string, state:boolean) {
         if(this.internalStates[action]==state)
             return;
         this.internalStates[action] = state;
-        super.set(action, state);
+        super.setPressed(action, state);
     }   
 }
 
@@ -324,23 +324,23 @@ class GamepadManager {
                 continue;
             let c = this.gamepads[g.index];
             c.gamepad = g; //put the latest state in the gamepad object
-            c.set("jump", buttonPressed(g, 0));
-            c.set("wait", buttonPressed(g, 2));
-            c.set("menuAccept", buttonPressed(g, 2)||buttonPressed(g, 0));
-//            c.set("startLevel", buttonPressed(g, 3));
-            c.set("zoomIn", buttonPressed(g, 6));
-            c.set("zoomOut", buttonPressed(g, 7));
-//            c.set("fullscreen", buttonPressed(g, 8));
-//            c.set("restart", buttonPressed(g, 5));
-            c.set("menu", buttonPressed(g, 9));
-            c.set("left", buttonPressed(g, 14) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
-            c.set("right", buttonPressed(g, 15) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));
-            c.set("up", buttonPressed(g, 12) || g.axes[1]<-c.thresh && (g.axes[1]<-0.5*Math.abs(g.axes[0])));
-            c.set("down", buttonPressed(g, 13) || g.axes[1]>c.thresh    && (g.axes[1]>-0.5*Math.abs(g.axes[0])));
-            c.set("panLeft", g.axes[2]<-c.thresh && (g.axes[2]<-0.5*Math.abs(g.axes[3])));
-            c.set("panRight", g.axes[2]>c.thresh && (g.axes[2]>0.5*Math.abs(g.axes[3])));
-            c.set("panUp", g.axes[3]<-c.thresh && (g.axes[3]<-0.5*Math.abs(g.axes[2])));
-            c.set("panDown", g.axes[3]>c.thresh    && (g.axes[3]>-0.5*Math.abs(g.axes[2])));
+            c.setPressed("jump", buttonPressed(g, 0));
+            c.setPressed("wait", buttonPressed(g, 2));
+            c.setPressed("menuAccept", buttonPressed(g, 2)||buttonPressed(g, 0));
+//            c.setPressed("startLevel", buttonPressed(g, 3));
+            c.setPressed("zoomIn", buttonPressed(g, 6));
+            c.setPressed("zoomOut", buttonPressed(g, 7));
+//            c.setPressed("fullscreen", buttonPressed(g, 8));
+//            c.setPressed("restart", buttonPressed(g, 5));
+            c.setPressed("menu", buttonPressed(g, 9));
+            c.setPressed("left", buttonPressed(g, 14) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
+            c.setPressed("right", buttonPressed(g, 15) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));
+            c.setPressed("up", buttonPressed(g, 12) || g.axes[1]<-c.thresh && (g.axes[1]<-0.5*Math.abs(g.axes[0])));
+            c.setPressed("down", buttonPressed(g, 13) || g.axes[1]>c.thresh    && (g.axes[1]>-0.5*Math.abs(g.axes[0])));
+            c.setPressed("panLeft", g.axes[2]<-c.thresh && (g.axes[2]<-0.5*Math.abs(g.axes[3])));
+            c.setPressed("panRight", g.axes[2]>c.thresh && (g.axes[2]>0.5*Math.abs(g.axes[3])));
+            c.setPressed("panUp", g.axes[3]<-c.thresh && (g.axes[3]<-0.5*Math.abs(g.axes[2])));
+            c.setPressed("panDown", g.axes[3]>c.thresh    && (g.axes[3]>-0.5*Math.abs(g.axes[2])));
         }
     }
 }
@@ -448,7 +448,7 @@ class TouchController extends Controller {
         const y = this.canvas.clientHeight - (b0.touchXY[1] + 1);
         if(!b0.view.collide(x, y)) {
             if(this.controlStates[id] && b0.id!=-1) {
-                this.set(id, false, false);
+                this.setPressed(id, false, false);
                 b0.id = -1;
             }
         }
@@ -478,7 +478,7 @@ class TouchController extends Controller {
             if(touching) {
                 b.touchXY = [ev.clientX, ev.clientY];
                 b.id = -2;
-                this.set(bname, true);
+                this.setPressed(bname, true);
                 this.targetOnTouchDown = bname;
             }
         }
@@ -501,14 +501,14 @@ class TouchController extends Controller {
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY]; //update touch info but don't trigger another activation
                 } else {
-                    this.set(bname, false, false);
+                    this.setPressed(bname, false, false);
                     b.id = -1;
                 }    
             } else if(b.trigger==='release' && (this.targetOnTouchDown===null || this.targetOnTouchDown===bname)) {
                 const touching = b.view.collide(x, y);
                 if(touching) {
                     b.touchXY = [ev.clientX, ev.clientY];
-                    this.set(bname, true);
+                    this.setPressed(bname, true);
                     b.id = -2;
                 }        
             }
@@ -520,7 +520,7 @@ class TouchController extends Controller {
         for (const [bname, b] of Object.entries(this.touchTargets)) {
             if(this.controlStates[bname]) {
                 b.id = -1;
-                this.set(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
+                this.setPressed(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
                 this.controlTimes[bname] = 0;
             }
         }
@@ -547,7 +547,7 @@ class TouchController extends Controller {
                     b.touchXY = [t.clientX, t.clientY];
                     b.id = t.identifier;
                     this.targetOnTouchDown = bname;
-                    this.set(bname, true);
+                    this.setPressed(bname, true);
                 }
             }
         }   
@@ -571,7 +571,7 @@ class TouchController extends Controller {
                         b.touchXY = [t.clientX, t.clientY];
                     } else {
                         b.id = -1;
-                        this.set(bname, false, false);
+                        this.setPressed(bname, false, false);
                     }
                 }
                 else if(b.id==-1 && b.trigger=='release'  && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
@@ -579,7 +579,7 @@ class TouchController extends Controller {
                     if(touching) {
                         b.touchXY = [t.clientX, t.clientY];
                         b.id = t.identifier;
-                        this.set(bname, true);
+                        this.setPressed(bname, true);
                     }
                 }
             }
@@ -593,7 +593,7 @@ class TouchController extends Controller {
             for (const [bname, b] of Object.entries(this.touchTargets)) {
                 if(b.id==t.identifier) {
                     b.id = -1;
-                    this.set(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
+                    this.setPressed(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
                     this.controlTimes[bname] = 0;
                 }
             }
