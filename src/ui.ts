@@ -67,7 +67,6 @@ class TextWindow {
     initAction(action:string) {
         this.touchTargets[action] = {
             id: -1,
-            active: true,
             game: new Rect(0, 0, 0, 0),
             view: new Rect(0, 0, 0, 0),
             trigger: 'release',
@@ -232,18 +231,11 @@ class TextWindow {
             const isHighlightedAction =
                 this.highlightedAction < this.actionSequence.length &&
                 this.actionSequence[this.highlightedAction]===a;
-            if(this.touchTargets[a].active) {
-                const color = isHighlightedAction? uiSelectColor : buttonColor;
-                renderer.addGlyph(
-                    r[0], r[1], r[0]+r[2], r[1]+r[3],
-                    {textureIndex: bg.textureIndex, color:color}
-                );    
-            } else if(isHighlightedAction) {
-                renderer.addGlyph(
-                    r[0], r[1], r[0]+r[2], r[1]+r[3],
-                    {textureIndex: bg.textureIndex, color:buttonDisabled}
-                );            
-            }
+            const color = isHighlightedAction? uiSelectColor : buttonColor;
+            renderer.addGlyph(
+                r[0], r[1], r[0]+r[2], r[1]+r[3],
+                {textureIndex: bg.textureIndex, color:color}
+            );    
         }
         renderer.flush();
 
@@ -290,9 +282,7 @@ class TextWindow {
             if (this.highlightedAction>=this.actionSequence.length) {
                 this.highlightedAction = 0;
             }
-        } else if (this.highlightedAction < this.actionSequence.length
-                    && this.touchTargets[this.actionSequence[this.highlightedAction]]?.active 
-                    && activated('menuAccept')) {
+        } else if (this.highlightedAction < this.actionSequence.length && activated('menuAccept')) {
             action = this.actionSequence[this.highlightedAction];
         }
         return action;
