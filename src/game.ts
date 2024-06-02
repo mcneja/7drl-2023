@@ -37,6 +37,7 @@ const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
 const zoomPower: number = 1.1892;
 const initZoomLevel: number = 4;
+const minZoomLevel: number = -4;
 const maxZoomLevel: number = 16;
 
 const leapPrompt = 'Shift+Move: Leap/Run';
@@ -1790,8 +1791,9 @@ function createCamera(posPlayer: vec2, zoomLevel: number): Camera {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        zoom: zoomLevel,
+        zoomVelocity: 0,
         scale: Math.pow(zoomPower, zoomLevel),
-        scaleVelocity: 0,
         anchor: vec2.create(),
         snapped: false,
         panning: false,
@@ -1949,7 +1951,7 @@ export function zoomIn(state: State) {
 }
 
 export function zoomOut(state: State) {
-    state.zoomLevel = Math.max(0, state.zoomLevel - 1);
+    state.zoomLevel = Math.max(minZoomLevel, state.zoomLevel - 1);
 }
 
 function setCellAnimations(gameMap: GameMap, state: State) {
@@ -2115,12 +2117,12 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     state.dt = dt;
     state.tLast = t;
 
+    updateControllerState(state);
+
     state.topStatusMessageAnim = Math.max(0, state.topStatusMessageAnim - 4 * dt);
 
     const screenSize = vec2.create();
     renderer.getScreenSize(screenSize);
-
-    updateControllerState(state);
 
     if (!state.camera.snapped) {
         state.camera.panning = false;
@@ -2422,16 +2424,15 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
 
     const kSpring = 8; // spring constant, radians/sec
 
-    const scaleTarget = Math.pow(zoomPower, state.zoomLevel);
+    const zoomError = state.zoomLevel - state.camera.zoom;
+    const zoomVelocityError = -state.camera.zoomVelocity;
 
-    const scaleError = scaleTarget - state.camera.scale;
-    const scaleVelocityError = -state.camera.scaleVelocity;
+    const zoomAcceleration = (2 * zoomVelocityError + zoomError * kSpring) * kSpring;
 
-    const scaleAcceleration = (2 * scaleVelocityError + scaleError * kSpring) * kSpring;
-
-    const scaleVelocityNew = state.camera.scaleVelocity + scaleAcceleration * dt;
-    state.camera.scale += (state.camera.scaleVelocity + scaleVelocityNew) * (0.5 * dt);
-    state.camera.scaleVelocity = scaleVelocityNew;
+    const zoomVelocityNew = state.camera.zoomVelocity + zoomAcceleration * dt;
+    state.camera.zoom += (state.camera.zoomVelocity + zoomVelocityNew) * (0.5 * dt);
+    state.camera.zoomVelocity = zoomVelocityNew;
+    state.camera.scale = Math.pow(zoomPower, state.camera.zoom);
 
     const velNew = vec2.create();
 
@@ -2439,6 +2440,7 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
         // Figure out where the camera should be pointed
 
         const posCameraTarget = vec2.create();
+        const scaleTarget = Math.pow(zoomPower, state.zoomLevel);
         cameraTargetCenterPosition(
             posCameraTarget,
             vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
@@ -2468,8 +2470,9 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
 }
 
 function snapCamera(state: State, screenSize: vec2) {
-    state.camera.scale = Math.pow(zoomPower, state.zoomLevel);
-    state.camera.scaleVelocity = 0;
+    state.camera.zoom = state.zoomLevel;
+    state.camera.zoomVelocity = 0;
+    state.camera.scale = Math.pow(zoomPower, state.camera.zoom);
     cameraTargetCenterPosition(
         state.camera.position,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
