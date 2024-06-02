@@ -2301,9 +2301,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         updateTouchButtonsMouse(touchController, renderer, screenSize, state);
     }
 
-    if(menu) {
-        touchController.activateTouchTargets(menu.touchTargets);
-    }
+    touchController.activateTouchTargets(menu ? menu.touchTargets : undefined);
 }
 
 function updateTouchButtonsGamepad(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
