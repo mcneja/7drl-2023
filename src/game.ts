@@ -35,6 +35,9 @@ const statusBarCharPixelSizeY: number = 16;
 //TODO: The constants live in the tileset and code should reference the tileset
 const pixelsPerTileX: number = 16; // width of unzoomed tile
 const pixelsPerTileY: number = 16; // height of unzoomed tile
+const zoomPower: number = 1.1892;
+const initZoomLevel: number = 4;
+const maxZoomLevel: number = 16;
 
 const leapPrompt = 'Shift+Move: Leap/Run';
 
@@ -177,7 +180,6 @@ function updateControllerState(state:State) {
         }
         if (controller.controlStates['snapToPlayer']) {
             state.camera.panning = false;
-            state.camera.snapped = false;
         }
         if (activated('left')) {
             if (state.leapToggleActive || controller.controlStates['jump']) {
@@ -259,11 +261,9 @@ function updateControllerState(state:State) {
             state.gameMap.markAllSeen();
             postTurn(state);
         } else if (activated('zoomIn')) {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
+            zoomIn(state);
         } else if (activated('zoomOut')) {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
+            zoomOut(state);
         } else if (activated('seeAll')) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
@@ -341,7 +341,7 @@ export function setupLevel(state: State, level: number) {
     state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
     state.popups.clear();
 
-    state.camera = createCamera(state.gameMap.playerStartPos);
+    state.camera = createCamera(state.gameMap.playerStartPos, state.zoomLevel);
     state.gameMode = GameMode.Mansion;
 
     postTurn(state);
@@ -1786,10 +1786,12 @@ function tileIndexOffsetForDir(dir: vec2): number {
     }
 }
 
-function createCamera(posPlayer: vec2): Camera {
+function createCamera(posPlayer: vec2, zoomLevel: number): Camera {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        scale: Math.pow(zoomPower, zoomLevel),
+        scaleVelocity: 0,
         anchor: vec2.create(),
         snapped: false,
         panning: false,
@@ -1908,11 +1910,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         numWaitMoves: 0,
         hasOpenedMenu: false,
         finishedLevel: false,
-        zoomLevel: 3,
+        zoomLevel: initZoomLevel,
         seeAll: false,
         seeGuardSight: false,
         seeGuardPatrols: false,
-        camera: createCamera(gameMap.playerStartPos),
+        camera: createCamera(gameMap.playerStartPos, initZoomLevel),
         level: initialLevel,
         turns: 0,
         totalTurns: 0,
@@ -1940,6 +1942,14 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     postTurn(state);
 
     return state;
+}
+
+export function zoomIn(state: State) {
+    state.zoomLevel = Math.min(maxZoomLevel, state.zoomLevel + 1);
+}
+
+export function zoomOut(state: State) {
+    state.zoomLevel = Math.max(0, state.zoomLevel - 1);
 }
 
 function setCellAnimations(gameMap: GameMap, state: State) {
@@ -2026,7 +2036,7 @@ export function restartGame(state: State) {
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     clearLevelStats(state.levelStats);
     state.player = new Player(gameMap.playerStartPos);
-    state.camera = createCamera(gameMap.playerStartPos);
+    state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
     state.activeSoundPool.empty();
     state.popups.clear();
@@ -2052,7 +2062,7 @@ function resetState(state: State) {
     state.topStatusMessageAnim = 0;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
-    state.camera = createCamera(gameMap.playerStartPos);
+    state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
     state.popups.clear();
     state.activeSoundPool.empty();
@@ -2110,13 +2120,13 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     const screenSize = vec2.create();
     renderer.getScreenSize(screenSize);
 
+    updateControllerState(state);
+
     if (!state.camera.snapped) {
         state.camera.panning = false;
         state.camera.snapped = true;
         snapCamera(state, screenSize);
     }
-
-    updateControllerState(state);
 
     if (dt > 0) {
         updateState(state, screenSize, dt);
@@ -2243,12 +2253,12 @@ type PosTranslator = {
     worldToScreen: (vPos:vec2) => vec2;
 }
 
-function createPosTranslator(screenSize:vec2, cameraPos:vec2, zoomLevel:number): PosTranslator {
+function createPosTranslator(screenSize:vec2, cameraPos:vec2, zoomScale:number): PosTranslator {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
     const vpx = viewportPixelSize[0];
     const vpy = viewportPixelSize[1];
-    const vws = viewWorldSize(viewportPixelSize, zoomLevel);
+    const vws = viewWorldSize(viewportPixelSize, zoomScale);
     const vwsx = vws[0];
     const vwsy = vws[1];
     const cpx = cameraPos[0];
@@ -2283,8 +2293,8 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
         const dXScreen = touchController.lastMotion.x - touchController.lastMotion.x0;
         const dYScreen = touchController.lastMotion.y - touchController.lastMotion.y0;
-        const dXWorld = dXScreen / (pixelsPerTileX * state.zoomLevel);
-        const dYWorld = dYScreen / (pixelsPerTileY * state.zoomLevel);
+        const dXWorld = dXScreen / (pixelsPerTileX * state.camera.scale);
+        const dYWorld = dYScreen / (pixelsPerTileY * state.camera.scale);
         state.camera.panning = true;
         state.camera.position[0] -= dXWorld - state.camera.anchor[0];
         state.camera.position[1] -= dYWorld - state.camera.anchor[1];
@@ -2349,14 +2359,14 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
 function updateTouchButtonsMouse(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
     const viewportSizeX = screenSize[0];
     const viewportSizeY = screenSize[1] - 2*statusBarCharPixelSizeY;
-    const pt = createPosTranslator(screenSize, state.camera.position, state.zoomLevel);
+    const pt = createPosTranslator(screenSize, state.camera.position, state.camera.scale);
     const [x, y] = pt.screenToWorld(vec2.fromValues(0,statusBarCharPixelSizeY));
     const screenAlloc = pt.screenToWorld(vec2.fromValues(viewportSizeX, viewportSizeY));
     const h = screenAlloc[1]-y;
     let tt = renderer.tileSet.touchButtons;
     if(tt === undefined) tt = {};
 
-    const s = 4/state.zoomLevel;
+    const s = 4/state.camera.scale;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
         {action:'menu',    rect:new Rect(x,y+h-1.5*s,s,s), tileInfo:tt['menu'],    visible:true},
@@ -2410,16 +2420,29 @@ function updateTouchButtonsMouse(touchController:TouchController, renderer:Rende
 
 function updateCamera(state: State, screenSize: vec2, dt: number) {
 
+    const kSpring = 8; // spring constant, radians/sec
+
+    const scaleTarget = Math.pow(zoomPower, state.zoomLevel);
+
+    const scaleError = scaleTarget - state.camera.scale;
+    const scaleVelocityError = -state.camera.scaleVelocity;
+
+    const scaleAcceleration = (2 * scaleVelocityError + scaleError * kSpring) * kSpring;
+
+    const scaleVelocityNew = state.camera.scaleVelocity + scaleAcceleration * dt;
+    state.camera.scale += (state.camera.scaleVelocity + scaleVelocityNew) * (0.5 * dt);
+    state.camera.scaleVelocity = scaleVelocityNew;
+
     const velNew = vec2.create();
 
-    if(!state.camera.panning) {
+    if (!state.camera.panning) {
         // Figure out where the camera should be pointed
 
         const posCameraTarget = vec2.create();
         cameraTargetCenterPosition(
             posCameraTarget,
             vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
-            state.zoomLevel,
+            scaleTarget,
             screenSize,
             state.player.pos
         );
@@ -2432,14 +2455,11 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
         const velError = vec2.create();
         vec2.negate(velError, state.camera.velocity);
 
-        const kSpring = 8; // spring constant, radians/sec
-
         const acc = vec2.create();
         vec2.scale(acc, posError, kSpring**2);
         vec2.scaleAndAdd(acc, acc, velError, 2*kSpring);
 
         vec2.scaleAndAdd(velNew, state.camera.velocity, acc, dt);
-
     }
 
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
@@ -2448,29 +2468,31 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
 }
 
 function snapCamera(state: State, screenSize: vec2) {
+    state.camera.scale = Math.pow(zoomPower, state.zoomLevel);
+    state.camera.scaleVelocity = 0;
     cameraTargetCenterPosition(
         state.camera.position,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
-        state.zoomLevel,
+        state.camera.scale,
         screenSize,
         state.player.pos
     );
     vec2.zero(state.camera.velocity);
 }
 
-function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomLevel: number, screenSize: vec2, posPlayer: vec2) {
+function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
     const posCenterMin = vec2.create();
     const posCenterMax = vec2.create();
-    cameraCenterPositionLegalRange(worldSize, screenSize, zoomLevel, posCenterMin, posCenterMax);
+    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, posCenterMin, posCenterMax);
 
     posCameraCenter[0] = Math.max(posCenterMin[0], Math.min(posCenterMax[0], posPlayer[0] + 0.5));
     posCameraCenter[1] = Math.max(posCenterMin[1], Math.min(posCenterMax[1], posPlayer[1] + 0.5));
 }
 
-function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomLevel: number, posLegalMin: vec2, posLegalMax: vec2) {
+function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, posLegalMin: vec2, posLegalMax: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, zoomLevel);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, zoomScale);
 
     let viewCenterMinX = viewWorldSizeX / 2;
     let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
@@ -2496,16 +2518,16 @@ function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomL
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.zoomLevel);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
 
     const viewWorldCenterX = state.camera.position[0];
     const viewWorldCenterY = state.camera.position[1];
 
-    const tileZoom = state.zoomLevel;
+    const tileZoom = state.camera.scale;
     const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * tileZoom);
 
-    const viewWorldMinX = Math.floor(pixelsPerTileX * (viewWorldCenterX - viewWorldSizeX / 2)) / pixelsPerTileX;
-    const viewWorldMinY = Math.floor(pixelsPerTileY * (viewWorldCenterY - viewWorldSizeY / 2)) / pixelsPerTileY;
+    const viewWorldMinX = viewWorldCenterX - viewWorldSizeX / 2;
+    const viewWorldMinY = viewWorldCenterY - viewWorldSizeY / 2;
 
     mat4.ortho(
         matScreenFromWorld,
@@ -2518,8 +2540,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     );
 }
 
-function viewWorldSize(viewportPixelSize: vec2, zoomLevel: number): [number, number] {
-    const tileZoom = zoomLevel;
+function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, number] {
+    const tileZoom = zoomScale;
 
     const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
     const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;

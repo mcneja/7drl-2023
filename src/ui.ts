@@ -565,11 +565,9 @@ Score:      $totalScore$
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if (activated('zoomIn') || action=='zoomIn') {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
+            game.zoomIn(state);
         } else if (activated('zoomOut') || action=='zoomOut') {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
+            game.zoomOut(state);
         } else if (activated('restart') || action=='restart') {
             state.rng = new RNG();
             state.dailyRun = null;
@@ -607,11 +605,9 @@ $copyState$
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if (activated('zoomIn') || action=='zoomIn') {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
+            game.zoomIn(state);
         } else if (activated('zoomOut') || action=='zoomOut') {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
+            game.zoomOut(state);
         } else if (activated('restart') || action=='restart') {
             this.stateCopied = false;
             state.rng = new RNG();
@@ -653,11 +649,9 @@ $copyState$
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if (activated('zoomIn') || action=='zoomIn') {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
+            game.zoomIn(state);
         } else if (activated('zoomOut') || action=='zoomOut') {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
+            game.zoomOut(state);
         } else if (activated('restart') || action=='restart') {
             this.stateCopied = false;
             state.rng = new RNG();
@@ -750,11 +744,9 @@ Special thanks to Mendi Carroll
             this.activePage = 0;
             state.helpActive = false;
         } else if (activated('zoomIn') || action=='zoomIn') {
-            state.zoomLevel = Math.max(1, state.zoomLevel - 1);
-            state.camera.snapped = false;
+            game.zoomIn(state);
         } else if (activated('zoomOut') || action=='zoomOut') {
-            state.zoomLevel = Math.min(10, state.zoomLevel + 1);
-            state.camera.snapped = false;
+            game.zoomOut(state);
         } else if (activated('fullscreen') || action=='fullscreen') {
             if(document.fullscreenElement) {
                 document.exitFullscreen();
