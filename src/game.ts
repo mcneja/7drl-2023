@@ -2376,10 +2376,18 @@ function updateTouchButtonsMouse(touchController:TouchController, renderer:Rende
     const viewportPixelOffsetY = screenSize[1] / 2 - state.camera.position[1] * worldToPixelScaleY;
 
     for (const moveAction of moveActions) {
-        const x = (pp[0] + moveAction.dx) * worldToPixelScaleX + viewportPixelOffsetX;
-        const y = (pp[1] + moveAction.dy) * worldToPixelScaleY + viewportPixelOffsetY;
-        const rect = new Rect(x, y, worldToPixelScaleX, worldToPixelScaleY);
-        buttonData.push({action:moveAction.action, rect:rect, tileInfo:tt['picker'], visible:showMoveButton});
+        const wx = pp[0] + moveAction.dx;
+        const wy = pp[1] + moveAction.dy;
+        const sx = wx * worldToPixelScaleX + viewportPixelOffsetX;
+        const sy = wy * worldToPixelScaleY + viewportPixelOffsetY;
+        const rect = new Rect(sx, sy, worldToPixelScaleX, worldToPixelScaleY);
+        const showButton =
+            showMoveButton &&
+            wx >= 0 &&
+            wy >= 0 &&
+            wx < worldSizeX &&
+            wy < worldSizeY;
+        buttonData.push({action:moveAction.action, rect:rect, tileInfo:tt['picker'], visible:showButton});
     }
 
     const emptyRect = new Rect();
