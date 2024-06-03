@@ -2470,6 +2470,20 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
 }
 
 function snapCamera(state: State, screenSize: vec2) {
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const viewportTileSizeX = screenSize[0] / pixelsPerTileX;
+    const viewportTileSizeY = (screenSize[1] - 2 * statusBarPixelSizeY) / pixelsPerTileY;
+    const worldTileSizeX = state.gameMap.cells.sizeX;
+    const worldTileSizeY = state.gameMap.cells.sizeY;
+    if (viewportTileSizeX * worldTileSizeY < viewportTileSizeY * worldTileSizeX) {
+        // horizontal dimension is limiting dimension. zoom to fit horizontally
+        state.zoomLevel = Math.log(viewportTileSizeX / worldTileSizeX) / Math.log(zoomPower);
+    } else {
+        // vertical dimension is limiting. zoom to fit vertically
+        state.zoomLevel = Math.log(viewportTileSizeY / worldTileSizeY) / Math.log(zoomPower);
+    }
+    state.zoomLevel = Math.max(minZoomLevel, Math.floor(state.zoomLevel));
+
     state.camera.zoom = state.zoomLevel;
     state.camera.zoomVelocity = 0;
     state.camera.scale = Math.pow(zoomPower, state.camera.zoom);
