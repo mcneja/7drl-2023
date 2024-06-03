@@ -2556,7 +2556,7 @@ function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, num
 }
 
 function statusBarZoom(screenSizeX: number): number {
-    return Math.min(2, Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX))));
+    return Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX)));
 }
 
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
@@ -2643,30 +2643,23 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     let leftSideX = 1;
 
-    const msgHealth = 'Health';
-    putString(renderer, leftSideX, msgHealth, colorPreset.darkRed);
-    leftSideX += msgHealth.length + 1;
-
-    const glyphHeart = fontTileSet.heart.textureIndex;
-    for (let i = 0; i < maxPlayerHealth; ++i) {
-        const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.darkGray;
-        renderer.addGlyph(leftSideX, 0, leftSideX + 1, 1, {textureIndex:glyphHeart, color:color});
-        ++leftSideX;
-    }
-
-    // Underwater indicator
-
     const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
-    const msgAir = 'Air';
     if (playerUnderwater) {
-        ++leftSideX;
-        putString(renderer, leftSideX, msgAir, colorPreset.lightCyan);
-        leftSideX += msgAir.length + 1;
+        // Underwater indicator
 
         const glyphBubble = fontTileSet.air.textureIndex;
         for (let i = 0; i < maxPlayerTurnsUnderwater - 2; ++i) {
             const color = (i < state.player.turnsRemainingUnderwater - 1) ? colorPreset.lightCyan : colorPreset.darkGray;
             renderer.addGlyph(leftSideX, 0, leftSideX + 1, 1, {textureIndex:glyphBubble, color:color});
+            ++leftSideX;
+        }
+    } else {
+        // Health indicator
+
+        const glyphHeart = fontTileSet.heart.textureIndex;
+        for (let i = 0; i < maxPlayerHealth; ++i) {
+            const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.darkGray;
+            renderer.addGlyph(leftSideX, 0, leftSideX + 1, 1, {textureIndex:glyphHeart, color:color});
             ++leftSideX;
         }
     }
@@ -2680,21 +2673,22 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         leftSideX += msgLeapToggle.length;
     }
 
-    // Total loot
-
-    const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
-
     let rightSideX = statusBarTileSizeX;
 
-    let msgLoot = 'Loot ' + state.lootStolen + '/' + (percentRevealed >= 100 ? state.lootAvailable : '?');
-    rightSideX -= msgLoot.length + 1;
-    putString(renderer, rightSideX, msgLoot, colorPreset.lightYellow);
+    const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
+    if (percentRevealed >= 100) {
+        // Total loot
 
-    // Mapping percentage
+        let msgLoot = 'Loot ' + state.lootStolen + '/' + (percentRevealed >= 100 ? state.lootAvailable : '?');
+        rightSideX -= msgLoot.length + 1;
+        putString(renderer, rightSideX, msgLoot, colorPreset.lightYellow);
+    } else {
+        // Mapping percentage
 
-    let msgSeen = 'Map ' + percentRevealed + '%';
-    rightSideX -= msgSeen.length + 1;
-    putString(renderer, rightSideX, msgSeen, colorPreset.white);
+        let msgSeen = 'Map ' + percentRevealed + '%';
+        rightSideX -= msgSeen.length + 1;
+        putString(renderer, rightSideX, msgSeen, colorPreset.white);
+    }
 
     // Key possession
 
@@ -2708,10 +2702,12 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const msgLevel = 'Lvl ' + (state.level + 1);
 
-    let msgTimer = 'Turn ' + state.turns;
+    let msgTimer;
     const speedScore = calculateTimeBonus(state);
     if (speedScore > 0) {
-        msgTimer += ' (Speed ' + speedScore + ')';
+        msgTimer = 'Speed ' + speedScore;
+    } else {
+        msgTimer = 'Turns ' + state.turns;
     }
 
     const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);
