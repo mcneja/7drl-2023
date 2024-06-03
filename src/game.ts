@@ -2250,38 +2250,6 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     }
 }
 
-type PosTranslator = {
-    screenToWorld: (vPos:vec2) => vec2;
-    worldToScreen: (vPos:vec2) => vec2;
-}
-
-function createPosTranslator(screenSize:vec2, cameraPos:vec2, zoomScale:number): PosTranslator {
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
-    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const vpx = viewportPixelSize[0];
-    const vpy = viewportPixelSize[1];
-    const vws = viewWorldSize(viewportPixelSize, zoomScale);
-    const vwsx = vws[0];
-    const vwsy = vws[1];
-    const cpx = cameraPos[0];
-    const cpy = cameraPos[1];
-
-    return {
-        screenToWorld: (vPos:vec2) => {
-            return vec2.fromValues(
-                (vPos[0]-vpx/2)*vwsx/vpx + cpx, 
-                (vPos[1]-vpy/2 - 2*statusBarCharPixelSizeY)*vwsy/vpy + cpy
-            )
-        },
-        worldToScreen: (cPos:vec2) => {
-            return vec2.fromValues(
-                (cPos[0] - cpx)*vpx/vwsx + vpx/2,
-                (cPos[1] - cpy)*vpy/vwsy + vpy/2 + 2*statusBarCharPixelSizeY
-            )
-        }
-    }    
-}
-
 function updateTouchButtons(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
     //TODO: Perhaps should move more of the game-specific logic from touchcontroller class into here
     if (lastController !== touchController)
@@ -2317,19 +2285,17 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
 }
 
 function updateTouchButtonsGamepad(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
-    let tt = renderer.tileSet.touchButtons;
-    if(tt === undefined) tt = {};
+    const tt = (renderer.tileSet.touchButtons !== undefined) ? renderer.tileSet.touchButtons : {};
 
-    const viewportSizeX = screenSize[0];
-    const viewportSizeY = screenSize[1] - 2*statusBarCharPixelSizeY;
-    const buttonSizePixels = Math.floor(Math.min(viewportSizeX,viewportSizeY)/6);
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const x = 0;
+    const y = statusBarPixelSizeY;
+    const w = screenSize[0];
+    const h = screenSize[1] - 2*statusBarPixelSizeY;
+
+    const buttonSizePixels = Math.min(64, Math.floor(Math.min(w,h)/6));
     const bw = buttonSizePixels;
     const bh = buttonSizePixels;
-
-    const x = 0;
-    const y = statusBarCharPixelSizeY;
-    const w = screenSize[0];
-    const h = screenSize[1] - 2*statusBarCharPixelSizeY;
 
     const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
     const inStartMenus =
@@ -2339,16 +2305,16 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
             state.gameMode===GameMode.OptionsScreen;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',       rect:new Rect(x,y+h-bh,bw,bh),        tileInfo:tt['menu'],    visible:!inStartMenus},
-        {action:'zoomIn',     rect:new Rect(x+w-bw,y+h-2*bh,bw,bh), tileInfo:tt['zoomIn'],  visible:!inStartMenus},
-        {action:'zoomOut',    rect:new Rect(x+w-bw,y+h-bh,bw,bh),   tileInfo:tt['zoomOut'], visible:!inStartMenus},
-        {action:'left',       rect:new Rect(x,y+bh,bw,bh),          tileInfo:tt['left'],    visible:!inStartMenus},
-        {action:'right',      rect:new Rect(x+2*bw,y+bh,bw,bh),     tileInfo:tt['right'],   visible:!inStartMenus},
-        {action:'up',         rect:new Rect(x+bw,y+2*bh,bw,bh),     tileInfo:tt['up'],      visible:true},
-        {action:'down',       rect:new Rect(x+bw,y,bw,bh),          tileInfo:tt['down'],    visible:true},
-        {action:'wait',       rect:new Rect(x+bw,y+bh,bw,bh),       tileInfo:tt['wait'],    visible:inGame},
-        {action:'jump',       rect:new Rect(x+w-1.5*bw,y+0.75*bw,1.5*bw,1.5*bh), tileInfo:tt['jump'],       visible:inGame},
-        {action:'menuAccept', rect:new Rect(x+w-1.5*bw,y+0.75*bw,1.5*bw,1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
+        {action:'menu',       rect:new Rect(x,          y+h-bh,    bw,     bh),     tileInfo:tt['menu'],       visible:!inStartMenus},
+        {action:'zoomIn',     rect:new Rect(x+w-bw,     y+h-bh,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:!inStartMenus},
+        {action:'zoomOut',    rect:new Rect(x+w-bw,     y+h-2*bh,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:!inStartMenus},
+        {action:'left',       rect:new Rect(x,          y+bh,      bw,     bh),     tileInfo:tt['left'],       visible:!inStartMenus},
+        {action:'right',      rect:new Rect(x+2*bw,     y+bh,      bw,     bh),     tileInfo:tt['right'],      visible:!inStartMenus},
+        {action:'up',         rect:new Rect(x+bw,       y+2*bh,    bw,     bh),     tileInfo:tt['up'],         visible:true},
+        {action:'down',       rect:new Rect(x+bw,       y,         bw,     bh),     tileInfo:tt['down'],       visible:true},
+        {action:'wait',       rect:new Rect(x+bw,       y+bh,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
+        {action:'jump',       rect:new Rect(x+w-1.5*bw, y+0.75*bw, 1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
+        {action:'menuAccept', rect:new Rect(x+w-1.5*bw, y+0.75*bw, 1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
     ];
 
     const emptyRect = new Rect();
@@ -2359,21 +2325,22 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
 }
 
 function updateTouchButtonsMouse(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
-    const viewportSizeX = screenSize[0];
-    const viewportSizeY = screenSize[1] - 2*statusBarCharPixelSizeY;
-    const pt = createPosTranslator(screenSize, state.camera.position, state.camera.scale);
-    const [x, y] = pt.screenToWorld(vec2.fromValues(0,statusBarCharPixelSizeY));
-    const screenAlloc = pt.screenToWorld(vec2.fromValues(viewportSizeX, viewportSizeY));
-    const h = screenAlloc[1]-y;
-    let tt = renderer.tileSet.touchButtons;
-    if(tt === undefined) tt = {};
+    const tt = (renderer.tileSet.touchButtons !== undefined) ? renderer.tileSet.touchButtons : {};
 
-    const s = 4/state.camera.scale;
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const x = 0;
+    const y = statusBarPixelSizeY;
+    const w = screenSize[0];
+    const h = screenSize[1] - 2*statusBarPixelSizeY;
+
+    const buttonSizePixels = Math.min(64, Math.floor(Math.min(w,h)/6));
+    const bw = buttonSizePixels;
+    const bh = buttonSizePixels;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',    rect:new Rect(x,y+h-1.5*s,s,s), tileInfo:tt['menu'],    visible:true},
-        {action:'zoomOut', rect:new Rect(x,y+h-2.5*s,s,s), tileInfo:tt['zoomOut'], visible:true},
-        {action:'zoomIn',  rect:new Rect(x,y+h-3.5*s,s,s), tileInfo:tt['zoomIn'],  visible:true},
+        {action:'menu',    rect:new Rect(x, y+h-bh,   bw, bh), tileInfo:tt['menu'],    visible:true},
+        {action:'zoomIn',  rect:new Rect(x, y+h-2*bh, bw, bh), tileInfo:tt['zoomIn'],  visible:true},
+        {action:'zoomOut', rect:new Rect(x, y+h-3*bh, bw, bh), tileInfo:tt['zoomOut'], visible:true},
     ];
 
     const moveActions = [
@@ -2401,22 +2368,24 @@ function updateTouchButtonsMouse(touchController:TouchController, renderer:Rende
         state.finishedLevel &&
         (pp[0]===0 || pp[1]===0 || pp[0]===worldSizeX-1 || pp[1]===worldSizeY-1);
 
-    buttonData.push({action:'exitLevel', rect:new Rect(x,y+h-4.5*s,s,s), tileInfo:tt['exitLevel'], visible:showExitButton});
+    buttonData.push({action:'exitLevel', rect:new Rect(x,y+h-4*bh,bw,bh), tileInfo:tt['exitLevel'], visible:showExitButton});
+
+    const worldToPixelScaleX = pixelsPerTileX * state.camera.scale;
+    const worldToPixelScaleY = pixelsPerTileY * state.camera.scale;
+    const viewportPixelOffsetX = screenSize[0] / 2 - state.camera.position[0] * worldToPixelScaleX;
+    const viewportPixelOffsetY = screenSize[1] / 2 - state.camera.position[1] * worldToPixelScaleY;
 
     for (const moveAction of moveActions) {
-        const x = pp[0] + moveAction.dx;
-        const y = pp[1] + moveAction.dy;
-        buttonData.push({action:moveAction.action, rect:new Rect(x,y,1,1), tileInfo:tt['picker'], visible:showMoveButton});
+        const x = (pp[0] + moveAction.dx) * worldToPixelScaleX + viewportPixelOffsetX;
+        const y = (pp[1] + moveAction.dy) * worldToPixelScaleY + viewportPixelOffsetY;
+        const rect = new Rect(x, y, worldToPixelScaleX, worldToPixelScaleY);
+        buttonData.push({action:moveAction.action, rect:rect, tileInfo:tt['picker'], visible:showMoveButton});
     }
 
     const emptyRect = new Rect();
 
     for(const b of buttonData) {
-        const rectGame = b.rect;
-        const xy0 = pt.worldToScreen(vec2.fromValues(rectGame[0],rectGame[1]));
-        const xy1 = pt.worldToScreen(vec2.fromValues(rectGame[0]+rectGame[2],rectGame[1]+rectGame[3]));
-        const rectScreen = new Rect(xy0[0], xy0[1], xy1[0]-xy0[0], xy1[1]-xy0[1]);
-        touchController.updateCoreTouchTarget(b.action, emptyRect, b.visible ? rectScreen : emptyRect, b.tileInfo);
+        touchController.updateCoreTouchTarget(b.action, emptyRect, b.visible ? b.rect : emptyRect, b.tileInfo);
     }
 }
 
@@ -2540,8 +2509,7 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const viewWorldCenterX = state.camera.position[0];
     const viewWorldCenterY = state.camera.position[1];
 
-    const tileZoom = state.camera.scale;
-    const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * tileZoom);
+    const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * state.camera.scale);
 
     const viewWorldMinX = viewWorldCenterX - viewWorldSizeX / 2;
     const viewWorldMinY = viewWorldCenterY - viewWorldSizeY / 2;
@@ -2558,10 +2526,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
 }
 
 function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, number] {
-    const tileZoom = zoomScale;
-
-    const zoomedPixelsPerTileX = pixelsPerTileX * tileZoom;
-    const zoomedPixelsPerTileY = pixelsPerTileY * tileZoom;
+    const zoomedPixelsPerTileX = pixelsPerTileX * zoomScale;
+    const zoomedPixelsPerTileY = pixelsPerTileY * zoomScale;
 
     const viewWorldSizeX = viewportPixelSize[0] / zoomedPixelsPerTileX;
     const viewWorldSizeY = viewportPixelSize[1] / zoomedPixelsPerTileY;
