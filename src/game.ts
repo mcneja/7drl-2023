@@ -2482,7 +2482,7 @@ function snapCamera(state: State, screenSize: vec2) {
         // vertical dimension is limiting. zoom to fit vertically
         state.zoomLevel = Math.log(viewportTileSizeY / worldTileSizeY) / Math.log(zoomPower);
     }
-    state.zoomLevel = Math.max(minZoomLevel, Math.floor(state.zoomLevel));
+    state.zoomLevel = Math.max(0, Math.floor(state.zoomLevel));
 
     state.camera.zoom = state.zoomLevel;
     state.camera.zoomVelocity = 0;
