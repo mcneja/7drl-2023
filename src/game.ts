@@ -159,25 +159,21 @@ function updateControllerState(state:State) {
     }
     
     function onControlsInMansion(controller: Controller) {
-        if(state.camera.panning) {
-            state.camera.velocity[0] = 0;
-            state.camera.velocity[1] = 0;
-        }
         if (controller.controlStates['panLeft']) {
             state.camera.panning = true;
-            state.camera.velocity[0] = -1000 * state.dt;
+            state.camera.position[0] -= 1 / state.camera.zoom;
         }
         if (controller.controlStates['panRight']) {
             state.camera.panning = true;
-            state.camera.velocity[0] = +1000 * state.dt;
+            state.camera.position[0] += 1 / state.camera.zoom;
         }
         if (controller.controlStates['panUp']) {
             state.camera.panning = true;
-            state.camera.velocity[1] = +1000 * state.dt;
+            state.camera.position[1] += 1 / state.camera.zoom;
         }
         if (controller.controlStates['panDown']) {
             state.camera.panning = true;
-            state.camera.velocity[1] = -1000 * state.dt;
+            state.camera.position[1] -= 1 / state.camera.zoom;
         }
         if (controller.controlStates['snapToPlayer']) {
             state.camera.panning = false;
@@ -1948,10 +1944,12 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
 export function zoomIn(state: State) {
     state.zoomLevel = Math.min(maxZoomLevel, state.zoomLevel + 1);
+    state.camera.panning = false;
 }
 
 export function zoomOut(state: State) {
     state.zoomLevel = Math.max(minZoomLevel, state.zoomLevel - 1);
+    state.camera.panning = false;
 }
 
 function setCellAnimations(gameMap: GameMap, state: State) {
@@ -2293,7 +2291,7 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const w = screenSize[0];
     const h = screenSize[1] - 2*statusBarPixelSizeY;
 
-    const buttonSizePixels = Math.min(64, Math.floor(Math.min(w,h)/6));
+    const buttonSizePixels = Math.min(96, Math.floor(Math.min(w,h)/6));
     const bw = buttonSizePixels;
     const bh = buttonSizePixels;
 
@@ -2422,6 +2420,7 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
             posCameraTarget,
             vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
             scaleTarget,
+            lastController===state.touchController && !state.touchController.mouseActive,
             screenSize,
             state.player.pos
         );
@@ -2468,31 +2467,37 @@ function snapCamera(state: State, screenSize: vec2) {
         state.camera.position,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
         state.camera.scale,
+        lastController===state.touchController && !state.touchController.mouseActive,
         screenSize,
         state.player.pos
     );
     vec2.zero(state.camera.velocity);
 }
 
-function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
+function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, showGamepad: boolean, screenSize: vec2, posPlayer: vec2) {
     const posCenterMin = vec2.create();
     const posCenterMax = vec2.create();
-    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, posCenterMin, posCenterMax);
+    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, showGamepad, posCenterMin, posCenterMax);
 
     posCameraCenter[0] = Math.max(posCenterMin[0], Math.min(posCenterMax[0], posPlayer[0] + 0.5));
     posCameraCenter[1] = Math.max(posCenterMin[1], Math.min(posCenterMax[1], posPlayer[1] + 0.5));
 }
 
-function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, posLegalMin: vec2, posLegalMax: vec2) {
+function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, showGamepad: boolean, posLegalMin: vec2, posLegalMax: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, zoomScale);
+    const buttonSizePixels = Math.min(96, Math.floor(Math.min(viewportPixelSize[0],viewportPixelSize[1])/6));
+    const pixelsPerTileZoomedX = pixelsPerTileX * zoomScale;
+    const pixelsPerTileZoomedY = pixelsPerTileY * zoomScale;
+    const minPlayerPixelX = showGamepad ? 3 * buttonSizePixels : 0;
+    const maxPlayerPixelX = showGamepad ? 1.5 * buttonSizePixels : 0;
+    const viewWorldSizeY = viewportPixelSize[1] / pixelsPerTileZoomedY;
 
-    let viewCenterMinX = viewWorldSizeX / 2;
-    let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
+    let viewCenterMinX = (viewportPixelSize[0] / 2 - minPlayerPixelX) / pixelsPerTileZoomedX;
+    let viewCenterMaxX = worldSize[0] - (viewportPixelSize[0] / 2 - maxPlayerPixelX) / pixelsPerTileZoomedX;
 
     if (viewCenterMinX > viewCenterMaxX) {
-        viewCenterMinX = viewCenterMaxX = worldSize[0] / 2;
+        viewCenterMinX = viewCenterMaxX = worldSize[0] / 2 - (minPlayerPixelX - maxPlayerPixelX) / (2 * pixelsPerTileZoomedX);
     }
 
     let viewCenterMinY = viewWorldSizeY / 2;
