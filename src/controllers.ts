@@ -303,9 +303,8 @@ class GamepadController extends Controller {
 class GamepadManager {
     gamepads: {[id:number]:GamepadController};
     constructor() {
-        let that = this;
-        window.addEventListener("gamepadconnected", function(e){that.connected(e)});
-        window.addEventListener("gamepaddisconnected", function(e){that.disconnected(e)});
+        window.addEventListener("gamepadconnected", e=>this.connected(e));
+        window.addEventListener("gamepaddisconnected", e=>this.disconnected(e));
         this.gamepads = {};
     }
     connected(e:GamepadEvent) {
@@ -328,8 +327,8 @@ class GamepadManager {
             c.setPressed("wait", buttonPressed(g, 2));
             c.setPressed("menuAccept", buttonPressed(g, 2)||buttonPressed(g, 0));
 //            c.setPressed("startLevel", buttonPressed(g, 3));
-            c.setPressed("zoomIn", buttonPressed(g, 6));
-            c.setPressed("zoomOut", buttonPressed(g, 7));
+            c.setPressed("zoomOut", buttonPressed(g, 6));
+            c.setPressed("zoomIn", buttonPressed(g, 7));
 //            c.setPressed("fullscreen", buttonPressed(g, 8));
 //            c.setPressed("restart", buttonPressed(g, 5));
             c.setPressed("menu", buttonPressed(g, 9));
