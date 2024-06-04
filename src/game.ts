@@ -52,9 +52,10 @@ function loadResourcesThenRun() {
 function main(images: Array<HTMLImageElement>) {
 
     const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
-    document.body.addEventListener('keydown', onKeyDown);
-    canvas.addEventListener('mousedown', onMouseDown);
-    canvas.addEventListener('touchstart', onTouchDown);
+    document.body.addEventListener('keydown', e=>ensureInitSound());
+    canvas.addEventListener('mousedown', e=>ensureInitSound());
+    canvas.addEventListener('touchstart', e=>ensureInitSound());
+    window.addEventListener("gamepadconnected", e=>ensureInitSound());
 
     const renderer = new Renderer(canvas, tileSet, fontTileSet);
     const sounds:Howls = {};
@@ -63,22 +64,9 @@ function main(images: Array<HTMLImageElement>) {
     const touchController = new TouchController(canvas, true);
     const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
 
-    function onTouchDown(e: TouchEvent) {
+    function ensureInitSound() {
         if (Object.keys(state.sounds).length==0) {
             setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
-            e.preventDefault();
-        }
-    }
-    function onMouseDown(e: MouseEvent) {
-        if (Object.keys(state.sounds).length==0) {
-            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
-            e.preventDefault();
-        }
-    }
-    function onKeyDown(e: KeyboardEvent) {
-        if (Object.keys(state.sounds).length==0) {
-            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
-            e.preventDefault();
         }
     }
     
