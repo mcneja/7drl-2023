@@ -2408,7 +2408,6 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
             posCameraTarget,
             vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
             scaleTarget,
-            lastController===state.touchController && !state.touchController.mouseActive,
             screenSize,
             state.player.pos
         );
@@ -2455,37 +2454,33 @@ function snapCamera(state: State, screenSize: vec2) {
         state.camera.position,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
         state.camera.scale,
-        lastController===state.touchController && !state.touchController.mouseActive,
         screenSize,
         state.player.pos
     );
     vec2.zero(state.camera.velocity);
 }
 
-function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, showGamepad: boolean, screenSize: vec2, posPlayer: vec2) {
+function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
     const posCenterMin = vec2.create();
     const posCenterMax = vec2.create();
-    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, showGamepad, posCenterMin, posCenterMax);
+    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, posCenterMin, posCenterMax);
 
     posCameraCenter[0] = Math.max(posCenterMin[0], Math.min(posCenterMax[0], posPlayer[0] + 0.5));
     posCameraCenter[1] = Math.max(posCenterMin[1], Math.min(posCenterMax[1], posPlayer[1] + 0.5));
 }
 
-function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, showGamepad: boolean, posLegalMin: vec2, posLegalMax: vec2) {
+function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, posLegalMin: vec2, posLegalMax: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
-    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
-    const buttonSizePixels = Math.min(96, Math.floor(Math.min(viewportPixelSize[0],viewportPixelSize[1])/6));
-    const pixelsPerTileZoomedX = pixelsPerTileX * zoomScale;
-    const pixelsPerTileZoomedY = pixelsPerTileY * zoomScale;
-    const minPlayerPixelX = showGamepad ? 3 * buttonSizePixels : 0;
-    const maxPlayerPixelX = showGamepad ? 1.5 * buttonSizePixels : 0;
-    const viewWorldSizeY = viewportPixelSize[1] / pixelsPerTileZoomedY;
+    const viewPixelSizeX = screenSize[0];
+    const viewPixelSizeY = screenSize[1] - 2 * statusBarPixelSizeY;
+    const viewWorldSizeX = viewPixelSizeX / (pixelsPerTileX * zoomScale);
+    const viewWorldSizeY = viewPixelSizeY / (pixelsPerTileY * zoomScale);
 
-    let viewCenterMinX = (viewportPixelSize[0] / 2 - minPlayerPixelX) / pixelsPerTileZoomedX;
-    let viewCenterMaxX = worldSize[0] - (viewportPixelSize[0] / 2 - maxPlayerPixelX) / pixelsPerTileZoomedX;
+    let viewCenterMinX = viewWorldSizeX / 2;
+    let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
 
     if (viewCenterMinX > viewCenterMaxX) {
-        viewCenterMinX = viewCenterMaxX = worldSize[0] / 2 - (minPlayerPixelX - maxPlayerPixelX) / (2 * pixelsPerTileZoomedX);
+        viewCenterMinX = viewCenterMaxX = worldSize[0] / 2;
     }
 
     let viewCenterMinY = viewWorldSizeY / 2;
