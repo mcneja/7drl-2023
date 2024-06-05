@@ -343,7 +343,6 @@ class OptionsScreen extends TextWindow {
     pages = [
 `                  Options
 
-[T|gamepadStyleTouch]      Touch controls as $touchMode$
 [K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
 [D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
 [Ctrl+R|forceRestart] Reset data
@@ -351,29 +350,13 @@ class OptionsScreen extends TextWindow {
 [Esc|menu]    Back to menu`,
     ];
     update(state: State): void {
-        let touchMode = window.localStorage.getItem('LLL/touchMode');
-        if(touchMode === null) {
-            touchMode = state.touchAsGamepad? 'Gamepad': 'Mouse';
-            window.localStorage.setItem('LLL/touchMode', touchMode);
-        }
         this.state.set('keyRepeatRate', state.keyRepeatRate.toString());
         this.state.set('keyRepeatDelay', state.keyRepeatDelay.toString());
-        this.state.set('touchMode', touchMode);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
-        } else if(activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
-            if(state.touchAsGamepad) {
-                state.touchAsGamepad = false;
-                state.touchController.setTouchConfig(false);
-                window.localStorage.setItem('LLL/touchMode','Mouse');
-            } else {
-                state.touchAsGamepad = true;
-                state.touchController.setTouchConfig(true);
-                window.localStorage.setItem('LLL/touchMode','Gamepad');
-            }
         } else if(activated('keyRepeatRate') || action=='keyRepeatRate') {
             state.keyRepeatRate -= 50;
             if(state.keyRepeatRate<100) state.keyRepeatRate = 400;
@@ -757,10 +740,6 @@ Special thanks to Mendi Carroll
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
-        } else if (activated('gamepadStyleTouch') || action=='gamepadStyleTouch') {
-            state.touchAsGamepad = !state.touchAsGamepad;
-            state.touchController.setTouchConfig(state.touchAsGamepad);
-            state.topStatusMessage = state.touchAsGamepad ? 'Touch gamepad enabled' : 'Touch gamepad disabled (touch map to move)';
         } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
             this.prevPage();
         } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {

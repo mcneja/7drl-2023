@@ -124,7 +124,6 @@ type State = {
     activeSoundPool: ActiveHowlPool;
     guardMute: boolean;
     volumeMute: boolean;
-    touchAsGamepad: boolean;
     touchController: TouchController;
     keyboardController: KeyboardController;
     gamepadManager: GamepadManager;

@@ -200,12 +200,6 @@ function updateControllerState(state:State) {
             tryPlayerLeap(state, 0, 1);
         } else if (activated('wait')) {
             tryPlayerWait(state);
-        } else if (activated('exitLevel')) {
-            if (state.level >= gameConfig.numGameMaps - 1) {
-                advanceToWin(state);
-            } else {
-                advanceToBetweenMansions(state);
-            }
         } else if (activated('menu')) {
             if(state.player.health>0) {
                 state.helpActive = true;
@@ -1842,8 +1836,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
-    const touchMode = window.localStorage.getItem('LLL/touchMode')?? 'Gamepad';
-    const touchAsGamepad = touchMode==='Gamepad';
     let keyRepeatRate = parseInt(window.localStorage.getItem('LLL/keyRepeatRate')??'175');
     if(isNaN(keyRepeatRate)) keyRepeatRate = 175;
     let keyRepeatDelay = parseInt(window.localStorage.getItem('LLL/keyRepeatDelay')??'250');
@@ -1916,7 +1908,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         keyRepeatActive: undefined,
         keyRepeatRate: keyRepeatRate,
         keyRepeatDelay: keyRepeatDelay,
-        touchAsGamepad: touchAsGamepad,
         touchController: touchController,
         gamepadManager: new GamepadManager(),
         keyboardController: new KeyboardController(),
@@ -2241,9 +2232,6 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     if (lastController !== touchController)
         return;
 
-    const touchAsGamepad = state.touchAsGamepad && !(lastController===state.touchController && state.touchController.mouseActive);
-    state.touchController.setTouchConfig(touchAsGamepad);
-
     const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
 
     if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
@@ -2261,11 +2249,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
         state.camera.anchor[1] = 0;
     }
 
-    if (touchAsGamepad) {
-        updateTouchButtonsGamepad(touchController, renderer, screenSize, state);
-    } else {
-        updateTouchButtonsMouse(touchController, renderer, screenSize, state);
-    }
+    updateTouchButtonsGamepad(touchController, renderer, screenSize, state);
 
     touchController.activateTouchTargets(menu ? menu.touchTargets : undefined);
 }
@@ -2302,79 +2286,6 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
         {action:'jump',       rect:new Rect(x+w-1.5*bw, y+0.75*bw, 1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
         {action:'menuAccept', rect:new Rect(x+w-1.5*bw, y+0.75*bw, 1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
     ];
-
-    const emptyRect = new Rect();
-
-    for(const b of buttonData) {
-        touchController.updateCoreTouchTarget(b.action, emptyRect, b.visible ? b.rect : emptyRect, b.tileInfo);
-    }
-}
-
-function updateTouchButtonsMouse(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
-    const tt = (renderer.tileSet.touchButtons !== undefined) ? renderer.tileSet.touchButtons : {};
-
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
-    const x = 0;
-    const y = statusBarPixelSizeY;
-    const w = screenSize[0];
-    const h = screenSize[1] - 2*statusBarPixelSizeY;
-
-    const buttonSizePixels = Math.min(64, Math.floor(Math.min(w,h)/6));
-    const bw = buttonSizePixels;
-    const bh = buttonSizePixels;
-
-    const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',    rect:new Rect(x, y+h-bh,   bw, bh), tileInfo:tt['menu'],    visible:true},
-        {action:'zoomIn',  rect:new Rect(x, y+h-2*bh, bw, bh), tileInfo:tt['zoomIn'],  visible:true},
-        {action:'zoomOut', rect:new Rect(x, y+h-3*bh, bw, bh), tileInfo:tt['zoomOut'], visible:true},
-    ];
-
-    const moveActions = [
-        {action:'wait',      dx: 0,dy: 0},
-        {action:'left',      dx:-1,dy: 0},
-        {action:'right',     dx: 1,dy: 0},
-        {action:'up',        dx: 0,dy: 1},
-        {action:'down',      dx: 0,dy:-1},
-        {action:'jumpLeft',  dx:-2,dy: 0},
-        {action:'jumpRight', dx: 2,dy: 0},
-        {action:'jumpUp',    dx: 0,dy: 2},
-        {action:'jumpDown',  dx: 0,dy:-2},
-    ];
-
-    const worldSizeX = state.gameMap.cells.sizeX;
-    const worldSizeY = state.gameMap.cells.sizeY;
-    const pp = state.player.pos;
-
-    const showMoveButton =
-        state.gameMode === GameMode.Mansion &&
-        !state.helpActive;
-
-    const showExitButton =
-        showMoveButton &&
-        state.finishedLevel &&
-        (pp[0]===0 || pp[1]===0 || pp[0]===worldSizeX-1 || pp[1]===worldSizeY-1);
-
-    buttonData.push({action:'exitLevel', rect:new Rect(x,y+h-4*bh,bw,bh), tileInfo:tt['exitLevel'], visible:showExitButton});
-
-    const worldToPixelScaleX = pixelsPerTileX * state.camera.scale;
-    const worldToPixelScaleY = pixelsPerTileY * state.camera.scale;
-    const viewportPixelOffsetX = screenSize[0] / 2 - state.camera.position[0] * worldToPixelScaleX;
-    const viewportPixelOffsetY = screenSize[1] / 2 - state.camera.position[1] * worldToPixelScaleY;
-
-    for (const moveAction of moveActions) {
-        const wx = pp[0] + moveAction.dx;
-        const wy = pp[1] + moveAction.dy;
-        const sx = wx * worldToPixelScaleX + viewportPixelOffsetX;
-        const sy = wy * worldToPixelScaleY + viewportPixelOffsetY;
-        const rect = new Rect(sx, sy, worldToPixelScaleX, worldToPixelScaleY);
-        const showButton =
-            showMoveButton &&
-            wx >= 0 &&
-            wy >= 0 &&
-            wx < worldSizeX &&
-            wy < worldSizeY;
-        buttonData.push({action:moveAction.action, rect:rect, tileInfo:tt['picker'], visible:showButton});
-    }
 
     const emptyRect = new Rect();
 

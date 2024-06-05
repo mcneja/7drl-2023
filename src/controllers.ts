@@ -38,7 +38,6 @@ const controlStates:ControlStates = {
     'jumpToggle': false,
     'restart': false,
     'startLevel': false,
-    'exitLevel': false,
     'guardMute': false,
     'volumeMute': false,
     'volumeDown': false,
@@ -52,7 +51,6 @@ const controlStates:ControlStates = {
     'guardPatrols': false,
     'nextLevel': false,
     'prevLevel': false,
-    'gamepadStyleTouch': false,
     'fullscreen': false,
     'serverConfig': false,
     'today':false,
@@ -98,7 +96,6 @@ const defaultKeyMap:KeyMap = {
     'KeyF': ['jumpToggle', 'fullscreen'],
     'NumpadAdd': ['jumpToggle', 'nextDay'],
     'NumpadSubtract': ['priorDay'],
-    'KeyT': ['gamepadStyleTouch'],
     'Escape' : ['menu', 'menuClose'],
     'Slash' : ['menu', 'menuClose'],
     'KeyR': ['restart'],
@@ -376,7 +373,7 @@ class TouchController extends Controller {
     touchTargets: TouchTargets;
     mouseActive: boolean = false;
     targetOnTouchDown: string|null = null;
-    constructor(canvas: HTMLCanvasElement, asGamepad:boolean) {
+    constructor(canvas: HTMLCanvasElement) {
         super();
         this.canvas = canvas;
         // Register touch event handlers
@@ -391,50 +388,26 @@ class TouchController extends Controller {
         this.lastMotion = {id:-1,active:false,x0:0,y0:0,x:0,y:0};
 
         this.coreTouchTargets = {
-            'up':           {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'down':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'left':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'right':        {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'jumpUp':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'jumpDown':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'jumpLeft':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'jumpRight':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'wait':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'exitLevel':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',  tileInfo:null},
-            'jump':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
-            'menuAccept':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
-            'pan':          {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'press',   tileInfo:null},
-            'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'restart':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'forceRestart': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'menu':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
-            'fullscreen':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'release', show:'always',   tileInfo:null},
+            'up':           {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'down':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'left':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'right':        {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'jumpUp':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'press',  tileInfo:null},
+            'jumpDown':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'press',  tileInfo:null},
+            'jumpLeft':     {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'press',  tileInfo:null},
+            'jumpRight':    {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'press',  tileInfo:null},
+            'wait':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'jump':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'menuAccept':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'pan':          {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'zoomIn':       {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'zoomOut':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'restart':      {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'forceRestart': {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'menu':         {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
+            'fullscreen':   {id:-1, view:new Rect(), game:new Rect(), touchXY:[0,0], trigger:'press', show:'always', tileInfo:null},
         };
         this.touchTargets = this.coreTouchTargets;
-        this.setTouchConfig(asGamepad);
-    }
-    setTouchConfig(asGamepad:boolean) {
-        if(asGamepad) {
-            for (let c of ['up','down','left','right','wait','jump','pan','menuAccept']) {
-                this.coreTouchTargets[c].trigger = 'press';
-                this.coreTouchTargets[c].show = 'always';
-            }
-            for(let c of ['jumpUp','jumpDown','jumpLeft','jumpRight']) {
-                this.coreTouchTargets[c].trigger = 'press';
-                this.coreTouchTargets[c].show = 'press';
-            }
-        } else {
-            for (let c of ['exitLevel']) {
-                this.coreTouchTargets[c].trigger = 'press';
-                this.coreTouchTargets[c].show = 'always';
-            }
-            for (let c of ['up','down','left','right','pan','jumpUp','jumpDown',
-                'jumpLeft','jumpRight','wait','jump','menuAccept']) {
-                this.coreTouchTargets[c].trigger = 'release';
-                this.coreTouchTargets[c].show = 'press';
-            }
-        }
     }
     clearMotion() {
         this.lastMotion.active = false;

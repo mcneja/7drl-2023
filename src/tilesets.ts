@@ -105,7 +105,6 @@ const tileSet31Color:TileSet = {
         'left':             {textureIndex: r([0,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'right':            {textureIndex: r([1,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'wait':             {textureIndex: r([4,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
-        'exitLevel':        {textureIndex: r([9,  1]), color:0xff00ffff, unlitColor:0xff00ffff},
         'jump':             {textureIndex: r([5,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'menuAccept':       {textureIndex: r([4,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'zoomOut':          {textureIndex: r([6,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
@@ -115,9 +114,6 @@ const tileSet31Color:TileSet = {
         'nextLevel':        {textureIndex: r([9,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'restart':          {textureIndex: r([10, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'forceRestart':     {textureIndex: r([10, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
-        'gamepadTouchOn':   {textureIndex: r([12, 1]), color:0xa0ffffff, unlitColor:0xffffffff},
-        'gamepadTouchOff':  {textureIndex: r([12, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
-        'picker':           {textureIndex: r([13, 1]), color:0xff00ffff, unlitColor:0xff00ffff},
         'fullscreen':       {textureIndex: r([14, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
     },
     terrainTiles: [ 
