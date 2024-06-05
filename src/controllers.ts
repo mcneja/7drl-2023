@@ -318,28 +318,36 @@ class GamepadManager {
         let gps = navigator.getGamepads(); 
         if(gps==null)
             return;
-        for(let g of gps) {
+        for(const g of gps) {
             if(g==null)
                 continue;
             let c = this.gamepads[g.index];
             c.gamepad = g; //put the latest state in the gamepad object
             c.setPressed("jump", buttonPressed(g, 0));
             c.setPressed("wait", buttonPressed(g, 2));
-            c.setPressed("menuAccept", buttonPressed(g, 2)||buttonPressed(g, 0));
+            c.setPressed("menuAccept", buttonPressed(g, 0)||buttonPressed(g, 2));
 //            c.setPressed("startLevel", buttonPressed(g, 3));
-            c.setPressed("zoomOut", buttonPressed(g, 6));
-            c.setPressed("zoomIn", buttonPressed(g, 7));
+            c.setPressed("zoomOut", buttonPressed(g, 6) && !buttonPressed(g, 7));
+            c.setPressed("zoomIn", buttonPressed(g, 7) && !buttonPressed(g, 6));
 //            c.setPressed("fullscreen", buttonPressed(g, 8));
 //            c.setPressed("restart", buttonPressed(g, 5));
             c.setPressed("menu", buttonPressed(g, 9));
-            c.setPressed("left", buttonPressed(g, 14) || g.axes[0]<-c.thresh && (g.axes[0]<-0.5*Math.abs(g.axes[1])));
-            c.setPressed("right", buttonPressed(g, 15) || g.axes[0]>c.thresh && (g.axes[0]>0.5*Math.abs(g.axes[1])));
-            c.setPressed("up", buttonPressed(g, 12) || g.axes[1]<-c.thresh && (g.axes[1]<-0.5*Math.abs(g.axes[0])));
-            c.setPressed("down", buttonPressed(g, 13) || g.axes[1]>c.thresh    && (g.axes[1]>-0.5*Math.abs(g.axes[0])));
-            c.setPressed("panLeft", g.axes[2]<-c.thresh && (g.axes[2]<-0.5*Math.abs(g.axes[3])));
-            c.setPressed("panRight", g.axes[2]>c.thresh && (g.axes[2]>0.5*Math.abs(g.axes[3])));
-            c.setPressed("panUp", g.axes[3]<-c.thresh && (g.axes[3]<-0.5*Math.abs(g.axes[2])));
-            c.setPressed("panDown", g.axes[3]>c.thresh    && (g.axes[3]>-0.5*Math.abs(g.axes[2])));
+            c.setPressed("left",
+                (buttonPressed(g, 14) && !buttonPressed(g, 12) && !buttonPressed(g, 13)) ||
+                (g.axes[0]<-c.thresh && Math.abs(g.axes[1]) < 0.5 * Math.abs(g.axes[0])));
+            c.setPressed("right",
+                (buttonPressed(g, 15) && !buttonPressed(g, 12) && !buttonPressed(g, 13)) ||
+                (g.axes[0]>c.thresh && Math.abs(g.axes[1]) < 0.5 * Math.abs(g.axes[0])));
+            c.setPressed("up",
+                (buttonPressed(g, 12) && !buttonPressed(g, 14) && !buttonPressed(g, 15)) ||
+                (g.axes[1]<-c.thresh && Math.abs(g.axes[0]) < 0.5 * Math.abs(g.axes[1])));
+            c.setPressed("down",
+                (buttonPressed(g, 13) && !buttonPressed(g, 14) && !buttonPressed(g, 15)) ||
+                (g.axes[1]>c.thresh && Math.abs(g.axes[0]) < 0.5 * Math.abs(g.axes[1])));
+            c.setPressed("panLeft", g.axes[2]<-c.thresh);
+            c.setPressed("panRight", g.axes[2]>c.thresh);
+            c.setPressed("panUp", g.axes[3]<-c.thresh);
+            c.setPressed("panDown", g.axes[3]>c.thresh);
         }
     }
 }
