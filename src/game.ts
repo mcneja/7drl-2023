@@ -28,8 +28,8 @@ const tileSet = getTileSet();
 const fontTileSet = getFontTileSet();
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-let canvasSizeX: number = 300;
-let canvasSizeY: number = 150;
+let canvasSizeX: number = canvas.clientWidth;
+let canvasSizeY: number = canvas.clientHeight;
 
 window.onload = loadResourcesThenRun;
 
