@@ -1777,6 +1777,7 @@ function createCamera(posPlayer: vec2, zoomLevel: number): Camera {
         scale: Math.pow(zoomPower, zoomLevel),
         anchor: vec2.create(),
         snapped: false,
+        zoomed: false,
         panning: false,
     };
 
@@ -2105,6 +2106,11 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 
     state.topStatusMessageAnim = Math.max(0, state.topStatusMessageAnim - 4 * dt);
 
+    if (!state.camera.zoomed) {
+        state.camera.zoomed = true;
+        zoomToFitCamera(state, screenSize);
+    }
+
     if (!state.camera.snapped) {
         state.camera.panning = false;
         state.camera.snapped = true;
@@ -2267,9 +2273,10 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const w = screenSize[0];
     const h = screenSize[1] - 2*statusBarPixelSizeY;
 
-    const buttonSizePixels = Math.min(96, Math.floor(Math.min(w,h)/6));
+    const buttonSizePixels = Math.min(80, Math.floor(Math.min(w,h)/5));
     const bw = buttonSizePixels;
     const bh = buttonSizePixels;
+    const r = 8;
 
     const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
     const inStartMenus =
@@ -2279,16 +2286,16 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
             state.gameMode===GameMode.OptionsScreen;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',       rect:new Rect(x,          y+h-bh,    bw,     bh),     tileInfo:tt['menu'],       visible:!inStartMenus},
-        {action:'zoomIn',     rect:new Rect(x+w-bw,     y+h-bh,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:!inStartMenus},
-        {action:'zoomOut',    rect:new Rect(x+w-bw,     y+h-2*bh,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:!inStartMenus},
-        {action:'left',       rect:new Rect(x,          y+bh,      bw,     bh),     tileInfo:tt['left'],       visible:!inStartMenus},
-        {action:'right',      rect:new Rect(x+2*bw,     y+bh,      bw,     bh),     tileInfo:tt['right'],      visible:!inStartMenus},
-        {action:'up',         rect:new Rect(x+bw,       y+2*bh,    bw,     bh),     tileInfo:tt['up'],         visible:true},
-        {action:'down',       rect:new Rect(x+bw,       y,         bw,     bh),     tileInfo:tt['down'],       visible:true},
-        {action:'wait',       rect:new Rect(x+bw,       y+bh,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
-        {action:'jump',       rect:new Rect(x+w-1.5*bw, y+0.75*bw, 1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
-        {action:'menuAccept', rect:new Rect(x+w-1.5*bw, y+0.75*bw, 1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
+        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:!inStartMenus},
+        {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:!inStartMenus},
+        {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:!inStartMenus},
+        {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:!inStartMenus},
+        {action:'right',      rect:new Rect(x+2*bw+r,      y+bh+r,      bw,     bh),     tileInfo:tt['right'],      visible:!inStartMenus},
+        {action:'up',         rect:new Rect(x+bw+r,        y+2*bh+r,    bw,     bh),     tileInfo:tt['up'],         visible:true},
+        {action:'down',       rect:new Rect(x+bw+r,        y+r,         bw,     bh),     tileInfo:tt['down'],       visible:true},
+        {action:'wait',       rect:new Rect(x+bw+r,        y+bh+r,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
+        {action:'jump',       rect:new Rect(x+w-1.75*bw-r, y+0.75*bw+r, 1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
+        {action:'menuAccept', rect:new Rect(x+w-1.75*bw-r, y+0.75*bw+r, 1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
     ];
 
     const emptyRect = new Rect();
@@ -2347,7 +2354,7 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
     vec2.copy(state.camera.velocity, velNew);
 }
 
-function snapCamera(state: State, screenSize: vec2) {
+function zoomToFitCamera(state: State, screenSize: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
     const viewportTileSizeX = screenSize[0] / pixelsPerTileX;
     const viewportTileSizeY = (screenSize[1] - 2 * statusBarPixelSizeY) / pixelsPerTileY;
@@ -2361,7 +2368,9 @@ function snapCamera(state: State, screenSize: vec2) {
         state.zoomLevel = Math.log(viewportTileSizeY / worldTileSizeY) / Math.log(zoomPower);
     }
     state.zoomLevel = Math.max(0, Math.floor(state.zoomLevel));
+}
 
+function snapCamera(state: State, screenSize: vec2) {
     state.camera.zoom = state.zoomLevel;
     state.camera.zoomVelocity = 0;
     state.camera.scale = Math.pow(zoomPower, state.camera.zoom);

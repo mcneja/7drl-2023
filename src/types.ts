@@ -17,6 +17,7 @@ type Camera = {
     scale: number;
     anchor: vec2;
     snapped: boolean;
+    zoomed: boolean;
     panning: boolean;
 }
 
