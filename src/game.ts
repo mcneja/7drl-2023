@@ -64,7 +64,7 @@ function main(images: Array<HTMLImageElement>) {
     const sounds:Howls = {};
     const subtitledSounds:SubtitledHowls = {};
     const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
-    const touchController = new TouchController(canvas, true);
+    const touchController = new TouchController(canvas);
     const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
 
     function ensureInitSound() {
