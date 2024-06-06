@@ -45,6 +45,7 @@ class TextWindow {
     highlightedAction:number = 0;
     actionSequence: Array<string> = [];
     cachedPageText:string = '';
+    screenSize: vec2 = vec2.create();
 
     touchTargetsDirty: boolean = false;
     touchTargets: TouchTargets;
@@ -133,10 +134,11 @@ class TextWindow {
         for (const [key, value] of this.state) {
             pageText = pageText.replace('$'+key+'$', value);
         }
-        if (pageText === this.cachedPageText)
+        if (pageText === this.cachedPageText && this.screenSize.equals(screenSize))
             return;
 
         this.cachedPageText = pageText;
+        vec2.copy(this.screenSize, screenSize);
         this.activePageData = pageText.split('\n');
         const lines = this.activePageData;
         this.glyphs.length = 0;

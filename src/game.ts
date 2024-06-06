@@ -75,6 +75,7 @@ function main(images: Array<HTMLImageElement>) {
     }
 
     function onWindowResized() {
+        state.camera.snapped = false;
         requestUpdateAndRender();
     }
 
