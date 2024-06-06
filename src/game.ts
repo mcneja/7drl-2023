@@ -25,7 +25,11 @@ enum NoiseType {
 }
 
 const tileSet = getTileSet();
-const fontTileSet = getFontTileSet(); 
+const fontTileSet = getFontTileSet();
+
+const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+let canvasSizeX: number = 300;
+let canvasSizeY: number = 150;
 
 window.onload = loadResourcesThenRun;
 
@@ -51,7 +55,6 @@ function loadResourcesThenRun() {
 
 function main(images: Array<HTMLImageElement>) {
 
-    const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
     document.body.addEventListener('keydown', e=>ensureInitSound());
     canvas.addEventListener('mousedown', e=>ensureInitSound());
     canvas.addEventListener('touchstart', e=>ensureInitSound());
@@ -74,16 +77,15 @@ function main(images: Array<HTMLImageElement>) {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
 
-    function onWindowResized() {
+    const observer = new ResizeObserver((entries) => {
+        canvasSizeX = canvas.clientWidth;
+        canvasSizeY = canvas.clientHeight;
         state.camera.snapped = false;
-        requestUpdateAndRender();
-    }
-
-    window.addEventListener('resize', onWindowResized);
+    });
+    observer.observe(canvas);
 
     requestUpdateAndRender();
 }
-
 
 function updateControllerState(state:State) {
     state.gamepadManager.updateGamepadStates();
@@ -2095,12 +2097,13 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     state.dt = dt;
     state.tLast = t;
 
+    canvas.width = canvasSizeX;
+    canvas.height = canvasSizeY;
+    const screenSize = vec2.fromValues(canvasSizeX, canvasSizeY);
+
     updateControllerState(state);
 
     state.topStatusMessageAnim = Math.max(0, state.topStatusMessageAnim - 4 * dt);
-
-    const screenSize = vec2.create();
-    renderer.getScreenSize(screenSize);
 
     if (!state.camera.snapped) {
         state.camera.panning = false;

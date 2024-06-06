@@ -7,7 +7,6 @@ import { vec2, mat4 } from './my-matrix';
 // #####################
 
 class Renderer {
-    getScreenSize(screenSize: vec2) {}
     beginFrame = (screenSize:vec2) => {}
     start(matScreenFromWorld: mat4, textureIndex: number) {}
     addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number|[number,number,number,number]=1) {}
@@ -113,14 +112,6 @@ class Renderer {
         const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
         gl.bindVertexArray(null);
 
-        this.getScreenSize = (screenSize: vec2) => {
-            const canvas = gl.canvas as HTMLCanvasElement;
-            resizeCanvasToDisplaySize(canvas);
-            const screenX = canvas.clientWidth;
-            const screenY = canvas.clientHeight;
-            vec2.set(screenSize, screenX, screenY);
-        }
-    
         this.start = (matScreenFromWorld: mat4, textureIndex: number) => {
             mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
 
@@ -239,16 +230,8 @@ class Renderer {
             numQuads = 0;
         }
         this.beginFrame = (screenSize:vec2) => {
-            const canvas = gl.canvas as HTMLCanvasElement;
-    
-            resizeCanvasToDisplaySize(canvas); //TODO: Put this in a listener for window size changes
-    
-            const screenX = canvas.clientWidth;
-            const screenY = canvas.clientHeight;
-        
-            gl.viewport(0, 0, screenX, screenY);
+            gl.viewport(0, 0, screenSize[0], screenSize[1]);
             gl.clear(gl.COLOR_BUFFER_BIT);
-            
         }
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
@@ -350,20 +333,4 @@ function initShaderProgram(gl: WebGL2RenderingContext, vsSource: string, fsSourc
     }
 
     return program;
-}
-
-// function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
-//     const parentElement = canvas.parentNode as HTMLElement;
-//     const rect = parentElement.getBoundingClientRect();
-//     if (canvas.width !== rect.width || canvas.height !== rect.height) {
-//         canvas.width = rect.width;
-//         canvas.height = rect.height;
-//     }
-// }
-
-function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
-    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
 }
