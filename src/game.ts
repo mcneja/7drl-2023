@@ -193,14 +193,6 @@ function updateControllerState(state:State) {
             } else {
                 tryPlayerStep(state, 0, 1);
             }
-        } else if (activated('jumpLeft')) {
-            tryPlayerLeap(state, -1, 0);
-        } else if (activated('jumpRight')) {
-            tryPlayerLeap(state, 1, 0);
-        } else if (activated('jumpDown')) {
-            tryPlayerLeap(state, 0, -1);
-        } else if (activated('jumpUp')) {
-            tryPlayerLeap(state, 0, 1);
         } else if (activated('wait')) {
             tryPlayerWait(state);
         } else if (activated('menu')) {
