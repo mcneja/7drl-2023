@@ -33,7 +33,7 @@ let canvasSizeY: number = canvas.clientHeight;
 
 window.onload = loadResourcesThenRun;
 
-const targetStatusBarWidthInChars: number = 80;
+const targetStatusBarWidthInChars: number = 48;
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 //TODO: The constants live in the tileset and code should reference the tileset
@@ -2267,7 +2267,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
 function updateTouchButtonsGamepad(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {
     const tt = (renderer.tileSet.touchButtons !== undefined) ? renderer.tileSet.touchButtons : {};
 
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
     const x = 0;
     const y = statusBarPixelSizeY;
     const w = screenSize[0];
@@ -2355,7 +2355,7 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
 }
 
 function zoomToFitCamera(state: State, screenSize: vec2) {
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
     const viewportTileSizeX = screenSize[0] / pixelsPerTileX;
     const viewportTileSizeY = (screenSize[1] - 2 * statusBarPixelSizeY) / pixelsPerTileY;
     const worldTileSizeX = state.gameMap.cells.sizeX;
@@ -2394,7 +2394,7 @@ function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoom
 }
 
 function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, posLegalMin: vec2, posLegalMax: vec2) {
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
     const viewPixelSizeX = screenSize[0];
     const viewPixelSizeY = screenSize[1] - 2 * statusBarPixelSizeY;
     const viewWorldSizeX = viewPixelSizeX / (pixelsPerTileX * zoomScale);
@@ -2422,7 +2422,7 @@ function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomS
 }
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
-    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize[0]);
+    const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
 
@@ -2455,12 +2455,12 @@ function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, num
     return [viewWorldSizeX, viewWorldSizeY];
 }
 
-function statusBarZoom(screenSizeX: number): number {
-    return Math.max(1, Math.floor(screenSizeX / (targetStatusBarWidthInChars * statusBarCharPixelSizeX)));
+function statusBarZoom(screenSize: vec2): number {
+    return Math.max(1, Math.floor(Math.min(screenSize[0], screenSize[1]) / (targetStatusBarWidthInChars * statusBarCharPixelSizeX)));
 }
 
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
-    const tileZoom = statusBarZoom(screenSize[0]);
+    const tileZoom = statusBarZoom(screenSize);
 
     const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
 
@@ -2522,7 +2522,7 @@ function putString(renderer: Renderer, x: number, s: string, color: number) {
 }
 
 function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
-    const tileZoom = statusBarZoom(screenSize[0]);
+    const tileZoom = statusBarZoom(screenSize);
 
     const screenSizeInTilesX = screenSize[0] / (tileZoom * statusBarCharPixelSizeX);
     const screenSizeInTilesY = screenSize[1] / (tileZoom * statusBarCharPixelSizeY);
