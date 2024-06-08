@@ -361,14 +361,13 @@ class TouchController extends Controller {
         super();
         this.canvas = canvas;
         // Register touch event handlers
-        let that = this;
-        canvas.addEventListener('touchstart', function(ev){that.process_touchstart(ev);}, true);
-        canvas.addEventListener('touchmove', function(ev){that.process_touchmove(ev);}, true);
-        canvas.addEventListener('touchcancel', function(ev){that.process_touchend(ev);}, true);
-        canvas.addEventListener('touchend', function(ev){that.process_touchend(ev);}, true);
-        canvas.addEventListener('mousedown', function(ev){that.process_mousedown(ev);}, true);
-        canvas.addEventListener('mouseup', function(ev){that.process_mouseup(ev);}, true);
-        canvas.addEventListener('mousemove', function(ev){that.process_mousemove(ev);}, true);
+        canvas.addEventListener('touchstart', ev=>this.process_touchstart(ev), true);
+        canvas.addEventListener('touchmove', ev=>this.process_touchmove(ev), true);
+        canvas.addEventListener('touchcancel', ev=>this.process_touchend(ev), true);
+        canvas.addEventListener('touchend', ev=>this.process_touchend(ev), true);
+        canvas.addEventListener('mousedown', ev=>this.process_mousedown(ev), true);
+        canvas.addEventListener('mouseup', ev=>this.process_mouseup(ev), true);
+        canvas.addEventListener('mousemove', ev=>this.process_mousemove(ev), true);
         this.lastMotion = {id:-1,active:false,x0:0,y0:0,x:0,y:0};
 
         this.coreTouchTargets = {
