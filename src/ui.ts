@@ -520,13 +520,13 @@ Total Score: $totalScore$
 
         let levelStats = '';
         if (state.levelStats.numSpottings > 0) {
-            levelStats += 'Spottings:  ' + state.levelStats.numSpottings + '\n';
+            levelStats += 'Spottings:   ' + state.levelStats.numSpottings + '\n';
         }
         if (state.levelStats.damageTaken > 0) {
-            levelStats += 'Injuries:   ' + state.levelStats.damageTaken + '\n';
+            levelStats += 'Injuries:    ' + state.levelStats.damageTaken + '\n';
         }
         if (state.levelStats.numKnockouts > 0) {
-            levelStats += 'Knockouts:  ' + state.levelStats.numKnockouts + '\n';
+            levelStats += 'Knockouts:   ' + state.levelStats.numKnockouts + '\n';
         }
 
         this.state.set('level', (state.level+1).toString());
