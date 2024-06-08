@@ -659,7 +659,7 @@ Mansion bonuses:
 
 [X|home] Exit to home screen (abort game)
 
-1/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
+1/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
 `Keyboard controls
 
   Move: Arrows / WASD / HJKL
@@ -673,22 +673,22 @@ Mansion bonuses:
 Disable NumLock if using numpad
 Mouse, touch and gamepad also supported
 
-2/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
+2/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
 
 `Key 
 
 #${getTileSet().playerTiles.normal.textureIndex}# Thief: You!
 #${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
-#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Collect for score
+#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Get it!
 #${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
 #${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
 #${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Not a hiding place
 #${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards want them lit
 #${getTileSet().terrainTiles[TerrainType.OneWayWindowN].textureIndex}# Window: One-way escape route
-#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floorboard: Alerts guards if stepped on
+#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floor: Noise alerts guards
 
 
-3/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
+3/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
 
 `Made for 2023 Seven-Day Roguelike Challenge
 
@@ -703,7 +703,7 @@ Special thanks to Mendi Carroll
 
 
 
-4/4    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Close`,
+4/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
     ];
     update(state:State) {
         this.state.set('numGameMaps', game.gameConfig.numGameMaps.toString());
