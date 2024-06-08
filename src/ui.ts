@@ -68,7 +68,6 @@ class TextWindow {
         this.touchTargets[action] = {
             id: -1,
             rect: new Rect(0, 0, 0, 0),
-            trigger: 'release',
             tileInfo: {},
             touchXY: [-1, -1],        
         };

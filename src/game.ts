@@ -109,14 +109,6 @@ function updateControllerState(state:State) {
         if(lastController===null) return false;
         const controlStates = lastController.controlStates;
         if(!(action in controlStates)) return false;
-        if(lastController===state.touchController) {
-            const t = state.touchController;
-            if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
-                result = lastController.currentFrameReleases.has(action);
-                if(result) lastController.controlTimes[action] = dt;
-                return result;
-            }
-        }
         const threshold = state.keyRepeatActive===action? state.keyRepeatRate:state.keyRepeatDelay;
         result = lastController.currentFramePresses.has(action) || 
                  controlStates[action] && 
@@ -136,14 +128,6 @@ function updateControllerState(state:State) {
         if(lastController===null) return false;
         const controlStates = lastController.controlStates;
         if(!(action in controlStates)) return false;
-        if(lastController===state.touchController) {
-            const t = state.touchController;
-            if(action in t.touchTargets && t.touchTargets[action].trigger=='release') {
-                result = lastController.currentFrameReleases.has(action);
-                if(result) lastController.controlTimes[action] == Date.now();
-                return result;
-            }
-        }
         result = lastController.currentFramePresses.has(action);
         if(result) lastController.controlTimes[action] == Date.now();
         return result;

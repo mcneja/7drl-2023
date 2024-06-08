@@ -345,7 +345,6 @@ type TouchTargets = {
         id:number,
         rect:Rect,
         tileInfo:TileInfo|null,
-        trigger:'press'|'release',
         touchXY:[number, number],
     }
 };
@@ -371,20 +370,20 @@ class TouchController extends Controller {
         this.lastMotion = {id:-1,active:false,x0:0,y0:0,x:0,y:0};
 
         this.coreTouchTargets = {
-            'up':           {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'down':         {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'left':         {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'right':        {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'wait':         {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'jump':         {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'menuAccept':   {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'pan':          {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'zoomIn':       {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'zoomOut':      {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'restart':      {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'forceRestart': {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'menu':         {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
-            'fullscreen':   {id:-1, rect:new Rect(), touchXY:[0,0], trigger:'press', tileInfo:null},
+            'up':           {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'down':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'left':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'right':        {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'wait':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'jump':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'menuAccept':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'pan':          {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'zoomIn':       {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'zoomOut':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'restart':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'forceRestart': {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'menu':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'fullscreen':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
         };
         this.touchTargets = this.coreTouchTargets;
     }
@@ -461,13 +460,6 @@ class TouchController extends Controller {
                     this.setPressed(bname, false, false);
                     b.id = -1;
                 }    
-            } else if(b.trigger==='release' && (this.targetOnTouchDown===null || this.targetOnTouchDown===bname)) {
-                const touching = b.rect.collide(x, y);
-                if(touching) {
-                    b.touchXY = [ev.clientX, ev.clientY];
-                    this.setPressed(bname, true);
-                    b.id = -2;
-                }        
             }
         }   
         ev.preventDefault();
@@ -477,7 +469,7 @@ class TouchController extends Controller {
         for (const [bname, b] of Object.entries(this.touchTargets)) {
             if(this.controlStates[bname]) {
                 b.id = -1;
-                this.setPressed(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
+                this.setPressed(bname, false, true);
                 this.controlTimes[bname] = 0;
             }
         }
@@ -531,14 +523,6 @@ class TouchController extends Controller {
                         this.setPressed(bname, false, false);
                     }
                 }
-                else if(b.id==-1 && b.trigger=='release'  && (this.targetOnTouchDown==null||this.targetOnTouchDown==bname)) {
-                    const touching = b.rect.collide(x, y);
-                    if(touching) {
-                        b.touchXY = [t.clientX, t.clientY];
-                        b.id = t.identifier;
-                        this.setPressed(bname, true);
-                    }
-                }
             }
         }   
         ev.preventDefault();
@@ -550,7 +534,7 @@ class TouchController extends Controller {
             for (const [bname, b] of Object.entries(this.touchTargets)) {
                 if(b.id==t.identifier) {
                     b.id = -1;
-                    this.setPressed(bname, false, b.trigger==='press'||bname===this.targetOnTouchDown);
+                    this.setPressed(bname, false, true);
                     this.controlTimes[bname] = 0;
                 }
             }
