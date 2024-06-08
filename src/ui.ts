@@ -8,7 +8,7 @@ import { RNG } from './random';
 import { getFontTileSet, getTileSet } from './tilesets';
 import { ItemType, TerrainType } from './game-map';
 
-export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen };
+export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpScreen, DailyHubScreen };
 
 function scoreToClipboard(stats:GameStats) {
     const numGhostedLevels = stats.numGhostedLevels;
@@ -327,23 +327,6 @@ class HomeScreen extends TextWindow {
     }
 }
 
-
-class InGameMenuScreen extends TextWindow {
-    pages = [
-`             Lurk Leap Loot
-     James McNeill and Damien Moore
-
-            [Esc|menu]: Close menu
-            [?|help]:   Help
-            [X|home]:   Exit to home screen`
-    ];
-    constructor() {
-        super();
-    }
-    onControls(state:State, activated:(action:string)=>boolean) {
-    }
-}
-
 class OptionsScreen extends TextWindow {
     pages = [
 `                  Options
@@ -520,15 +503,17 @@ $achievements$
     }
 }
 
-class BetweenMansionsScreen extends TextWindow {
+class MansionCompleteScreen extends TextWindow {
     pages = [
 `Mansion $level$ Complete!
 
-Speed:      $timeBonus$
-$levelStats$Ghosted:    $ghosted$
-Score:      $totalScore$
+Speed:       $timeBonus$
+$levelStats$Ghosted:     $ghosted$
+Score:       $levelScore$
 
-[N|startLevel]: Next mansion`
+Total Score: $totalScore$
+
+[N|startLevel]: Next`
     ];
     update(state:State) {
         const timeBonus = game.calculateTimeBonus(state);
@@ -548,7 +533,8 @@ Score:      $totalScore$
         this.state.set('timeBonus', timeBonus.toString());
         this.state.set('levelStats', levelStats);
         this.state.set('ghosted', (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) ? 'Yes' : 'No');
-        this.state.set('totalScore', Math.ceil(timeBonus * game.ghostMultiplier(state.levelStats)).toString());
+        this.state.set('levelScore', Math.ceil(timeBonus * game.ghostMultiplier(state.levelStats)).toString());
+        this.state.set('totalScore', state.gameStats.totalScore.toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -561,7 +547,11 @@ Score:      $totalScore$
             state.dailyRun = null;
             game.restartGame(state);
         } else if (activated('startLevel') || action=='startLevel') {
-            game.setupLevel(state, state.level + 1);
+            if (state.level >= game.gameConfig.numGameMaps - 1) {
+                game.advanceToWin(state);
+            } else {
+                game.setupLevel(state, state.level + 1);
+            }
         } else if (activated('menu') || action == 'menu') {
             state.helpActive = true;
         }
@@ -575,7 +565,7 @@ class DeadScreen extends TextWindow{
 Statistics
 Completed:     $level$ of $numLevels$
 Ghosted:       $numGhostedLevels$
-Total score:   $totalScore$
+Total Score:   $totalScore$
 
 [R|restart]:   Start new game
 [C|copyScore]:   Copy score to clipboard
@@ -617,8 +607,7 @@ class WinScreen extends TextWindow {
 `Mission Complete!
 
 Statistics
-Completed:     $level$ of $numLevels$
-Ghosted:       $numGhostedLevels$
+Ghosted:       $numGhostedLevels$ of $numLevels$
 Total score:   $totalScore$
 
 [R|restart]:   Start new game
@@ -628,7 +617,6 @@ $copyState$
     ];
     stateCopied: boolean = false;
     update(state:State) {
-        this.state.set('level', (state.level + 1).toString());
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());

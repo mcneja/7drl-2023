@@ -26,7 +26,7 @@ enum GameMode {
     StatsScreen,
     OptionsScreen,
     Mansion,
-    BetweenMansions,
+    MansionComplete,
     Dead,
     Win,
     DailyHub,

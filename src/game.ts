@@ -9,7 +9,7 @@ import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
-import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, BetweenMansionsScreen, HelpScreen, DailyHubScreen } from './ui'
+import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpScreen, DailyHubScreen } from './ui'
 import {Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
@@ -325,11 +325,10 @@ export function ghostMultiplier(levelStats: LevelStats): number {
     return multiplier;
 }
 
-function advanceToBetweenMansions(state: State) {
+function advanceToMansionComplete(state: State) {
     scoreCompletedLevel(state);
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
-    state.gameMode = GameMode.BetweenMansions;
     if(state.lootStolen === state.lootAvailable) {
         state.persistedStats.totalLootSweeps++;
         setStat('totalLootSweeps',state.persistedStats.totalLootSweeps);
@@ -341,13 +340,13 @@ function advanceToBetweenMansions(state: State) {
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
     state.topStatusMessageAnim = 0;
+
+    state.gameMode = GameMode.MansionComplete;
 }
 
-function advanceToWin(state: State) {
-    scoreCompletedLevel(state);
-    state.activeSoundPool.empty();
-    if (state.player.loot>95 && Math.random()>0.9) state.sounds['easterEgg'].play(0.5);
-    else state.sounds['victorySong'].play(0.5);
+export function advanceToWin(state: State) {
+    const victorySong = (state.player.loot > 95 && Math.random() < 0.1) ? 'easterEgg' : 'victorySong';
+    state.sounds[victorySong].play(0.5);
     state.persistedStats.totalWins++;
     const score = state.gameStats.totalScore;
     state.persistedStats.bestScore = Math.max(state.persistedStats.bestScore, score);
@@ -368,12 +367,9 @@ function advanceToWin(state: State) {
         //TODO: notify user if the game was finished after the deadline
         // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(score, state.totalTurns, state.level+1);
     }
-    state.gameMode = GameMode.Win;
-    state.topStatusMessage = '';
-    state.topStatusMessageSticky = false;
-    state.topStatusMessageAnim = 0;
-
     saveStats(state.persistedStats);
+
+    state.gameMode = GameMode.Win;
 }
 
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
@@ -735,11 +731,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
             bumpFail(state, dx, dy);
         } else {
             preTurn(state);
-            if (state.level < gameConfig.numGameMaps - 1) {
-                advanceToBetweenMansions(state);
-            } else {
-                advanceToWin(state);
-            }
+            advanceToMansionComplete(state);
 
             // Animate the player moving off the map edge
             // This is largely a simplified copy of the normal player-movement animation;
@@ -1092,11 +1084,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         posNew[1] < 0 ||
         posNew[0] >= state.gameMap.cells.sizeX ||
         posNew[1] >= state.gameMap.cells.sizeY) {
-        if (state.level < gameConfig.numGameMaps - 1) {
-            advanceToBetweenMansions(state);
-        } else {
-            advanceToWin(state);
-        }
+        advanceToMansionComplete(state);
 
         // Animate player moving off the map
 
@@ -1852,7 +1840,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.OptionsScreen]: new OptionsScreen(),
             [GameMode.StatsScreen]: new StatsScreen(),
             [GameMode.DailyHub]: new DailyHubScreen(),
-            [GameMode.BetweenMansions]: new BetweenMansionsScreen(),
+            [GameMode.MansionComplete]: new MansionCompleteScreen(),
             [GameMode.Dead]: new DeadScreen(),
             [GameMode.Win]: new WinScreen(),
         },
@@ -2165,10 +2153,10 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     }
     renderGuards(state, renderer);
     if (state.gameMode === GameMode.Mansion ||
-        state.gameMode === GameMode.BetweenMansions ||
+        state.gameMode === GameMode.MansionComplete ||
         state.gameMode === GameMode.Win ||
         state.gameMode === GameMode.Dead) {
-        if ((state.gameMode !== GameMode.BetweenMansions && state.gameMode !== GameMode.Win) || state.player.animation) {
+        if ((state.gameMode !== GameMode.MansionComplete && state.gameMode !== GameMode.Win) || state.player.animation) {
             renderPlayer(state, renderer);
         }
     }
@@ -2183,7 +2171,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         menuWindow.render(renderer);    
     }
 
-    if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.BetweenMansions) {
+    if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
         if (state.helpActive) {
             state.helpScreen.render(renderer);
             renderBottomStatusBar(renderer, screenSize, state);
