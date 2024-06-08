@@ -608,7 +608,7 @@ class WinScreen extends TextWindow {
 
 Statistics
 Ghosted:       $numGhostedLevels$ of $numLevels$
-Total score:   $totalScore$
+Total Score:   $totalScore$
 
 [R|restart]:   Start new game
 [C|copyScore]:   Copy score to clipboard
