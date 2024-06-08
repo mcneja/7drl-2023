@@ -1408,17 +1408,15 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
     for(const bkey in touchController.coreTouchTargets) {
         if (!(bkey in touchController.controlStates)) continue;
         const b = touchController.coreTouchTargets[bkey];
-        if (b.tileInfo === null || b.view[2] === 0 || b.view[3] === 0) continue;
+        if (b.tileInfo === null || b.rect[2] === 0 || b.rect[3] === 0) continue;
         const lit = touchController.controlStates[bkey] ? 1 : 0;
-        if (b.show==='always' || (b.show==='press' && b.id !== -1)) {
-            renderer.addGlyph(
-                b.view[0],
-                b.view[1],
-                b.view[0] + b.view[2],
-                b.view[1] + b.view[3],
-                b.tileInfo,
-                lit);
-        }
+        renderer.addGlyph(
+            b.rect[0],
+            b.rect[1],
+            b.rect[0] + b.rect[2],
+            b.rect[1] + b.rect[3],
+            b.tileInfo,
+            lit);
     }
     renderer.flush();
 }
@@ -2293,7 +2291,7 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const emptyRect = new Rect();
 
     for(const b of buttonData) {
-        touchController.updateCoreTouchTarget(b.action, emptyRect, b.visible ? b.rect : emptyRect, b.tileInfo);
+        touchController.updateCoreTouchTarget(b.action, b.visible ? b.rect : emptyRect, b.tileInfo);
     }
 }
 

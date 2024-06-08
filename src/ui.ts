@@ -47,7 +47,6 @@ class TextWindow {
     cachedPageText:string = '';
     screenSize: vec2 = vec2.create();
 
-    touchTargetsDirty: boolean = false;
     touchTargets: TouchTargets;
 
     state: Map<string, string> = new Map();
@@ -68,21 +67,17 @@ class TextWindow {
     initAction(action:string) {
         this.touchTargets[action] = {
             id: -1,
-            game: new Rect(0, 0, 0, 0),
-            view: new Rect(0, 0, 0, 0),
+            rect: new Rect(0, 0, 0, 0),
             trigger: 'release',
             tileInfo: {},
-            show: 'always',
             touchXY: [-1, -1],        
         };
     }
     nextPage() {
         this.activePage = Math.min(this.pages.length - 1, this.activePage + 1);
-        this.touchTargetsDirty = true;
     }
     prevPage() {
         this.activePage = Math.max(0, this.activePage - 1);
-        this.touchTargetsDirty = true;
     }
     parseImage(line:string, base:number, row:number, rows:number): [string, number] {
         const end = line.slice(base+2).indexOf('#');
@@ -121,7 +116,7 @@ class TextWindow {
             const [x0,y0] = [posData[0],posData[2]-1/8];
             const [x1,y1] = [posData[1],posData[2]+1];
             const tt = this.touchTargets[action];
-            tt.game = new Rect(x0, rows-y1, x1-x0, y1-y0);
+            tt.rect = new Rect(x0, rows-y1, x1-x0, y1-y0);
             this.actionSequence.push(action);
         }
         line = line.slice(0, pipe)+line.slice(end);
@@ -174,10 +169,13 @@ class TextWindow {
 
         for(let a in this.touchTargets) {
             const tt = this.touchTargets[a];
-            tt.view[0] = (tt.game[0] - this.offsetX) * this.pixelsPerCharX;
-            tt.view[1] = (tt.game[1] - this.offsetY) * this.pixelsPerCharY;
-            tt.view[2] = tt.game[2] * this.pixelsPerCharX;
-            tt.view[3] = tt.game[3] * this.pixelsPerCharY;
+            tt.rect[0] -= this.offsetX;
+            tt.rect[1] -= this.offsetY;
+
+            tt.rect[0] *= this.pixelsPerCharX;
+            tt.rect[1] *= this.pixelsPerCharY;
+            tt.rect[2] *= this.pixelsPerCharX;
+            tt.rect[3] *= this.pixelsPerCharY;
         }
     }
     updateScreenSize(screenSize: vec2) {
@@ -194,7 +192,7 @@ class TextWindow {
         const numCharsY = screenSize[1] / this.pixelsPerCharY;
         this.offsetX = Math.floor((screenSize[0] - linesPixelSizeX) / -2) / this.pixelsPerCharX;
         this.offsetY = Math.floor((screenSize[1] - linesPixelSizeY) / -2) / this.pixelsPerCharY;
-    
+
         mat4.ortho(
             this.mat,
             this.offsetX,
@@ -202,7 +200,7 @@ class TextWindow {
             this.offsetY,
             this.offsetY + numCharsY,
             1,
-            -1);    
+            -1);
     }
     render(renderer: Renderer) {
         const lines = this.activePageData;
@@ -212,7 +210,6 @@ class TextWindow {
         const colorText = 0xffeef0ff;
         const buttonColor = 0xff802060;
         const uiSelectColor = 0xffd020b0;
-        const buttonDisabled = 0xff707070;
     
         const bg = getFontTileSet().background;
         // Draw a stretched box to make a darkened background for the text.
@@ -224,12 +221,19 @@ class TextWindow {
         renderer.flush();
 
         // Draw background areas for touchTargets
-        renderer.start(matScreenFromTextArea, 0);
+
+        const matScreenFromPixel = mat4.create();
+        mat4.ortho(
+            matScreenFromPixel,
+            0, this.screenSize[0],
+            0, this.screenSize[1],
+            1, -1);
+        renderer.start(matScreenFromPixel, 0);
         for (let a in this.touchTargets) {
             if(lastController?.controlStates[a]) {
                 this.highlightedAction = this.actionSequence.indexOf(a);
             }
-            const r = this.touchTargets[a].game;
+            const r = this.touchTargets[a].rect;
             const isHighlightedAction =
                 this.highlightedAction < this.actionSequence.length &&
                 this.actionSequence[this.highlightedAction]===a;
