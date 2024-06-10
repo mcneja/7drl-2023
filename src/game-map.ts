@@ -720,7 +720,7 @@ class GameMap {
         // The cell is lit
         if(!cell.litSrc.has(lightId)) {
             const dist2 = dx**2 + dy**2;
-            cell.lit += 1/(5*dist2+1);
+            cell.lit += 1/(4*dist2+1);
             cell.lit = Math.min(cell.lit, 1);
             cell.litSrc.add(lightId);
         }
