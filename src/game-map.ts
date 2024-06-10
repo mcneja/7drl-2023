@@ -370,6 +370,17 @@ const portals: Array<PortalInfo> = [
     { lx:  1, ly: -1, rx: -1, ry: -1, nx:  0, ny: -1 },
 ];
 
+const lightPortals: Array<PortalInfo> = [
+    { lx: -1, ly: -1, rx: -1, ry: -1, nx: -1, ny: -1 },
+    { lx: -1, ly: -1, rx: -1, ry:  1, nx: -1, ny:  0 },
+    { lx: -1, ly:  1, rx: -1, ry:  1, nx: -1, ny:  1 },
+    { lx: -1, ly:  1, rx:  1, ry:  1, nx:  0, ny:  1 },
+    { lx:  1, ly:  1, rx:  1, ry:  1, nx:  1, ny:  1 },
+    { lx:  1, ly:  1, rx:  1, ry: -1, nx:  1, ny:  0 },
+    { lx:  1, ly: -1, rx:  1, ry: -1, nx:  1, ny: -1 },
+    { lx:  1, ly: -1, rx: -1, ry: -1, nx:  0, ny: -1 },
+];
+
 function aRightOfB(ax: number, ay: number, bx: number, by: number): boolean {
     return ax * by > ay * bx;
 }
@@ -659,7 +670,7 @@ class GameMap {
 
     castLight(posLight: vec2, radiusSquared: number, lightId:number, occupied:Set<Cell>) {
         this.cells.at(posLight[0], posLight[1]).lit = 1;
-        for (const portal of portals) {
+        for (const portal of lightPortals) {
             this.castLightRecursive(
                 posLight[0], posLight[1],
                 posLight[0] + portal.nx, posLight[1] + portal.ny,
@@ -703,17 +714,14 @@ class GameMap {
             return;
         }
 
-        dx *= 2;
-        dy *= 2;
-
         // Grab the cell
         const cell = this.cells.at(targetX, targetY);
 
         // The cell is lit
         if(!cell.litSrc.has(lightId)) {
-            const dist2 =  (targetX-lightX)**2+(targetY-lightY)**2;
+            const dist2 = dx**2 + dy**2;
             cell.lit += 1/(5*dist2+1);
-            if(cell.lit>1) cell.lit=1;
+            cell.lit = Math.min(cell.lit, 1);
             cell.litSrc.add(lightId);
         }
 
@@ -722,35 +730,16 @@ class GameMap {
             return;
         }
 
-        // Mark diagonally-adjacent squares as lit if their corners are lit
-        for (let x = 0; x < 2; ++x) {
-            for (let y = 0; y < 2; ++y) {
-                let nx = targetX + 2*x - 1;
-                let ny = targetY + 2*y - 1;
-                let cdx = dx + 2*x - 1;
-                let cdy = dy + 2*y - 1;
-                
-                if (nx >= 0 &&
-                    ny >= 0 &&
-                    nx < this.cells.sizeX &&
-                    ny < this.cells.sizeY &&
-                    !aRightOfB(ldx, ldy, cdx, cdy) &&
-                    !aRightOfB(cdx, cdy, rdx, rdy)) {
-                    const c = this.cells.at(nx, ny);
-                    if((!c.blocksSight || occupied.has(cell)) && !c.litSrc.has(lightId)) {
-                        const dx = (nx-lightX);
-                        const dy = (ny-lightY);
-                        const dist2 = dx**2 + dy**2;
-                        c.lit += 1/(5*dist2+1);
-                        if(c.lit>1) c.lit=1;
-                        c.litSrc.add(lightId);    
-                    }
-                }
-            }
+        // If the portal is zero-width, end here.
+        if (!aRightOfB(rdx, rdy, ldx, ldy)) {
+            return;
         }
-    
+
+        dx *= 2;
+        dy *= 2;
+
         // Clip portals to adjacent squares and recurse through the visible portions
-        for (const portal of portals) {
+        for (const portal of lightPortals) {
             // Relative positions of the portal's left and right endpoints:
             const pldx = dx + portal.lx;
             const pldy = dy + portal.ly;
@@ -762,7 +751,7 @@ class GameMap {
             const [crdx, crdy] = aRightOfB(rdx, rdy, prdx, prdy) ? [prdx, prdy] : [rdx, rdy];
     
             // If we can see through the clipped portal, recurse through it.
-            if (aRightOfB(crdx, crdy, cldx, cldy)) {
+            if (!aRightOfB(cldx, cldy, crdx, crdy)) {
                 this.castLightRecursive(
                     lightX, lightY,
                     targetX + portal.nx, targetY + portal.ny,
