@@ -1346,7 +1346,7 @@ function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: 
         for(let y=0;y<cells.sizeY; y++) {
             const c = cells.at(x,y);
             if(c.type<TerrainType.Wall0000 || c.type>TerrainType.DoorEW) {
-                cells.at(x,y).litAnim = lightAnimator(c.lit,   lightStates, c.litSrc, seeAll || c.seen);
+                cells.at(x,y).litAnim = lightAnimator(c.lit, lightStates, c.litSrc, seeAll || c.seen);
             } else {
                 //Walls and portals get rendered unlit regardless of light sources
                 cells.at(x,y).litAnim = 0;                
@@ -1355,24 +1355,24 @@ function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: 
     }
 }
 
-function litVertices(x:number, y:number, cells:CellGrid, lightStates:Array<number>, seeAll: boolean):[number,number,number,number] {
-    const l =  cells.at(x,y).litAnim;
-    const scale = l>0? 1:0.03;
+function litVertices(x:number, y:number, cells:CellGrid):[number,number,number,number] {
+    const scale = (cells.at(x, y).lit ? 1 : 0.03) / 4;
 
-    const llu = cells.at(x-1,y-1).litAnim;
-    const lu =  cells.at(x,y-1).litAnim;
-    const lru = cells.at(x+1,y-1).litAnim;
-    const ll =  cells.at(x-1,y).litAnim;
-    const lr =  cells.at(x+1,y).litAnim;
-    const lld = cells.at(x-1,y+1).litAnim;
-    const ld =  cells.at(x,y+1).litAnim;
-    const lrd = cells.at(x+1,y+1).litAnim;
-    
+    const l   = cells.at(x,  y  ).litAnim;
+    const lld = cells.at(x-1,y-1).litAnim;
+    const ld  = cells.at(x,  y-1).litAnim;
+    const lrd = cells.at(x+1,y-1).litAnim;
+    const ll  = cells.at(x-1,y  ).litAnim;
+    const lr  = cells.at(x+1,y  ).litAnim;
+    const llu = cells.at(x-1,y+1).litAnim;
+    const lu  = cells.at(x,  y+1).litAnim;
+    const lru = cells.at(x+1,y+1).litAnim;
+
     return [
-        scale*(llu+lu+ll+l)/4, //top left vertex
-        scale*(lru+lu+lr+l)/4, //top right
-        scale*(lld+ld+ll+l)/4, //bottom left
-        scale*(lrd+ld+lr+l)/4, //bottom right
+        scale * (lld+ld+ll+l), //bottom left vertex
+        scale * (lrd+ld+lr+l), //bottom right
+        scale * (llu+lu+ll+l), //top left
+        scale * (lru+lu+lr+l), //top right
     ];
 }
 
@@ -1382,7 +1382,7 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
         const b = touchController.coreTouchTargets[bkey];
         if (b.tileInfo === null || b.rect[2] === 0 || b.rect[3] === 0) continue;
         const lit = touchController.controlStates[bkey] ? 1 : 0;
-        renderer.addGlyph(
+        renderer.addGlyphLit(
             b.rect[0],
             b.rect[1],
             b.rect[0] + b.rect[2],
@@ -1394,13 +1394,9 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
 }
 
 function renderWorld(state: State, renderer: Renderer) {
-    const mappedItems:{[id:number]:Array<Item>} = {}; //Sweep over the items and allocate them to a map
-    for(let item of state.gameMap.items) {
-        const ind = state.gameMap.cells.indexVec(item.pos);
-        if(ind in mappedItems) mappedItems[ind].push(item);
-        else mappedItems[ind] = [item];
-    }
     updateAnimatedLight(state.gameMap.cells, state.lightStates, state.seeAll);
+
+    // Draw terrain
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
@@ -1409,56 +1405,67 @@ function renderWorld(state: State, renderer: Renderer) {
                 continue;
             }
             let terrainType = cell.type;
-            if (terrainType == TerrainType.GroundWoodCreaky && !cell.lit && !cell.identified) {
-                terrainType = TerrainType.GroundWood;
+            if (terrainType == TerrainType.GroundWoodCreaky) {
+                if (!(cell.lit || cell.identified)) {
+                    terrainType = TerrainType.GroundWood;
+                }
             }
-            const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
+            const lv = litVertices(x, y, state.gameMap.cells);
 
-            //Draw tile
-            if([TerrainType.PortcullisEW].includes(terrainType)
-                && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                renderer.addGlyph(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lv);
+            // Draw tile
+            if (terrainType === TerrainType.PortcullisEW &&
+                state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+                renderer.addGlyphLit4(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lv);
             } else {
                 const tile = cell.animation? cell.animation.currentTile():renderer.tileSet.terrainTiles[terrainType];
-                renderer.addGlyph(x, y, x+1, y+1, tile, lv);
+                renderer.addGlyphLit4(x, y, x+1, y+1, tile, lv);
             }
-            //Draw border for water
-            if(terrainType===TerrainType.GroundWater) {
+
+            // Draw border for water
+            if (terrainType===TerrainType.GroundWater) {
                 const ledge = renderer.tileSet.ledgeTiles;
                 let ctr = 0;
                 for(let adj of [[0,1],[0,-1],[-1,0],[1,0]]) {
                     const cell = state.gameMap.cells.at(x+adj[0],y+adj[1]);
                     if(cell.type!==TerrainType.GroundWater) {
-                        renderer.addGlyph(x, y, x+1, y+1, ledge[ctr], lv);
+                        renderer.addGlyphLit4(x, y, x+1, y+1, ledge[ctr], lv);
                     }
                     ctr++;
                 }
             }
+        }
+    }
 
-            const ind = state.gameMap.cells.index(x, y);
-            if(!(ind in mappedItems)) continue;
-            for(let item of mappedItems[ind]) {
-                const lv = litVertices(x, y, state.gameMap.cells, state.lightStates, state.seeAll);
-                if([TerrainType.PortcullisEW].includes(terrainType)
-                    && state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                    renderer.addGlyph(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lv);    
-                } else {
-                    if([TerrainType.DoorEW, TerrainType.DoorNS].includes(terrainType)) {
-                        if(state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y) || state.player.pos[0]==x && state.player.pos[1]==y) {
-                            continue; //Don't draw the door if someone standing in it                        
-                        }
-                    }
-                    const ti = item.animation? 
-                    item.animation.currentTile():
-                    renderer.tileSet.itemTiles[item.type];
-                    if (item.animation instanceof SpriteAnimation) {
-                        const o = item.animation.offset;
-                        renderer.addGlyph(x+o[0], y+o[1], x+o[0] + 1, y+o[1] + 1, ti, lv);
-                    } else {
-                        renderer.addGlyph(x, y, x + 1, y + 1, ti, lv);
-                    }
+    // Draw items
+
+    for(const item of state.gameMap.items) {
+        let x = item.pos[0];
+        let y = item.pos[1];
+        const cell = state.gameMap.cells.at(x, y);
+        if (!cell.seen && !state.seeAll) {
+            continue;
+        }
+        const terrainType = cell.type;
+        const lv = litVertices(x, y, state.gameMap.cells);
+        if (terrainType === TerrainType.PortcullisEW &&
+            state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
+            renderer.addGlyphLit4(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lv);
+        } else {
+            //Don't draw the door if someone standing in it
+            if([TerrainType.DoorEW, TerrainType.DoorNS].includes(terrainType)) {
+                if(state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y) || state.player.pos[0]==x && state.player.pos[1]==y) {
+                    continue;
                 }
             }
+            const ti = item.animation ?
+                item.animation.currentTile() :
+                renderer.tileSet.itemTiles[item.type];
+            if (item.animation instanceof SpriteAnimation) {
+                const o = item.animation.offset;
+                x += o[0];
+                y += o[1];
+            }
+            renderer.addGlyphLit4(x, y, x + 1, y + 1, ti, lv);
         }
     }
 
@@ -1479,8 +1486,8 @@ function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer
         const y0 = adj.origin[1];
         const x1 = adj.origin[0] + adj.dir[0] * adj.length;
         const y1 = adj.origin[1] + adj.dir[1] * adj.length;
-        renderer.addGlyph(x0 + 0.25, y0 + 0.25, x0 + 0.75, y0 + 0.75, tile, 1);
-        renderer.addGlyph(x1 + 0.25, y1 + 0.25, x1 + 0.75, y1 + 0.75, tile, 1);
+        renderer.addGlyph(x0 + 0.25, y0 + 0.25, x0 + 0.75, y0 + 0.75, tile);
+        renderer.addGlyph(x1 + 0.25, y1 + 0.25, x1 + 0.75, y1 + 0.75, tile);
     }
 
     for (const adj of adjacencies) {
@@ -1495,7 +1502,7 @@ function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer
         const x1 = Math.max(p0x, p1x) + r + Math.abs(adj.dir[0]) * -0.5;
         const y1 = Math.max(p0y, p1y) + r + Math.abs(adj.dir[1]) * -0.5;
 
-        renderer.addGlyph(x0, y0, x1, y1, tile, 1);
+        renderer.addGlyph(x0, y0, x1, y1, tile);
     }
 }
 
@@ -1525,7 +1532,7 @@ function renderPlayer(state: State, renderer: Renderer) {
             p.normal;
     }
 
-    renderer.addGlyph(x, y, x+1, y+1, tileInfo, lit);
+    renderer.addGlyphLit(x, y, x+1, y+1, tileInfo, lit);
 }
 
 function renderGuards(state: State, renderer: Renderer) {
@@ -1559,21 +1566,21 @@ function renderGuards(state: State, renderer: Renderer) {
             let p1 = y-0.125;
             const pti = guard.hasVaultKey?tileSet.itemTiles[ItemType.KeyCarry]:renderer.tileSet.itemTiles[ItemType.PurseCarry];
             if(guard.dir[1]>0) {
-                if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
-                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                if(guard.hasTorch) renderer.addGlyphLit(t0, t1, t0 + 1, t1 + 1, tti, lit);
+                renderer.addGlyphLit(x, y, x + 1, y + 1, tileInfo, lit);
+                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyphLit(p0, p1, p0 + 1, p1 + 1, pti, lit);
             } else if(guard.dir[1]<0) {
-                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
-                if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
+                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyphLit(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                renderer.addGlyphLit(x, y, x + 1, y + 1, tileInfo, lit);
+                if(guard.hasTorch) renderer.addGlyphLit(t0, t1, t0 + 1, t1 + 1, tti, lit);
             } else {
-                renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);    
-                if(guard.hasTorch) renderer.addGlyph(t0, t1, t0 + 1, t1 + 1, tti, lit);
-                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyph(p0, p1, p0 + 1, p1 + 1, pti, lit);
+                renderer.addGlyphLit(x, y, x + 1, y + 1, tileInfo, lit);    
+                if(guard.hasTorch) renderer.addGlyphLit(t0, t1, t0 + 1, t1 + 1, tti, lit);
+                if(guard.hasPurse || guard.hasVaultKey) renderer.addGlyphLit(p0, p1, p0 + 1, p1 + 1, pti, lit);
             }
         }
-        else renderer.addGlyph(x, y, x + 1, y + 1, tileInfo, lit);
-        // renderer.addGlyph(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
+        else renderer.addGlyphLit(x, y, x + 1, y + 1, tileInfo, lit);
+        // renderer.addGlyphLit(guard.pos[0], guard.pos[1], guard.pos[0] + 1, guard.pos[1] + 1, tileInfo, lit);
     }
 }
 
@@ -1608,21 +1615,21 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         if(guard.speaking) {
             const dir = guard.dir[0];
             if(dir>=0) {
-                renderer.addGlyph(x+1, y, x+2, y+1, bubble_right, 1);
+                renderer.addGlyph(x+1, y, x+2, y+1, bubble_right);
             } else {
-                renderer.addGlyph(x-1, y, x, y+1, bubble_left, 1);
+                renderer.addGlyph(x-1, y, x, y+1, bubble_left);
             }
         }
 
         const guardState = guard.overheadIcon();
         if (guardState!==GuardStates.Relaxed) {
             const gtile = renderer.tileSet.guardStateTiles[guardState]
-            renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
+            renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile);
         }
         if (guard === player.pickTarget) {
             // Render the shadowing indicator if player is shadowing a guard
             const gtile = tileSet.namedTiles['pickTarget'];
-            renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile, 1);
+            renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile);
         } 
     }
 
@@ -1641,7 +1648,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     if (player.noisy) {
         const x = player.pos[0];
         const y = player.pos[1] - 0.5;
-        renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['noise'], 1);
+        renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['noise']);
     }
 
 }
@@ -1698,7 +1705,7 @@ function renderGuardSight(state: State, renderer: Renderer) {
     for (let y = 0; y < state.gameMap.cells.sizeY; ++y) {
         for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
             if (seenByGuard.get(x, y)) {
-                renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['crossHatch'], 1);
+                renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['crossHatch']);
             }
         }
     }
@@ -1711,7 +1718,7 @@ function renderGuardPatrolPaths(state: State, renderer: Renderer) {
 
     for (const guard of state.gameMap.guards) {
         for (const pos of guard.patrolPath) {
-            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, tileSet.namedTiles['patrolRoute'], 1);
+            renderer.addGlyph(pos[0], pos[1], pos[0]+1, pos[1]+1, tileSet.namedTiles['patrolRoute']);
         }
     }
 }
@@ -2473,7 +2480,7 @@ function colorLerp(color0: number, color1: number, u: number): number {
     const b = Math.max(0, Math.min(255, Math.trunc(b0 + (b1 - b0) * u)));
     const a = Math.max(0, Math.min(255, Math.trunc(a0 + (a1 - a0) * u)));
 
-    return r + (b << 8) + (g << 16) + (a << 24);
+    return r + (g << 8) + (b << 16) + (a << 24);
 }
 
 function putString(renderer: Renderer, x: number, s: string, color: number) {

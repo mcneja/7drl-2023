@@ -9,7 +9,9 @@ import { vec2, mat4 } from './my-matrix';
 class Renderer {
     beginFrame = (screenSize:vec2) => {}
     start(matScreenFromWorld: mat4, textureIndex: number) {}
-    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number|[number,number,number,number]=1) {}
+    addGlyph(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo) {}
+    addGlyphLit(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number) {}
+    addGlyphLit4(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:[number,number,number,number]) {}
     flush() {}
     fontTileSet: FontTileSet;
     tileSet: TileSet;
@@ -56,27 +58,25 @@ class Renderer {
             vColor: 2,
         };
 
-        function hexToRgbaArray(hex:number) {
-            const alpha = (hex >> 24) & 0xff;
-            const blue = (hex >> 16) & 0xff;
-            const green = (hex >> 8) & 0xff;
-            const red = hex & 0xff;
-          
-            return [red, green, blue, alpha];
+        function colorLerp(color0: number, color1: number, u: number): number {
+            const r0 = (color0 & 255);
+            const g0 = ((color0 >> 8) & 255);
+            const b0 = ((color0 >> 16) & 255);
+            const a0 = ((color0 >> 24) & 255);
+
+            const r1 = (color1 & 255);
+            const g1 = ((color1 >> 8) & 255);
+            const b1 = ((color1 >> 16) & 255);
+            const a1 = ((color1 >> 24) & 255);
+
+            const r = Math.max(0, Math.min(255, Math.trunc(r0 + (r1 - r0) * u)));
+            const g = Math.max(0, Math.min(255, Math.trunc(g0 + (g1 - g0) * u)));
+            const b = Math.max(0, Math.min(255, Math.trunc(b0 + (b1 - b0) * u)));
+            const a = Math.max(0, Math.min(255, Math.trunc(a0 + (a1 - a0) * u)));
+
+            return r + (g << 8) + (b << 16) + (a << 24);
         }
 
-        function rgbaArrayToHex(rgbaArray:[number, number, number, number]) {
-            const [red, green, blue, alpha] = rgbaArray;
-
-            // Perform the bit shifting and bitwise OR operations
-            const hex =
-                ((alpha << 24) >>> 0) |
-                ((blue << 16) >>> 0) |
-                ((green << 8) >>> 0) |
-                (red >>> 0);
-
-            return hex;
-        }
         const tileRatios = [tileSet.tileSize[0]/tileSet.cellSize[0], tileSet.tileSize[1]/tileSet.cellSize[1]]
 
         const program = initShaderProgram(gl, vsSource, fsSource, attribs);
@@ -119,8 +119,7 @@ class Renderer {
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
         }
 
-        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, 
-                lit:number|[number,number,number,number]=1) => {
+        this.addGlyph = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo) => {
             if(tileInfo.textureIndex === undefined) return;
             if (numQuads >= maxQuads) {
                 this.flush();
@@ -129,82 +128,114 @@ class Renderer {
             x1 = x0+(x1-x0)*tileRatios[0];
             y1 = y0+(y1-y0)*tileRatios[1];
 
-            if(typeof lit == 'number') {
-                const cl = hexToRgbaArray(tileInfo.color? tileInfo.color:0xffffffff);
-                const cu = hexToRgbaArray(tileInfo.unlitColor? tileInfo.unlitColor:0xff505050);
-                const wt = lit**0.25;
-                const color = rgbaArrayToHex([
-                    cu[0]+wt*(cl[0]-cu[0]), 
-                    cu[1]+wt*(cl[1]-cu[1]), 
-                    cu[2]+wt*(cl[2]-cu[2]), 
-                    cu[3]+wt*(cl[3]-cu[3])
-                ]);
+            const color = tileInfo.color ? tileInfo.color : 0xffffffff;
 
-                const i = numQuads * wordsPerQuad;
-                const srcBase = tileInfo.textureIndex << 16;
-    
-                vertexDataAsFloat32[i+0] = x0;
-                vertexDataAsFloat32[i+1] = y0;
-                vertexDataAsUint32[i+2] = srcBase + 256;
-                vertexDataAsUint32[i+3] = color; //TODO: we get smoother light if we put smoothed values in each quad
-    
-                vertexDataAsFloat32[i+4] = x1;
-                vertexDataAsFloat32[i+5] = y0;
-                vertexDataAsUint32[i+6] = srcBase + 257;
-                vertexDataAsUint32[i+7] = color;
-    
-                vertexDataAsFloat32[i+8] = x0;
-                vertexDataAsFloat32[i+9] = y1;
-                vertexDataAsUint32[i+10] = srcBase;
-                vertexDataAsUint32[i+11] = color;
-    
-                vertexDataAsFloat32[i+12] = x1;
-                vertexDataAsFloat32[i+13] = y1;
-                vertexDataAsUint32[i+14] = srcBase + 1;
-                vertexDataAsUint32[i+15] = color;
-    
-                ++numQuads;
-    
-            } else {
-                const cv = [];
-                for(const l of lit) {
-                    const cl = hexToRgbaArray(tileInfo.color? tileInfo.color:0xffffffff);
-                    const cu = hexToRgbaArray(tileInfo.unlitColor? tileInfo.unlitColor:0xff505050);
-                    const wt = l**0.25;
-                    const color = rgbaArrayToHex([
-                        cu[0]+wt*(cl[0]-cu[0]), 
-                        cu[1]+wt*(cl[1]-cu[1]), 
-                        cu[2]+wt*(cl[2]-cu[2]), 
-                        cu[3]+wt*(cl[3]-cu[3])
-                    ]);
-                    cv.push(color);    
-                }
-                const i = numQuads * wordsPerQuad;
-                const srcBase = tileInfo.textureIndex << 16;
-    
-                vertexDataAsFloat32[i+0] = x0;
-                vertexDataAsFloat32[i+1] = y0;
-                vertexDataAsUint32[i+2] = srcBase + 256;
-                vertexDataAsUint32[i+3] = cv[0]; //TODO: we get smoother light if we put smoothed values in each quad
-    
-                vertexDataAsFloat32[i+4] = x1;
-                vertexDataAsFloat32[i+5] = y0;
-                vertexDataAsUint32[i+6] = srcBase + 257;
-                vertexDataAsUint32[i+7] = cv[1];
-    
-                vertexDataAsFloat32[i+8] = x0;
-                vertexDataAsFloat32[i+9] = y1;
-                vertexDataAsUint32[i+10] = srcBase;
-                vertexDataAsUint32[i+11] = cv[2];
-    
-                vertexDataAsFloat32[i+12] = x1;
-                vertexDataAsFloat32[i+13] = y1;
-                vertexDataAsUint32[i+14] = srcBase + 1;
-                vertexDataAsUint32[i+15] = cv[3];
-    
-                ++numQuads;
+            const i = numQuads * wordsPerQuad;
+            const srcBase = tileInfo.textureIndex << 16;
+
+            vertexDataAsFloat32[i+0] = x0;
+            vertexDataAsFloat32[i+1] = y0;
+            vertexDataAsUint32[i+2] = srcBase + 256;
+            vertexDataAsUint32[i+3] = color;
+
+            vertexDataAsFloat32[i+4] = x1;
+            vertexDataAsFloat32[i+5] = y0;
+            vertexDataAsUint32[i+6] = srcBase + 257;
+            vertexDataAsUint32[i+7] = color;
+
+            vertexDataAsFloat32[i+8] = x0;
+            vertexDataAsFloat32[i+9] = y1;
+            vertexDataAsUint32[i+10] = srcBase;
+            vertexDataAsUint32[i+11] = color;
+
+            vertexDataAsFloat32[i+12] = x1;
+            vertexDataAsFloat32[i+13] = y1;
+            vertexDataAsUint32[i+14] = srcBase + 1;
+            vertexDataAsUint32[i+15] = color;
+
+            ++numQuads;
+        }
+
+        this.addGlyphLit = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number) => {
+            if(tileInfo.textureIndex === undefined) return;
+            if (numQuads >= maxQuads) {
+                this.flush();
             }
 
+            x1 = x0+(x1-x0)*tileRatios[0];
+            y1 = y0+(y1-y0)*tileRatios[1];
+
+            const colorLit = tileInfo.color ? tileInfo.color : 0xffffffff;
+            const colorUnlit = tileInfo.unlitColor ? tileInfo.unlitColor : 0xff505050;
+
+            const color = colorLerp(colorUnlit, colorLit, lit**0.25);
+
+            const i = numQuads * wordsPerQuad;
+            const srcBase = tileInfo.textureIndex << 16;
+
+            vertexDataAsFloat32[i+0] = x0;
+            vertexDataAsFloat32[i+1] = y0;
+            vertexDataAsUint32[i+2] = srcBase + 256;
+            vertexDataAsUint32[i+3] = color;
+
+            vertexDataAsFloat32[i+4] = x1;
+            vertexDataAsFloat32[i+5] = y0;
+            vertexDataAsUint32[i+6] = srcBase + 257;
+            vertexDataAsUint32[i+7] = color;
+
+            vertexDataAsFloat32[i+8] = x0;
+            vertexDataAsFloat32[i+9] = y1;
+            vertexDataAsUint32[i+10] = srcBase;
+            vertexDataAsUint32[i+11] = color;
+
+            vertexDataAsFloat32[i+12] = x1;
+            vertexDataAsFloat32[i+13] = y1;
+            vertexDataAsUint32[i+14] = srcBase + 1;
+            vertexDataAsUint32[i+15] = color;
+
+            ++numQuads;
+        }
+
+        this.addGlyphLit4 = (x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:[number,number,number,number]) => {
+            if(tileInfo.textureIndex === undefined) return;
+            if (numQuads >= maxQuads) {
+                this.flush();
+            }
+
+            const colorLit = tileInfo.color ? tileInfo.color : 0xffffffff;
+            const colorUnlit = tileInfo.unlitColor ? tileInfo.unlitColor : 0xff505050;
+
+            function colorInterpolated(u: number): number {
+                return colorLerp(colorUnlit, colorLit, u**0.25);
+            }
+
+            x1 = x0+(x1-x0)*tileRatios[0];
+            y1 = y0+(y1-y0)*tileRatios[1];
+
+            const i = numQuads * wordsPerQuad;
+            const srcBase = tileInfo.textureIndex << 16;
+
+            vertexDataAsFloat32[i+0] = x0;
+            vertexDataAsFloat32[i+1] = y0;
+            vertexDataAsUint32[i+2] = srcBase + 256;
+            vertexDataAsUint32[i+3] = colorInterpolated(lit[0]);
+
+            vertexDataAsFloat32[i+4] = x1;
+            vertexDataAsFloat32[i+5] = y0;
+            vertexDataAsUint32[i+6] = srcBase + 257;
+            vertexDataAsUint32[i+7] = colorInterpolated(lit[1]);
+
+            vertexDataAsFloat32[i+8] = x0;
+            vertexDataAsFloat32[i+9] = y1;
+            vertexDataAsUint32[i+10] = srcBase;
+            vertexDataAsUint32[i+11] = colorInterpolated(lit[2]);
+
+            vertexDataAsFloat32[i+12] = x1;
+            vertexDataAsFloat32[i+13] = y1;
+            vertexDataAsUint32[i+14] = srcBase + 1;
+            vertexDataAsUint32[i+15] = colorInterpolated(lit[3]);
+
+            ++numQuads;
         }
 
         this.flush = () => {
