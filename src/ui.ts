@@ -507,8 +507,9 @@ class MansionCompleteScreen extends TextWindow {
     pages = [
 `Mansion $level$ Complete!
 
-Speed:       $timeBonus$
-$levelStats$Ghosted:     $ghosted$
+$levelStats$Completion:  $lootScore$
+Time Bonus:  $timeBonus$
+Ghosted:     $ghosted$
 Score:       $levelScore$
 
 Total Score: $totalScore$
@@ -516,7 +517,10 @@ Total Score: $totalScore$
 [N|startLevel]: Next`
     ];
     update(state:State) {
-        const timeBonus = game.calculateTimeBonus(state);
+        const numTurnsPar = game.numTurnsParForCurrentMap(state);
+        const timeBonus = Math.max(0, numTurnsPar - state.turns);
+        const ghosted = (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0);
+        const score = (state.lootStolen * 10 + timeBonus) * (ghosted ? 2 : 1);
 
         let levelStats = '';
         if (state.levelStats.numSpottings > 0) {
@@ -528,12 +532,16 @@ Total Score: $totalScore$
         if (state.levelStats.numKnockouts > 0) {
             levelStats += 'Knockouts:   ' + state.levelStats.numKnockouts + '\n';
         }
+        if (levelStats.length > 0) {
+            levelStats += '\n';
+        }
 
         this.state.set('level', (state.level+1).toString());
-        this.state.set('timeBonus', timeBonus.toString());
         this.state.set('levelStats', levelStats);
-        this.state.set('ghosted', (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) ? 'Yes' : 'No');
-        this.state.set('levelScore', Math.ceil(timeBonus * game.ghostMultiplier(state.levelStats)).toString());
+        this.state.set('lootScore', (state.lootStolen * 10).toString());
+        this.state.set('timeBonus', timeBonus.toString());
+        this.state.set('ghosted', ghosted ? 'Yes (2x)' : 'No (1x)');
+        this.state.set('levelScore', score.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {

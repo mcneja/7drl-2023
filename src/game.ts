@@ -249,7 +249,9 @@ function scoreCompletedLevel(state: State) {
     state.gameMapRoughPlans[state.level].played = true;
 
     const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
-    const score = Math.ceil(calculateTimeBonus(state) * ghostMultiplier(state.levelStats));
+    const numTurnsPar = numTurnsParForCurrentMap(state);
+    const timeBonus = Math.max(0, numTurnsPar - state.turns);
+    const score = (state.lootStolen * 10 + timeBonus) * (ghosted ? 2 : 1);
 
     state.gameStats.loot = state.player.loot;
     state.gameStats.lootStolen += state.lootStolen;
@@ -305,24 +307,9 @@ export function setupLevel(state: State, level: number) {
     postTurn(state);
 }
 
-export function calculateTimeBonus(state:State):number {
+export function numTurnsParForCurrentMap(state: State): number {
     const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
-    const numTurnsPar = Math.ceil(numDiscoverableCells / 2);
-    return Math.max(0, numTurnsPar - state.turns);
-}
-
-export function ghostMultiplier(levelStats: LevelStats): number {
-    let multiplier = 1;
-    if (levelStats.numKnockouts === 0) {
-        multiplier += 1/3;
-    }
-    if (levelStats.numSpottings === 0) {
-        multiplier += 1/3;
-    }
-    if (levelStats.damageTaken === 0) {
-        multiplier += 1/3;
-    }
-    return multiplier;
+    return 10 * Math.ceil(numDiscoverableCells / 30);
 }
 
 function advanceToMansionComplete(state: State) {
@@ -1225,8 +1212,8 @@ function preTurn(state: State) {
 
 function advanceTime(state: State) {
     let oldHealth = state.player.health;
-    state.turns++;
-    state.totalTurns++;
+    ++state.turns;
+    ++state.totalTurns;
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
@@ -2576,13 +2563,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const msgLevel = 'Lvl ' + (state.level + 1);
 
-    let msgTimer;
-    const speedScore = calculateTimeBonus(state);
-    if (speedScore > 0) {
-        msgTimer = 'Speed ' + speedScore;
-    } else {
-        msgTimer = 'Turns ' + state.turns;
-    }
+    let msgTimer = 'Time ' + Math.max(0, numTurnsParForCurrentMap(state) - state.turns);
 
     const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
