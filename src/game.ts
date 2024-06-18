@@ -91,7 +91,7 @@ function updateControllerState(state:State) {
     state.gamepadManager.updateGamepadStates();
     if(lastController !== null) {
         if(state.helpActive) {
-            state.helpScreen.onControls(state, activated);
+            state.helpScreen.onControls(state, menuActivated);
         } else {
             if(state.gameMode == GameMode.Mansion) {
                 onControlsInMansion(lastController);
