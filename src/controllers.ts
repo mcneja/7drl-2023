@@ -5,8 +5,7 @@ export {lastController, Controller, TouchTargets, TouchController, GamepadManage
 type ControlStates = { [id:string]: boolean};
 type ControlTimes = { [id:string]: number};
 
-//Global control states affected by all controllers
-const controlStates:ControlStates = {
+const controlStates0: ControlStates = {
     'left': false,
     'right': false,
     'up': false,
@@ -48,8 +47,6 @@ const controlStates:ControlStates = {
     'prevLevel': false,
     'fullscreen': false,
 };
-
-const controlStates0:ControlStates = {... controlStates};
 
 var lastController:Controller|null = null;
 
@@ -144,7 +141,6 @@ class Controller {
     controlStates: ControlStates;
     controlTimes: ControlTimes;
     currentFramePresses: Set<string> = new Set();
-    currentFrameReleases: Set<string> = new Set();
     constructor() {
         this.controlStates = {... controlStates0};
         this.controlTimes = {};
@@ -154,20 +150,16 @@ class Controller {
     }
     setPressed(action:string, state:boolean, updateFrame:boolean=true) {
         this.controlStates[action] = state;
-        controlStates[action] = state;
         this.controlTimes[action] = Date.now();
         if(updateFrame) {
             if(state) {
                 this.currentFramePresses.add(action);
-            } else { 
-                this.currentFrameReleases.add(action);
             }    
         }
         lastController = this; 
     }
     endFrame () {
         this.currentFramePresses.clear();
-        this.currentFrameReleases.clear();
     }
 }
 
