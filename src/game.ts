@@ -2412,7 +2412,7 @@ function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, num
 }
 
 function statusBarZoom(screenSize: vec2): number {
-    const minCharsX = 65;
+    const minCharsX = 45;
     const minCharsY = 22;
     const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (statusBarCharPixelSizeX * minCharsX)));
     const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (statusBarCharPixelSizeY * minCharsY)));

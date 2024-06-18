@@ -10,6 +10,8 @@ import { ItemType, TerrainType } from './game-map';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpScreen, DailyHubScreen };
 
+const menuCharSizeX: number = 43;
+
 function scoreToClipboard(stats:GameStats) {
     const numGhostedLevels = stats.numGhostedLevels;
     const totalScore = stats.totalScore;
@@ -20,15 +22,15 @@ function scoreToClipboard(stats:GameStats) {
     const win = stats.win;
     const daily = stats.daily;
 
-    const runText = daily!==null? '📅 Daily run for '+daily:
-        '🎲 Random game';
+    const runText = daily!==null? '\uD83D\uDCC5 Daily run for '+daily:
+        '\uD83C\uDFB2 Random game';
     const endText = win? 'Completed mission in '+turns+' turns.':
-        '💀 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
+        '\uD83D\uDC80 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
     const scoreText = win?  `Walked away with ${loot} 🪙.`:
         `Guards recovered ${loot} 🪙 that you stole.`
 
     navigator.clipboard.writeText(
-        `🏛️ Lurk Leap Loot 🏛️\n${runText}\n${endText}\n`+
+        `\uD83C\uDFDB\uFE0F Lurk, Leap, Loot \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
         `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
         `Ghosted:     ${numGhostedLevels}\n`+
         `Total score: ${totalScore}\n`+
@@ -178,7 +180,7 @@ class TextWindow {
         }
     }
     updateScreenSize(screenSize: vec2) {
-        const minCharsX = 65;
+        const minCharsX = menuCharSizeX + 2;
         const minCharsY = 22;
         const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (this.textW * minCharsX)));
         const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (this.textH * minCharsY)));
@@ -214,7 +216,7 @@ class TextWindow {
         // Draw a stretched box to make a darkened background for the text.
         renderer.start(matScreenFromTextArea, 0);
         renderer.addGlyph(
-            -2, -1, maxLineLength + 2, lines.length + 1,
+            -1, -0.5, maxLineLength + 1, lines.length + 0.5,
             bg
         );
         renderer.flush();
@@ -298,7 +300,7 @@ class TextWindow {
 
 class HomeScreen extends TextWindow {
     pages = [
-`             Lurk Leap Loot
+`            Lurk, Leap, Loot
      James McNeill and Damien Moore       
 
             [P|homePlay]:        Play game
@@ -657,13 +659,16 @@ const mn = getTileSet().touchButtons['right'].textureIndex;
 
 class HelpScreen extends TextWindow {
     pages = [
-`Lurk Leap Loot
+`Lurk, Leap, Loot
 
 Loot $numGameMaps$ mansions.
 
-Mansion bonuses:
-- Up to 5 gold for completing quickly.
-- 5 gold if you avoid alerting guards.
+
+
+
+
+
+
 
 [X|home] Exit to home screen (abort game)
 
