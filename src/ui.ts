@@ -26,8 +26,8 @@ function scoreToClipboard(stats:GameStats) {
         '\uD83C\uDFB2 Random game';
     const endText = win? 'Completed mission in '+turns+' turns.':
         '\uD83D\uDC80 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
-    const scoreText = win?  `Walked away with ${loot} 🪙.`:
-        `Guards recovered ${loot} 🪙 that you stole.`
+    const scoreText = win?  `Walked away with ${loot} \uD83E\uDE99.`:
+        `Guards recovered ${loot} \uD83E\uDE99 that you stole.`
 
     navigator.clipboard.writeText(
         `\uD83C\uDFDB\uFE0F Lurk, Leap, Loot \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
