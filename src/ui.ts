@@ -509,10 +509,9 @@ class MansionCompleteScreen extends TextWindow {
     pages = [
 `Mansion $level$ Complete!
 
-$levelStats$Completion:  $lootScore$
-Time Bonus:  $timeBonus$
-Ghosted:     $ghosted$
-Score:       $levelScore$
+$levelStats$Loot:        $lootScore$
+Time:        $timeBonus$
+$ghosted$Score:       $levelScore$
 
 Total Score: $totalScore$
 
@@ -522,9 +521,10 @@ Total Score: $totalScore$
         const numTurnsPar = game.numTurnsParForCurrentMap(state);
         const timeBonus = Math.max(0, numTurnsPar - state.turns);
         const ghosted = (state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0);
-        const score = (state.lootStolen * 10 + timeBonus) * (ghosted ? 2 : 1);
+        const ghostBonus = ghosted ? 20 : 0;
+        const score = state.lootStolen * 10 + timeBonus + ghostBonus;
 
-        let levelStats = '';
+        let levelStats = 'Turns:       ' + state.turns + '\n';
         if (state.levelStats.numSpottings > 0) {
             levelStats += 'Spottings:   ' + state.levelStats.numSpottings + '\n';
         }
@@ -542,7 +542,7 @@ Total Score: $totalScore$
         this.state.set('levelStats', levelStats);
         this.state.set('lootScore', (state.lootStolen * 10).toString());
         this.state.set('timeBonus', timeBonus.toString());
-        this.state.set('ghosted', ghosted ? 'Yes (2x)' : 'No (1x)');
+        this.state.set('ghosted', ghosted ? ('Ghosted:     ' + ghostBonus.toString() + '\n') : '');
         this.state.set('levelScore', score.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
     }

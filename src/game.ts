@@ -251,7 +251,8 @@ function scoreCompletedLevel(state: State) {
     const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
-    const score = (state.lootStolen * 10 + timeBonus) * (ghosted ? 2 : 1);
+    const ghostBonus = ghosted ? 20 : 0;
+    const score = state.lootStolen * 10 + timeBonus + ghostBonus;
 
     state.gameStats.loot = state.player.loot;
     state.gameStats.lootStolen += state.lootStolen;
@@ -305,11 +306,33 @@ export function setupLevel(state: State, level: number) {
     state.gameMode = GameMode.Mansion;
 
     postTurn(state);
+
+//    analyzeLevel(state);
+}
+
+function analyzeLevel(state: State) {
+    const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
+    const numGuards = state.gameMap.guards.length;
+    const guardsPerCell = numGuards / numDiscoverableCells;
+    const turnsForDiscovery = numDiscoverableCells / 3;
+    const turnsForGuardAvoidance = 3000 * Math.pow(numGuards, 2) / numDiscoverableCells;
+    const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
+    console.log('Level:', state.level);
+    console.log('Discoverable cells:', numDiscoverableCells);
+    console.log('Number of guards:', numGuards);
+    console.log('Guards per cell:', guardsPerCell);
+    console.log('Turns for discovery:', turnsForDiscovery);
+    console.log('Turns for guards:', turnsForGuardAvoidance);
+    console.log('Par:', par);
 }
 
 export function numTurnsParForCurrentMap(state: State): number {
     const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
-    return 10 * Math.ceil(numDiscoverableCells / 30);
+    const numGuards = state.gameMap.guards.length;
+    const turnsForDiscovery = numDiscoverableCells / 3;
+    const turnsForGuardAvoidance = 3000 * Math.pow(numGuards, 2) / numDiscoverableCells;
+    const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
+    return par;
 }
 
 function advanceToMansionComplete(state: State) {
@@ -1982,6 +2005,8 @@ export function restartGame(state: State) {
 
     postTurn(state);
 
+//    analyzeLevel(state);
+
     Howler.stop();
 }
 
@@ -2563,7 +2588,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     const msgLevel = 'Lvl ' + (state.level + 1);
 
-    let msgTimer = 'Time ' + Math.max(0, numTurnsParForCurrentMap(state) - state.turns);
+    let msgTimer = state.turns + '/' + numTurnsParForCurrentMap(state);
 
     const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
