@@ -315,7 +315,7 @@ function analyzeLevel(state: State) {
     const numGuards = state.gameMap.guards.length;
     const guardsPerCell = numGuards / numDiscoverableCells;
     const turnsForDiscovery = numDiscoverableCells / 3;
-    const turnsForGuardAvoidance = 3000 * Math.pow(numGuards, 2) / numDiscoverableCells;
+    const turnsForGuardAvoidance = Math.pow(800 * guardsPerCell, 2);
     const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
     console.log('Level:', state.level);
     console.log('Discoverable cells:', numDiscoverableCells);
@@ -329,8 +329,9 @@ function analyzeLevel(state: State) {
 export function numTurnsParForCurrentMap(state: State): number {
     const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
     const numGuards = state.gameMap.guards.length;
+    const guardsPerCell = numGuards / numDiscoverableCells;
     const turnsForDiscovery = numDiscoverableCells / 3;
-    const turnsForGuardAvoidance = 3000 * Math.pow(numGuards, 2) / numDiscoverableCells;
+    const turnsForGuardAvoidance = Math.pow(800 * guardsPerCell, 2);
     const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
     return par;
 }
@@ -1767,8 +1768,11 @@ function createCamera(posPlayer: vec2, zoomLevel: number): Camera {
 }
 
 //TODO: should do some runtime type checking here to validate what's being written
-export function getStat<T>(name:string):T {
-    return JSON.parse(String(window.localStorage.getItem('LLL/stat/'+name)));
+export function getStat<T>(name:string):T | undefined {
+    const statJson = window.localStorage.getItem('LLL/stat/'+name);
+    if (statJson === null || statJson === undefined || statJson === 'undefined')
+        return undefined;
+    return JSON.parse(String(statJson));
 }
 
 export function setStat<T>(name:string, value:T) {
