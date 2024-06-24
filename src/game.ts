@@ -315,7 +315,7 @@ function analyzeLevel(state: State) {
     const numGuards = state.gameMap.guards.length;
     const guardsPerCell = numGuards / numDiscoverableCells;
     const turnsForDiscovery = numDiscoverableCells / 3;
-    const turnsForGuardAvoidance = Math.pow(800 * guardsPerCell, 2);
+    const turnsForGuardAvoidance = 8 * numGuards + 800 * guardsPerCell;
     const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
     console.log('Level:', state.level);
     console.log('Discoverable cells:', numDiscoverableCells);
@@ -331,7 +331,7 @@ export function numTurnsParForCurrentMap(state: State): number {
     const numGuards = state.gameMap.guards.length;
     const guardsPerCell = numGuards / numDiscoverableCells;
     const turnsForDiscovery = numDiscoverableCells / 3;
-    const turnsForGuardAvoidance = Math.pow(800 * guardsPerCell, 2);
+    const turnsForGuardAvoidance = 8 * numGuards + 800 * guardsPerCell;
     const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
     return par;
 }
