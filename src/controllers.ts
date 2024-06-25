@@ -74,7 +74,7 @@ const defaultKeyMap:KeyMap = {
     'KeyF': ['jumpToggle', 'fullscreen'],
     'KeyJ': ['down'],
     'KeyK': ['up', 'keyRepeatRate'],
-    'KeyH': ['helpControls'],
+    'KeyH': ['left', 'helpControls'],
     'KeyL': ['right'],
     'KeyM': ['helpKey'],
     'KeyN': ['startLevel'],
