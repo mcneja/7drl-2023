@@ -8,7 +8,7 @@ import { RNG } from './random';
 import { getFontTileSet, getTileSet } from './tilesets';
 import { ItemType, TerrainType } from './game-map';
 
-export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpScreen, DailyHubScreen };
+export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
 
 const menuCharSizeX: number = 43;
 
@@ -73,12 +73,6 @@ class TextWindow {
             tileInfo: {},
             touchXY: [-1, -1],        
         };
-    }
-    nextPage() {
-        this.activePage = Math.min(this.pages.length - 1, this.activePage + 1);
-    }
-    prevPage() {
-        this.activePage = Math.max(0, this.activePage - 1);
     }
     parseImage(line:string, base:number, row:number, rows:number): [string, number] {
         const end = line.slice(base+2).indexOf('#');
@@ -300,38 +294,51 @@ class TextWindow {
 
 class HomeScreen extends TextWindow {
     pages = [
-`            Lurk, Leap, Loot
-     James McNeill and Damien Moore       
+`Lurk, Leap, Loot
 
-            [P|homePlay]:        Play game
-            [D|homeDaily]:  Daily challenge
-            [S|homeStats]:       Statistics
-            [O|homeOptions]:          Options`
+$playRestartOrResume$
+[D|homeDaily]: Daily challenge
+[S|homeStats]: Statistics
+[O|homeOptions]: Options
+[H|helpControls]: Controls Help
+[M|helpKey]: Map key
+[C|credits]: Credits`
     ]; 
     constructor() {
         super();
     }
     update(state: State) {
+        const commands = state.hasStartedGame ? state.dailyRun ? '[R|homePlay]: Resume daily game\n[N|homeRestart]: New game' : '[R|homePlay]: Resume game\n[N|homeRestart]: New game' : '[P|homePlay]: Play game\n';
+        this.state.set('playRestartOrResume', commands);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
-        if (activated('homePlay') || actionSelected=='homePlay') {
+        if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
+            state.gameMode = GameMode.Mansion;
+            state.hasStartedGame = true;
+        } else if (activated('homeRestart') || actionSelected=='homeRestart') {
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
-        }  if((activated('homeDaily') || actionSelected=='homeDaily')) {
+        } else if(activated('homeDaily') || actionSelected=='homeDaily') {
             state.gameMode = GameMode.DailyHub;
         } else if(activated('homeStats') || actionSelected=='homeStats') {
             state.gameMode = GameMode.StatsScreen;
         } else if(activated('homeOptions') || actionSelected=='homeOptions') {
             state.gameMode = GameMode.OptionsScreen;
+        } else if (activated('helpControls') || actionSelected=='helpControls') {
+            state.gameMode = GameMode.HelpControls;
+        } else if (activated('helpKey') || actionSelected=='helpKey') {
+            state.gameMode = GameMode.HelpKey;
+        } else if (activated('credits') || actionSelected=='credits') {
+            state.gameMode = GameMode.CreditsScreen;
         }
     }
 }
 
 class OptionsScreen extends TextWindow {
     pages = [
-`                  Options
+`Options
 
 [K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
 [D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
@@ -367,25 +374,102 @@ class OptionsScreen extends TextWindow {
     }
 };
 
+class HelpControls extends TextWindow {
+    pages = [
+        `Help: Controls
+
+  Move: Arrows / WASD / HJKL
+  Wait: Space / Z / Period / Numpad5
+  Leap/Run: Shift + move (unlimited!)
+  Leap/Run (Toggle): F / Numpad+
+  Zoom View: [ / ]
+  Volume: (Mute/Down/Up) 0 / - / =
+  Guard Mute (Toggle): 9
+
+Disable NumLock if using numpad
+Mouse, touch and gamepad also supported
+
+[Esc|menu] Back to menu`,
+    ];
+    update(state: State): void {
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+        }
+    }
+}
+
+class HelpKey extends TextWindow {
+    pages = [
+        `Map Key
+
+#${getTileSet().playerTiles.normal.textureIndex}# Thief: You!
+#${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
+#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Get it!
+#${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
+#${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
+#${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Not a hiding place
+#${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards want them lit
+#${getTileSet().terrainTiles[TerrainType.OneWayWindowN].textureIndex}# Window: One-way escape route
+#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floor: Noise alerts guards
+
+[Esc|menu] Back to menu`,
+    ];
+    update(state: State): void {
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+        }
+    }
+}
+
+class CreditsScreen extends TextWindow {
+    pages = [
+        `Credits
+
+Made for 2023 Seven-Day Roguelike Challenge
+
+by James McNeill and Damien Moore
+
+Additional voices by Evan Moore
+Additional assistance by Mike Gaffney
+Testing by Tom Elmer
+Special thanks to Mendi Carroll
+
+[Esc|menu] Back to menu`,
+    ];
+    update(state: State): void {
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+        }
+    }
+}
+
 class DailyHubScreen extends TextWindow {
     pages = [
 //Daily runs
-`            Daily Challenge for $date$
+`Daily Challenge for $date$
 
-            $dailyStatus$
-            $playMode$
+$dailyStatus$
+$playMode$
 
-            Last game played:   $lastPlayed$
-            Last score:         $lastScore$
-            [C|copyScore] Copy last game to clipboard
-            $copyState$
-            Best winning score: $bestScore$
-            Total daily runs:   $dailyPlays$
-            Total daily wins:   $dailyWins$
-            Win streak:         $dailyWinStreak$
+Last game played:   $lastPlayed$
+Last score:         $lastScore$
+[C|copyScore] Copy last game to clipboard
+$copyState$
+Best winning score: $bestScore$
+Total daily runs:   $dailyPlays$
+Total daily wins:   $dailyWins$
+Win streak:         $dailyWinStreak$
 
-
-                                        [Esc|menuClose] Back to menu`,
+[Esc|menu] Back to menu`,
     ];
     stateCopied: boolean = false;
     prevDay(d:Date):Date {
@@ -417,10 +501,10 @@ class DailyHubScreen extends TextWindow {
     update(state:State) {
         const lastDaily = state.persistedStats.lastDaily;
         if(lastDaily !== undefined && lastDaily.date === game.getCurrentDateFormatted()) {        
-            this.state.set('dailyStatus', "Today's game completed\n            Time to next game: "+this.timeToMidnightUTC());
+            this.state.set('dailyStatus', "Today's game completed\nTime to next game: "+this.timeToMidnightUTC());
             this.state.set('playMode', '[P|homePlay] Play it again');
         } else {
-            this.state.set('dailyStatus', '[P|homePlay] Play daily game now\n            Time left to play: '+this.timeToMidnightUTC());
+            this.state.set('dailyStatus', '[P|homePlay] Play daily game now\nTime left to play: '+this.timeToMidnightUTC());
             this.state.set('playMode', '');
         }
 
@@ -435,25 +519,28 @@ class DailyHubScreen extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
+        if(activated('menu') || action=='menu') {
             this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('homePlay') || action=='homePlay') {
             this.stateCopied = false;
             let date = game.getCurrentDateFormatted();
             state.rng = new RNG('Daily '+date);
-            state.dailyRun = date;    
+            state.dailyRun = date;
             game.restartGame(state);
+            state.hasStartedGame = true;
         } else if(activated('copyScore') || action=='copyScore') {
-            const stats:GameStats = game.getStat('lastDaily');
-            stats.daily = stats.daily??null;
-            stats.numGhostedLevels = stats.numGhostedLevels??0;
-            stats.totalScore = stats.totalScore??0;
-            stats.lootStolen = stats.lootStolen??0;
-            stats.turns = stats.turns??0;
-            stats.win = stats.win??false;
-            stats.numCompletedLevels = stats.numCompletedLevels??0;
-            stats.loot = stats.loot??0;
+            const stats:GameStats = game.getStat('lastDaily') ?? {
+                daily: null,
+                numLevels: 0,
+                numGhostedLevels: 0,
+                totalScore: 0,
+                lootStolen: 0,
+                turns: 0,
+                win: false,
+                numCompletedLevels: 0,
+                loot: 0,
+            };
             scoreToClipboard(stats);
             this.stateCopied = true;
         }
@@ -462,45 +549,28 @@ class DailyHubScreen extends TextWindow {
 
 class StatsScreen extends TextWindow {
     pages = [
-//Play stats
-`                   Play Statistics
+`Play Statistics
 
-            Total plays:             $totalPlays$
-            Total wins:              $totalWins$
-            Total loot:              $totalGold$
-            Total mansions ghosted:  $totalGhosts$
-            Total mansions looted:   $totalLootSweeps$
-            Best winning score:      $bestScore$
+Total plays:             $totalPlays$
+Total wins:              $totalWins$
+Total loot:              $totalGold$
+Total mansions ghosted:  $totalGhosts$
+Total mansions looted:   $totalLootSweeps$
+Best winning score:      $bestScore$
 
-1/2    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
-//Achievements
-`                     Achievements
-
-$achievements$
-
-2/2    [#${mp}#|menuPrev] Prev     [#${mn}#|menuNext] Next     [Esc|menuClose] Back to menu`,
-    ];
+[Esc|menu] Back to menu`];
     update(state:State) {
-        if(this.activePage==0) {
-            this.state.set('totalPlays', state.persistedStats.totalPlays.toString());
-            this.state.set('totalWins', state.persistedStats.totalWins.toString());
-            this.state.set('totalGold', state.persistedStats.totalGold.toString());
-            this.state.set('totalGhosts', state.persistedStats.totalGhosts.toString());
-            this.state.set('totalLootSweeps', state.persistedStats.totalLootSweeps.toString());
-            this.state.set('bestScore', state.persistedStats.bestScore.toString());
-        }
-        else if(this.activePage==1) {
-            this.state.set('achievements', '');
-        }
+        this.state.set('totalPlays', state.persistedStats.totalPlays.toString());
+        this.state.set('totalWins', state.persistedStats.totalWins.toString());
+        this.state.set('totalGold', state.persistedStats.totalGold.toString());
+        this.state.set('totalGhosts', state.persistedStats.totalGhosts.toString());
+        this.state.set('totalLootSweeps', state.persistedStats.totalLootSweeps.toString());
+        this.state.set('bestScore', state.persistedStats.bestScore.toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
+        if(activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
-        } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
-            this.prevPage();
-        } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
-            this.nextPage();
         };
     }
 }
@@ -548,11 +618,7 @@ Total Score: $totalScore$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('zoomIn') || action=='zoomIn') {
-            game.zoomIn(state);
-        } else if (activated('zoomOut') || action=='zoomOut') {
-            game.zoomOut(state);
-        } else if (activated('restart') || action=='restart') {
+        if (activated('restart') || action=='restart') {
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
@@ -562,8 +628,6 @@ Total Score: $totalScore$
             } else {
                 game.setupLevel(state, state.level + 1);
             }
-        } else if (activated('menu') || action == 'menu') {
-            state.helpActive = true;
         }
     };
 }
@@ -592,11 +656,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('zoomIn') || action=='zoomIn') {
-            game.zoomIn(state);
-        } else if (activated('zoomOut') || action=='zoomOut') {
-            game.zoomOut(state);
-        } else if (activated('restart') || action=='restart') {
+        if (activated('restart') || action=='restart') {
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
@@ -604,7 +664,6 @@ $copyState$
         } else if (activated('menu') || action=='menu') {
             this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
-            // state.helpActive = true;
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
             this.stateCopied = true;
@@ -634,11 +693,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('zoomIn') || action=='zoomIn') {
-            game.zoomIn(state);
-        } else if (activated('zoomOut') || action=='zoomOut') {
-            game.zoomOut(state);
-        } else if (activated('restart') || action=='restart') {
+        if (activated('restart') || action=='restart') {
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
@@ -646,110 +701,9 @@ $copyState$
         } else if (activated('menu') || action=='menu') {
             this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
-            // state.helpActive = true;
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
             this.stateCopied = true;
         }
     };
 }
-
-const mp = getTileSet().touchButtons['left'].textureIndex;
-const mn = getTileSet().touchButtons['right'].textureIndex;
-
-class HelpScreen extends TextWindow {
-    pages = [
-`Lurk, Leap, Loot
-
-Loot $numGameMaps$ mansions.
-
-
-
-
-
-
-
-
-[X|home] Exit to home screen (abort game)
-
-1/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
-`Keyboard controls
-
-  Move: Arrows / WASD / HJKL
-  Wait: Space / Z / Period / Numpad5
-  Leap/Run: Shift + move (unlimited!)
-  Leap/Run (Toggle): F / Numpad+
-  Zoom View: [ / ]
-  Volume: (Mute/Down/Up) 0 / - / =
-  Guard Mute (Toggle): 9
-
-Disable NumLock if using numpad
-Mouse, touch and gamepad also supported
-
-2/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
-
-`Key 
-
-#${getTileSet().playerTiles.normal.textureIndex}# Thief: You!
-#${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
-#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Get it!
-#${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
-#${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
-#${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Not a hiding place
-#${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards want them lit
-#${getTileSet().terrainTiles[TerrainType.OneWayWindowN].textureIndex}# Window: One-way escape route
-#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floor: Noise alerts guards
-
-
-3/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
-
-`Made for 2023 Seven-Day Roguelike Challenge
-
-by James McNeill and Damien Moore
-
-Additional voices by Evan Moore
-Additional assistance by Mike Gaffney
-Testing by Tom Elmer
-Special thanks to Mendi Carroll
-
-
-
-
-
-4/4   [#${mp}#|menuPrev] Prev    [#${mn}#|menuNext] Next    [Esc|menuClose] Close`,
-    ];
-    update(state:State) {
-        this.state.set('numGameMaps', game.gameConfig.numGameMaps.toString());
-        this.state.set('totalGameLoot', game.gameConfig.totalGameLoot.toString());
-    }
-    onControls(state:State, activated:(action:string)=>boolean) {
-        const action = this.navigateUI(activated);
-        if (activated('home') || action=='home') {
-            this.activePage = 0;
-            state.helpActive = false;
-            state.gameMode = GameMode.HomeScreen;
-        }
-        if (activated('menu') || action=='menu' || activated('menuClose') || action=='menuClose') {
-            this.activePage = 0;
-            state.helpActive = false;
-        } else if (activated('zoomIn') || action=='zoomIn') {
-            game.zoomIn(state);
-        } else if (activated('zoomOut') || action=='zoomOut') {
-            game.zoomOut(state);
-        } else if (activated('fullscreen') || action=='fullscreen') {
-            if(document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                document.documentElement.requestFullscreen();
-            }
-        } else if (activated('forceRestart')|| action=='forceRestart') {
-            state.rng = new RNG();
-            state.dailyRun = null;
-            game.restartGame(state);
-        } else if (activated('left') || action=='left' || activated('menuPrev') || action=='menuPrev') {
-            this.prevPage();
-        } else if (activated('right') || action=='right' || activated('menuNext') || action=='menuNext') {
-            this.nextPage();
-        }
-    }
-};

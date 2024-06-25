@@ -25,11 +25,14 @@ enum GameMode {
     HomeScreen,
     StatsScreen,
     OptionsScreen,
+    HelpControls,
+    HelpKey,
     Mansion,
     MansionComplete,
     Dead,
     Win,
     DailyHub,
+    CreditsScreen,
 }
 
 type ScoreEntry = {
@@ -95,9 +98,7 @@ type State = {
     keyRepeatDelay: number;
     leapToggleActive: boolean;
     gameMode: GameMode;
-    helpScreen: TextWindow;
     textWindows: {[key in GameMode]?: TextWindow };
-    helpActive: boolean;
     particles: Array<Particle>;
     player: Player;
     topStatusMessage: string;
@@ -107,6 +108,7 @@ type State = {
     numLeapMoves: number;
     numWaitMoves: number;
     hasOpenedMenu: boolean;
+    hasStartedGame: boolean;
     finishedLevel: boolean;
     zoomLevel: number;
     seeAll: boolean;

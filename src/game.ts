@@ -9,7 +9,7 @@ import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
-import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpScreen, DailyHubScreen } from './ui'
+import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen } from './ui'
 import {Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
@@ -90,15 +90,11 @@ function main(images: Array<HTMLImageElement>) {
 function updateControllerState(state:State) {
     state.gamepadManager.updateGamepadStates();
     if(lastController !== null) {
-        if(state.helpActive) {
-            state.helpScreen.onControls(state, menuActivated);
+        if(state.gameMode == GameMode.Mansion) {
+            onControlsInMansion(lastController);
         } else {
-            if(state.gameMode == GameMode.Mansion) {
-                onControlsInMansion(lastController);
-            } else {
-                state.textWindows[state.gameMode]?.onControls(state, menuActivated);
-            }    
-        }
+            state.textWindows[state.gameMode]?.onControls(state, menuActivated);
+        }    
         state.touchController.endFrame();
         state.keyboardController.endFrame();
         for(const g in state.gamepadManager.gamepads) state.gamepadManager.gamepads[g].endFrame();
@@ -181,7 +177,7 @@ function updateControllerState(state:State) {
             tryPlayerWait(state);
         } else if (activated('menu')) {
             if(state.player.health>0) {
-                state.helpActive = true;
+                state.gameMode = GameMode.HomeScreen;
                 state.hasOpenedMenu = true;
             } else {
                 state.gameMode = GameMode.Dead;
@@ -1855,17 +1851,18 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         dailyRun: null,
         leapToggleActive: false,
         gameMode: GameMode.HomeScreen,
-        helpScreen: new HelpScreen(),
         textWindows: {
             [GameMode.HomeScreen]: new HomeScreen(),
             [GameMode.OptionsScreen]: new OptionsScreen(),
             [GameMode.StatsScreen]: new StatsScreen(),
             [GameMode.DailyHub]: new DailyHubScreen(),
+            [GameMode.HelpControls]: new HelpControls(),
+            [GameMode.HelpKey]: new HelpKey(),
             [GameMode.MansionComplete]: new MansionCompleteScreen(),
             [GameMode.Dead]: new DeadScreen(),
             [GameMode.Win]: new WinScreen(),
+            [GameMode.CreditsScreen]: new CreditsScreen(),
         },
-        helpActive: false,
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: '',
         topStatusMessageSticky: false,
@@ -1875,6 +1872,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         numWaitMoves: 0,
         hasOpenedMenu: false,
         finishedLevel: false,
+        hasStartedGame: false,
         zoomLevel: initZoomLevel,
         seeAll: false,
         seeGuardSight: false,
@@ -2106,16 +2104,10 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         updateState(state, screenSize, dt);
     }
 
-    if(state.helpActive) {
-        const hs = state.helpScreen;
-        hs.update(state);
-        hs.parseUI(screenSize);
-    } else {
-        const tw = state.textWindows[state.gameMode];
-        if(tw !== undefined) {
-            tw.update(state);
-            tw.parseUI(screenSize);
-        }
+    const tw = state.textWindows[state.gameMode];
+    if(tw !== undefined) {
+        tw.update(state);
+        tw.parseUI(screenSize);
     }
 
     updateTouchButtons(state.touchController, renderer, screenSize, state);
@@ -2175,13 +2167,8 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderGuardPatrolPaths(state, renderer);
     }
     renderGuards(state, renderer);
-    if (state.gameMode === GameMode.Mansion ||
-        state.gameMode === GameMode.MansionComplete ||
-        state.gameMode === GameMode.Win ||
-        state.gameMode === GameMode.Dead) {
-        if ((state.gameMode !== GameMode.MansionComplete && state.gameMode !== GameMode.Win) || state.player.animation) {
-            renderPlayer(state, renderer);
-        }
+    if ((state.gameMode !== GameMode.MansionComplete && state.gameMode !== GameMode.Win) || state.player.animation) {
+        renderPlayer(state, renderer);
     }
     renderParticles(state, renderer);
     if(state.gameMode===GameMode.Mansion) {
@@ -2195,13 +2182,8 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     }
 
     if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
-        if (state.helpActive) {
-            state.helpScreen.render(renderer);
-            renderBottomStatusBar(renderer, screenSize, state);
-        } else {
-            renderTopStatusBar(renderer, screenSize, state);
-            renderBottomStatusBar(renderer, screenSize, state);
-        }    
+        renderTopStatusBar(renderer, screenSize, state);
+        renderBottomStatusBar(renderer, screenSize, state);
     }
 
     if(lastController===state.touchController) {
@@ -2227,7 +2209,7 @@ function updateTouchButtons(touchController:TouchController, renderer:Renderer, 
     if (lastController !== touchController)
         return;
 
-    const menu = state.helpActive? state.helpScreen: state.textWindows[state.gameMode];
+    const menu = state.textWindows[state.gameMode];
 
     if(touchController.lastMotion.id!==-1 && menu===undefined && touchController.targetOnTouchDown===null && touchController.lastMotion.active) {
         const dXScreen = touchController.lastMotion.x - touchController.lastMotion.x0;
@@ -2263,7 +2245,7 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const bh = buttonSizePixels;
     const r = 8;
 
-    const inGame = state.gameMode===GameMode.Mansion && !state.helpActive;
+    const inGame = state.gameMode===GameMode.Mansion;
     const inStartMenus =
             state.gameMode===GameMode.HomeScreen ||
             state.gameMode===GameMode.DailyHub ||
