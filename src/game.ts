@@ -299,6 +299,7 @@ export function setupLevel(state: State, level: number) {
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos, state.zoomLevel);
+    state.camera.zoomed = (level !== 0);
     state.gameMode = GameMode.Mansion;
 
     postTurn(state);
