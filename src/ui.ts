@@ -511,9 +511,12 @@ Win streak:         $dailyWinStreak$
             this.state.set('playMode', '');
         }
 
+        const lastDailyDate: string = lastDaily?.date ?? 'None';
+        const lastDailyScore: number = lastDaily?.score ?? 0;
+
         this.state.set('date', game.getCurrentDateFormatted()+ ' UTC');
-        this.state.set('lastPlayed', (lastDaily !== undefined) ? lastDaily.date : '');
-        this.state.set('lastScore', ((lastDaily !== undefined) ? lastDaily.score : 0).toString());
+        this.state.set('lastPlayed', lastDailyDate);
+        this.state.set('lastScore', lastDailyScore.toString());
         this.state.set('bestScore', state.persistedStats.bestDailyScore.toString());
         this.state.set('dailyPlays', state.persistedStats.dailyPlays.toString());
         this.state.set('dailyWins', state.persistedStats.dailyWins.toString());
