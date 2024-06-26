@@ -432,13 +432,13 @@ class HelpKey extends TextWindow {
 
 #${getTileSet().playerTiles.normal.textureIndex}# Thief: You!
 #${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
-#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Get it!
+#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Steal it!
 #${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
 #${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
-#${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Not a hiding place
-#${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards want them lit
+#${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Guards sit here
+#${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards light them
 #${getTileSet().terrainTiles[TerrainType.OneWayWindowN].textureIndex}# Window: One-way escape route
-#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floor: Noise alerts guards
+#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floor: Alerts guards
 
 [Esc|menu] Back to menu`,
     ];
@@ -457,12 +457,13 @@ class CreditsScreen extends TextWindow {
         `Credits
 
 Made for 2023 Seven-Day Roguelike Challenge
+Expanded Post-Jam Edition
 
 by James McNeill and Damien Moore
 
 Additional voices by Evan Moore
 Additional assistance by Mike Gaffney
-Testing by Tom Elmer
+Testing by Mendi Carroll and Tom Elmer
 Special thanks to Mendi Carroll
 
 [Esc|menu] Back to menu`,
