@@ -202,17 +202,17 @@ class TextWindow {
         const matScreenFromTextArea = this.mat;
         const maxLineLength = this.maxLineLength;
 
+        const colorBorder = 0xffd020b0;
+        const colorBackground = 0xff1a0416;
         const colorText = 0xffeef0ff;
         const buttonColor = 0xff802060;
         const uiSelectColor = 0xffd020b0;
     
-        const bg = getFontTileSet().background;
         // Draw a stretched box to make a darkened background for the text.
+        const solidChar = getFontTileSet().background.textureIndex;
         renderer.start(matScreenFromTextArea, 0);
-        renderer.addGlyph(
-            -1, -0.5, maxLineLength + 1, lines.length + 0.5,
-            bg
-        );
+        renderer.addGlyph(-1.5, -0.75, maxLineLength + 1.5, lines.length + 0.75, {textureIndex: solidChar, color: colorBorder});
+        renderer.addGlyph(-1,   -0.5,  maxLineLength + 1,   lines.length + 0.5,  {textureIndex: solidChar, color: colorBackground});
         renderer.flush();
 
         // Draw background areas for touchTargets
@@ -235,7 +235,7 @@ class TextWindow {
             const color = isHighlightedAction? uiSelectColor : buttonColor;
             renderer.addGlyph(
                 r[0], r[1], r[0]+r[2], r[1]+r[3],
-                {textureIndex: bg.textureIndex, color:color}
+                {textureIndex: solidChar, color:color}
             );    
         }
         renderer.flush();
