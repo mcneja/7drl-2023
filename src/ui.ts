@@ -308,7 +308,10 @@ $playRestartOrResume$
         super();
     }
     update(state: State) {
-        const commands = state.hasStartedGame ? state.dailyRun ? '[R|homePlay]: Resume daily game\n[N|homeRestart]: New game' : '[R|homePlay]: Resume game\n[N|homeRestart]: New game' : '[P|homePlay]: Play game\n';
+        const commands =
+            !state.hasStartedGame ? '[P|homePlay]: Play game\n' :
+            (state.dailyRun !== null ? '[R|homePlay]: Resume daily game\n[N|homeRestart]: New game' :
+                '[R|homePlay]: Resume game\n[N|homeRestart]: New game');
         this.state.set('playRestartOrResume', commands);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
