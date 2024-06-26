@@ -77,7 +77,7 @@ const defaultKeyMap:KeyMap = {
     'KeyH': ['left', 'helpControls'],
     'KeyL': ['right'],
     'KeyM': ['helpKey'],
-    'KeyN': ['homeRestart'],
+    'KeyN': ['homeRestart', 'startLevel'],
     'KeyO': ['homeOptions'],
     'KeyP': ['homePlay'],
     'KeyR': ['homePlay', 'restart'],
