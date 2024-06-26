@@ -691,7 +691,11 @@ $copyState$
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
             this.stateCopied = false;
+            state.rng = new RNG();
+            state.dailyRun = null;
+            game.restartGame(state);
             state.gameMode = GameMode.HomeScreen;
+            state.hasStartedGame = false;
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats);
             this.stateCopied = true;
