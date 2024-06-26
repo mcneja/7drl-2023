@@ -2246,18 +2246,13 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const r = 8;
 
     const inGame = state.gameMode===GameMode.Mansion;
-    const inStartMenus =
-            state.gameMode===GameMode.HomeScreen ||
-            state.gameMode===GameMode.DailyHub ||
-            state.gameMode===GameMode.StatsScreen ||
-            state.gameMode===GameMode.OptionsScreen;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:!inStartMenus},
-        {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:!inStartMenus},
-        {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:!inStartMenus},
-        {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:!inStartMenus},
-        {action:'right',      rect:new Rect(x+2*bw+r,      y+bh+r,      bw,     bh),     tileInfo:tt['right'],      visible:!inStartMenus},
+        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
+        {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
+        {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:inGame},
+        {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:true},
+        {action:'right',      rect:new Rect(x+2*bw+r,      y+bh+r,      bw,     bh),     tileInfo:tt['right'],      visible:true},
         {action:'up',         rect:new Rect(x+bw+r,        y+2*bh+r,    bw,     bh),     tileInfo:tt['up'],         visible:true},
         {action:'down',       rect:new Rect(x+bw+r,        y+r,         bw,     bh),     tileInfo:tt['down'],       visible:true},
         {action:'wait',       rect:new Rect(x+bw+r,        y+bh+r,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
