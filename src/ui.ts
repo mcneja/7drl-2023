@@ -343,6 +343,11 @@ class OptionsScreen extends TextWindow {
     pages = [
 `Options
 
+         Sound Volume: $volumeLevel$
+[L|volumeUp]      Volume Louder
+[S|volumeDown]      Volume Softer
+[M|volumeMute]      Volume Mute: $volumeMute$
+[G|guardMute]      Guard Mute: $guardMute$
 [K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
 [D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
 [Ctrl+R|forceRestart] Reset data
@@ -350,6 +355,9 @@ class OptionsScreen extends TextWindow {
 [Esc|menu]    Back to menu`,
     ];
     update(state: State): void {
+        this.state.set('volumeLevel', Howler.volume().toFixed(1));
+        this.state.set('volumeMute', state.volumeMute ? 'ON' : 'OFF');
+        this.state.set('guardMute', state.guardMute ? 'ON' : 'OFF');
         this.state.set('keyRepeatRate', state.keyRepeatRate.toString());
         this.state.set('keyRepeatDelay', state.keyRepeatDelay.toString());
     }
@@ -373,6 +381,20 @@ class OptionsScreen extends TextWindow {
             }
             state.persistedStats = game.loadStats();
             state.gameMode = GameMode.HomeScreen;
+        } else if (activated('guardMute') || action=='guardMute') {
+            state.guardMute = !state.guardMute;
+            for(const s in state.subtitledSounds) {
+                state.subtitledSounds[s].mute = state.guardMute;
+            }
+        } else if (activated('volumeMute') || action=='volumeMute') {
+            state.volumeMute = !state.volumeMute;
+            Howler.mute(state.volumeMute);
+        } else if (activated('volumeDown') || action=='volumeDown') {
+            const vol = Howler.volume();
+            Howler.volume(Math.max(vol-0.1,0.1));
+        } else if (activated('volumeUp') || action=='volumeUp') {
+            const vol = Howler.volume();
+            Howler.volume(Math.min(vol+0.1,1.0));
         }
     }
 };

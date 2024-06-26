@@ -233,7 +233,7 @@ function updateControllerState(state:State) {
             Howler.volume(Math.max(vol-0.1,0.1));
         } else if (activated('volumeUp')) {
             const vol = Howler.volume();
-            Howler.volume(Math.max(vol+0.1,1.0));
+            Howler.volume(Math.min(vol+0.1,1.0));
         }
     }
 }
