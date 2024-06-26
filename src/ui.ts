@@ -343,7 +343,7 @@ class OptionsScreen extends TextWindow {
     pages = [
 `Options
 
-         Sound Volume: $volumeLevel$
+         Sound Volume: $volumeLevel$%
 [L|volumeUp]      Volume Louder
 [S|volumeDown]      Volume Softer
 [M|volumeMute]      Volume Mute: $volumeMute$
@@ -355,7 +355,7 @@ class OptionsScreen extends TextWindow {
 [Esc|menu]    Back to menu`,
     ];
     update(state: State): void {
-        this.state.set('volumeLevel', Howler.volume().toFixed(1));
+        this.state.set('volumeLevel', (Howler.volume() * 100).toFixed(0));
         this.state.set('volumeMute', state.volumeMute ? 'ON' : 'OFF');
         this.state.set('guardMute', state.guardMute ? 'ON' : 'OFF');
         this.state.set('keyRepeatRate', state.keyRepeatRate.toString());
