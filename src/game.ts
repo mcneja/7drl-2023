@@ -261,6 +261,24 @@ function scoreCompletedLevel(state: State) {
     state.gameStats.daily = state.dailyRun;
 }
 
+function scoreIncompleteLevel(state: State) {
+    if(state.gameMapRoughPlans[state.level].played) {
+        return;
+    }
+    state.gameMapRoughPlans[state.level].played = true;
+
+    const score = state.lootStolen * 10;
+
+    state.gameStats.loot = state.player.loot;
+    state.gameStats.lootStolen += state.lootStolen;
+    state.gameStats.totalScore += score;
+    state.gameStats.turns = state.totalTurns;
+    state.gameStats.numLevels = state.gameMapRoughPlans.length;
+    state.gameStats.numCompletedLevels = state.level;
+    state.gameStats.win = false;
+    state.gameStats.daily = state.dailyRun;
+}
+
 function clearLevelStats(levelStats: LevelStats) {
     levelStats.numKnockouts = 0;
     levelStats.numSpottings = 0;
@@ -1256,6 +1274,7 @@ function advanceTime(state: State) {
 
         if (state.player.health <= 0) {
             setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
+            scoreIncompleteLevel(state);
             if(state.dailyRun) {
                 state.persistedStats.dailyWinStreak=0;
                 setStat('dailyWinStreak',state.persistedStats.dailyWinStreak)    
