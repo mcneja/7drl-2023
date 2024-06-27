@@ -2203,8 +2203,9 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
 
     if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
         renderTopStatusBar(renderer, screenSize, state);
-        renderBottomStatusBar(renderer, screenSize, state);
     }
+
+    renderBottomStatusBar(renderer, screenSize, state);
 
     if(lastController===state.touchController) {
         const matScreenFromPixel = mat4.create();
