@@ -375,10 +375,7 @@ class OptionsScreen extends TextWindow {
             window.localStorage.setItem('LLL/keyRepeatDelay', ''+state.keyRepeatDelay);
         } else if(activated('forceRestart') || action=='forceRestart') {
             //TODO: Prompt??
-            for(let k=0;k<window.localStorage.length;k++) {
-                const key = window.localStorage.key(k);
-                if(key?.startsWith('LLL/')) window.localStorage.removeItem(key);
-            }
+            window.localStorage.clear();
             state.persistedStats = game.loadStats();
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('guardMute') || action=='guardMute') {
