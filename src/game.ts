@@ -247,8 +247,9 @@ function scoreCompletedLevel(state: State) {
     const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
-    const ghostBonus = ghosted ? 20 : 0;
-    const score = state.lootStolen * 10 + timeBonus + ghostBonus;
+    const lootScore = state.lootStolen * 10;
+    const ghostBonus = ghosted ? lootScore : 0;
+    const score = lootScore + timeBonus + ghostBonus;
 
     state.gameStats.loot = state.player.loot;
     state.gameStats.lootStolen += state.lootStolen;
