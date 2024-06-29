@@ -33,7 +33,6 @@ let canvasSizeY: number = canvas.clientHeight;
 
 window.onload = loadResourcesThenRun;
 
-const targetStatusBarWidthInChars: number = 48;
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
 //TODO: The constants live in the tileset and code should reference the tileset
@@ -70,6 +69,14 @@ function main(images: Array<HTMLImageElement>) {
     function ensureInitSound() {
         if (Object.keys(state.sounds).length==0) {
             setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
+
+            // Set Howler volume and mutes from game state
+
+            Howler.volume(state.soundVolume);
+            Howler.mute(state.volumeMute);
+            for(const s in state.subtitledSounds) {
+                state.subtitledSounds[s].mute = state.guardMute;
+            }
         }
     }
     
@@ -221,19 +228,15 @@ function updateControllerState(state:State) {
         } else if (activated('seeAll')) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
-            state.guardMute = !state.guardMute;
-            for(const s in state.subtitledSounds) {
-                state.subtitledSounds[s].mute = state.guardMute;
-            }
+            setGuardMute(state, !state.guardMute);
         } else if (activated('volumeMute')) {
-            state.volumeMute = !state.volumeMute;
-            Howler.mute(state.volumeMute);
+            setVolumeMute(state, !state.volumeMute);
         } else if (activated('volumeDown')) {
-            const vol = Howler.volume();
-            Howler.volume(Math.max(vol-0.1,0.1));
+            const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
+            setSoundVolume(state, soundVolume);
         } else if (activated('volumeUp')) {
-            const vol = Howler.volume();
-            Howler.volume(Math.min(vol+0.1,1.0));
+            const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
+            setSoundVolume(state, soundVolume);
         }
     }
 }
@@ -1784,6 +1787,26 @@ function createCamera(posPlayer: vec2, zoomLevel: number): Camera {
     return camera;
 }
 
+export function setSoundVolume(state: State, soundVolume: number) {
+    state.soundVolume = soundVolume;
+    Howler.volume(soundVolume);
+    window.localStorage.setItem('LLL/soundVolume', soundVolume.toString());
+}
+
+export function setVolumeMute(state: State, volumeMute: boolean) {
+    state.volumeMute = volumeMute;
+    Howler.mute(volumeMute);
+    window.localStorage.setItem('LLL/volumeMute', volumeMute ? 'true' : 'false');
+}
+
+export function setGuardMute(state: State, guardMute: boolean) {
+    state.guardMute = guardMute;
+    window.localStorage.setItem('LLL/guardMute', guardMute ? 'true' : 'false');
+    for(const s in state.subtitledSounds) {
+        state.subtitledSounds[s].mute = guardMute;
+    }
+}
+
 //TODO: should do some runtime type checking here to validate what's being written
 export function getStat<T>(name:string):T | undefined {
     const statJson = window.localStorage.getItem('LLL/stat/'+name);
@@ -1844,6 +1867,12 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     if(isNaN(keyRepeatRate)) keyRepeatRate = 175;
     let keyRepeatDelay = parseInt(window.localStorage.getItem('LLL/keyRepeatDelay')??'250');
     if(isNaN(keyRepeatDelay)) keyRepeatDelay = 250;
+    let soundVolume = parseFloat(window.localStorage.getItem('LLL/soundVolume')??'1.0');
+    if(isNaN(soundVolume)) soundVolume = 1.0;
+    let volumeMuteSaved: string | null = window.localStorage.getItem('LLL/volumeMute');
+    const volumeMute = (volumeMuteSaved === null) ? false : volumeMuteSaved === 'true';
+    let guardMuteSaved: string | null = window.localStorage.getItem('LLL/guardMute');
+    const guardMute = (guardMuteSaved === null) ? false : guardMuteSaved === 'true';
 
     const state: State = {
         gameStats: {    
@@ -1909,8 +1938,9 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         sounds: sounds,
         subtitledSounds: subtitledSounds,
         activeSoundPool: activeSoundPool,
-        guardMute: false,
-        volumeMute: false,
+        soundVolume: soundVolume,
+        guardMute: guardMute,
+        volumeMute: volumeMute,
         keyRepeatActive: undefined,
         keyRepeatRate: keyRepeatRate,
         keyRepeatDelay: keyRepeatDelay,

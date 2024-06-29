@@ -125,6 +125,7 @@ type State = {
     sounds: Howls;
     subtitledSounds: SubtitledHowls;
     activeSoundPool: ActiveHowlPool;
+    soundVolume: number;
     guardMute: boolean;
     volumeMute: boolean;
     touchController: TouchController;

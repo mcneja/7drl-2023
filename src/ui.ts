@@ -343,11 +343,11 @@ class OptionsScreen extends TextWindow {
     pages = [
 `Options
 
-         Sound Volume: $volumeLevel$%
-[L|volumeUp]      Volume Louder
-[S|volumeDown]      Volume Softer
-[M|volumeMute]      Volume Mute: $volumeMute$
-[G|guardMute]      Guard Mute: $guardMute$
+         Sound volume: $volumeLevel$%
+[=|volumeUp]      Volume up
+[-|volumeDown]      Volume down
+[0|volumeMute]      Volume mute: $volumeMute$
+[9|guardMute]      Guard mute: $guardMute$
 [K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
 [D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
 [Ctrl+R|forceRestart] Reset data
@@ -355,9 +355,9 @@ class OptionsScreen extends TextWindow {
 [Esc|menu]    Back to menu`,
     ];
     update(state: State): void {
-        this.state.set('volumeLevel', (Howler.volume() * 100).toFixed(0));
-        this.state.set('volumeMute', state.volumeMute ? 'ON' : 'OFF');
-        this.state.set('guardMute', state.guardMute ? 'ON' : 'OFF');
+        this.state.set('volumeLevel', (state.soundVolume * 100).toFixed(0));
+        this.state.set('volumeMute', state.volumeMute ? 'Yes' : 'No');
+        this.state.set('guardMute', state.guardMute ? 'Yes' : 'No');
         this.state.set('keyRepeatRate', state.keyRepeatRate.toString());
         this.state.set('keyRepeatDelay', state.keyRepeatDelay.toString());
     }
@@ -365,33 +365,32 @@ class OptionsScreen extends TextWindow {
         const action = this.navigateUI(activated);
         if(activated('menu') || action=='menu') {
             state.gameMode = GameMode.HomeScreen;
+        } else if (activated('volumeUp') || action=='volumeUp') {
+            const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
+            game.setSoundVolume(state, soundVolume);
+        } else if (activated('volumeDown') || action=='volumeDown') {
+            const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
+            game.setSoundVolume(state, soundVolume);
+        } else if (activated('volumeMute') || action=='volumeMute') {
+            game.setVolumeMute(state, !state.volumeMute);
+        } else if (activated('guardMute') || action=='guardMute') {
+            game.setGuardMute(state, !state.guardMute);
         } else if(activated('keyRepeatRate') || action=='keyRepeatRate') {
             state.keyRepeatRate -= 50;
             if(state.keyRepeatRate<100) state.keyRepeatRate = 400;
-            window.localStorage.setItem('LLL/keyRepeatRate', ''+state.keyRepeatRate);
+            window.localStorage.setItem('LLL/keyRepeatRate', state.keyRepeatRate.toString());
         } else if(activated('keyRepeatDelay') || action=='keyRepeatDelay') {
             state.keyRepeatDelay -= 50;
             if(state.keyRepeatDelay<100) state.keyRepeatDelay = 500;
-            window.localStorage.setItem('LLL/keyRepeatDelay', ''+state.keyRepeatDelay);
+            window.localStorage.setItem('LLL/keyRepeatDelay', state.keyRepeatDelay.toString());
         } else if(activated('forceRestart') || action=='forceRestart') {
             //TODO: Prompt??
             window.localStorage.clear();
             state.persistedStats = game.loadStats();
             state.gameMode = GameMode.HomeScreen;
-        } else if (activated('guardMute') || action=='guardMute') {
-            state.guardMute = !state.guardMute;
-            for(const s in state.subtitledSounds) {
-                state.subtitledSounds[s].mute = state.guardMute;
-            }
-        } else if (activated('volumeMute') || action=='volumeMute') {
-            state.volumeMute = !state.volumeMute;
-            Howler.mute(state.volumeMute);
-        } else if (activated('volumeDown') || action=='volumeDown') {
-            const vol = Howler.volume();
-            Howler.volume(Math.max(vol-0.1,0.1));
-        } else if (activated('volumeUp') || action=='volumeUp') {
-            const vol = Howler.volume();
-            Howler.volume(Math.min(vol+0.1,1.0));
+            game.setSoundVolume(state, 1.0);
+            game.setVolumeMute(state, false);
+            game.setGuardMute(state, false);
         }
     }
 };
