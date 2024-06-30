@@ -15,26 +15,22 @@ const menuCharSizeX: number = 43;
 function scoreToClipboard(stats:GameStats) {
     const numGhostedLevels = stats.numGhostedLevels;
     const totalScore = stats.totalScore;
-    const loot = stats.loot;
     const turns = stats.turns;
     const numCompletedLevels = stats.numCompletedLevels;
     const numLevels = stats.numLevels;
-    const win = stats.win;
+    const win = numCompletedLevels >= numLevels;
     const daily = stats.daily;
 
     const runText = daily!==null? '\uD83D\uDCC5 Daily run for '+daily:
         '\uD83C\uDFB2 Random game';
     const endText = win? 'Completed mission in '+turns+' turns.':
         '\uD83D\uDC80 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
-    const scoreText = win?  `Walked away with ${loot} \uD83E\uDE99.`:
-        `Guards recovered ${loot} \uD83E\uDE99 that you stole.`
 
     navigator.clipboard.writeText(
         `\uD83C\uDFDB\uFE0F Lurk, Leap, Loot \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
         `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
         `Ghosted:     ${numGhostedLevels}\n`+
-        `Total score: ${totalScore}\n`+
-        scoreText
+        `Total score: ${totalScore}\n`
     )
 }
 
@@ -521,8 +517,8 @@ Win streak:         $dailyWinStreak$
             + seconds.toString().padStart(2,'0');
       }    
     update(state:State) {
-        const lastDaily = state.persistedStats.lastDaily;
-        if(lastDaily !== undefined && lastDaily.date === game.getCurrentDateFormatted()) {        
+        const lastDailyGameStats = state.persistedStats.lastDailyGameStats;
+        if(lastDailyGameStats !== undefined && lastDailyGameStats.daily === game.getCurrentDateFormatted()) {        
             this.state.set('dailyStatus', "Today's game completed\nTime to next game: "+this.timeToMidnightUTC());
             this.state.set('playMode', '[P|homePlay] Play it again');
         } else {
@@ -530,8 +526,8 @@ Win streak:         $dailyWinStreak$
             this.state.set('playMode', '');
         }
 
-        const lastDailyDate: string = lastDaily?.date ?? 'None';
-        const lastDailyScore: number = lastDaily?.score ?? 0;
+        const lastDailyDate: string = lastDailyGameStats?.daily ?? 'None';
+        const lastDailyScore: number = lastDailyGameStats?.totalScore ?? 0;
 
         this.state.set('date', game.getCurrentDateFormatted()+ ' UTC');
         this.state.set('lastPlayed', lastDailyDate);
@@ -555,16 +551,13 @@ Win streak:         $dailyWinStreak$
             game.restartGame(state);
             state.hasStartedGame = true;
         } else if(activated('copyScore') || action=='copyScore') {
-            const stats:GameStats = game.getStat('lastDaily') ?? {
-                daily: null,
-                numLevels: 0,
-                numGhostedLevels: 0,
+            const stats:GameStats = state.persistedStats.lastDailyGameStats ?? {
                 totalScore: 0,
-                lootStolen: 0,
                 turns: 0,
-                win: false,
+                numLevels: 0,
                 numCompletedLevels: 0,
-                loot: 0,
+                numGhostedLevels: 0,
+                daily: null,
             };
             scoreToClipboard(stats);
             this.stateCopied = true;
@@ -578,18 +571,14 @@ class StatsScreen extends TextWindow {
 
 Total plays:             $totalPlays$
 Total wins:              $totalWins$
-Total loot:              $totalGold$
 Total mansions ghosted:  $totalGhosts$
-Total mansions looted:   $totalLootSweeps$
 Best winning score:      $bestScore$
 
 [Esc|menu] Back to menu`];
     update(state:State) {
         this.state.set('totalPlays', state.persistedStats.totalPlays.toString());
         this.state.set('totalWins', state.persistedStats.totalWins.toString());
-        this.state.set('totalGold', state.persistedStats.totalGold.toString());
         this.state.set('totalGhosts', state.persistedStats.totalGhosts.toString());
-        this.state.set('totalLootSweeps', state.persistedStats.totalLootSweeps.toString());
         this.state.set('bestScore', state.persistedStats.bestScore.toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {

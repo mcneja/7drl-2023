@@ -254,14 +254,11 @@ function scoreCompletedLevel(state: State) {
     const ghostBonus = ghosted ? lootScore : 0;
     const score = lootScore + timeBonus + ghostBonus;
 
-    state.gameStats.loot = state.player.loot;
-    state.gameStats.lootStolen += state.lootStolen;
     state.gameStats.totalScore += score;
-    state.gameStats.turns = state.totalTurns;
+    state.gameStats.turns += state.totalTurns;
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level + 1;
     state.gameStats.numGhostedLevels += ghosted ? 1 : 0;
-    state.gameStats.win = state.level === (gameConfig.numGameMaps - 1) && state.player.health > 0;
     state.gameStats.daily = state.dailyRun;
 }
 
@@ -273,13 +270,10 @@ function scoreIncompleteLevel(state: State) {
 
     const score = state.lootStolen * 10;
 
-    state.gameStats.loot = state.player.loot;
-    state.gameStats.lootStolen += state.lootStolen;
     state.gameStats.totalScore += score;
-    state.gameStats.turns = state.totalTurns;
+    state.gameStats.turns += state.totalTurns;
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level;
-    state.gameStats.win = false;
     state.gameStats.daily = state.dailyRun;
 }
 
@@ -359,10 +353,6 @@ function advanceToMansionComplete(state: State) {
     scoreCompletedLevel(state);
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
-    if(state.lootStolen === state.lootAvailable) {
-        state.persistedStats.totalLootSweeps++;
-        setStat('totalLootSweeps',state.persistedStats.totalLootSweeps);
-    }
     if(state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) {
         state.persistedStats.totalGhosts++;
         setStat('totalGhosts',state.persistedStats.totalGhosts);
@@ -375,12 +365,11 @@ function advanceToMansionComplete(state: State) {
 }
 
 export function advanceToWin(state: State) {
-    const victorySong = (state.player.loot > 95 && Math.random() < 0.1) ? 'easterEgg' : 'victorySong';
+    const victorySong = (Math.random() < 0.1) ? 'easterEgg' : 'victorySong';
     state.sounds[victorySong].play(0.5);
     state.persistedStats.totalWins++;
     const score = state.gameStats.totalScore;
     state.persistedStats.bestScore = Math.max(state.persistedStats.bestScore, score);
-    state.persistedStats.totalGold+= state.gameStats.lootStolen;
     const scoreEntry: ScoreEntry = {
         score: score,
         date: getCurrentDateFormatted(),
@@ -392,7 +381,7 @@ export function advanceToWin(state: State) {
         state.persistedStats.bestDailyScore = Math.max(state.persistedStats.bestDailyScore, state.player.loot);
         state.persistedStats.dailyWins++;
         state.persistedStats.dailyWinStreak++;
-        state.persistedStats.lastDaily = scoreEntry;
+        state.persistedStats.lastDailyGameStats = structuredClone(state.gameStats);
         state.persistedStats.dailyScores.push(scoreEntry);
         //TODO: notify user if the game was finished after the deadline
         // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(score, state.totalTurns, state.level+1);
@@ -1810,51 +1799,46 @@ export function setGuardMute(state: State, guardMute: boolean) {
 //TODO: should do some runtime type checking here to validate what's being written
 export function getStat<T>(name:string):T | undefined {
     const statJson = window.localStorage.getItem('LLL/stat/'+name);
-    if (statJson === null || statJson === undefined || statJson === 'undefined')
+    if (statJson === null || statJson === undefined)
+        return undefined;
+    if (statJson === 'undefined')
         return undefined;
     return JSON.parse(String(statJson));
 }
 
 export function setStat<T>(name:string, value:T) {
-    window.localStorage.setItem('LLL/stat/'+name, JSON.stringify(value));
+    const statJson = JSON.stringify(value);
+    window.localStorage.setItem('LLL/stat/'+name, statJson);
 }
 
 export function loadStats(): PersistedStats {
     return {
         highScores: getStat('highScores') ?? [],
         dailyScores: getStat('dailyScores') ?? [],
-        lastDaily: getStat('lastDaily') ?? undefined,
+        lastDailyGameStats: getStat('lastDailyGameStats') ?? undefined,
         dailyWinStreak: getStat('dailyWinStreak') ?? 0,
         dailyPlays: getStat('dailyPlays') ?? 0,
         dailyWins: getStat('dailyWins') ?? 0,
         bestScore: getStat('bestScore') ?? 0,
         bestDailyScore: getStat('bestDailyScore') ?? 0,
-        totalGold: getStat('totalGold') ?? 0,
         totalPlays: getStat('totalPlays') ?? 0,
         totalWins: getStat('totalWins') ?? 0,
-        totalPerfect: getStat('totalPerfect') ?? 0,
         totalGhosts: getStat('totalGhosts') ?? 0,
-        totalLootSweeps: getStat('totalLootSweeps') ?? 0,
-        achievements: getStat('achievements') ?? new Set(),
     };
 }
 
 function saveStats(persistedStats: PersistedStats) {
     setStat('highScores', persistedStats.highScores);
     setStat('dailyScores', persistedStats.dailyScores);
-    setStat('lastDaily', persistedStats.lastDaily);
+    setStat('lastDailyGameStats', persistedStats.lastDailyGameStats);
     setStat('dailyWinStreak', persistedStats.dailyWinStreak);
     setStat('dailyPlays', persistedStats.dailyPlays);
     setStat('dailyWins', persistedStats.dailyWins);
     setStat('bestScore', persistedStats.bestScore);
     setStat('bestDailyScore', persistedStats.bestDailyScore);
-    setStat('totalGold', persistedStats.totalGold);
     setStat('totalPlays', persistedStats.totalPlays);
     setStat('totalWins', persistedStats.totalWins);
-    setStat('totalPerfect', persistedStats.totalPerfect);
     setStat('totalGhosts', persistedStats.totalGhosts);
-    setStat('totalLootSweeps', persistedStats.totalLootSweeps);
-    setStat('achievements', persistedStats.achievements);
 }
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
@@ -1876,14 +1860,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
     const state: State = {
         gameStats: {    
-            loot: 0,
-            lootStolen: 0,
             totalScore: 0,
             turns: 0,
             numLevels: 0,
             numCompletedLevels: 0,
             numGhostedLevels: 0,
-            win: false,
             daily: null,
         },
         persistedStats: stats,
@@ -2022,14 +2003,11 @@ export function restartGame(state: State) {
     }
 
     state.gameStats = { 
-        loot: 0,   
-        lootStolen: 0,
         totalScore: 0,
         turns: 0,
         numLevels: 0,
         numCompletedLevels: 0,
         numGhostedLevels: 0,
-        win: false,
         daily: state.dailyRun,
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);

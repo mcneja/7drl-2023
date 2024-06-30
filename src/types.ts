@@ -42,40 +42,33 @@ type ScoreEntry = {
     date: string;
 }
 
-type PersistedStats = {
-    highScores: Array<ScoreEntry>;
-    dailyScores: Array<ScoreEntry>;
-    lastDaily: ScoreEntry | undefined;
-    dailyWinStreak: number;
-    dailyPlays: number;
-    dailyWins: number;
-    bestScore: number;
-    bestDailyScore: number;
-    totalGold: number;
-    totalPlays: number;
-    totalWins: number;
-    totalPerfect: number;
-    totalGhosts: number;
-    totalLootSweeps: number;
-    achievements: Set<string>;
+type LevelStats = {
+    numKnockouts: number;
+    numSpottings: number;
+    damageTaken: number;
 }
 
 type GameStats = {
-    loot: number;
-    lootStolen: number;
     totalScore: number;
     turns: number;
     numLevels: number;
     numCompletedLevels: number;
     numGhostedLevels: number;
-    win: boolean;
     daily: string|null;
 }
 
-type LevelStats = {
-    numKnockouts: number;
-    numSpottings: number;
-    damageTaken: number;
+type PersistedStats = {
+    highScores: Array<ScoreEntry>;
+    dailyScores: Array<ScoreEntry>;
+    lastDailyGameStats: GameStats | undefined;
+    dailyWinStreak: number;
+    dailyPlays: number;
+    dailyWins: number;
+    bestScore: number;
+    bestDailyScore: number;
+    totalPlays: number;
+    totalWins: number;
+    totalGhosts: number;
 }
 
 interface Particle {
