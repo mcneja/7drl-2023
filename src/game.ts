@@ -537,9 +537,14 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
     const volScale = 0.5 + Math.random()/2;
     const changedTile = cellOld.type !== cellNew.type;
 
-    if (cellOld.type === TerrainType.GroundWater && changedTile) {
-        state.sounds['waterExit'].play(0.5*volScale);
-        return;
+    if (changedTile) {
+        if (cellOld.type === TerrainType.GroundWater) {
+            state.sounds['waterExit'].play(0.5*volScale);
+            return;
+        } else if (cellNew.type === TerrainType.GroundWater) {
+            state.sounds['waterEnter'].play(0.5*volScale);
+            return;
+        }
     }
 
     // Terrain sound effects

@@ -95,6 +95,10 @@ const splashSet = [
     require('url:./audio/splash2.mp3'),
 ]
 
+const waterEnterSet = [
+    require('url:./audio/water-submerge.mp3'),
+]
+
 const waterExitSet = [
     require('url:./audio/water-exit.mp3'),
 ]
@@ -489,6 +493,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hide = new HowlGroup(hideSet),
     sounds.gate = new HowlGroup(gateSet),
     sounds.splash = new HowlGroup(splashSet),
+    sounds.waterEnter = new HowlGroup(waterEnterSet),
     sounds.waterExit = new HowlGroup(waterExitSet),
     sounds.jump = new HowlGroup(jumpSet),
     sounds.tooHigh = new HowlGroup(tooHighSet),
