@@ -1008,7 +1008,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const posMid = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
     const posNew = vec2.fromValues(player.pos[0] + 2*dx, player.pos[1] + 2*dy);
 
-    // If the midpoint is an unaware guard, knock them unconscious
+    // If an unaware guard is adjacent in the leap direction, knock them unconscious
 
     const guardMid = state.gameMap.guards.find((guard) =>
         guard.pos.equals(posMid) &&

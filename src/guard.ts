@@ -83,11 +83,20 @@ class Guard {
     allowsMoveOntoFrom(posFrom: vec2): boolean {
         switch (this.mode) {
         case GuardMode.Patrol:
+            // Need to deal with guard moving back to patrol route, by knowing where
+            // they want to go next frame.
             const posPatrolCur = this.patrolPath[this.patrolPathIndex];
             if (posPatrolCur.equals(this.pos)) {
                 const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
                 const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                return !(posPatrolNext.equals(posPatrolCur) || posPatrolNext.equals(posFrom));
+                if (posPatrolNext.equals(posPatrolCur))
+                    return false;
+                if (posPatrolNext.equals(posFrom))
+                    return false;
+                const midX = Math.floor((this.pos[0] + posFrom[0]) / 2);
+                const midY = Math.floor((this.pos[1] + posFrom[1]) / 2);
+                if (posPatrolNext[0] === midX && posPatrolNext[1] === midY)
+                    return false;
             }
             return true;
 
