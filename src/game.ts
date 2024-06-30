@@ -532,10 +532,17 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
         return;
     }
 
-    // Terrain sound effects
+    // Water exit sound
 
     const volScale = 0.5 + Math.random()/2;
     const changedTile = cellOld.type !== cellNew.type;
+
+    if (cellOld.type === TerrainType.GroundWater && changedTile) {
+        state.sounds['waterExit'].play(0.5*volScale);
+        return;
+    }
+
+    // Terrain sound effects
 
     switch (cellNew.type) {
     case TerrainType.GroundWoodCreaky:
@@ -1250,6 +1257,10 @@ function advanceTime(state: State) {
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
         if (state.player.turnsRemainingUnderwater > 0) {
             --state.player.turnsRemainingUnderwater;
+
+            if (state.player.turnsRemainingUnderwater <= 0) {
+                state.sounds['waterExit'].play(0.25);
+            }
         }
     } else {
         state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
