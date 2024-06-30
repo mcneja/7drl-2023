@@ -1167,6 +1167,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
+        state.sounds['splash'].play(0.5);
     }
 
     // Let guards take a turn

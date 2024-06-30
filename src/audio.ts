@@ -90,6 +90,10 @@ const gateSet = [
     require('url:./audio/gate-5.mp3'),    
 ];
 
+const splashSet = [
+    require('url:./audio/splash1.mp3'),
+    require('url:./audio/splash2.mp3'),
+]
 
 const jumpSet = [
     require('url:./audio/jump.mp3'),
@@ -480,6 +484,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.ignite = new HowlGroup(igniteSet),
     sounds.hide = new HowlGroup(hideSet),
     sounds.gate = new HowlGroup(gateSet),
+    sounds.splash = new HowlGroup(splashSet),
     sounds.jump = new HowlGroup(jumpSet),
     sounds.tooHigh = new HowlGroup(tooHighSet),
 
