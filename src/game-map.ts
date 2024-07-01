@@ -364,13 +364,6 @@ type PortalInfo = {
 }
 
 const portals: Array<PortalInfo> = [
-    { lx: -1, ly: -1, rx: -1, ry:  1, nx: -1, ny:  0 },
-    { lx: -1, ly:  1, rx:  1, ry:  1, nx:  0, ny:  1 },
-    { lx:  1, ly:  1, rx:  1, ry: -1, nx:  1, ny:  0 },
-    { lx:  1, ly: -1, rx: -1, ry: -1, nx:  0, ny: -1 },
-];
-
-const lightPortals: Array<PortalInfo> = [
     { lx: -1, ly: -1, rx: -1, ry: -1, nx: -1, ny: -1 },
     { lx: -1, ly: -1, rx: -1, ry:  1, nx: -1, ny:  0 },
     { lx: -1, ly:  1, rx: -1, ry:  1, nx: -1, ny:  1 },
@@ -550,10 +543,14 @@ class GameMap {
             posTarget[1] < 0 ||
             posTarget[0] >= this.cells.sizeX ||
             posTarget[1] >= this.cells.sizeY) {
-            return true;
+            return false;
         }
     
-        return !this.cells.at(posTarget[0], posTarget[1]).blocksPlayerSight;
+        const cell = this.cells.at(posTarget[0], posTarget[1]);
+        if (cell.blocksPlayerSight)
+            return false;
+
+        return true;
     }
 
     computeVisibility(
@@ -576,41 +573,32 @@ class GameMap {
         }
     
         // End recursion if the target square is too far away.
-        const dx = 2 * (targetX - viewerX);
-        const dy = 2 * (targetY - viewerY);
+        let dx = targetX - viewerX;
+        let dy = targetY - viewerY;
     
-        if (dx*dx + dy*dy > 1600) {
+        if (dx**2 + dy**2 > 400) {
             return;
         }
-    
+
         // This square is visible.
-        this.cells.at(targetX, targetY).seen = true;
+        const cell = this.cells.at(targetX, targetY);
+        cell.seen = true;
     
         // End recursion if the target square occludes the view.
-        if (this.cells.at(targetX, targetY).blocksPlayerSight) {
+        if (cell.blocksPlayerSight) {
             return;
         }
-    
-        // Mark diagonally-adjacent squares as visible if their corners are visible
-        for (let x = 0; x < 2; ++x) {
-            for (let y = 0; y < 2; ++y) {
-                let nx = targetX + 2*x - 1;
-                let ny = targetY + 2*y - 1;
-                let cdx = dx + 2*x - 1;
-                let cdy = dy + 2*y - 1;
-                
-                if (nx >= 0 &&
-                    ny >= 0 &&
-                    nx < this.cells.sizeX &&
-                    ny < this.cells.sizeY &&
-                    !aRightOfB(ldx, ldy, cdx, cdy) &&
-                    !aRightOfB(cdx, cdy, rdx, rdy)) {
-                    this.cells.at(nx, ny).seen = true;
-                }
-            }
+
+        // End recursion if the portal is zero-width.
+        if (!aRightOfB(rdx, rdy, ldx, ldy)) {
+            return;
         }
-    
+
+        dx *= 2;
+        dy *= 2;
+
         // Clip portals to adjacent squares and recurse through the visible portions
+
         for (const portal of portals) {
             // Relative positions of the portal's left and right endpoints:
             const pldx = dx + portal.lx;
@@ -623,7 +611,7 @@ class GameMap {
             const [crdx, crdy] = aRightOfB(rdx, rdy, prdx, prdy) ? [prdx, prdy] : [rdx, rdy];
     
             // If we can see through the clipped portal, recurse through it.
-            if (aRightOfB(crdx, crdy, cldx, cldy)) {
+            if (!aRightOfB(cldx, cldy, crdx, crdy)) {
                 this.computeVisibility
                 (
                     viewerX, viewerY,
@@ -670,7 +658,7 @@ class GameMap {
 
     castLight(posLight: vec2, radiusSquared: number, lightId:number, occupied:Set<Cell>) {
         this.cells.at(posLight[0], posLight[1]).lit = 1;
-        for (const portal of lightPortals) {
+        for (const portal of portals) {
             this.castLightRecursive(
                 posLight[0], posLight[1],
                 posLight[0] + portal.nx, posLight[1] + portal.ny,
@@ -707,8 +695,8 @@ class GameMap {
         }
 
         // End recursion if the target square is too far away.
-        let dx = (targetX - lightX);
-        let dy = (targetY - lightY);
+        let dx = targetX - lightX;
+        let dy = targetY - lightY;
     
         if (dx**2 + dy**2 > radiusSquared) {
             return;
@@ -739,7 +727,7 @@ class GameMap {
         dy *= 2;
 
         // Clip portals to adjacent squares and recurse through the visible portions
-        for (const portal of lightPortals) {
+        for (const portal of portals) {
             // Relative positions of the portal's left and right endpoints:
             const pldx = dx + portal.lx;
             const pldy = dy + portal.ly;
