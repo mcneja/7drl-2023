@@ -364,6 +364,13 @@ type PortalInfo = {
 }
 
 const portals: Array<PortalInfo> = [
+    { lx: -1, ly: -1, rx: -1, ry:  1, nx: -1, ny:  0 },
+    { lx: -1, ly:  1, rx:  1, ry:  1, nx:  0, ny:  1 },
+    { lx:  1, ly:  1, rx:  1, ry: -1, nx:  1, ny:  0 },
+    { lx:  1, ly: -1, rx: -1, ry: -1, nx:  0, ny: -1 },
+];
+
+const lightPortals: Array<PortalInfo> = [
     { lx: -1, ly: -1, rx: -1, ry: -1, nx: -1, ny: -1 },
     { lx: -1, ly: -1, rx: -1, ry:  1, nx: -1, ny:  0 },
     { lx: -1, ly:  1, rx: -1, ry:  1, nx: -1, ny:  1 },
@@ -550,6 +557,12 @@ class GameMap {
         if (cell.blocksPlayerSight)
             return false;
 
+        if ((cell.type === TerrainType.OneWayWindowE && dir[0] < 0) ||
+            (cell.type === TerrainType.OneWayWindowW && dir[0] > 0) ||
+            (cell.type === TerrainType.OneWayWindowN && dir[1] < 0) ||
+            (cell.type === TerrainType.OneWayWindowS && dir[1] > 0))
+            return false;
+
         return true;
     }
 
@@ -589,11 +602,33 @@ class GameMap {
             return;
         }
 
-        // End recursion if the portal is zero-width.
-        if (!aRightOfB(rdx, rdy, ldx, ldy)) {
+        // End recursion if the cell is a one-way window and we're looking the wrong way through it.
+        if ((cell.type === TerrainType.OneWayWindowE && dx < 0) ||
+            (cell.type === TerrainType.OneWayWindowW && dx > 0) ||
+            (cell.type === TerrainType.OneWayWindowN && dy < 0) ||
+            (cell.type === TerrainType.OneWayWindowS && dy > 0)) {
             return;
         }
 
+        // Mark diagonally-adjacent squares as visible if their corners are visible
+        for (let x = 0; x < 2; ++x) {
+            for (let y = 0; y < 2; ++y) {
+                let nx = targetX + 2*x - 1;
+                let ny = targetY + 2*y - 1;
+                let cdx = dx + 2*x - 1;
+                let cdy = dy + 2*y - 1;
+                
+                if (nx >= 0 &&
+                    ny >= 0 &&
+                    nx < this.cells.sizeX &&
+                    ny < this.cells.sizeY &&
+                    !aRightOfB(ldx, ldy, cdx, cdy) &&
+                    !aRightOfB(cdx, cdy, rdx, rdy)) {
+                    this.cells.at(nx, ny).seen = true;
+                }
+            }
+        }
+    
         dx *= 2;
         dy *= 2;
 
@@ -611,7 +646,7 @@ class GameMap {
             const [crdx, crdy] = aRightOfB(rdx, rdy, prdx, prdy) ? [prdx, prdy] : [rdx, rdy];
     
             // If we can see through the clipped portal, recurse through it.
-            if (!aRightOfB(cldx, cldy, crdx, crdy)) {
+            if (aRightOfB(crdx, crdy, cldx, cldy)) {
                 this.computeVisibility
                 (
                     viewerX, viewerY,
@@ -658,7 +693,7 @@ class GameMap {
 
     castLight(posLight: vec2, radiusSquared: number, lightId:number, occupied:Set<Cell>) {
         this.cells.at(posLight[0], posLight[1]).lit = 1;
-        for (const portal of portals) {
+        for (const portal of lightPortals) {
             this.castLightRecursive(
                 posLight[0], posLight[1],
                 posLight[0] + portal.nx, posLight[1] + portal.ny,
@@ -727,7 +762,7 @@ class GameMap {
         dy *= 2;
 
         // Clip portals to adjacent squares and recurse through the visible portions
-        for (const portal of portals) {
+        for (const portal of lightPortals) {
             // Relative positions of the portal's left and right endpoints:
             const pldx = dx + portal.lx;
             const pldy = dy + portal.ly;
