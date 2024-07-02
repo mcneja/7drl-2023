@@ -557,12 +557,6 @@ class GameMap {
         if (cell.blocksPlayerSight)
             return false;
 
-        if ((cell.type === TerrainType.OneWayWindowE && dir[0] < 0) ||
-            (cell.type === TerrainType.OneWayWindowW && dir[0] > 0) ||
-            (cell.type === TerrainType.OneWayWindowN && dir[1] < 0) ||
-            (cell.type === TerrainType.OneWayWindowS && dir[1] > 0))
-            return false;
-
         return true;
     }
 
@@ -593,20 +587,15 @@ class GameMap {
             return;
         }
 
+        dx *= 2;
+        dy *= 2;
+
         // This square is visible.
         const cell = this.cells.at(targetX, targetY);
         cell.seen = true;
     
         // End recursion if the target square occludes the view.
         if (cell.blocksPlayerSight) {
-            return;
-        }
-
-        // End recursion if the cell is a one-way window and we're looking the wrong way through it.
-        if ((cell.type === TerrainType.OneWayWindowE && dx < 0) ||
-            (cell.type === TerrainType.OneWayWindowW && dx > 0) ||
-            (cell.type === TerrainType.OneWayWindowN && dy < 0) ||
-            (cell.type === TerrainType.OneWayWindowS && dy > 0)) {
             return;
         }
 
@@ -629,9 +618,6 @@ class GameMap {
             }
         }
     
-        dx *= 2;
-        dy *= 2;
-
         // Clip portals to adjacent squares and recurse through the visible portions
 
         for (const portal of portals) {
