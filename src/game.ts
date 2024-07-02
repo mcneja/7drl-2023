@@ -247,7 +247,7 @@ function scoreCompletedLevel(state: State) {
     }
     state.gameMapRoughPlans[state.level].played = true;
 
-    const ghosted = state.levelStats.numSpottings === 0 && state.levelStats.numKnockouts === 0;
+    const ghosted = state.levelStats.numSpottings === 0;
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
     const lootScore = state.lootStolen * 10;
@@ -353,7 +353,7 @@ function advanceToMansionComplete(state: State) {
     scoreCompletedLevel(state);
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
-    if(state.levelStats.numKnockouts === 0 && state.levelStats.numSpottings === 0) {
+    if(state.levelStats.numSpottings === 0) {
         state.persistedStats.totalGhosts++;
         setStat('totalGhosts',state.persistedStats.totalGhosts);
     }
