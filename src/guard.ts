@@ -443,12 +443,17 @@ class Guard {
         }
 
         // Once an enemy is searching, they can see into all of the adjacent squares regardless
-        // of whether anything would normally block line of sight. The one place where this
-        // feels weird is that they can see around corners.
+        // of whether anything would normally block line of sight, with the exception of walls.
 
-        if ((person.hidden(map) || !lineOfSight(map, this.pos, person.pos)) &&
-            ((isRelaxedGuardMode(this.mode) && !this.angry) || Math.abs(d[0]) >= 2 || Math.abs(d[1]) >= 2)) {
-            return false;
+        if ((isRelaxedGuardMode(this.mode) && !this.angry) || Math.abs(d[0]) >= 2 || Math.abs(d[1]) >= 2) {
+            if (person.hidden(map) || !lineOfSight(map, this.pos, person.pos)) {
+                return false;
+            }
+        } else {
+            if (map.cells.at(this.pos[0], person.pos[1]).blocksSight ||
+                map.cells.at(person.pos[0], this.pos[1]).blocksSight) {
+                return false;
+            }
         }
 
         return true;
