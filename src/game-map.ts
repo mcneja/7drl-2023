@@ -670,7 +670,9 @@ class GameMap {
         }
         for (const guard of this.guards) {
             if (guard.hasTorch) {
-                this.castLight(guard.pos, 15, lightId, occupied);
+                if (guard.mode !== GuardMode.Unconscious) {
+                    this.castLight(guard.pos, 15, lightId, occupied);
+                }
                 lightId++;
             }
         }

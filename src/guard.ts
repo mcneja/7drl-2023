@@ -345,7 +345,9 @@ class Guard {
                 this.mode !== GuardMode.Look &&
                 this.mode !== GuardMode.ChaseVisibleTarget &&
                 this.mode !== GuardMode.MoveToLastSighting &&
-                this.mode !== GuardMode.MoveToLastSound) {
+                this.mode !== GuardMode.MoveToLastSound &&
+                this.mode !== GuardMode.MoveToDownedGuard &&
+                this.mode !== GuardMode.WakeGuard) {
 
                 this.mode = GuardMode.MoveToGuardShout;
                 this.modeTimeout = 2 + randomInRange(4);
@@ -354,7 +356,9 @@ class Guard {
 
             // If we see a downed guard, move to revive him.
 
-            if (isRelaxedGuardMode(this.mode)) {
+            if (this.mode !== GuardMode.ChaseVisibleTarget &&
+                this.mode !== GuardMode.MoveToDownedGuard &&
+                this.mode !== GuardMode.WakeGuard) {
                 for (let guard of map.guards) {
                     if (guard === this) {
                         continue;
@@ -461,7 +465,11 @@ class Guard {
         return true;
     }
 
-    hidden() {
+    hidden(map: GameMap) {
+        if (map.cells.atVec(this.pos).hidesPlayer) {
+            return true;
+        }
+
         return false;
     }
 
