@@ -283,7 +283,7 @@ class Guard {
             break;
 
         case GuardMode.Unconscious:
-            this.modeTimeout -= 1;
+            // this.modeTimeout -= 1;
             if (this.modeTimeout === 5) {
                 const popup = PopupType.GuardStirring;
                 popups.add(popup, this.pos);
