@@ -1587,7 +1587,12 @@ function renderGuards(state: State, renderer: Renderer) {
         else if(guard.mode === GuardMode.Patrol && !guard.speaking && cell.lit==0) lit=0;
         else if(guard.mode === GuardMode.Unconscious) tileIndex+=12;
         else tileIndex+=8;
-        const tileInfo = renderer.tileSet.npcTiles[tileIndex];
+        const tileInfo = structuredClone(renderer.tileSet.npcTiles[tileIndex]);
+        if (guard.mode === GuardMode.Unconscious && guard.hidden(state.gameMap)) {
+            tileInfo.color! = colorPreset.darkGray;
+            tileInfo.unlitColor! = colorPreset.darkerGray;
+        }
+
         const gate = state.gameMap.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
         const offX = (gate!==undefined && gate.pos.equals(guard.pos))? 0.25 : 0;
 
