@@ -473,16 +473,14 @@ class Guard {
         return false;
     }
 
-    cutoffLit(): number {
-        return (isRelaxedGuardMode(this.mode) && !this.angry) ? 40 : 75;
-    }
-    
-    cutoffUnlit(): number {
-        return (isRelaxedGuardMode(this.mode) && !this.angry) ? 3 : 33;
-    }
-    
     sightCutoff(litTarget: boolean): number {
-        return litTarget ? this.cutoffLit() : this.cutoffUnlit();
+        if (!litTarget) {
+            return 3;
+        } else if (isRelaxedGuardMode(this.mode) && !this.angry) {
+            return 40;
+        } else {
+            return 75;
+        }
     }
 
     enterPatrolMode(map: GameMap) {
