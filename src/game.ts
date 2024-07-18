@@ -24,6 +24,7 @@ enum NoiseType {
     Splash,
 }
 
+const debugInitialLevel = 0; // set to non-zero to test level generation
 const tileSet = getTileSet();
 const fontTileSet = getFontTileSet();
 
@@ -1865,7 +1866,7 @@ function saveStats(persistedStats: PersistedStats) {
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const rng = new RNG();  
-    const initialLevel = 0;
+    const initialLevel = debugInitialLevel;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
@@ -2015,7 +2016,7 @@ function setLights(gameMap: GameMap, state: State) {
 
 export function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
-    state.level = 0;
+    state.level = debugInitialLevel;
 
     state.persistedStats.totalPlays++;
     setStat('totalPlays',state.persistedStats.totalPlays);
