@@ -9,10 +9,6 @@ const roomSizeX = 5;
 const roomSizeY = 5;
 const outerBorder = 3;
 
-/*
-const levelLeapTrainer = 2;
-*/
-
 const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     //xmin,xmax,ymin,ymax,areamin,areamax -- params used to constrain the map size
     [3,3,2,2,6,6],
@@ -53,6 +49,7 @@ type Room = {
     group: number,
     depth: number,
     betweenness: number,
+    privateRoom: boolean,
     posMin: vec2,
     posMax: vec2,
     edges: Array<Adjacency>,
@@ -69,6 +66,11 @@ type Adjacency = {
     nextMatching: Adjacency | null,
     door: boolean,
     doorType: DoorType,
+}
+
+type PatrolRoute = {
+    rooms: Array<Room>,
+    path: Array<vec2>,
 }
 
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
@@ -131,7 +133,6 @@ function makeLevelSize(level:number, rng:RNG) : [number, number] {
     return [x,y];
 }
 
-
 function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const rng = plan.rng;
     rng.reset();
@@ -168,6 +169,20 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     assignRoomTypes(rooms, level, rng);
 
+    // Lock doors between public and private areas.
+
+    const numPrivateRooms = rooms.filter(room => room.privateRoom).length;
+    const numPublicRooms = rooms.length - numPrivateRooms;
+    const lockedPrivateRooms = level > 0 && numPublicRooms >= numPrivateRooms && rng.randomInRange(rooms.length) < 10;
+
+    if (lockedPrivateRooms) {
+        for (const adj of adjacencies) {
+            if (adj.door && adj.roomLeft.privateRoom !== adj.roomRight.privateRoom) {
+                adj.doorType = DoorType.Locked;
+            }
+        }
+    }
+
     // Create the actual map
 
     const map = createBlankGameMap(rooms);
@@ -186,9 +201,12 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Additional decorations
 
-    const outerPerimeter = outerBuildingPerimeter(adjacencies, map);
+    const outsidePatrolRoute = {
+        rooms: [rooms[0]],
+        path: outerBuildingPerimeter(adjacencies, map),
+    };
 
-    placeExteriorBushes(map, outerPerimeter, rng);
+    placeExteriorBushes(map, outsidePatrolRoute.path, rng);
     placeFrontPillars(map);
 
     // Convert walls to proper straight, corner, T-junction, cross tiles
@@ -201,18 +219,18 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Place patrol routes
 
-    let patrolRoutes: Array<Array<vec2>>;
+    let patrolRoutes: Array<PatrolRoute>;
     if (level < 1) {
         patrolRoutes = [];
     } else if (level < 2) {
-        patrolRoutes = placePatrolRouteSingle(level, map, rooms, outerPerimeter, rng);
+        patrolRoutes = placePatrolRouteSingle(level, map, rooms, outsidePatrolRoute, rng);
     } else {
-        patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, outerPerimeter, rng);
-//        patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outerPerimeter, rng);
-//        patrolRoutes = placePatrolRouteSingle(level, map, rooms, outerPerimeter, rng);
-//        patrolRoutes = placePatrolRouteSingleDense(level, map, rooms, outerPerimeter, rng);
-//        patrolRoutes = placePatrolRoutesLong(level, map, rooms, outerPerimeter, rng);
-//        patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outerPerimeter, rng);
+        patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, outsidePatrolRoute, rng);
+//        patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, outsidePatrolRoute, rng);
+//        patrolRoutes = placePatrolRouteSingle(level, map, rooms, outsidePatrolRoute, rng);
+//        patrolRoutes = placePatrolRouteSingleDense(level, map, rooms, outsidePatrolRoute, rng);
+//        patrolRoutes = placePatrolRoutesLong(level, map, rooms, outsidePatrolRoute, rng);
+//        patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outsidePatrolRoute, rng);
     }
 
     // Place loot
@@ -227,7 +245,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Put guards on the patrol routes
 
-    placeGuards(level, map, patrolRoutes, guardLoot, needKey, rng);
+    placeGuards(level, map, patrolRoutes, guardLoot, needKey, lockedPrivateRooms, rng);
 
     // Final setup
 
@@ -448,6 +466,7 @@ function createRooms(
         group: 0,
         depth: 0,
         betweenness: 0,
+        privateRoom: false,
         posMin: vec2.fromValues(0, 0), // not meaningful for this room
         posMax: vec2.fromValues(0, 0), // not meaningful for this room
         edges: [],
@@ -466,6 +485,7 @@ function createRooms(
                 group: group_index,
                 depth: 0,
                 betweenness: 0,
+                privateRoom: false,
                 posMin: vec2.fromValues(offsetX.get(rx, ry) + 1, offsetY.get(rx, ry) + 1),
                 posMax: vec2.fromValues(offsetX.get(rx + 1, ry), offsetY.get(rx, ry + 1)),
                 edges: [],
@@ -1013,7 +1033,7 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
 }
 
 function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
-    const adjs = [];
+    const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
@@ -1039,7 +1059,7 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefi
 }
 
 function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
-    const adjs = [];
+    const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
@@ -1065,7 +1085,7 @@ function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
 }
 
 function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
-    const adjs = [];
+    const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
@@ -1166,9 +1186,9 @@ function computeRoomBetweenness(rooms: Array<Room>) {
         roomDepth.set(roomSource, 0);
         roomNumPaths.set(roomSource, 1);
 
-        const roomsToVisit = [];
+        const roomsToVisit: Array<Room> = [];
         roomsToVisit.push(roomSource);
-        const roomStack = [];
+        const roomStack: Array<Room> = [];
 
         while (true) {
             const room = roomsToVisit.shift();
@@ -1283,6 +1303,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
             }
 
             room.roomType = (room.roomType == RoomType.PublicRoom) ? RoomType.PrivateRoom : RoomType.PrivateCourtyard;
+            room.privateRoom = true;
             if (room.roomType == RoomType.PrivateRoom) {
                 numMasterRooms += 1;
             }
@@ -1310,6 +1331,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 
                 if (roomOther.roomType == RoomType.PrivateCourtyard) {
                     room.roomType = RoomType.PrivateCourtyard;
+                    room.privateRoom = true;
                     changed = true;
                     break;
                 }
@@ -1324,7 +1346,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
     // Pick a dead-end room to be a Vault room
 
     if (level > 4) {
-        const deadEndRooms = [];
+        const deadEndRooms: Array<Room> = [];
 
         for (const room of rooms) {
             if (room.roomType === RoomType.Exterior) {
@@ -1754,13 +1776,13 @@ type PatrolNode = {
     visited: boolean;
 }
 
-function placePatrolRoutesLong(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function placePatrolRoutesLong(level: number, gameMap: GameMap, rooms: Array<Room>, outsidePatrolRoute: PatrolRoute, rng: RNG): Array<PatrolRoute> {
     let numGuards = Math.floor(rooms.length / 2);
 
-    let patrolRoutes: Array<Array<vec2>> = [];
+    let patrolRoutes: Array<PatrolRoute> = [];
 
     for (let i = 0; i < numGuards; ++i) {
-        patrolRoutes = patrolRoutes.concat(placePatrolRouteSingle(level, gameMap, rooms, outerPerimeter, rng));
+        patrolRoutes = patrolRoutes.concat(placePatrolRouteSingle(level, gameMap, rooms, outsidePatrolRoute, rng));
     }
 
     return patrolRoutes;
@@ -1810,16 +1832,16 @@ function generatePatrolRouteSingle(rooms: Array<Room>, rng: RNG): Array<PatrolNo
     return nodes;
 }
 
-function placePatrolRouteSingle(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function placePatrolRouteSingle(level: number, gameMap: GameMap, rooms: Array<Room>, outsidePatrolRoute: PatrolRoute, rng: RNG): Array<PatrolRoute> {
     const nodes = generatePatrolRouteSingle(rooms, rng);
 
-    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outsidePatrolRoute, rng);
     console.assert(patrolRoutes.length === 1);
 
     return patrolRoutes;
 }
 
-function placePatrolRouteSingleDense(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function placePatrolRouteSingleDense(level: number, gameMap: GameMap, rooms: Array<Room>, outsidePatrolRoute: PatrolRoute, rng: RNG): Array<PatrolRoute> {
     const roomsValid: Set<Room> = new Set();
     for (const room of rooms) {
         if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
@@ -1859,7 +1881,7 @@ function placePatrolRouteSingleDense(level: number, gameMap: GameMap, rooms: Arr
     --roomSequence.length;
 
     const nodes = generatePatrolNodesFromRoomSequence(roomSequence);
-    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outsidePatrolRoute, rng);
 
     console.assert(patrolRoutes.length === 1);
 
@@ -1871,7 +1893,7 @@ type Visit = {
     room: Room;
 }
 
-function placePatrolRouteLargeLoop(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function placePatrolRouteLargeLoop(level: number, gameMap: GameMap, rooms: Array<Room>, outsidePatrolRoute: PatrolRoute, rng: RNG): Array<PatrolRoute> {
     const roomsValid: Set<Room> = new Set();
     for (const room of rooms) {
         if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
@@ -1923,7 +1945,7 @@ function placePatrolRouteLargeLoop(level: number, gameMap: GameMap, rooms: Array
     }
 
     const nodes = generatePatrolNodesFromRoomSequence(roomLoopLongest);
-    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outsidePatrolRoute, rng);
 
     console.assert(patrolRoutes.length === 1);
 
@@ -1967,8 +1989,13 @@ function deadEndPatrolNode(nodes: Array<PatrolNode>): PatrolNode | undefined {
     return undefined;
 }
 
-function placePatrolRoutesDense(level: number, gameMap: GameMap, rooms: Array<Room>, 
-    adjacencies: Array<Adjacency>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function placePatrolRoutesDense(
+    level: number,
+    gameMap: GameMap,
+    rooms: Array<Room>, 
+    adjacencies: Array<Adjacency>,
+    outsidePatrolRoute: PatrolRoute,
+    rng: RNG): Array<PatrolRoute> {
 
     // Keep adjacencies that connect interior rooms via a door; shuffle them
 
@@ -2316,7 +2343,7 @@ function placePatrolRoutesDense(level: number, gameMap: GameMap, rooms: Array<Ro
 
     // Convert the node-based patrol routes to actual patrol routes
 
-    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+    const patrolRoutes = generatePatrolPathsFromNodes(nodes, level, gameMap, outsidePatrolRoute, rng);
 
     //console.log('End with %d patrol routes for %d rooms', patrolRoutes.length, rooms.length);
 
@@ -2328,7 +2355,7 @@ function shortestPatrolRoute(nodes: Array<PatrolNode> | undefined): PatrolNode |
         return undefined;
     }
 
-    let nodeShortest = undefined;
+    let nodeShortest: PatrolNode | undefined = undefined;
     let lengthShortest = Number.MAX_SAFE_INTEGER;
 
     for (const node of nodes) {
@@ -2415,26 +2442,14 @@ function deletePatrolRoute(node: PatrolNode, nodes: Array<PatrolNode>, roomNodes
     }
 }
 
-function placePatrolRoutesDFS(level: number, gameMap: GameMap, rooms: Array<Room>, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
-    const numActivityStationsForRoom: Map<Room, number> = new Map();
-    for (const room of rooms) {
-        const positions = activityStationPositions(gameMap, room);
-        numActivityStationsForRoom.set(room, positions.length);
-    }
-
-    const adjUsed: Set<Adjacency> = new Set();
-
-    return [];
-}
-
 function placePatrolRoutes(
     level: number,
     gameMap: GameMap,
     rooms: Array<Room>, 
     adjacencies: Array<Adjacency>,
-    outerPerimeter: Array<vec2>,
+    outsidePatrolRoute: PatrolRoute,
     rng: RNG):
-    Array<Array<vec2>> {
+    Array<PatrolRoute> {
 
     // Keep adjacencies that connect interior rooms via a door; shuffle them
 
@@ -2556,10 +2571,15 @@ function placePatrolRoutes(
         }
     }
 
-    return generatePatrolPathsFromNodes(nodes, level, gameMap, outerPerimeter, rng);
+    return generatePatrolPathsFromNodes(nodes, level, gameMap, outsidePatrolRoute, rng);
 }
 
-function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, gameMap: GameMap, outerPerimeter: Array<vec2>, rng: RNG): Array<Array<vec2>> {
+function generatePatrolPathsFromNodes(
+    nodes: Array<PatrolNode>,
+    level: number,
+    gameMap: GameMap,
+    outsidePatrolRoute: PatrolRoute,
+    rng: RNG): Array<PatrolRoute> {
     // Generate sub-paths within each room along the paths
     // Each room is responsible for the path from the
     // incoming door to the outgoing door, including the
@@ -2572,7 +2592,7 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
         node.visited = false;
     }
 
-    const patrolRoutes: Array<Array<vec2>> = [];
+    const patrolRoutes: Array<PatrolRoute> = [];
 
     for (const nodeIter of nodes) {
         if (nodeIter.visited) {
@@ -2587,6 +2607,7 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
         const nodeStart = startingNode(nodeIter);
 
         const patrolPositions: Array<vec2> = [];
+        const rooms: Set<Room> = new Set();
         for (let node: PatrolNode | null = nodeStart; node != null; node = node.nodeNext) {
             if (node.visited) {
                 break;
@@ -2607,6 +2628,8 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
             const room = node.room;
             const roomNext = nodeNext.room;
             const roomPrev = nodePrev.room;
+
+            rooms.add(room);
 
             const posStart = vec2.create();
             posInDoor(posStart, room, roomPrev, gameMap);
@@ -2641,7 +2664,9 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
             }
         }
 
-        patrolRoutes.push(shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length)));
+        const path = shiftedPathCopy(patrolPositions, rng.randomInRange(patrolPositions.length));
+
+        patrolRoutes.push({rooms: Array.from(rooms), path: path});
     }
 
     // Shuffle the patrol routes generated so far, since they were created by iterating over the rooms in order.
@@ -2651,27 +2676,10 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, level: number, g
     // On the leap-training level, and past level 5, include patrols around the outside of
     // the mansion. Keep these ones at the end so they won't get keys or purses.
 
-    const patrolLength = outerPerimeter.length;
-    /*
-    if (level === levelLeapTrainer) {
-        // Find the top-rightmost point in the patrol path and shift the patrol path to start there
-        const posTopRight = vec2.fromValues(gameMap.cells.sizeX - 1, gameMap.cells.sizeY - 1);
-        let i = 0;
-        let distI = outerPerimeter[i].squaredDistance(posTopRight);
-        for (let j = 1; j < patrolLength; ++j) {
-            let distJ = outerPerimeter[j].squaredDistance(posTopRight);
-            if (distJ < distI) {
-                distI = distJ;
-                i = j;
-            }
-        }
-
-        patrolRoutes.push(shiftedPathCopy(outerPerimeter, (i + patrolLength - 1) % patrolLength));
-    } else
-    */
     if (level > 5) {
-        patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.25)));
-        patrolRoutes.push(shiftedPathCopy(outerPerimeter, Math.floor(patrolLength * 0.75)));
+        const patrolLength = outsidePatrolRoute.path.length;
+        patrolRoutes.push({rooms: outsidePatrolRoute.rooms, path: shiftedPathCopy(outsidePatrolRoute.path, Math.floor(patrolLength * 0.25))});
+        patrolRoutes.push({rooms: outsidePatrolRoute.rooms, path: shiftedPathCopy(outsidePatrolRoute.path, Math.floor(patrolLength * 0.75))});
     }
 
     return patrolRoutes;
@@ -2728,7 +2736,7 @@ function convertOneWayRoutesToReversibleRoutes(nodes: Array<PatrolNode>) {
 }
 
 function shiftedPathCopy(patrolPath: Array<vec2>, offset: number): Array<vec2> {
-    const patrolPathNew = [];
+    const patrolPathNew: Array<vec2> = [];
     for (let i = offset; i < patrolPath.length; ++i) {
         patrolPathNew.push(patrolPath[i]);
     }
@@ -2739,7 +2747,7 @@ function shiftedPathCopy(patrolPath: Array<vec2>, offset: number): Array<vec2> {
 }
 
 function flipReverse(node: PatrolNode | null) {
-    let nodeVisited = null;
+    let nodeVisited: PatrolNode | null = null;
     while (node != null) {
         const nodeToVisit = node.nodePrev;
         node.nodeNext = nodeToVisit;
@@ -2750,7 +2758,7 @@ function flipReverse(node: PatrolNode | null) {
 }
 
 function flipForward(node: PatrolNode | null) {
-    let nodeVisited = null;
+    let nodeVisited: PatrolNode | null = null;
     while (node != null) {
         const nodeToVisit = node.nodeNext;
         node.nodePrev = nodeToVisit;
@@ -3209,6 +3217,14 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
                             continue;
                         }
 
+                        if (a.roomRight.privateRoom && !a.roomLeft.privateRoom && isCourtyardRoomType(a.roomRight.roomType)) {
+                            continue;
+                        }
+
+                        if (a.roomLeft.privateRoom && !a.roomRight.privateRoom && isCourtyardRoomType(a.roomLeft.roomType)) {
+                            continue;
+                        }
+
                         const dir = vec2.clone(a.dir);
                         if (isCourtyardRoomType(a.roomRight.roomType)) {
                             vec2.negate(dir, dir);
@@ -3441,7 +3457,7 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
         return;
     }
 
-    const itemsInRoom = [];
+    const itemsInRoom: Array<Item> = [];
 
     for (let iItemType = 0; ; iItemType = (iItemType + 1) % candidateItems.length) {
         for (let j = 0; j < usable.values.length; ++j) {
@@ -3506,7 +3522,7 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
         return;
     }
 
-    const potentialPositions = [];
+    const potentialPositions: Array<vec2> = [];
     for (let x = room.posMin[0]; x < room.posMax[0] - 1; ++x) {
         for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
             const pos0 = vec2.fromValues(x, y);
@@ -3535,7 +3551,7 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
         }
     }
 
-    const itemsInRoom = [];
+    const itemsInRoom: Array<Item> = [];
 
     if (potentialPositions.length > 0) {
         const pos0 = potentialPositions[rng.randomInRange(potentialPositions.length)];
@@ -3612,7 +3628,7 @@ function updateUsableForReachability(usable: BooleanGrid, occupied: BooleanGrid,
         const x = item.pos[0] - room.posMin[0];
         const y = item.pos[1] - room.posMin[1];
 
-        const unoccupiedNeighbors = [];
+        const unoccupiedNeighbors: Array<[number, number]> = [];
         for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
             const nx = x + dx;
             const ny = y + dy;
@@ -3911,7 +3927,7 @@ function renderRoomLibrary(map: GameMap, room: Room, level: number, rng: RNG) {
 }
 
 function getUsablePositions(usable: BooleanGrid): Array<vec2> {
-    const positions = [];
+    const positions: Array<vec2> = [];
 
     for (let x = 0; x < usable.sizeX; ++x) {
         for (let y = 0; y < usable.sizeY; ++y) {
@@ -4489,19 +4505,31 @@ function isMasterSuiteRoomType(roomType: RoomType): boolean {
     return roomType === RoomType.PrivateRoom || roomType === RoomType.Bedroom;
 }
 
-function placeGuards(level: number, map: GameMap, patrolRoutes: Array<Array<vec2>>, guardLoot:number, placeVaultKey: boolean, rng: RNG) {
+function isFullyPrivatePatrolRoute(patrolRoute: PatrolRoute): boolean {
+    return patrolRoute.rooms.every(room => room.privateRoom);
+}
+
+function placeGuards(
+    level: number,
+    map: GameMap,
+    patrolRoutes: Array<PatrolRoute>,
+    guardLoot:number,
+    placeKey: boolean,
+    lockedPrivateRooms: boolean,
+    rng: RNG) {
+
     if (level <= 0) {
         return;
     }
 
-    for (const patrolPath of patrolRoutes) {
+    for (const patrolRoute of patrolRoutes) {
         let pathIndexStart = 0;
-        const guard = new Guard(patrolPath, pathIndexStart);
+        const guard = new Guard(patrolRoute.path, pathIndexStart);
         if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
         }
-        if (placeVaultKey) {
-            placeVaultKey = false;
+        if (placeKey && !(lockedPrivateRooms && isFullyPrivatePatrolRoute(patrolRoute))) {
+            placeKey = false;
             guard.hasVaultKey = true;
         } else if (guardLoot>0) {
             guard.hasPurse = true;
