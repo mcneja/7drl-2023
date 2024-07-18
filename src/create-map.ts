@@ -173,7 +173,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     const numPrivateRooms = rooms.filter(room => room.privateRoom).length;
     const numPublicRooms = rooms.length - numPrivateRooms;
-    const lockedPrivateRooms = level > 0 && numPublicRooms >= numPrivateRooms && rng.randomInRange(rooms.length) < 10;
+    const lockedPrivateRooms = level > 0 && numPublicRooms >= numPrivateRooms && rng.randomInRange(rooms.length) >= 8;
 
     if (lockedPrivateRooms) {
         for (const adj of adjacencies) {
