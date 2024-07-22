@@ -345,7 +345,7 @@ export function numTurnsParForCurrentMap(state: State): number {
     const numGuards = state.gameMap.guards.length;
     const guardsPerCell = numGuards / numDiscoverableCells;
     const turnsForDiscovery = numDiscoverableCells / 3;
-    const turnsForGuardAvoidance = 8 * numGuards + 800 * guardsPerCell;
+    const turnsForGuardAvoidance = 8 * numGuards + 1000 * guardsPerCell;
     const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
     return par;
 }
