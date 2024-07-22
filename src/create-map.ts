@@ -169,20 +169,6 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     assignRoomTypes(rooms, level, rng);
 
-    // Lock doors between public and private areas.
-
-    const numPrivateRooms = rooms.filter(room => room.privateRoom).length;
-    const numPublicRooms = rooms.length - numPrivateRooms;
-    const lockedPrivateRooms = level > 0 && numPublicRooms >= numPrivateRooms && rng.randomInRange(rooms.length) >= 8;
-
-    if (lockedPrivateRooms) {
-        for (const adj of adjacencies) {
-            if (adj.door && adj.roomLeft.privateRoom !== adj.roomRight.privateRoom) {
-                adj.doorType = DoorType.Locked;
-            }
-        }
-    }
-
     // Create the actual map
 
     const map = createBlankGameMap(rooms);
@@ -245,7 +231,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Put guards on the patrol routes
 
-    placeGuards(level, map, patrolRoutes, guardLoot, needKey, lockedPrivateRooms, rng);
+    placeGuards(level, map, patrolRoutes, guardLoot, needKey, rng);
 
     // Final setup
 
@@ -4505,17 +4491,12 @@ function isMasterSuiteRoomType(roomType: RoomType): boolean {
     return roomType === RoomType.PrivateRoom || roomType === RoomType.Bedroom;
 }
 
-function isFullyPrivatePatrolRoute(patrolRoute: PatrolRoute): boolean {
-    return patrolRoute.rooms.every(room => room.privateRoom);
-}
-
 function placeGuards(
     level: number,
     map: GameMap,
     patrolRoutes: Array<PatrolRoute>,
     guardLoot:number,
     placeKey: boolean,
-    lockedPrivateRooms: boolean,
     rng: RNG) {
 
     if (level <= 0) {
@@ -4528,7 +4509,7 @@ function placeGuards(
         if (level > 1 && rng.randomInRange(5 + level) < level) {
             guard.hasTorch = true;
         }
-        if (placeKey && !(lockedPrivateRooms && isFullyPrivatePatrolRoute(patrolRoute))) {
+        if (placeKey) {
             placeKey = false;
             guard.hasVaultKey = true;
         } else if (guardLoot>0) {
