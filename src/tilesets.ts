@@ -119,7 +119,6 @@ const tileSet31Color:TileSet = {
         'heal':             {textureIndex: r([8,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'startLevel':       {textureIndex: r([9,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'nextLevel':        {textureIndex: r([9,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
-        'restart':          {textureIndex: r([10, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'forceRestart':     {textureIndex: r([10, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'fullscreen':       {textureIndex: r([14, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
     },

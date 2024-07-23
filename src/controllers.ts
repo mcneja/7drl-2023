@@ -26,7 +26,6 @@ const controlStates0: ControlStates = {
     'homeStats': false,
     'homeOptions': false,
     'jumpToggle': false,
-    'restart': false,
     'startLevel': false,
     'guardMute': false,
     'volumeMute': false,
@@ -81,7 +80,7 @@ const defaultKeyMap:KeyMap = {
     'KeyN': ['homeRestart', 'startLevel'],
     'KeyO': ['homeOptions'],
     'KeyP': ['homePlay'],
-    'KeyR': ['homePlay', 'restart'],
+    'KeyR': ['homePlay'],
     'KeyS': ['down','homeStats'],
     'KeyW': ['up'],
     'KeyZ': ['wait', 'menuAccept'],
@@ -303,7 +302,6 @@ class GamepadManager {
             c.setPressed("zoomOut", buttonPressed(g, 6) && !buttonPressed(g, 7));
             c.setPressed("zoomIn", buttonPressed(g, 7) && !buttonPressed(g, 6));
 //            c.setPressed("fullscreen", buttonPressed(g, 8));
-//            c.setPressed("restart", buttonPressed(g, 5));
             c.setPressed("menu", buttonPressed(g, 9));
             c.setPressed("left",
                 (buttonPressed(g, 14) && !buttonPressed(g, 12) && !buttonPressed(g, 13)) ||
@@ -370,7 +368,6 @@ class TouchController extends Controller {
             'pan':          {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
             'zoomIn':       {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
             'zoomOut':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'restart':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
             'forceRestart': {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
             'menu':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
             'fullscreen':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},

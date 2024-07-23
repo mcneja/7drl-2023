@@ -268,7 +268,7 @@ class TextWindow {
     update(state:State) {
     }
     navigateUI(activated:(action:string)=>boolean):string {
-        let action = ''
+        let action = '';
         if (activated('up')) {
             this.highlightedAction--;
             if (this.highlightedAction<0) {
@@ -634,11 +634,7 @@ Cumulative:  $totalScore$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('restart') || action=='restart') {
-            state.rng = new RNG();
-            state.dailyRun = null;
-            game.restartGame(state);
-        } else if (activated('startLevel') || action=='startLevel') {
+        if (activated('startLevel') || action=='startLevel') {
             if (state.level >= game.gameConfig.numGameMaps - 1) {
                 game.advanceToWin(state);
             } else {
@@ -657,7 +653,7 @@ Completed:     $level$ of $numLevels$
 Ghosted:       $numGhostedLevels$
 Total Score:   $totalScore$
 
-[R|restart]:   Start new game
+[N|homeRestart]:   New game
 [C|copyScore]:   Copy score to clipboard
 $copyState$
 [Esc|menu]: Exit to home screen`
@@ -672,7 +668,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('restart') || action=='restart') {
+        if (activated('homeRestart') || action=='homeRestart') {
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
@@ -699,7 +695,7 @@ Statistics
 Ghosted:       $numGhostedLevels$ of $numLevels$
 Total Score:   $totalScore$
 
-[R|restart]:   Start new game
+[N|homeRestart]:   New game
 [C|copyScore]:   Copy score to clipboard
 $copyState$
 [Esc|menu]: Exit to home screen`
@@ -713,7 +709,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('restart') || action=='restart') {
+        if (activated('homeRestart') || action=='homeRestart') {
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
