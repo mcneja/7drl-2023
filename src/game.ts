@@ -1233,7 +1233,7 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
     }
 
     let closestGuardDist = Infinity;
-    let closestGuard = null;
+    let closestGuard: Guard | null = null;
 
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
         guard.heardThief = true;
