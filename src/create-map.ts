@@ -4577,7 +4577,7 @@ function cacheCellInfo(map: GameMap) {
             const isWater = cellType == TerrainType.GroundWater;
             cell.moveCost = (isWall || isWindow) ? Infinity : (isWater ? 64 : 0);
             cell.blocksPlayerMove = isWall;
-            cell.blocksPlayerSight = isWall;
+            cell.blocksPlayerSight = isWall && cellType !== TerrainType.Wall0000;
             cell.blocksSight = isWall;
             cell.blocksSound = isWall;
             cell.hidesPlayer = false;
