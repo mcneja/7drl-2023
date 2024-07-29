@@ -3932,6 +3932,9 @@ function placeCreakyFloorTiles(map: GameMap, room: Room, rng: RNG) {
             if (map.cells.at(x, y).type != TerrainType.GroundWood) {
                 continue;
             }
+            if (map.items.some(item => item.pos[0] === x && item.pos[1] === y && blocksPlayerMovement(item.type))) {
+                continue;
+            }
             if (doorAdjacent(map.cells, vec2.fromValues(x, y))) {
                 continue;
             }
@@ -3941,13 +3944,17 @@ function placeCreakyFloorTiles(map: GameMap, room: Room, rng: RNG) {
             const canLeapHorz =
                 x > room.posMin[0] &&
                 x < room.posMax[0] - 1 &&
-                map.cells.at(x - 1, y).type == TerrainType.GroundWood &&
-                map.cells.at(x + 1, y).type == TerrainType.GroundWood;
+                map.cells.at(x - 1, y).type === TerrainType.GroundWood &&
+                map.cells.at(x + 1, y).type === TerrainType.GroundWood &&
+                !map.items.some(item => item.pos[0] === x - 1 && item.pos[1] === y && blocksPlayerMovement(item.type)) &&
+                !map.items.some(item => item.pos[0] === x + 1 && item.pos[1] === y && blocksPlayerMovement(item.type));
             const canLeapVert =
                 y > room.posMin[1] &&
                 y < room.posMax[1] - 1 &&
-                map.cells.at(x, y - 1).type == TerrainType.GroundWood &&
-                map.cells.at(x, y + 1).type == TerrainType.GroundWood;
+                map.cells.at(x, y - 1).type === TerrainType.GroundWood &&
+                map.cells.at(x, y + 1).type === TerrainType.GroundWood &&
+                !map.items.some(item => item.pos[0] === x && item.pos[1] === y - 1 && blocksPlayerMovement(item.type)) &&
+                !map.items.some(item => item.pos[0] === x && item.pos[1] === y + 1 && blocksPlayerMovement(item.type));
             if (!(canLeapHorz || canLeapVert)) {
                 continue;
             }
@@ -4550,6 +4557,13 @@ function markExteriorAsSeen(map: GameMap) {
     }
 }
 
+function blocksPlayerMovement(itemType: ItemType): boolean {
+    return itemType === ItemType.DrawersTall ||
+           itemType === ItemType.Bookshelf ||
+           itemType === ItemType.Shelf ||
+           itemType === ItemType.Stove;
+}
+
 function cacheCellInfo(map: GameMap) {
     let sx = map.cells.sizeX;
     let sy = map.cells.sizeY;
@@ -4599,10 +4613,7 @@ function cacheCellInfo(map: GameMap) {
             itemType === ItemType.BedR) {
             cell.hidesPlayer = true;
         }
-        if (itemType === ItemType.DrawersTall ||
-            itemType === ItemType.Bookshelf ||
-            itemType === ItemType.Shelf ||
-            itemType === ItemType.Stove) {
+        if (blocksPlayerMovement(itemType)) {
             cell.blocksPlayerMove = true;
         }
     }
