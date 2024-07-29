@@ -1,4 +1,4 @@
-export { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode };
+export { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode };
 
 import { Cell, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
 import { vec2 } from './my-matrix';
@@ -47,6 +47,9 @@ class Guard {
 
     animation: SpriteAnimation|null = null;
 
+    // Desired moves, in order
+    goals: Array<vec2> = [];
+
     // Chase
     goal: vec2;
     modeTimeout: number = 0;
@@ -81,72 +84,82 @@ class Guard {
     }
 
     allowsMoveOntoFrom(posFrom: vec2): boolean {
-        switch (this.mode) {
-        case GuardMode.Patrol:
-            // Need to deal with guard moving back to patrol route, by knowing where
-            // they want to go next frame.
-            const posPatrolCur = this.patrolPath[this.patrolPathIndex];
-            if (posPatrolCur.equals(this.pos)) {
-                const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
-                const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                if (posPatrolNext.equals(posPatrolCur))
-                    return false;
-                if (posPatrolNext.equals(posFrom))
-                    return false;
-                const midX = Math.floor((this.pos[0] + posFrom[0]) / 2);
-                const midY = Math.floor((this.pos[1] + posFrom[1]) / 2);
-                if (posPatrolNext[0] === midX && posPatrolNext[1] === midY)
-                    return false;
-            }
+        if (this.goals.length <= 0) {
             return true;
-
-        case GuardMode.Look:
-        case GuardMode.Listen:
-        case GuardMode.ChaseVisibleTarget:
-        case GuardMode.WakeGuard:
-        case GuardMode.LightTorch:
-        case GuardMode.Unconscious:
-            return false;
-
-        case GuardMode.MoveToLastSighting:
-        case GuardMode.MoveToLastSound:
-        case GuardMode.MoveToGuardShout:
-            return !this.pos.equals(this.goal);
-
-        case GuardMode.MoveToDownedGuard:
-        case GuardMode.MoveToTorch:
-            return !this.cardinallyAdjacentTo(this.goal);
         }
+        const posNextPlanned = this.goals[0];
+
+        // If the guard is planning on standing still, disallow movement onto them.
+
+        if (posNextPlanned.equals(this.pos)) {
+            return false;
+        }
+
+        // If the guard is planning on moving to the midpoint between
+        // where they are and where the player is moving from, disallow it.
+    
+        const midX = Math.floor((this.pos[0] + posFrom[0]) / 2);
+        const midY = Math.floor((this.pos[1] + posFrom[1]) / 2);
+        if (posNextPlanned[0] === midX && posNextPlanned[1] === midY) {
+            return false;
+        }
+
+        return true;
     }
 
     moving(): boolean {
-        switch (this.mode) {
-            case GuardMode.Patrol:
-                const posPatrolCur = this.patrolPath[this.patrolPathIndex];
-                if (posPatrolCur.equals(this.pos)) {
-                    const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
-                    const posPatrolNext = this.patrolPath[patrolPathIndexNext];
-                    return !posPatrolNext.equals(posPatrolCur);
-                }
-                return true;
-    
-            case GuardMode.Look:
-            case GuardMode.Listen:
-            case GuardMode.ChaseVisibleTarget:
-            case GuardMode.WakeGuard:
-            case GuardMode.LightTorch:
-            case GuardMode.Unconscious:
-                return false;
-    
-            case GuardMode.MoveToLastSighting:
-            case GuardMode.MoveToLastSound:
-            case GuardMode.MoveToGuardShout:
-                return !this.pos.equals(this.goal);
-    
-            case GuardMode.MoveToDownedGuard:
-            case GuardMode.MoveToTorch:
-                return !this.cardinallyAdjacentTo(this.goal);
+        if (this.goals.length <= 0) {
+            return false;
         }
+        const posNextPlanned = this.goals[0];
+
+        return this.pos.equals(posNextPlanned);
+    }
+
+    chooseMoves(state: State) {
+        switch (this.mode) {
+        case GuardMode.Patrol:
+            this.goals = this.choosePatrolStep(state);
+            break;
+
+        case GuardMode.Look:
+        case GuardMode.Listen:
+        case GuardMode.Unconscious:
+            this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
+            break;
+
+        case GuardMode.ChaseVisibleTarget:
+        case GuardMode.MoveToLastSighting:
+        case GuardMode.MoveToGuardShout:
+            this.goals = this.chooseMoveTowardPosition(this.goal, state.gameMap);
+            break;
+
+        case GuardMode.MoveToLastSound:
+        case GuardMode.MoveToDownedGuard:
+        case GuardMode.WakeGuard:
+        case GuardMode.MoveToTorch:
+        case GuardMode.LightTorch:
+            this.goals = this.chooseMoveTowardAdjacentToPosition(this.goal, state.gameMap);
+            break;
+        }
+    }
+
+    bestAvailableMove(moves: Array<vec2>, gameMap: GameMap): vec2 {
+        for (const pos of moves) {
+            if (gameMap.guardMoveCost(this.pos, pos) == Infinity) {
+                continue;
+            }
+
+            if (gameMap.isGuardAtVec(pos)) {
+                continue;
+            }
+
+            return pos;
+        }
+
+        // Should never hit this point; our current position should always be in available moves
+
+        return this.pos;
     }
 
     act(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
@@ -169,13 +182,18 @@ class Guard {
     
         switch (this.mode) {
         case GuardMode.Patrol:
-            this.patrolStep(map, player);
+            this.makeBestAvailableMove(map, player);
+            if (!this.pos.equals(this.patrolPath[this.patrolPathIndex])) {
+                this.enterPatrolMode(map);
+            }
             break;
 
         case GuardMode.Look:
         case GuardMode.Listen:
+            this.makeBestAvailableMove(map, player);
+
             this.modeTimeout -= 1;
-            if (this.modeTimeout == 0) {
+            if (this.modeTimeout <= 0) {
                 this.enterPatrolMode(map);
             }
             break;
@@ -184,7 +202,7 @@ class Guard {
             vec2.copy(this.goal, player.pos);
             if (this.adjacentTo(player.pos)) {
                 updateDir(this.dir, this.pos, this.goal);
-                if (modePrev == GuardMode.ChaseVisibleTarget) {
+                if (modePrev === GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
                         popups.add(PopupType.Damage, this.pos);
                         this.speaking = true;
@@ -210,38 +228,45 @@ class Guard {
         case GuardMode.MoveToLastSighting:
         case GuardMode.MoveToLastSound:
         case GuardMode.MoveToGuardShout:
-            if (this.moveTowardPosition(this.goal, map, player) !== MoveResult.Moved) {
+            this.makeBestAvailableMove(map, player);
+
+            if (this.pos.equals(posPrev)) {
+                updateDir(this.dir, this.pos, this.goal);
                 this.modeTimeout -= 1;
             }
 
-            if (this.modeTimeout == 0) {
+            if (this.modeTimeout <= 0) {
                 this.enterPatrolMode(map);
             }
             break;
 
         case GuardMode.MoveToDownedGuard:
+            this.makeBestAvailableMove(map, player);
+
             if (this.cardinallyAdjacentTo(this.goal)) {
-                if(map.guards.find(
-                    (g) => g.pos.equals(this.goal)
-                    && g.mode === GuardMode.Unconscious
-                ))  {
+                if (map.guards.find((g) => g.pos.equals(this.goal) && g.mode === GuardMode.Unconscious)) {
                     this.mode = GuardMode.WakeGuard;
                     this.modeTimeout = 3;    
                 } else {
                     this.modeTimeout = 0;
                     this.enterPatrolMode(map);
                 }
-            } else if (this.moveTowardAdjacentToPosition(this.goal, map, player) !== MoveResult.Moved) {
+            } else if (this.pos.equals(posPrev)) {
                 this.modeTimeout -= 1;
-                if (this.modeTimeout === 0) {
+                if (this.modeTimeout <= 0) {
                     this.enterPatrolMode(map);
                 }
             }
             break;
 
         case GuardMode.WakeGuard:
+            this.makeBestAvailableMove(map, player);
+
+            if (this.pos.equals(posPrev)) {
+                updateDir(this.dir, this.pos, this.goal);
+            }
+
             --this.modeTimeout;
-            updateDir(this.dir, this.pos, this.goal);
             const g = map.guards.find((g) => g.pos.equals(this.goal) && g.mode === GuardMode.Unconscious);
             if (g !== undefined)  {
                 if (this.modeTimeout <= 0) {
@@ -255,14 +280,15 @@ class Guard {
             break;
 
         case GuardMode.MoveToTorch:
+            this.makeBestAvailableMove(map, player);
+
             if (map.items.some((item)=>item.pos.equals(this.goal) && item.type === ItemType.TorchLit)) {
                 this.enterPatrolMode(map);
             } else {
-                const moveResult = this.moveTowardAdjacentToPosition(this.goal, map, player);
                 if (this.cardinallyAdjacentTo(this.goal)) {
                     this.mode = GuardMode.LightTorch;
                     this.modeTimeout = 5;
-                } else if (moveResult === MoveResult.Moved) {
+                } else if (!this.pos.equals(posPrev)) {
                     this.modeTimeout = 3;
                 } else {
                     this.modeTimeout -= 1;
@@ -274,6 +300,8 @@ class Guard {
             break;
 
         case GuardMode.LightTorch:
+            this.makeBestAvailableMove(map, player);
+
             --this.modeTimeout;
             updateDir(this.dir, this.pos, this.goal);
             if (this.modeTimeout <= 0) {
@@ -486,21 +514,33 @@ class Guard {
         this.mode = GuardMode.Patrol;
     }
 
-    patrolStep(map: GameMap, player: Player) {
-        if (this.patrolPath[this.patrolPathIndex].equals(this.pos)) {
+    choosePatrolStep(state: State): Array<vec2> {
+        if (this.pos.equals(this.patrolPath[this.patrolPathIndex])) {
             this.patrolPathIndex = (this.patrolPathIndex + 1) % this.patrolPath.length;
         }
 
-        const moveResult = this.moveTowardPosition(this.patrolPath[this.patrolPathIndex], map, player);
+        return this.chooseMoveTowardPosition(this.patrolPath[this.patrolPathIndex], state.gameMap);
+    }
 
-        if (moveResult === MoveResult.BumpedPlayer) {
+    makeBestAvailableMove(map: GameMap, player: Player) {
+        const pos = this.bestAvailableMove(this.goals, map);
+
+        if (pos.equals(player.pos)) {
             this.mode = GuardMode.ChaseVisibleTarget;
             updateDir(this.dir, this.pos, player.pos);
-        } else if (moveResult === MoveResult.StoodStill) {
+        } else if (pos.equals(this.pos)) {
             const posLookAt = this.tryGetPosLookAt(map);
             if (posLookAt !== undefined) {
                 updateDir(this.dir, this.pos, posLookAt);
             }
+        } else {
+            updateDir(this.dir, this.pos, pos);
+
+            const start = vec2.create();
+            vec2.subtract(start, this.pos, pos);
+            const end = vec2.create();
+            this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
+            vec2.copy(this.pos, pos);
         }
     }
 
@@ -533,27 +573,14 @@ class Guard {
         return MoveResult.Moved;
     }
 
-    moveTowardAdjacentToPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
+    chooseMoveTowardPosition(posGoal: vec2, map: GameMap): Array<vec2> {
+        const distanceField = map.computeDistancesToPosition(posGoal);
+        return map.nextPositions(distanceField, this.pos);
+    }
+
+    chooseMoveTowardAdjacentToPosition(posGoal: vec2, map: GameMap): Array<vec2> {
         const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
-        const posNext = map.posNextBest(distanceField, this.pos);
-
-        updateDir(this.dir, this.pos, posNext);
-
-        if (player.pos.equals(posNext)) {
-            return MoveResult.BumpedPlayer;
-        }
-
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
-        const start = vec2.create();
-        vec2.subtract(start, this.pos, posNext) 
-        const end = vec2.create();
-        this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
-
-        vec2.copy(this.pos, posNext);
-        return MoveResult.Moved;
+        return map.nextPositions(distanceField, this.pos);
     }
 
     tryGetPosLookAt(map: GameMap): vec2 | undefined {
@@ -610,6 +637,12 @@ function guardOnGate(guard: Guard, map: GameMap):boolean {
     return gate!==undefined && guard.pos.equals(gate.pos);
 }
 
+function chooseGuardMoves(state: State) {
+    for (const guard of state.gameMap.guards) {
+        guard.chooseMoves(state);
+    }
+}
+
 function guardActAll(state: State, map: GameMap, popups: Popups, player: Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
@@ -621,21 +654,20 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.hasMoved = false;
     }
 
-    // Sort guards so the non-moving ones update first, and guards closer to the player after that.
+    // Sort guards so the ones in GuardMode.ChaseVisibleTarget update first.
 
     const guardOrdering = (guard0: Guard, guard1: Guard) => {
-        const guard0Moving = guard0.moving();
-        const guard1Moving = guard1.moving();
-        if (guard0Moving && !guard1Moving) {
-            return 1;
-        }
-        if (guard1Moving && !guard0Moving) {
+        const guard0Chasing = guard0.mode === GuardMode.ChaseVisibleTarget;
+        const guard1Chasing = guard1.mode === GuardMode.ChaseVisibleTarget;
+    
+        if (guard0Chasing && !guard1Chasing) {
             return -1;
         }
+        if (!guard0Chasing && guard1Chasing) {
+            return 1;
+        }
 
-        const distGuard0 = Math.abs(guard0.pos[0] - player.pos[0]) + Math.abs(guard0.pos[1] - player.pos[1]);
-        const distGuard1 = Math.abs(guard1.pos[0] - player.pos[0]) + Math.abs(guard1.pos[1] - player.pos[1]);
-        return distGuard0 - distGuard1;
+        return 0;
     };
 
     map.guards.sort(guardOrdering);

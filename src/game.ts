@@ -2,7 +2,7 @@ import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator } from './animation';
-import { Guard, GuardMode, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
+import { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -319,6 +319,7 @@ export function setupLevel(state: State, level: number) {
     state.camera.zoomed = (level !== 0);
     state.gameMode = GameMode.Mansion;
 
+    chooseGuardMoves(state);
     postTurn(state);
 
 //    analyzeLevel(state);
@@ -1278,6 +1279,7 @@ function advanceTime(state: State) {
 
     state.gameMap.recomputeVisibility(state.player.pos);
 
+    chooseGuardMoves(state);
     postTurn(state);
 
     if (oldHealth > state.player.health) {
@@ -1956,6 +1958,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
+    chooseGuardMoves(state);
     postTurn(state);
 
     return state;
@@ -2057,6 +2060,7 @@ export function restartGame(state: State) {
     state.activeSoundPool.empty();
     state.popups.clear();
 
+    chooseGuardMoves(state);
     postTurn(state);
 
 //    analyzeLevel(state);
@@ -2085,6 +2089,7 @@ function resetState(state: State) {
     state.popups.clear();
     state.activeSoundPool.empty();
 
+    chooseGuardMoves(state);
     postTurn(state);
 
     Howler.stop();

@@ -843,6 +843,35 @@ class GameMap {
     
         return posBest;
     }
+
+    nextPositions(distanceField: Float64Grid, posFrom: vec2): Array<vec2> {
+        const posMin = vec2.fromValues(Math.max(0, posFrom[0] - 1), Math.max(0, posFrom[1] - 1));
+        const posMax = vec2.fromValues(Math.min(this.cells.sizeX, posFrom[0] + 2), Math.min(this.cells.sizeY, posFrom[1] + 2));
+
+        const positionsAndCosts: Array<[number, number, vec2]> = [];
+
+        for (let x = posMin[0]; x < posMax[0]; ++x) {
+            for (let y = posMin[1]; y < posMax[1]; ++y) {
+                const cost = distanceField.get(x, y);
+                if (cost === Infinity) {
+                    continue;
+                }
+    
+                let pos = vec2.fromValues(x, y);
+                if (this.guardMoveCost(posFrom, pos) === Infinity) {
+                    continue;
+                }
+
+                const moveCost = Math.abs(posFrom[0] - pos[0]) + Math.abs(posFrom[1] - pos[1]);
+
+                positionsAndCosts.push([cost, moveCost, pos]);
+            }
+        }
+
+        positionsAndCosts.sort((a, b) => (a[0] !== b[0]) ? (a[0] - b[0]) : (a[1] - b[1]));
+
+        return positionsAndCosts.map(a => a[2]);
+    }
     
     patrolPathIndexForResume(patrolPositions: Array<vec2>, patrolIndexCur: number, pos: vec2): number {
         const distanceToPos = this.computeDistancesToPosition(pos);
