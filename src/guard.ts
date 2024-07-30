@@ -95,8 +95,14 @@ class Guard {
             return false;
         }
 
-        // If the guard is planning on moving to the midpoint between
-        // where they are and where the player is moving from, disallow it.
+        // If the guard is planning on moving to posFrom, disallow it.
+
+        if (posNextPlanned.equals(posFrom)) {
+            return false;
+        }
+
+        // If the guard is planning on moving to the point between posFrom
+        // and where they are, disallow it.
     
         const midX = Math.floor((this.pos[0] + posFrom[0]) / 2);
         const midY = Math.floor((this.pos[1] + posFrom[1]) / 2);
