@@ -113,7 +113,7 @@ class Guard {
         }
         const posNextPlanned = this.goals[0];
 
-        return this.pos.equals(posNextPlanned);
+        return !this.pos.equals(posNextPlanned);
     }
 
     chooseMoves(state: State) {
