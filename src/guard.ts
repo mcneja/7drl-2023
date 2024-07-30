@@ -150,9 +150,15 @@ class Guard {
         }
     }
 
-    bestAvailableMove(moves: Array<vec2>, gameMap: GameMap): vec2 {
+    bestAvailableMove(moves: Array<vec2>, gameMap: GameMap, player: Player): [vec2, boolean] {
+        let bumpedPlayer = false;
         for (const pos of moves) {
             if (gameMap.guardMoveCost(this.pos, pos) == Infinity) {
+                continue;
+            }
+
+            if (player.pos.equals(pos)) {
+                bumpedPlayer = true;
                 continue;
             }
 
@@ -160,12 +166,12 @@ class Guard {
                 continue;
             }
 
-            return pos;
+            return [pos, bumpedPlayer];
         }
 
         // Should never hit this point; our current position should always be in available moves
 
-        return this.pos;
+        return [this.pos, bumpedPlayer];
     }
 
     act(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
@@ -529,9 +535,9 @@ class Guard {
     }
 
     makeBestAvailableMove(map: GameMap, player: Player) {
-        const pos = this.bestAvailableMove(this.goals, map);
+        const [pos, bumpedPlayer] = this.bestAvailableMove(this.goals, map, player);
 
-        if (pos.equals(player.pos)) {
+        if (bumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
             updateDir(this.dir, this.pos, player.pos);
         } else if (pos.equals(this.pos)) {
