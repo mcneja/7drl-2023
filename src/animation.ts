@@ -3,7 +3,7 @@ import { TileInfo } from './tilesets';
 import { Item, ItemType } from './game-map';
 var tween = require('tween-functions');
 
-export { Animator, SpriteAnimation, FrameAnimator, LightSourceAnimation, tween, LightState };
+export { Animator, SpriteAnimation, FrameAnimator, LightSourceAnimation, tween, LightState, TweenData };
 
 type TweenData = {
     pt0:vec2; 

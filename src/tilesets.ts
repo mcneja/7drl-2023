@@ -25,10 +25,7 @@ export type TileSet = {
     npcTiles: Array<TileInfo>;
     playerTiles: {
         normal:  TileInfo;
-        wounded: TileInfo;
         hidden:  TileInfo;
-        noisy:   TileInfo;
-        unlit:   TileInfo;
         right:   TileInfo;
         left:    TileInfo;
         down:    TileInfo;
@@ -205,16 +202,13 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
     ],
     playerTiles: {
-        normal:  {textureIndex: r([1, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
-        wounded: {textureIndex: r([1, 9]), color:colorPreset.lightRed,  unlitColor:colorPreset.darkRed},
-        hidden:  {textureIndex: r([0, 9]), color:colorPreset.darkGray,  unlitColor:colorPreset.darkerGray}, 
-        noisy:   {textureIndex: r([1, 9]), color:colorPreset.lightGray, unlitColor:colorPreset.darkGray},
-        unlit:   {textureIndex: r([1, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
-        right:   {textureIndex: r([2, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
-        left:    {textureIndex: r([3, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
-        down:    {textureIndex: r([1, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
-        up:      {textureIndex: r([4, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
-        dead:    {textureIndex: r([5, 9]), color:colorPreset.white,     unlitColor:colorPreset.lightGray},
+        normal:  {textureIndex: r([1, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        hidden:  {textureIndex: r([0, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        right:   {textureIndex: r([2, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        left:    {textureIndex: r([3, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        down:    {textureIndex: r([1, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        up:      {textureIndex: r([4, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        dead:    {textureIndex: r([5, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
     },
     guardStateTiles: [
         {textureIndex: r([0,11])}, //Relaxed

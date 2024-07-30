@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
-import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator } from './animation';
+import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
@@ -313,6 +313,7 @@ export function setupLevel(state: State, level: number) {
     state.player.hasVaultKey = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
+    state.player.animation = null;
     state.popups.clear();
 
     state.camera = createCamera(state.gameMap.playerStartPos, state.zoomLevel);
@@ -943,7 +944,7 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
     let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
     const hid = player.hidden(state.gameMap);
 
-    let tweenSeq;
+    let tweenSeq: Array<TweenData>;
 
     if (guard !== undefined && guard.mode === GuardMode.Unconscious) {
         const gp = vec2.fromValues(0.5*(posOld[0]-posNew[0]),0.5*(posOld[1]-posNew[1]));
@@ -1557,6 +1558,7 @@ function renderPlayer(state: State, renderer: Renderer) {
     const cell = state.gameMap.cells.at(x0, y0);
     const lit = lightAnimator(cell.lit, state.lightStates, cell.litSrc, state.seeAll || cell.seen);
     const hidden = player.hidden(state.gameMap);
+    const dead = player.health <= 0;
 
     let tileInfo:TileInfo;
     if (a) {
@@ -1564,15 +1566,23 @@ function renderPlayer(state: State, renderer: Renderer) {
     } else {
         const p = renderer.tileSet.playerTiles;
         tileInfo =
-            player.health<=0 ? p.dead :
-            player.damagedLastTurn ? p.wounded :
-            player.noisy ? p.noisy :
+            dead ? p.dead :
             hidden ? p.hidden :
-            !lit ? p.unlit :
             p.normal;
     }
 
-    renderer.addGlyphLit(x, y, x+1, y+1, tileInfo, lit);
+    const tileInfoTinted = structuredClone(tileInfo);
+    if (!dead) {
+        if (player.damagedLastTurn) {
+            tileInfoTinted.color = colorPreset.lightRed;
+            tileInfoTinted.unlitColor = colorPreset.darkRed;
+        } else if (hidden) {
+            tileInfoTinted.color = colorPreset.darkGray;
+            tileInfoTinted.unlitColor = colorPreset.darkerGray;
+        }
+    }
+
+    renderer.addGlyphLit(x, y, x+1, y+1, tileInfoTinted, lit);
 }
 
 function renderGuards(state: State, renderer: Renderer) {
@@ -2097,39 +2107,53 @@ function resetState(state: State) {
 
 
 function updateIdle(state:State, dt:number) {
-    state.idleTimer -= dt;
-    if(state.idleTimer<=0 && state.player.health>0 && state.player.animation===null) {
-        state.idleTimer = 5;
-        const player = state.player;
-        const start = vec2.create();
-        const left = vec2.fromValues(-0.125, 0);
-        const right = vec2.fromValues(0.125, 0);
-        const up = vec2.fromValues(0,0.125);
-        const hid = player.hidden(state.gameMap);
-        const p = tileSet.playerTiles;
-        let tweenSeq, tiles;
-        if(hid || Math.random()>0.5) {
-            tweenSeq = [
-                {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
-                {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
-                {pt0:start, pt1:start, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
-                {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
-            ];
-            tiles = hid? [p.hidden] : [p.normal];
-        } else {
-            tweenSeq = [
-                {pt0:start, pt1:left, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:left, pt1:left, duration:0.5, fn:tween.easeOutQuad},
-                {pt0:left, pt1:start, duration:0.1, fn:tween.easeInQuad},
-                {pt0:start, pt1:right, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:right, pt1:right, duration:0.5, fn:tween.easeOutQuad},
-                {pt0:right, pt1:start, duration:0.1, fn:tween.easeInQuad},
-            ];
-            tiles = [p.left, p.left, p.normal, p.right, p.right, p.normal];        
-        }
-        player.animation = new SpriteAnimation(tweenSeq, tiles);
+    if (state.player.health <= 0) {
+        return;
     }
+
+    if (state.gameMode === GameMode.MansionComplete || state.gameMode === GameMode.Win) {
+        return;
+    }
+
+    if (state.player.animation !== null) {
+        return;
+    }
+
+    state.idleTimer -= dt;
+    if (state.idleTimer > 0) {
+        return;
+    }
+
+    state.idleTimer = 5;
+    const player = state.player;
+    const start = vec2.create();
+    const left = vec2.fromValues(-0.125, 0);
+    const right = vec2.fromValues(0.125, 0);
+    const up = vec2.fromValues(0,0.125);
+    const hid = player.hidden(state.gameMap);
+    const p = tileSet.playerTiles;
+    let tweenSeq: Array<TweenData>, tiles: Array<TileInfo>;
+    if(hid || Math.random()>0.5) {
+        tweenSeq = [
+            {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
+            {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
+            {pt0:start, pt1:start, duration:0.1, fn:tween.easeOutQuad},
+            {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
+            {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
+        ];
+        tiles = hid? [p.hidden] : [p.normal];
+    } else {
+        tweenSeq = [
+            {pt0:start, pt1:left, duration:0.1, fn:tween.easeOutQuad},
+            {pt0:left, pt1:left, duration:0.5, fn:tween.easeOutQuad},
+            {pt0:left, pt1:start, duration:0.1, fn:tween.easeInQuad},
+            {pt0:start, pt1:right, duration:0.1, fn:tween.easeOutQuad},
+            {pt0:right, pt1:right, duration:0.5, fn:tween.easeOutQuad},
+            {pt0:right, pt1:start, duration:0.1, fn:tween.easeInQuad},
+        ];
+        tiles = [p.left, p.left, p.normal, p.right, p.right, p.normal];        
+    }
+    player.animation = new SpriteAnimation(tweenSeq, tiles);
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
