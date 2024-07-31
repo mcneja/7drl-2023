@@ -293,11 +293,11 @@ class HomeScreen extends TextWindow {
 `Lurk, Leap, Loot
 
 $playRestartOrResume$
-[D|homeDaily]: Daily challenge
-[S|homeStats]: Statistics
-[O|homeOptions]: Options
-[H|helpControls]: Controls Help
+[H|helpControls]: Controls help
 [M|helpKey]: Map key
+[D|homeDaily]: Daily challenge
+[O|homeOptions]: Options
+[S|homeStats]: Statistics
 [C|credits]: Credits`
     ]; 
     constructor() {
