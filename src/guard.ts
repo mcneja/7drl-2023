@@ -197,6 +197,11 @@ class Guard {
             this.makeBestAvailableMove(map, player);
             if (!this.pos.equals(this.patrolPath[this.patrolPathIndex])) {
                 this.enterPatrolMode(map);
+            } else if (this.pos.equals(posPrev)) {
+                const posLookAt = this.tryGetPosLookAt(map);
+                if (posLookAt !== undefined) {
+                    updateDir(this.dir, this.pos, posLookAt);
+                }
             }
             break;
 
@@ -537,15 +542,7 @@ class Guard {
     makeBestAvailableMove(map: GameMap, player: Player) {
         const [pos, bumpedPlayer] = this.bestAvailableMove(this.goals, map, player);
 
-        if (bumpedPlayer) {
-            this.mode = GuardMode.ChaseVisibleTarget;
-            updateDir(this.dir, this.pos, player.pos);
-        } else if (pos.equals(this.pos)) {
-            const posLookAt = this.tryGetPosLookAt(map);
-            if (posLookAt !== undefined) {
-                updateDir(this.dir, this.pos, posLookAt);
-            }
-        } else {
+        if (!pos.equals(this.pos)) {
             updateDir(this.dir, this.pos, pos);
 
             const start = vec2.create();
@@ -553,6 +550,11 @@ class Guard {
             const end = vec2.create();
             this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
             vec2.copy(this.pos, pos);
+        }
+
+        if (bumpedPlayer) {
+            this.mode = GuardMode.ChaseVisibleTarget;
+            updateDir(this.dir, this.pos, player.pos);
         }
     }
 
