@@ -526,10 +526,12 @@ class Guard {
     }
 
     sightCutoff(litTarget: boolean): number {
-        if (isRelaxedGuardMode(this.mode) && !this.angry) {
-            return litTarget ? 40 : 3;
-        } else {
+        if (this.mode === GuardMode.ChaseVisibleTarget) {
+            return litTarget ? 75 : 33;
+        } else if (!isRelaxedGuardMode(this.mode) || this.angry) {
             return litTarget ? 75 : 15;
+        } else {
+            return litTarget ? 40 : 3;
         }
     }
 
