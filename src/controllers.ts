@@ -41,6 +41,7 @@ const controlStates0: ControlStates = {
     'nextLevel': false,
     'prevLevel': false,
     'fullscreen': false,
+    'showSpeech': false,
 };
 
 var lastController:Controller|null = null;
@@ -95,6 +96,7 @@ const defaultKeyMap:KeyMap = {
     'Numpad8': ['up'],
     'NumpadAdd': ['jumpToggle'],
     'NumpadEnter': ['menuAccept'],
+    'Tab': ['showSpeech'],
     'Control+ArrowDown': ['panDown'],
     'Control+ArrowLeft': ['panLeft'],
     'Control+ArrowRight': ['panRight'],

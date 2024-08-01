@@ -238,6 +238,8 @@ function updateControllerState(state:State) {
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
+        } else if (activated('showSpeech')) {
+            state.popups.currentPopupTimeRemaining = 2.0;
         }
     }
 }
@@ -314,7 +316,7 @@ export function setupLevel(state: State, level: number) {
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
     state.player.animation = null;
-    state.popups.clear();
+    state.popups.reset();
 
     state.camera = createCamera(state.gameMap.playerStartPos, state.zoomLevel);
     state.camera.zoomed = (level !== 0);
@@ -1312,11 +1314,9 @@ function postTurn(state: State) {
 
     // Update top status-bar message
 
-    const subtitle = state.popups.endOfUpdate(state.subtitledSounds);
+    state.popups.endOfUpdate(state.player.pos, state.subtitledSounds);
 
-    if (subtitle !== '') {
-        setStatusMessageSticky(state, subtitle);
-    } else if (allSeen) {
+    if (allSeen) {
         if (allLooted) {
             setStatusMessage(state, 'Loot collected! Exit any map edge');
         } else {
@@ -2068,7 +2068,7 @@ export function restartGame(state: State) {
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
     state.activeSoundPool.empty();
-    state.popups.clear();
+    state.popups.reset();
 
     chooseGuardMoves(state);
     postTurn(state);
@@ -2096,7 +2096,7 @@ function resetState(state: State) {
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
-    state.popups.clear();
+    state.popups.reset();
     state.activeSoundPool.empty();
 
     chooseGuardMoves(state);
@@ -2204,6 +2204,8 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 
     updateIdle(state, dt);
 
+    state.popups.currentPopupTimeRemaining = Math.max(0, state.popups.currentPopupTimeRemaining - dt);
+
     if(state.player.animation) {
         if(state.player.animation.update(dt)) {
             state.player.animation = null;
@@ -2257,18 +2259,22 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     }
     renderer.flush();
 
+    if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
+        renderTextBox(renderer, screenSize, state);
+    }
+
     const menuWindow = state.textWindows[state.gameMode];
     if(menuWindow !== undefined) {
         menuWindow.render(renderer);    
     }
 
-    if(state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
+    if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
         renderTopStatusBar(renderer, screenSize, state);
     }
 
     renderBottomStatusBar(renderer, screenSize, state);
 
-    if(lastController===state.touchController) {
+    if (lastController===state.touchController) {
         const matScreenFromPixel = mat4.create();
         mat4.ortho(
             matScreenFromPixel,
@@ -2508,6 +2514,86 @@ function statusBarZoom(screenSize: vec2): number {
     return scaleFactor;
 }
 
+function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
+    if (state.popups.currentPopupTimeRemaining <= 0)
+        return;
+
+    const message = state.popups.currentPopup;
+    if (message.length === 0)
+        return;
+
+    const tileZoom = statusBarZoom(screenSize);
+
+    const pixelsPerCharX = tileZoom * statusBarCharPixelSizeX;
+    const pixelsPerCharY = tileZoom * statusBarCharPixelSizeY;
+
+    const worldToPixelScaleX = pixelsPerTileX * state.camera.scale;
+    const worldToPixelScaleY = pixelsPerTileY * state.camera.scale;
+
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * pixelsPerCharY);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
+
+    const viewWorldCenterX = state.camera.position[0];
+    const viewWorldCenterY = state.camera.position[1];
+
+    const playerPixelY = Math.floor(((state.player.pos[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
+
+    const posPopupWorld = state.popups.currentPopupWorldPos();
+    const popupPixelX = Math.floor(((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX);
+    const popupPixelY = Math.floor(((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
+
+    const lines = message.split('\n');
+
+    const numCharsX = lines.reduce((maxLen, line) => Math.max(maxLen, line.length), 0);
+    const numCharsY = lines.length;
+
+    const matScreenFromWorld = mat4.create();
+    mat4.ortho(
+        matScreenFromWorld,
+        0, screenSize[0],
+        0, screenSize[1],
+        1, -1
+    );
+
+    const marginX = tileZoom * 4;
+    const marginY = tileZoom * 2;
+    const border = tileZoom * 2;
+
+    const rectSizeX = numCharsX * pixelsPerCharX + 2 * (marginX + border);
+    const rectSizeY = numCharsY * pixelsPerCharY + 2 * (marginY + border);
+
+    let yMin: number;
+
+    const xMin = Math.floor(Math.max(0, Math.min(screenSize[0] - rectSizeX, popupPixelX - rectSizeX / 2)));
+
+    if (playerPixelY <= popupPixelY) {
+        yMin = Math.floor(popupPixelY + 1.0 * worldToPixelScaleY);
+    } else {
+        yMin = Math.floor(popupPixelY + -0.5 * worldToPixelScaleY - rectSizeY);
+    }
+    yMin = Math.max(pixelsPerCharY, Math.min(screenSize[1] - (pixelsPerCharY + rectSizeY), yMin));
+
+    renderer.start(matScreenFromWorld, 0);
+
+    renderer.addGlyph(xMin, yMin, xMin + numCharsX * pixelsPerCharX + 2*(marginX + border), yMin + numCharsY * pixelsPerCharY + 2*(marginY + border), {textureIndex:219, color:0xff080808});
+    renderer.addGlyph(xMin + border, yMin + border, xMin + numCharsX * pixelsPerCharX + 2*marginX + border, yMin + numCharsY * pixelsPerCharY + 2*marginY + border, {textureIndex:219, color:0xffd0d0d0});
+
+    let y = yMin + (numCharsY - 1) * pixelsPerCharY + marginY + border;
+    for (const line of lines) {
+        let x = Math.floor(xMin + marginX + border + (numCharsX - line.length) * pixelsPerCharX / 2);
+
+        for (let i = 0; i < line.length; ++i) {
+            const glyphIndex = line.charCodeAt(i);
+            renderer.addGlyph(x, y, x + pixelsPerCharX, y + pixelsPerCharY, {textureIndex:glyphIndex, color:0xff080808});
+            x += pixelsPerCharX;
+        }
+    
+        y -= pixelsPerCharY;
+    }
+
+    renderer.flush();
+}
+
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
     const tileZoom = statusBarZoom(screenSize);
 
@@ -2565,7 +2651,10 @@ function colorLerp(color0: number, color1: number, u: number): number {
 
 function putString(renderer: Renderer, x: number, s: string, color: number) {
     for (let i = 0; i < s.length; ++i) {
-        const glyphIndex = s.charCodeAt(i);
+        let glyphIndex = s.charCodeAt(i);
+        if (glyphIndex === 10) {
+            glyphIndex = 32;
+        }
         renderer.addGlyph(x + i, 0, x + i + 1, 1, {textureIndex:glyphIndex, color:color});
     }
 }

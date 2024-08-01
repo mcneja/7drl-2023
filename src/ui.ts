@@ -402,6 +402,7 @@ class HelpControls extends TextWindow {
   Zoom View: [ / ]
   Volume: (Mute/Down/Up) 0 / - / =
   Guard Mute (Toggle): 9
+  Show last speech: Tab
 
 Disable NumLock if using numpad
 Mouse, touch and gamepad also supported

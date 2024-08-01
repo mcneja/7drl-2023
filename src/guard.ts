@@ -83,6 +83,13 @@ class Guard {
         }
     }
 
+    posAnimated(): vec2 {
+        let offset = this.animation?.offset?? vec2.create();
+        const pos = vec2.create();
+        vec2.add(pos, this.pos, offset);
+        return pos;
+    }
+
     allowsMoveOntoFrom(posFrom: vec2): boolean {
         if (this.goals.length <= 0) {
             return true;
@@ -221,7 +228,7 @@ class Guard {
                 updateDir(this.dir, this.pos, this.goal);
                 if (modePrev === GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
-                        popups.add(PopupType.Damage, this.pos);
+                        popups.add(PopupType.Damage, () => this.posAnimated());
                         this.speaking = true;
                     }
                     const startend = vec2.create();
@@ -331,14 +338,14 @@ class Guard {
             // this.modeTimeout -= 1;
             if (this.modeTimeout === 5) {
                 const popup = PopupType.GuardStirring;
-                popups.add(popup, this.pos);
+                popups.add(popup, () => this.posAnimated());
                 this.speaking = true;
             } else if (this.modeTimeout <= 0) {
                 this.enterPatrolMode(map);
                 this.modeTimeout = 0;
                 this.angry = true;
                 shouts.push({pos_shouter: this.pos, pos_target: this.pos, target:this});
-                popups.add(PopupType.GuardAwakesWarning, this.pos);
+                popups.add(PopupType.GuardAwakesWarning, () => this.posAnimated());
                 this.speaking = true;
             }
             break;
@@ -452,7 +459,7 @@ class Guard {
 
         const popupType = popupTypeForStateChange(modePrev, this.mode);
         if (popupType !== undefined) {
-            popups.add(popupType, this.pos);
+            popups.add(popupType, () => this.posAnimated());
             this.speaking = true;
         }
     

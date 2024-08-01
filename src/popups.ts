@@ -1,4 +1,4 @@
-export { Popup, PopupMessage, Popups, PopupType };
+export { Popup, Popups, PopupType };
 
 import { vec2 } from './my-matrix';
 import { SubtitledHowls } from './audio';
@@ -6,13 +6,13 @@ import { SubtitledHowls } from './audio';
 enum PopupType {
     Damage,
     GuardChase,
+    GuardInvestigate,
     GuardSeeThief,
     GuardHearThief,
-    GuardHearGuard,
     GuardDownWarning,
     GuardAwakesWarning,
     GuardWarningResponse,
-    GuardInvestigate,
+    GuardHearGuard,
     GuardEndChase,
     GuardFinishInvestigating,
     GuardFinishLooking,
@@ -22,22 +22,24 @@ enum PopupType {
 
 type Popup = {
     popupType: PopupType;
-    posWorld: vec2;
-}
-
-type PopupMessage = {
-    msg: string;
-    posWorld: vec2;
+    posWorld: () => vec2;
 }
 
 class Popups {
     popups: Array<Popup>;
 
+    currentPopup: string;
+    currentPopupWorldPos: () => vec2;
+    currentPopupTimeRemaining: number;
+
     constructor() {
         this.popups = [];
+        this.currentPopup = '';
+        this.currentPopupWorldPos = () => vec2.create();
+        this.currentPopupTimeRemaining = 0;
     }
 
-    add(popupType: PopupType, posWorld: vec2) {
+    add(popupType: PopupType, posWorld: () => vec2) {
         this.popups.push({ popupType: popupType, posWorld: posWorld });
     }
 
@@ -45,16 +47,42 @@ class Popups {
         this.popups.length = 0;
     }
 
-    endOfUpdate(subtitledSounds: SubtitledHowls): string {
+    reset() {
+        this.popups.length = 0;
+        this.currentPopup = '';
+        this.currentPopupTimeRemaining = 0;
+    }
+
+    endOfUpdate(posPlayer: vec2, subtitledSounds: SubtitledHowls): string {
         if (this.popups.length === 0) {
             return '';
         }
 
-        this.popups.sort((a, b) => a.popupType - b.popupType);
+        this.popups.sort((a, b) => {
+            if (a.popupType < b.popupType)
+                return -1;
+            if (a.popupType > b.popupType)
+                return 1;
+            const posA = a.posWorld();
+            const posB = b.posWorld();
+            const aDist = vec2.squaredDistance(posA, posPlayer);
+            const bDist = vec2.squaredDistance(posB, posPlayer);
+            if (aDist < bDist)
+                return -1;
+            if (aDist > bDist)
+                return 1;
+            return 0;
+        });
 
         const popup = this.popups[0];
+
         const soundName = soundNameForPopupType(popup.popupType);
         const subtitledSound = subtitledSounds[soundName].play(0.6);
+
+        this.currentPopup = subtitledSound.subtitle;
+        this.currentPopupWorldPos = popup.posWorld;
+        this.currentPopupTimeRemaining = 2.0;
+
         return subtitledSound.subtitle;
     }
 }
