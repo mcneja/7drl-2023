@@ -2704,12 +2704,12 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     // Leap toggle indicator
 
+    ++leftSideX;
     const msgLeapToggle = 'Leap';
     if (state.leapToggleActive) {
-        ++leftSideX;
         putString(renderer, leftSideX, msgLeapToggle, colorPreset.lightGreen);
-        leftSideX += msgLeapToggle.length;
     }
+    leftSideX += msgLeapToggle.length;
 
     let rightSideX = statusBarTileSizeX;
 
@@ -2741,6 +2741,11 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const msgLevel = 'Lvl ' + (state.level + 1);
 
     let msgTimer = state.turns + '/' + numTurnsParForCurrentMap(state);
+
+    const ghosted = state.levelStats.numSpottings === 0;
+    if (!ghosted) {
+        msgTimer += '!';
+    }
 
     const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
