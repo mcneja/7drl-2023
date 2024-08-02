@@ -7,12 +7,6 @@ import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
 import { LevelStats, State } from './types';
 
-enum MoveResult {
-    StoodStill,
-    Moved,
-    BumpedPlayer,
-}
-
 enum GuardMode {
     Patrol,
     Look,
@@ -224,7 +218,7 @@ class Guard {
 
         case GuardMode.ChaseVisibleTarget:
             vec2.copy(this.goal, player.pos);
-            if (this.adjacentTo(player.pos)) {
+            if (this.adjacentTo(player.pos) && !this.pos.equals(player.pos)) {
                 updateDir(this.dir, this.pos, this.goal);
                 if (modePrev === GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
@@ -245,7 +239,8 @@ class Guard {
                     ++levelStats.damageTaken;
                 }
             } else {
-                this.moveTowardPosition(this.goal, map, player);
+                this.goals = this.chooseMoveTowardPosition(this.goal, map);
+                this.makeBestAvailableMove(map, player);
             }
             break;
 
@@ -572,28 +567,6 @@ class Guard {
         const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
 
         updateDir(this.dir, this.pos, this.patrolPath[patrolPathIndexNext]);
-    }
-
-    moveTowardPosition(posGoal: vec2, map: GameMap, player: Player): MoveResult {
-        const distanceField = map.computeDistancesToPosition(posGoal);
-        const posNext = map.posNextBest(distanceField, this.pos);
-
-        updateDir(this.dir, this.pos, posNext);
-
-        if (player.pos.equals(posNext)) {
-            return MoveResult.BumpedPlayer;
-        }
-
-        if (posNext.equals(this.pos)) {
-            return MoveResult.StoodStill;
-        }
-
-        const start = vec2.create();
-        vec2.subtract(start, this.pos, posNext) 
-        const end = vec2.create();
-        this.animation = new SpriteAnimation([{pt0:start, pt1:end, duration:0.2, fn:tween.linear}], []);
-        vec2.copy(this.pos, posNext);
-        return MoveResult.Moved;
     }
 
     chooseMoveTowardPosition(posGoal: vec2, map: GameMap): Array<vec2> {
