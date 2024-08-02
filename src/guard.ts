@@ -486,10 +486,10 @@ class Guard {
             return false;
         }
 
-        let playerIsLit = map.cells.atVec(person.pos).lit>0;
+        let personIsLit = map.cells.atVec(person.pos).lit>0;
 
         let d2 = vec2.squaredLen(d);
-        if (d2 >= this.sightCutoff(playerIsLit)) {
+        if (d2 >= this.sightCutoff(personIsLit)) {
             return false;
         }
 
