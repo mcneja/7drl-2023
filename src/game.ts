@@ -1547,6 +1547,16 @@ function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer
     }
 }
 
+function renderWorldBorder(state: State, renderer: Renderer) {
+    const sizeX = state.gameMap.cells.sizeX;
+    const sizeY = state.gameMap.cells.sizeY;
+    const tileInfo = {textureIndex: 0, color: colorPreset.white, unlitColor: colorPreset.white};
+    renderer.addGlyph(-1, 0, 0, sizeY, tileInfo);
+    renderer.addGlyph(sizeX, 0, sizeX + 1, sizeY, tileInfo);
+    renderer.addGlyph(-1, -1, sizeX + 1, 0, tileInfo);
+    renderer.addGlyph(-1, sizeY, sizeX + 1, sizeY + 1, tileInfo);
+}
+
 function renderPlayer(state: State, renderer: Renderer) {
     const player = state.player;
     const a = player.animation;
@@ -2257,6 +2267,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);
     }
+    renderWorldBorder(state, renderer);
     renderer.flush();
 
     if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
