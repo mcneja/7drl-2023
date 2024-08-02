@@ -679,6 +679,20 @@ function pushOrSwapGuard(state: State, guard: Guard) {
     guard.animation = new SpriteAnimation(tweenSeq, []);
 }
 
+function moveGuardToPlayerPos(state: State, guard: Guard) {
+    // Update guard position
+    const posGuardOld = vec2.clone(guard.pos);
+    vec2.copy(guard.pos, state.player.pos);
+
+    // Animate guard sliding
+    const gpos0 = vec2.clone(posGuardOld).subtract(state.player.pos);
+    const gpos1 = vec2.create();
+
+    const tweenSeq = [{pt0:gpos0, pt1:gpos1, duration:0.2, fn:tween.easeOutQuad}];
+
+    guard.animation = new SpriteAnimation(tweenSeq, []);
+}
+
 function blocksPushedGuard(state: State, posGuardNew: vec2): boolean {
     if (posGuardNew[0] < 0 ||
         posGuardNew[1] < 0 ||
@@ -1017,24 +1031,29 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const guardMid = state.gameMap.guards.find((guard) =>
         guard.pos.equals(posMid) &&
-        guard.mode !== GuardMode.Unconscious &&
-        guard.mode !== GuardMode.ChaseVisibleTarget);
+        guard.mode !== GuardMode.Unconscious);
 
     if (guardMid) {
-        preTurn(state);
+        if (guardMid.mode === GuardMode.ChaseVisibleTarget) {
+            // Swap places with the guard
+            moveGuardToPlayerPos(state, guardMid);
+            tryPlayerStep(state, dx, dy);
+        } else {
+            preTurn(state);
 
-        guardMid.mode = GuardMode.Unconscious;
-        guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
-        if (guardMid.hasPurse || guardMid.hasVaultKey) {
-            collectGuardLoot(state, player, guardMid, posOld);
-        }
-        player.pickTarget = null;
-        ++state.levelStats.numKnockouts;
-        state.sounds.hitGuard.play(0.25);
+            guardMid.mode = GuardMode.Unconscious;
+            guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+            if (guardMid.hasPurse || guardMid.hasVaultKey) {
+                collectGuardLoot(state, player, guardMid, posOld);
+            }
+            player.pickTarget = null;
+            ++state.levelStats.numKnockouts;
+            state.sounds.hitGuard.play(0.25);
+        
+            advanceTime(state);
     
-        advanceTime(state);
-
-        bumpAnim(state, dx, dy);
+            bumpAnim(state, dx, dy);
+        }
         return;
     }
 
