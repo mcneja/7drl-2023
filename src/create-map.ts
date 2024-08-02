@@ -3969,7 +3969,7 @@ function randomlyLitTorch(level: number, rng: RNG): ItemType {
         return ItemType.TorchUnlit;
     }
 
-    return (rng.random() < 0.5) ? ItemType.TorchUnlit : ItemType.TorchLit;
+    return (rng.random() < 0.05) ? ItemType.TorchUnlit : ItemType.TorchLit;
 }
 
 function tryPlaceItem(map: GameMap, pos:vec2, itemType: ItemType) {

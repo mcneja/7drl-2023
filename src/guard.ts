@@ -27,6 +27,7 @@ class Guard {
     dir: vec2 = vec2.fromValues(1, 0);
     mode: GuardMode = GuardMode.Patrol;
     angry: boolean = false;
+    anxious: boolean = false; // has guard ever left Patrol state?
     hasTorch: boolean = false;
     hasPurse: boolean = false;
     hasVaultKey: boolean = false;
@@ -188,6 +189,7 @@ class Guard {
             const offset = this.moving() ? 1 : 0;
             if (this.seesActor(map, player, offset)) {
                 this.mode = GuardMode.ChaseVisibleTarget;
+                this.anxious = true;
             }
         }
 
@@ -266,6 +268,7 @@ class Guard {
                 if (map.guards.find((g) => g.pos.equals(this.goal) && g.mode === GuardMode.Unconscious)) {
                     this.mode = GuardMode.WakeGuard;
                     this.modeTimeout = 3;    
+                    this.anxious = true;
                 } else {
                     this.modeTimeout = 0;
                     this.enterPatrolMode(map);
@@ -307,6 +310,7 @@ class Guard {
                 if (this.cardinallyAdjacentTo(this.goal)) {
                     this.mode = GuardMode.LightTorch;
                     this.modeTimeout = 5;
+                    this.anxious = true;
                 } else if (!this.pos.equals(posPrev)) {
                     this.modeTimeout = 3;
                 } else {
@@ -366,6 +370,7 @@ class Guard {
                 } else {
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
+                this.anxious = true;
             } else if (this.mode === GuardMode.ChaseVisibleTarget && modePrev === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
@@ -384,6 +389,7 @@ class Guard {
                     this.modeTimeout = 2 + randomInRange(4);
                     vec2.copy(this.goal, player.pos);
                 }
+                this.anxious = true;
             }
 
             // Hear another guard shouting
@@ -398,6 +404,7 @@ class Guard {
 
                 this.mode = GuardMode.MoveToGuardShout;
                 this.modeTimeout = 2 + randomInRange(4);
+                this.anxious = true;
                 vec2.copy(this.goal, this.heardGuardPos);
             }
 
@@ -422,6 +429,7 @@ class Guard {
                     vec2.copy(this.goal, guard.pos);
                     this.mode = GuardMode.MoveToDownedGuard;
                     this.angry = true;
+                    this.anxious = true;
                     this.modeTimeout = 3;
                     shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
                     break;
@@ -430,7 +438,7 @@ class Guard {
 
             // If we see an extinguished torch, move to light it.
 
-            if (this.mode === GuardMode.Patrol) {
+            if (this.mode === GuardMode.Patrol && (this.anxious || this.hasTorch)) {
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
@@ -558,6 +566,7 @@ class Guard {
 
         if (bumpedPlayer) {
             this.mode = GuardMode.ChaseVisibleTarget;
+            this.anxious = true;
             updateDir(this.dir, this.pos, player.pos);
         }
     }
