@@ -433,7 +433,7 @@ class Guard {
                     this.modeTimeout = 3;
                     shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
                     break;
-                }    
+                }
             }
 
             // If we see an extinguished torch, move to light it.
@@ -714,6 +714,8 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): Popu
 
     switch (modeNext) {
         case GuardMode.Patrol:
+        case GuardMode.MoveToTorch:
+        case GuardMode.LightTorch:
             switch (modePrev) {
                 case GuardMode.Look: return PopupType.GuardFinishLooking;
                 case GuardMode.Listen: return PopupType.GuardFinishListening;
