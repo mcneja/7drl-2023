@@ -567,15 +567,11 @@ $copyState$
         const lastDailyDate: string = lastDailyGameStats?.daily ?? 'None';
         const lastDailyScore: number = lastDailyGameStats?.totalScore ?? 0;
 
-        this.state.set('date', state.persistedStats.currentDailyGameId+ ' UTC');
         this.state.set('plays', state.persistedStats.currentDailyPlays.toString());
         this.state.set('wins', state.persistedStats.currentDailyWins.toString());
         this.state.set('lastPlayed', lastDailyDate);
         this.state.set('lastScore', lastDailyScore.toString());
         this.state.set('bestScore', state.persistedStats.currentDailyBestScore.toString());
-        const wins = state.persistedStats.currentDailyWins.toString()+(state.persistedStats.currentDailyWins===1?' win in ':' wins in ');
-        const attempts = state.persistedStats.currentDailyPlays.toString()+(state.persistedStats.currentDailyPlays===1?' attempt':' attempts');
-        this.state.set('playCounts', wins+attempts)
         this.state.set('copyState', this.stateCopied ? '    COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
