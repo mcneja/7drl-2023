@@ -3269,10 +3269,8 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
                 if (allowExteriorWindows) {
-                    let k = 2;
-                    const k_end = 1 + Math.floor(adj0.length / 2);
-
-                    while (k < k_end) {
+                    const k_end = 1 + Math.floor(adj0.length / 2) - (adj0.length & 1);
+                    for (let k = 2; k < k_end; k += 2) {
                         for (const a of walls) {
                             if (a.roomLeft.roomType === RoomType.Vault ||
                                 a.roomRight.roomType === RoomType.Vault) {
@@ -3292,14 +3290,11 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                             map.cells.atVec(p).type = windowType;
                             map.cells.atVec(q).type = windowType;
                         }
-                        k += 2;
                     }
                 }
             } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
-                let k = 2;
-                const k_end = 1 + Math.floor(adj0.length / 2);
-
-                while (k < k_end) {
+                const k_end = 1 + Math.floor(adj0.length / 2) - (adj0.length & 1);
+                for (let k = 2; k < k_end; k += 2) {
                     for (const a of walls) {
                         if (a.roomLeft.roomType === RoomType.Vault ||
                             a.roomRight.roomType === RoomType.Vault) {
@@ -3327,7 +3322,6 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                         map.cells.atVec(p).type = windowType;
                         map.cells.atVec(q).type = windowType;
                     }
-                    k += 2;
                 }
             }
         }
