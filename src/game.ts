@@ -25,6 +25,7 @@ enum NoiseType {
 }
 
 const debugInitialLevel = 0; // set to non-zero to test level generation
+const debugSeeAll = false; // initial value for see-all cheat code
 const tileSet = getTileSet();
 const fontTileSet = getFontTileSet();
 
@@ -1989,7 +1990,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         finishedLevel: false,
         hasStartedGame: false,
         zoomLevel: initZoomLevel,
-        seeAll: false,
+        seeAll: debugSeeAll,
         seeGuardSight: false,
         seeGuardPatrols: false,
         camera: createCamera(gameMap.playerStartPos, initZoomLevel),
