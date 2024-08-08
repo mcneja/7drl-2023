@@ -20,8 +20,13 @@ const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     [3,7,3,6,21,30],
     [5,7,4,6,24,36],
     [5,9,4,6,30,42],
-    [7,9,4,6,36,48],
+    [7,9,7,9,36,49],
 ];
+
+enum LevelType {
+    Mansion,
+    Fortress,
+}
 
 enum RoomType {
     Exterior,
@@ -73,18 +78,22 @@ type PatrolRoute = {
     path: Array<vec2>,
 }
 
+function levelTypeFromLevel(level: number): LevelType {
+    return (level === 9) ? LevelType.Fortress : LevelType.Mansion;
+}
+
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
-    // First establish the sizes of the levels
+    // Establish the level sizes
+
     for (let level = 0; level < numMaps; ++level) {
-        const levelRNG = new RNG('lvl'+level+rng.random())
-        const size = makeLevelSize(level, levelRNG);
-        // const sizeX = randomHouseWidth(level);
-        // const sizeY = randomHouseDepth(level);
+        const levelRNG = new RNG('lvl'+level+rng.random());
+        const levelType = levelTypeFromLevel(level);
+        const [numRoomsX, numRoomsY] = makeLevelSize(level, levelType, levelRNG);
         gameMapRoughPlans.push({
-            numRoomsX: size[0],
-            numRoomsY: size[1],
+            numRoomsX: numRoomsX,
+            numRoomsY: numRoomsY,
             totalLoot: 0,
             rng: levelRNG,
             played: false,
@@ -123,25 +132,73 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
     return gameMapRoughPlans;
 }
 
-function makeLevelSize(level:number, rng:RNG) : [number, number] {
-    let xmin, xmax, ymin, ymax, Amin, Amax;
+function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number, number] {
+    let xmin: number, xmax: number, ymin: number, ymax: number, Amin: number, Amax: number;
     [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];
     const x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
     let y = ymin + rng.randomInRange(1+ymax-ymin);
     y = Math.min(Math.floor(Amax/x), y);
     y = Math.max(y, Math.ceil(Amin/x));
+
+    // Ensure LevelType.Fortress levels have odd number of rooms vertically
+    // (All levels have an odd number of rooms horizontally)
+    if (levelType === LevelType.Fortress && (y & 1) === 0) {
+        if (y > 5) {
+            --y;
+        } else {
+            ++y;
+        }
+    }
+
     return [x,y];
 }
 
 function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const rng = plan.rng;
     rng.reset();
-    const inside = makeSiheyuanRoomGrid(plan.numRoomsX, plan.numRoomsY, rng);
 
-    const mirrorX: boolean = true;
-    const mirrorY: boolean = false;
+    const levelType = levelTypeFromLevel(level);
 
-    const [offsetX, offsetY] = offsetWalls(mirrorX, mirrorY, inside, rng);
+    // Designate rooms as interior or courtyard
+
+    const inside = new BooleanGrid(plan.numRoomsX, plan.numRoomsY, true);
+
+    switch (levelType) {
+    case LevelType.Mansion:
+        makeSiheyuanRoomGrid(inside, rng);
+        break;
+
+    case LevelType.Fortress:
+        for (let x = 0; x < plan.numRoomsX; ++x) {
+            for (let y = 0; y < plan.numRoomsY; ++y) {
+                const dx = Math.min(x, (plan.numRoomsX - 1) - x);
+                const dy = Math.min(y, (plan.numRoomsY - 1) - y);
+                const d = Math.min(dx, dy);
+                inside.set(x, y, d !== 1);
+            }
+        }
+        break;
+    }
+
+    // Randomly offset walls, and establish mirror relationships between them
+
+    const mirrorX: boolean = (plan.numRoomsX & 1) === 1 && (levelType === LevelType.Fortress || rng.random() < 0.8);
+    const mirrorY: boolean = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
+
+    const [offsetX, offsetY] = offsetWalls(plan.numRoomsX, plan.numRoomsY, rng);
+
+    // Enforce symmetry by overwriting one area with another area
+
+    if (mirrorX) {
+        mirrorLeftSideToRightSide(inside, offsetX, offsetY);
+    }
+    if (mirrorY) {
+        mirrorBottomSideToTopSide(inside, offsetX, offsetY);
+    }
+
+    // Translate the building so it abuts the X and Y axes with outerBorder padding
+
+    offsetBuilding(offsetX, offsetY, outerBorder);
 
     // Make a set of rooms.
 
@@ -154,7 +211,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Connect rooms together.
 
-    connectRooms(rooms, adjacencies, level, rng);
+    connectRooms(rooms, adjacencies, level, levelType, rng);
 
     // Join a pair of rooms together.
 
@@ -175,7 +232,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Render doors and windows.
 
-    renderWalls(adjacencies, map, rng);
+    renderWalls(levelType, adjacencies, map, rng);
 
     // Render floors.
 
@@ -244,8 +301,9 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     return map;
 }
 
-function makeSiheyuanRoomGrid(sizeX: number, sizeY: number, rng: RNG): BooleanGrid {
-    const inside = new BooleanGrid(sizeX, sizeY, true);
+function makeSiheyuanRoomGrid(inside: BooleanGrid, rng: RNG) {
+    const sizeX = inside.sizeX;
+    const sizeY = inside.sizeY;
 
     const halfX = Math.floor((sizeX + 1) / 2);
 
@@ -266,18 +324,14 @@ function makeSiheyuanRoomGrid(sizeX: number, sizeY: number, rng: RNG): BooleanGr
 }
 
 function offsetWalls(
-    mirrorX: boolean,
-    mirrorY: boolean,
-    inside: BooleanGrid,
+    roomsX: number,
+    roomsY: number,
     rng: RNG): [offsetX: Int32Grid, offsetY: Int32Grid]
 {
-    const roomsX = inside.sizeX;
-    const roomsY = inside.sizeY;
-
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
 
-    const straightOutsideWalls = false;
+    const straightOutsideWalls = rng.random() < 0.25;
 
     if (straightOutsideWalls) {
         let i = rng.randomInRange(3) - 1;
@@ -331,50 +385,6 @@ function offsetWalls(
         }
     }
 
-    // Do mirroring
-
-    if (mirrorX) {
-        if ((roomsX & 1) === 0) {
-            const xMid = Math.floor(roomsX / 2);
-            for (let y = 0; y < roomsY; ++y) {
-                offsetX.set(xMid, y, 0);
-            }
-        }
-
-        for (let x = 0; x < Math.floor((roomsX + 1) / 2); ++x) {
-            for (let y = 0; y < roomsY; ++y) {
-                offsetX.set(roomsX - x, y, 1 - offsetX.get(x, y));
-            }
-        }
-
-        for (let x = 0; x < Math.floor(roomsX / 2); ++x) {
-            for (let y = 0; y < roomsY + 1; ++y) {
-                offsetY.set((roomsX - 1) - x, y, offsetY.get(x, y));
-            }
-        }
-    }
-
-    if (mirrorY) {
-        if ((roomsY & 1) === 0) {
-            const yMid = roomsY / 2;
-            for (let x = 0; x < roomsX; ++x) {
-                offsetY.set(x, yMid, 0);
-            }
-        }
-
-        for (let y = 0; y < Math.floor((roomsY + 1) / 2); ++y) {
-            for (let x = 0; x < roomsX; ++x) {
-                offsetY.set(x, roomsY - y, 1 - offsetY.get(x, y));
-            }
-        }
-
-        for (let y = 0; y < Math.floor(roomsY / 2); ++y) {
-            for (let x = 0; x < roomsX + 1; ++x) {
-                offsetX.set(x, (roomsY - 1) - y, offsetX.get(x, y));
-            }
-        }
-    }
-
     // Add in room widths
 
     for (let x = 0; x < roomsX + 1; ++x) {
@@ -389,7 +399,94 @@ function offsetWalls(
         }
     }
 
-    // Translate the building so it abuts the X and Y axes with outerBorder padding
+    return [offsetX, offsetY];
+}
+
+function mirrorLeftSideToRightSide(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid) {
+    const roomsX = inside.sizeX;
+    const roomsY = inside.sizeY;
+
+    console.assert(offsetX.sizeX = roomsX + 1);
+    console.assert(offsetX.sizeY = roomsY);
+    console.assert(offsetY.sizeX = roomsX);
+    console.assert(offsetY.sizeY = roomsY + 1);
+
+    // Assuming odd number of rooms horizontally
+
+    console.assert((roomsX & 1) === 1);
+
+    const roomCenter = (roomsX - 1) / 2;
+    const centerX = Math.floor((roomCenter + 0.5) * roomSizeX + 1);
+
+    // Mirror interior designation
+
+    for (let x = roomCenter + 1; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            inside.set(x, y, inside.get(roomsX - 1 - x, y));
+        }
+    }
+
+    // Mirror X wall offsets
+
+    for (let x = roomCenter + 1; x < roomsX + 1; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            offsetX.set(x, y, 2*centerX - offsetX.get(roomsX - x, y));
+        }
+    }
+
+    // Mirror Y wall offsets
+
+    for (let x = roomCenter + 1; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY + 1; ++y) {
+            offsetY.set(x, y, offsetY.get(roomsX - 1 - x, y));
+        }
+    }
+}
+
+function mirrorBottomSideToTopSide(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid) {
+    const roomsX = inside.sizeX;
+    const roomsY = inside.sizeY;
+
+    console.assert(offsetX.sizeX = roomsX + 1);
+    console.assert(offsetX.sizeY = roomsY);
+    console.assert(offsetY.sizeX = roomsX);
+    console.assert(offsetY.sizeY = roomsY + 1);
+
+    // Assuming odd number of rooms vertically
+
+    console.assert((roomsY & 1) === 1);
+
+    const roomCenter = (roomsY - 1) / 2;
+    const centerY = Math.floor((roomCenter + 0.5) * roomSizeY + 1);
+
+    // Mirror interior designation
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = roomCenter + 1; y < roomsY; ++y) {
+            inside.set(x, y, inside.get(x, roomsY - 1 - y));
+        }
+    }
+
+    // Mirror X wall offsets
+
+    for (let x = 0; x < roomsX + 1; ++x) {
+        for (let y = roomCenter + 1; y < roomsY; ++y) {
+            offsetX.set(x, y, offsetX.get(x, roomsY - 1 - y));
+        }
+    }
+
+    // Mirror Y wall offsets
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = roomCenter + 1; y < roomsY + 1; ++y) {
+            offsetY.set(x, y, 2*centerY - offsetY.get(x, roomsY - y));
+        }
+    }
+}
+
+function offsetBuilding(offsetX: Int32Grid, offsetY: Int32Grid, borderSize: number) {
+    const roomsX = offsetY.sizeX;
+    const roomsY = offsetX.sizeY;
 
     let roomOffsetX = Number.MIN_SAFE_INTEGER;
     for (let y = 0; y < roomsY; ++y) {
@@ -414,8 +511,6 @@ function offsetWalls(
             offsetY.set(x, y, offsetY.get(x, y) + roomOffsetY);
         }
     }
-
-    return [offsetX, offsetY];
 }
 
 function createBlankGameMap(rooms: Array<Room>): GameMap {
@@ -824,7 +919,7 @@ function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>) {
     }
 }
 
-function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: number, rng: RNG) {
+function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: number, levelType: LevelType, rng: RNG) {
 
     // Collect sets of edges that are mirrors of each other
 
@@ -868,7 +963,9 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
                 break;
             }
 
-            if (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4) {
+            if (adj.roomLeft.group !== adj.roomRight.group) {
+                addDoor = true;
+            } else if (rng.random() < 0.4) {
                 addDoor = true;
             }
 
@@ -907,7 +1004,9 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
                 break;
             }
 
-            if (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4) {
+            if (adj.roomLeft.group !== adj.roomRight.group) {
+                addDoor = true;
+            } else if (rng.random() < ((levelType === LevelType.Fortress) ? 0.1 : 0.4)) {
                 addDoor = true;
             }
 
@@ -1302,21 +1401,21 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
         depth -= 1;
     }
 
-    // Change any public courtyards that are adjacent to private courtyards into private courtyards
+    // Change any private courtyards that are adjacent to public courtyards into public courtyards
 
     while (true) {
         let changed = false;
 
         for (const room of rooms) {
-            if (room.roomType != RoomType.PublicCourtyard) {
+            if (room.roomType != RoomType.PrivateCourtyard) {
                 continue;
             }
 
             for (const adj of room.edges) {
                 let roomOther = (adj.roomLeft != room) ? adj.roomLeft : adj.roomRight;
 
-                if (roomOther.roomType == RoomType.PrivateCourtyard) {
-                    room.roomType = RoomType.PrivateCourtyard;
+                if (roomOther.roomType == RoomType.PublicCourtyard) {
+                    room.roomType = RoomType.PublicCourtyard;
                     room.privateRoom = true;
                     changed = true;
                     break;
@@ -3120,7 +3219,7 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
     return oneWayWindowTerrainType[dir[0] + 2 * Math.max(0, dir[1]) + 1];
 }
 
-function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
+function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
     // Plot walls around all the rooms, except between courtyard rooms.
 
@@ -3142,6 +3241,8 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
     // Add windows and doors to the walls.
 
     const adjHandled: Set<Adjacency> = new Set();
+
+    const allowExteriorWindows = levelType !== LevelType.Fortress;
 
     for (const adj0 of adjacencies) {
         if (adjHandled.has(adj0)) {
@@ -3167,30 +3268,32 @@ function renderWalls(adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
         if (!adj0.door && type0 !== type1) {
             if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
-                let k = 2;
-                const k_end = 1 + Math.floor(adj0.length / 2);
+                if (allowExteriorWindows) {
+                    let k = 2;
+                    const k_end = 1 + Math.floor(adj0.length / 2);
 
-                while (k < k_end) {
-                    for (const a of walls) {
-                        if (a.roomLeft.roomType === RoomType.Vault ||
-                            a.roomRight.roomType === RoomType.Vault) {
-                            continue;
+                    while (k < k_end) {
+                        for (const a of walls) {
+                            if (a.roomLeft.roomType === RoomType.Vault ||
+                                a.roomRight.roomType === RoomType.Vault) {
+                                continue;
+                            }
+
+                            const dir = vec2.clone(a.dir);
+                            if (a.roomRight.roomType == RoomType.Exterior) {
+                                vec2.negate(dir, dir);
+                            }
+
+                            const windowType = oneWayWindowTerrainTypeFromDir(dir);
+
+                            const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
+                            const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
+
+                            map.cells.atVec(p).type = windowType;
+                            map.cells.atVec(q).type = windowType;
                         }
-
-                        const dir = vec2.clone(a.dir);
-                        if (a.roomRight.roomType == RoomType.Exterior) {
-                            vec2.negate(dir, dir);
-                        }
-
-                        const windowType = oneWayWindowTerrainTypeFromDir(dir);
-
-                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
-                        const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
-
-                        map.cells.atVec(p).type = windowType;
-                        map.cells.atVec(q).type = windowType;
+                        k += 2;
                     }
-                    k += 2;
                 }
             } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
                 let k = 2;
@@ -3276,7 +3379,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
     for (let iRoom = 1; iRoom < rooms.length; ++iRoom) {
         const room = rooms[iRoom];
 
-        let cellType;
+        let cellType: TerrainType;
         switch (room.roomType) {
             case RoomType.Exterior: cellType = TerrainType.GroundNormal; break;
             case RoomType.PublicCourtyard: cellType = TerrainType.GroundGrass; break;
@@ -3336,7 +3439,8 @@ function renderRoomCourtyard(map: GameMap, room: Room, level: number, rng: RNG) 
         ];
         for (let i = 0; i < itemPositions.length; ++i) {
             const pos = itemPositions[i];
-            if (map.cells.atVec(pos).type != TerrainType.GroundGrass) {
+            const cellType = map.cells.atVec(pos).type;
+            if (cellType !== TerrainType.GroundGrass) {
                 continue;
             }
         
