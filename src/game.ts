@@ -263,6 +263,7 @@ function scoreCompletedLevel(state: State) {
     state.gameStats.numCompletedLevels = state.level + 1;
     state.gameStats.numGhostedLevels += ghosted ? 1 : 0;
     state.gameStats.daily = state.dailyRun;
+    state.gameStats.timeEnded = Date.now();
 }
 
 function scoreIncompleteLevel(state: State) {
@@ -278,6 +279,7 @@ function scoreIncompleteLevel(state: State) {
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level;
     state.gameStats.daily = state.dailyRun;
+    state.gameStats.timeEnded = Date.now();
 }
 
 function clearLevelStats(levelStats: LevelStats) {
@@ -381,13 +383,14 @@ export function advanceToWin(state: State) {
         turns: state.totalTurns,
         level: state.level+1
     };
-    state.persistedStats.highScores.push(scoreEntry);
+    state.persistedStats.scores.push(scoreEntry);
     if(state.dailyRun) {
-        state.persistedStats.bestDailyScore = Math.max(state.persistedStats.bestDailyScore, state.player.loot);
-        state.persistedStats.dailyWins++;
-        state.persistedStats.dailyWinStreak++;
-        state.persistedStats.lastDailyGameStats = structuredClone(state.gameStats);
-        state.persistedStats.dailyScores.push(scoreEntry);
+        state.persistedStats.currentDailyBestScore = Math.max(state.persistedStats.currentDailyBestScore, score);
+        state.persistedStats.currentDailyWins++;
+        state.persistedStats.currentDailyWinFirstTry = state.persistedStats.currentDailyPlays===1?1:state.persistedStats.currentDailyWinFirstTry;
+        state.persistedStats.lastPlayedDailyGame = structuredClone(state.gameStats);
+        state.persistedStats.allDailyWins++;
+        state.persistedStats.allDailyWinsFirstTry += state.persistedStats.currentDailyPlays===1?1:0;
         //TODO: notify user if the game was finished after the deadline
         // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(score, state.totalTurns, state.level+1);
     }
@@ -1310,11 +1313,20 @@ function advanceTime(state: State) {
         if (state.player.health <= 0) {
             setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
             scoreIncompleteLevel(state);
+            state.persistedStats.bestScore = Math.max(state.persistedStats.bestScore, state.gameStats.totalScore);
+            const scoreEntry: ScoreEntry = {
+                score: state.gameStats.totalScore,
+                date: getCurrentDateFormatted(),
+                turns: state.totalTurns,
+                level: state.level+1
+            };
+            state.persistedStats.scores.push(scoreEntry);        
             if(state.dailyRun) {
-                state.persistedStats.dailyWinStreak=0;
-                setStat('dailyWinStreak',state.persistedStats.dailyWinStreak)    
+                state.persistedStats.currentDailyBestScore=Math.max(state.persistedStats.currentDailyBestScore, state.gameStats.totalScore);
+                state.persistedStats.lastPlayedDailyGame = structuredClone(state.gameStats);
 //                setStat('lastDaily', state.gameStats);
             }
+            saveStats(state.persistedStats);
             setStatusMessageSticky(state, 'You were killed. Press Escape/Menu to see score.');
         }
     }
@@ -1877,29 +1889,35 @@ export function setStat<T>(name:string, value:T) {
 
 export function loadStats(): PersistedStats {
     return {
-        highScores: getStat('highScores') ?? [],
-        dailyScores: getStat('dailyScores') ?? [],
-        lastDailyGameStats: getStat('lastDailyGameStats') ?? undefined,
-        dailyWinStreak: getStat('dailyWinStreak') ?? 0,
-        dailyPlays: getStat('dailyPlays') ?? 0,
-        dailyWins: getStat('dailyWins') ?? 0,
+        scores: getStat('highScores') ?? [],
+        lastPlayedDailyGame: getStat('lastPlayedDailyGame') ?? null,
+        currentDailyGameId: getStat('currentDailyGameId') ?? '',
+        currentDailyPlays: getStat('currentDailyPlays') ?? 0,
+        currentDailyWins: getStat('currentDailyWins') ?? 0,
+        currentDailyBestScore: getStat('currentDailyBestScore')?? 0,
+        currentDailyWinFirstTry: getStat('currentDailyWinFirstTry')?? 0,
         bestScore: getStat('bestScore') ?? 0,
-        bestDailyScore: getStat('bestDailyScore') ?? 0,
         totalPlays: getStat('totalPlays') ?? 0,
         totalWins: getStat('totalWins') ?? 0,
         totalGhosts: getStat('totalGhosts') ?? 0,
+        allDailyPlays: getStat('allDailyPlays') ?? 0,
+        allDailyWins: getStat('allDailyWins') ?? 0,
+        allDailyWinsFirstTry: getStat('allDailyWinsFirstTry') ?? 0,
     };
 }
 
-function saveStats(persistedStats: PersistedStats) {
-    setStat('highScores', persistedStats.highScores);
-    setStat('dailyScores', persistedStats.dailyScores);
-    setStat('lastDailyGameStats', persistedStats.lastDailyGameStats);
-    setStat('dailyWinStreak', persistedStats.dailyWinStreak);
-    setStat('dailyPlays', persistedStats.dailyPlays);
-    setStat('dailyWins', persistedStats.dailyWins);
+export function saveStats(persistedStats: PersistedStats) {
+    setStat('currentDailyGameId', persistedStats.currentDailyGameId);
+    setStat('currentDailyPlays', persistedStats.currentDailyPlays);
+    setStat('currentDailyWins', persistedStats.currentDailyWins);
+    setStat('currentDailyBestScore', persistedStats.currentDailyBestScore);
+    setStat('currentDailyWinFirstTry', persistedStats.currentDailyWinFirstTry);
+    setStat('lastPlayedDailyGame', persistedStats.lastPlayedDailyGame);
+    setStat('allDailyPlays', persistedStats.allDailyPlays);
+    setStat('allDailyWins', persistedStats.allDailyWins);
+    setStat('allDailyWinsFirstTry', persistedStats.allDailyWinsFirstTry);
+    setStat('scores', persistedStats.scores);
     setStat('bestScore', persistedStats.bestScore);
-    setStat('bestDailyScore', persistedStats.bestDailyScore);
     setStat('totalPlays', persistedStats.totalPlays);
     setStat('totalWins', persistedStats.totalWins);
     setStat('totalGhosts', persistedStats.totalGhosts);
@@ -1930,6 +1948,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             numCompletedLevels: 0,
             numGhostedLevels: 0,
             daily: null,
+            timeStarted: 0,
+            timeEnded: 0,
         },
         persistedStats: stats,
         levelStats: {
@@ -2063,8 +2083,10 @@ export function restartGame(state: State) {
     state.persistedStats.totalPlays++;
     setStat('totalPlays',state.persistedStats.totalPlays);
     if(state.dailyRun) {
-        state.persistedStats.dailyPlays++;
-        setStat('dailyPlays',state.persistedStats.dailyPlays);    
+        state.persistedStats.currentDailyPlays++;
+        setStat('currentDailyPlays',state.persistedStats.currentDailyPlays);
+        state.persistedStats.allDailyPlays++;
+        setStat('allDailyPlays',state.persistedStats.allDailyPlays);
     }
 
     state.gameStats = { 
@@ -2074,6 +2096,8 @@ export function restartGame(state: State) {
         numCompletedLevels: 0,
         numGhostedLevels: 0,
         daily: state.dailyRun,
+        timeStarted: Date.now(),
+        timeEnded: 0,
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = Array(gameMap.lightCount).fill(0);

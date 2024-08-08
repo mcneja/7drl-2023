@@ -471,9 +471,6 @@ Special thanks to Mendi Carroll
     }
 }
 
-class DailyHubScreen extends TextWindow {
-    pages = [
-//Daily runs
 `Daily Challenge for $date$
 
 $dailyStatus$
@@ -487,6 +484,29 @@ Best winning score: $bestScore$
 Total daily runs:   $dailyPlays$
 Total daily wins:   $dailyWins$
 Win streak:         $dailyWinStreak$
+
+[Esc|menu] Back to menu`
+
+class DailyHubScreen extends TextWindow {
+    pages = [
+//Daily runs
+`The Daily Challenge
+
+Play a new seeded game each day and 
+compare results with your rivals.
+
+$dailyStatus$
+Plays:             $plays$
+Wins:              $wins$
+Best score:        $bestScore$
+
+$playMode$
+$timeLeft$
+
+Last game played:  $lastPlayed$
+Last score:        $lastScore$
+[C|copyScore] Copy last game to clipboard
+$copyState$
 
 [Esc|menu] Back to menu`,
     ];
@@ -518,25 +538,44 @@ Win streak:         $dailyWinStreak$
             + seconds.toString().padStart(2,'0');
       }    
     update(state:State) {
-        const lastDailyGameStats = state.persistedStats.lastDailyGameStats;
-        if(lastDailyGameStats !== undefined && lastDailyGameStats.daily === game.getCurrentDateFormatted()) {        
-            this.state.set('dailyStatus', "Today's game completed\nTime to next game: "+this.timeToMidnightUTC());
+        const lastDailyGameStats = state.persistedStats.lastPlayedDailyGame;
+        if(state.persistedStats.currentDailyGameId !== game.getCurrentDateFormatted()) {
+            state.persistedStats.currentDailyGameId  = game.getCurrentDateFormatted();
+            state.persistedStats.currentDailyPlays = 0;
+            state.persistedStats.currentDailyWins = 0;
+            state.persistedStats.currentDailyWinFirstTry = 0;
+            state.persistedStats.currentDailyBestScore = 0;
+            game.saveStats(state.persistedStats);
+        }
+        if(lastDailyGameStats !== null && state.persistedStats.currentDailyPlays>0) {
+            if(state.persistedStats.currentDailyWins===0) {
+                this.state.set('dailyStatus', state.persistedStats.currentDailyGameId+' game played');
+            } else if(state.persistedStats.currentDailyWinFirstTry===0) {
+                this.state.set('dailyStatus', state.persistedStats.currentDailyGameId+' game won');
+            } else {
+                const tile = getTileSet().itemTiles[ItemType.TorchLit].textureIndex;
+                this.state.set('dailyStatus', state.persistedStats.currentDailyGameId+` game won first try #${tile}#`);
+            }
+            this.state.set('timeLeft', "Time to next game: "+this.timeToMidnightUTC());
             this.state.set('playMode', '[P|homePlay] Play it again');
         } else {
-            this.state.set('dailyStatus', '[P|homePlay] Play daily game now\nTime left to play: '+this.timeToMidnightUTC());
-            this.state.set('playMode', '');
+            this.state.set('dailyStatus', state.persistedStats.currentDailyGameId+` game ready`);
+            this.state.set('timeLeft', "Time left to play: "+this.timeToMidnightUTC());
+            this.state.set('playMode', '[P|homePlay] Play now');
         }
 
         const lastDailyDate: string = lastDailyGameStats?.daily ?? 'None';
         const lastDailyScore: number = lastDailyGameStats?.totalScore ?? 0;
 
-        this.state.set('date', game.getCurrentDateFormatted()+ ' UTC');
+        this.state.set('date', state.persistedStats.currentDailyGameId+ ' UTC');
+        this.state.set('plays', state.persistedStats.currentDailyPlays.toString());
+        this.state.set('wins', state.persistedStats.currentDailyWins.toString());
         this.state.set('lastPlayed', lastDailyDate);
         this.state.set('lastScore', lastDailyScore.toString());
-        this.state.set('bestScore', state.persistedStats.bestDailyScore.toString());
-        this.state.set('dailyPlays', state.persistedStats.dailyPlays.toString());
-        this.state.set('dailyWins', state.persistedStats.dailyWins.toString());
-        this.state.set('dailyWinStreak', state.persistedStats.dailyWinStreak.toString());
+        this.state.set('bestScore', state.persistedStats.currentDailyBestScore.toString());
+        const wins = state.persistedStats.currentDailyWins.toString()+(state.persistedStats.currentDailyWins===1?' win in ':' wins in ');
+        const attempts = state.persistedStats.currentDailyPlays.toString()+(state.persistedStats.currentDailyPlays===1?' attempt':' attempts');
+        this.state.set('playCounts', wins+attempts)
         this.state.set('copyState', this.stateCopied ? '    COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -552,13 +591,15 @@ Win streak:         $dailyWinStreak$
             game.restartGame(state);
             state.hasStartedGame = true;
         } else if(activated('copyScore') || action=='copyScore') {
-            const stats:GameStats = state.persistedStats.lastDailyGameStats ?? {
+            const stats:GameStats = state.persistedStats.lastPlayedDailyGame ?? {
                 totalScore: 0,
                 turns: 0,
                 numLevels: 0,
                 numCompletedLevels: 0,
                 numGhostedLevels: 0,
                 daily: null,
+                timeStarted: Date.now(),
+                timeEnded: 0,
             };
             scoreToClipboard(stats);
             this.stateCopied = true;
@@ -570,10 +611,16 @@ class StatsScreen extends TextWindow {
     pages = [
 `Play Statistics
 
+All games
 Total plays:             $totalPlays$
 Total wins:              $totalWins$
 Total mansions ghosted:  $totalGhosts$
-Best winning score:      $bestScore$
+Best score:              $bestScore$
+
+Daily games
+Total plays:             $allDailyPlays$
+Total wins:              $allDailyWins$
+Total wins first try:    $allDailyWinsFirstTry$
 
 [Esc|menu] Back to menu`];
     update(state:State) {
@@ -581,6 +628,9 @@ Best winning score:      $bestScore$
         this.state.set('totalWins', state.persistedStats.totalWins.toString());
         this.state.set('totalGhosts', state.persistedStats.totalGhosts.toString());
         this.state.set('bestScore', state.persistedStats.bestScore.toString());
+        this.state.set('allDailyPlays', state.persistedStats.allDailyPlays.toString());
+        this.state.set('allDailyWins', state.persistedStats.allDailyWins.toString());
+        this.state.set('allDailyWinsFirstTry', state.persistedStats.allDailyWinsFirstTry.toString());
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
