@@ -3276,67 +3276,49 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             walls.push(adjMirror);
         }
 
-        const type0 = adj0.roomLeft.roomType;
-        const type1 = adj0.roomRight.roomType;
+        for (const a of walls) {
+            if (a.door) {
+                continue;
+            }
 
-        if (!adj0.door && type0 !== type1) {
-            if (type0 == RoomType.Exterior || type1 == RoomType.Exterior) {
-                if (allowExteriorWindows) {
-                    for (const a of walls) {
-                        if (a.roomLeft.roomType === RoomType.Vault ||
-                            a.roomRight.roomType === RoomType.Vault) {
-                            continue;
-                        }
+            const roomTypeL = a.roomLeft.roomType;
+            const roomTypeR = a.roomRight.roomType;
 
-                        const dir = vec2.clone(a.dir);
-                        if (a.roomRight.roomType == RoomType.Exterior) {
-                            vec2.negate(dir, dir);
-                        }
+            if (roomTypeL === RoomType.Vault || roomTypeR === RoomType.Vault) {
+                continue;
+            }
 
-                        const windowType = oneWayWindowTerrainTypeFromDir(dir);
+            const dir = vec2.clone(a.dir);
 
-                        if (a.length === 5) {
-                            const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2 + ((a.origin[0] + a.origin[1]) & 1));
-                            map.cells.atVec(p).type = windowType;
-                        } else {
-                            const k_end = 1 + Math.floor(a.length / 2) - (a.length & 1);
-                            for (let k = 2; k < k_end; k += 2) {
-                                const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
-                                map.cells.atVec(p).type = windowType;
-
-                                const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
-                                map.cells.atVec(q).type = windowType;
-                            }
-                        }
-                    }
+            if ((roomTypeL === RoomType.Exterior) !== (roomTypeR === RoomType.Exterior)) {
+                if (!allowExteriorWindows) {
+                    continue;
                 }
-            } else if (isCourtyardRoomType(type0) || isCourtyardRoomType(type1)) {
-                for (const a of walls) {
-                    if (a.roomLeft.roomType === RoomType.Vault ||
-                        a.roomRight.roomType === RoomType.Vault) {
-                        continue;
-                    }
 
-                    const dir = vec2.clone(a.dir);
-                    if (isCourtyardRoomType(a.roomRight.roomType)) {
-                        vec2.negate(dir, dir);
-                    }
+                if (roomTypeR == RoomType.Exterior) {
+                    vec2.negate(dir, dir);
+                }
+            } else if (isCourtyardRoomType(roomTypeL) !== isCourtyardRoomType(roomTypeR)) {
+                if (isCourtyardRoomType(roomTypeR)) {
+                    vec2.negate(dir, dir);
+                }
+            } else {
+                continue;
+            }
 
-                    const windowType = oneWayWindowTerrainTypeFromDir(dir);
+            const windowType = oneWayWindowTerrainTypeFromDir(dir);
 
-                    if (a.length === 5) {
-                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2 + ((a.origin[0] + a.origin[1]) & 1));
-                        map.cells.atVec(p).type = windowType;
-                    } else {
-                        const k_end = 1 + Math.floor(a.length / 2) - (a.length & 1);
-                        for (let k = 2; k < k_end; k += 2) {
-                            const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
-                            const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
+            if (a.length === 5) {
+                const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2 + ((a.origin[0] + a.origin[1]) & 1));
+                map.cells.atVec(p).type = windowType;
+            } else {
+                const k_end = 1 + Math.floor(a.length / 2) - (a.length & 1);
+                for (let k = 2; k < k_end; k += 2) {
+                    const p = vec2.clone(a.origin).scaleAndAdd(a.dir, k);
+                    const q = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length - k);
 
-                            map.cells.atVec(p).type = windowType;
-                            map.cells.atVec(q).type = windowType;
-                        }
-                    }
+                    map.cells.atVec(p).type = windowType;
+                    map.cells.atVec(q).type = windowType;
                 }
             }
         }
