@@ -3317,14 +3317,6 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                         continue;
                     }
 
-                    if (a.roomRight.privateRoom && !a.roomLeft.privateRoom && isCourtyardRoomType(a.roomRight.roomType)) {
-                        continue;
-                    }
-
-                    if (a.roomLeft.privateRoom && !a.roomRight.privateRoom && isCourtyardRoomType(a.roomLeft.roomType)) {
-                        continue;
-                    }
-
                     const dir = vec2.clone(a.dir);
                     if (isCourtyardRoomType(a.roomRight.roomType)) {
                         vec2.negate(dir, dir);
