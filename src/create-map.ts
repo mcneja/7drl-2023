@@ -169,12 +169,13 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
         break;
 
     case LevelType.Fortress:
+        const ringCourtyard = rng.random() < 0.5;
         for (let x = 0; x < plan.numRoomsX; ++x) {
             for (let y = 0; y < plan.numRoomsY; ++y) {
                 const dx = Math.min(x, (plan.numRoomsX - 1) - x);
                 const dy = Math.min(y, (plan.numRoomsY - 1) - y);
                 const d = Math.min(dx, dy);
-                inside.set(x, y, d !== 1);
+                inside.set(x, y, d !== 1 || (!ringCourtyard && (dy === 1 && y > 1)));
             }
         }
         break;
@@ -182,18 +183,22 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Randomly offset walls, and establish mirror relationships between them
 
-    const mirrorX: boolean = (plan.numRoomsX & 1) === 1 && (levelType === LevelType.Fortress || rng.random() < 0.8);
-    const mirrorY: boolean = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
+    const mirrorRoomsX: boolean = (plan.numRoomsX & 1) === 1;
+    const mirrorRoomsY: boolean = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
 
     const [offsetX, offsetY] = offsetWalls(plan.numRoomsX, plan.numRoomsY, rng);
 
     // Enforce symmetry by overwriting one area with another area
 
-    if (mirrorX) {
-        mirrorLeftSideToRightSide(inside, offsetX, offsetY);
+    if (mirrorRoomsX) {
+        mirrorInteriorLeftToRight(inside);
+        mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
-    if (mirrorY) {
-        mirrorBottomSideToTopSide(inside, offsetX, offsetY);
+    if (mirrorRoomsY) {
+        mirrorOffsetsBottomToTop(offsetX, offsetY);
+        if (levelType !== LevelType.Fortress) {
+            mirrorInteriorBottomToTop(inside);
+        }
     }
 
     // Translate the building so it abuts the X and Y axes with outerBorder padding
@@ -206,7 +211,11 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Compute a list of room adjacencies.
 
-    const adjacencies = computeAdjacencies(mirrorX, mirrorY, offsetX, offsetY, rooms, roomIndex);
+    const mirrorAdjacencies = rng.random() < 0.75;
+    const mirrorAdjacenciesX = mirrorRoomsX && mirrorAdjacencies;
+    const mirrorAdjacenciesY = mirrorRoomsY && mirrorAdjacencies;
+
+    const adjacencies = computeAdjacencies(mirrorAdjacenciesX, mirrorAdjacenciesY, offsetX, offsetY, rooms, roomIndex);
     storeAdjacenciesInRooms(adjacencies);
 
     // Connect rooms together.
@@ -402,29 +411,46 @@ function offsetWalls(
     return [offsetX, offsetY];
 }
 
-function mirrorLeftSideToRightSide(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid) {
+function mirrorInteriorLeftToRight(inside: BooleanGrid) {
     const roomsX = inside.sizeX;
     const roomsY = inside.sizeY;
-
-    console.assert(offsetX.sizeX = roomsX + 1);
-    console.assert(offsetX.sizeY = roomsY);
-    console.assert(offsetY.sizeX = roomsX);
-    console.assert(offsetY.sizeY = roomsY + 1);
-
-    // Assuming odd number of rooms horizontally
 
     console.assert((roomsX & 1) === 1);
 
     const roomCenter = (roomsX - 1) / 2;
-    const centerX = Math.floor((roomCenter + 0.5) * roomSizeX + 1);
-
-    // Mirror interior designation
 
     for (let x = roomCenter + 1; x < roomsX; ++x) {
         for (let y = 0; y < roomsY; ++y) {
             inside.set(x, y, inside.get(roomsX - 1 - x, y));
         }
     }
+}
+
+function mirrorInteriorBottomToTop(inside: BooleanGrid) {
+    const roomsX = inside.sizeX;
+    const roomsY = inside.sizeY;
+
+    console.assert((roomsY & 1) === 1);
+
+    const roomCenter = (roomsY - 1) / 2;
+
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = roomCenter + 1; y < roomsY; ++y) {
+            inside.set(x, y, inside.get(x, roomsY - 1 - y));
+        }
+    }
+}
+
+function mirrorOffsetsLeftToRight(offsetX: Int32Grid, offsetY: Int32Grid) {
+    const roomsX = offsetY.sizeX;
+    const roomsY = offsetX.sizeY;
+
+    console.assert(offsetX.sizeX = roomsX + 1);
+    console.assert(offsetY.sizeY = roomsY + 1);
+    console.assert((roomsX & 1) === 1);
+
+    const roomCenter = (roomsX - 1) / 2;
+    const centerX = Math.floor((roomCenter + 0.5) * roomSizeX + 1);
 
     // Mirror X wall offsets
 
@@ -443,29 +469,16 @@ function mirrorLeftSideToRightSide(inside: BooleanGrid, offsetX: Int32Grid, offs
     }
 }
 
-function mirrorBottomSideToTopSide(inside: BooleanGrid, offsetX: Int32Grid, offsetY: Int32Grid) {
-    const roomsX = inside.sizeX;
-    const roomsY = inside.sizeY;
+function mirrorOffsetsBottomToTop(offsetX: Int32Grid, offsetY: Int32Grid) {
+    const roomsX = offsetY.sizeX;
+    const roomsY = offsetX.sizeY;
 
     console.assert(offsetX.sizeX = roomsX + 1);
-    console.assert(offsetX.sizeY = roomsY);
-    console.assert(offsetY.sizeX = roomsX);
     console.assert(offsetY.sizeY = roomsY + 1);
-
-    // Assuming odd number of rooms vertically
-
     console.assert((roomsY & 1) === 1);
 
     const roomCenter = (roomsY - 1) / 2;
     const centerY = Math.floor((roomCenter + 0.5) * roomSizeY + 1);
-
-    // Mirror interior designation
-
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = roomCenter + 1; y < roomsY; ++y) {
-            inside.set(x, y, inside.get(x, roomsY - 1 - y));
-        }
-    }
 
     // Mirror X wall offsets
 
@@ -3283,7 +3296,7 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                         const windowType = oneWayWindowTerrainTypeFromDir(dir);
 
                         if (a.length === 5) {
-                            const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2);
+                            const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2 + ((a.origin[0] + a.origin[1]) & 1));
                             map.cells.atVec(p).type = windowType;
                         } else {
                             const k_end = 1 + Math.floor(a.length / 2) - (a.length & 1);
@@ -3320,7 +3333,7 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                     const windowType = oneWayWindowTerrainTypeFromDir(dir);
 
                     if (a.length === 5) {
-                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2);
+                        const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2 + ((a.origin[0] + a.origin[1]) & 1));
                         map.cells.atVec(p).type = windowType;
                     } else {
                         const k_end = 1 + Math.floor(a.length / 2) - (a.length & 1);
