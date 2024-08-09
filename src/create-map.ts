@@ -175,7 +175,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
                 const dx = Math.min(x, (plan.numRoomsX - 1) - x);
                 const dy = Math.min(y, (plan.numRoomsY - 1) - y);
                 const d = Math.min(dx, dy);
-                inside.set(x, y, d !== 1 || (!ringCourtyard && (dy === 1 && y > 1)));
+                inside.set(x, y, d !== 1 || (!ringCourtyard && y > 1 && dx !== 1));
             }
         }
         break;
