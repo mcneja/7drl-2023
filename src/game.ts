@@ -488,8 +488,7 @@ function canStepToPos(state: State, pos: vec2): boolean {
     return true;
 }
 
-function canLeapToPos(state: State, pos: vec2): boolean {
-
+function canLeapToPosDisregardingGuard(state: State, pos: vec2): boolean {
     // Cannot leap off map if level is unfinished
 
     if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
@@ -522,6 +521,15 @@ function canLeapToPos(state: State, pos: vec2): boolean {
     // Cannot leap onto a blocking item
 
     if (state.gameMap.items.find((item)=>item.pos.equals(pos) && !canLeapOntoItemType(item.type))) {
+        return false;
+    }
+
+    return true;
+}
+
+function canLeapToPos(state: State, pos: vec2): boolean {
+
+    if (!canLeapToPosDisregardingGuard(state, pos)) {
         return false;
     }
 
@@ -1123,7 +1131,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     if (!canLeapToPos(state, posNew)) {
         if (canStepToPos(state, posMid)) {
-            if (guard !== undefined && guard.mode !== GuardMode.ChaseVisibleTarget && (guard.dir[0] * dx + guard.dir[1] * dy) >= 0) {
+            if (guard !== undefined && !isRelaxedGuardMode(guard.mode) && canLeapToPosDisregardingGuard(state, posNew)) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
