@@ -1117,20 +1117,18 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         return;
     }
 
-    // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
-    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
-    if (guard !== undefined && guard.overheadIcon()===GuardStates.Alerted) {
-        if (canStepToPos(state, posMid)) {
-            executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
-            return;
-        }
-    }
-
     // If the leap destination is blocked, try a step if it can succeeed; else fail
+
+    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
 
     if (!canLeapToPos(state, posNew)) {
         if (canStepToPos(state, posMid)) {
-            tryPlayerStep(state, dx, dy);
+            if (guard !== undefined && guard.mode !== GuardMode.ChaseVisibleTarget) {
+                // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
+                executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
+            } else {
+                tryPlayerStep(state, dx, dy);
+            }
         } else if (collectLoot(state, posMid, player.pos)) {
             preTurn(state);
             player.pickTarget = null;
