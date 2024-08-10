@@ -22,6 +22,7 @@ export const gameConfig = {
 enum NoiseType {
     Creak,
     Splash,
+    Thud,
 }
 
 const debugInitialLevel = 0; // set to non-zero to test level generation
@@ -603,7 +604,7 @@ function bumpFail(state: State, dx: number, dy: number) {
     bumpAnim(state, dx, dy);
 }
 
-function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2) {
+function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, animDelay:number=0) {
     let pickedItem:Item|null = null;
     player.pickTarget = null;
     if (guard.hasPurse) {
@@ -621,15 +622,27 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2) 
         const pt0 = vec2.create();
         const pt2 = posNew.subtract(pickedItem.pos);
         const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5));
-        const animation = new SpriteAnimation([
-                {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
-            ],
-            [
-                tileSet.itemTiles[pickedItem.type], 
-                tileSet.itemTiles[pickedItem.type]
-            ]
-        );
+        const animation = animDelay>0?
+            new SpriteAnimation([
+                    {pt0:pt0, pt1:pt0, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
+                ],
+                [
+                    tileSet.itemTiles[pickedItem.type], 
+                    tileSet.itemTiles[pickedItem.type], 
+                    tileSet.itemTiles[pickedItem.type]
+                ]
+            ):
+            new SpriteAnimation([
+                    {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
+                ],
+                [
+                    tileSet.itemTiles[pickedItem.type], 
+                    tileSet.itemTiles[pickedItem.type]
+                ]
+            );
         animation.removeOnFinish = true;
         pickedItem.animation = animation;
         state.particles.push(pickedItem);            
@@ -1104,6 +1117,15 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         return;
     }
 
+    // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
+    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
+    if (guard !== undefined && guard.overheadIcon()===GuardStates.Alerted) {
+        if (canStepToPos(state, posMid)) {
+            executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
+            return;
+        }
+    }
+
     // If the leap destination is blocked, try a step if it can succeeed; else fail
 
     if (!canLeapToPos(state, posNew)) {
@@ -1121,8 +1143,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     }
 
     // Handle a guard at the endpoint
-
-    const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
     if (guard === undefined || !(guard.hasPurse || guard.hasVaultKey)) {
         player.pickTarget = null;
     } else {
@@ -1223,6 +1243,77 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     }
 }
 
+function executeLeapAttack(state: State, player:Player, target:Guard, dx:number, dy:number, posOld:vec2, posMid:vec2, posNew:vec2) {
+    // Execute the leaping attack that will finish at posMid
+
+    preTurn(state);
+
+    // Collect any loot from posMid
+
+    collectLoot(state, posMid, posNew);
+
+    // Update player position
+
+    vec2.copy(player.pos, posMid);
+    ++state.numLeapMoves;
+
+    target.mode = GuardMode.Unconscious;
+    target.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+    if (target.hasPurse || target.hasVaultKey) {
+        collectGuardLoot(state, player, target, posMid, 0.15);
+    }
+    player.pickTarget = null;
+    ++state.levelStats.numKnockouts;
+    state.sounds.hitGuard.play(0.25);
+
+
+    // Identify creaky floor under player
+
+    const cellMid = state.gameMap.cells.atVec(posMid);
+    cellMid.identified = true;
+
+    // Animate player moving
+
+    const start = vec2.clone(posOld).subtract(posMid);
+    const mid = vec2.clone(posNew).subtract(posMid).scale(0.5).add(vec2.fromValues(0,0.25));
+    const end = vec2.create();
+    // let smid = start.add(mid).scale(0.5).add(vec2.fromValues(0,0.25));
+    // let emid = mid.add(end).scale(0.5).add(vec2.fromValues(0,0.25));
+    const tile = dx<0? tileSet.playerTiles.left:
+                dx>0? tileSet.playerTiles.right:
+                dy>0? tileSet.playerTiles.up:
+                tileSet.playerTiles.down;
+
+    const hid = player.hidden(state.gameMap);
+    const tweenSeq = [
+        {pt0:start, pt1:mid, duration:0.15, fn:tween.easeInQuad},
+        {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+        {pt0:end, pt1:end, duration:(dy>0 && !hid)?0.5:0.1, fn:tween.easeOutQuad}
+    ]
+    if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
+
+    const tile2 = hid? tileSet.playerTiles.hidden : tile;
+    player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles.left]);
+
+    // Generate movement AI noises
+    makeNoise(state.gameMap, player, NoiseType.Thud, 17, state.sounds);
+    if (cellMid.type === TerrainType.GroundWoodCreaky) {
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
+    } else if (cellMid.type === TerrainType.GroundWater) {
+        makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
+        state.sounds['splash'].play(0.5);
+    }
+
+    // Let guards take a turn
+
+    advanceTime(state);
+
+    // Play sound for terrain type changes
+
+    playMoveSound(state, state.gameMap.cells.atVec(posOld), cellMid);
+
+}
+
 function canLeapOntoItemType(itemType: ItemType): boolean {
     switch (itemType) {
         case ItemType.DrawersShort:
@@ -1256,6 +1347,8 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
         case NoiseType.Splash:
             // TODO: splash sound effect
             // sounds.leapSplash.play(0.6);
+            break;
+        case NoiseType.Thud:
             break;
     }
 
