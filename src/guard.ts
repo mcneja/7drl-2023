@@ -486,9 +486,9 @@ class Guard {
             return false;
         }
 
-        let personIsLit = map.cells.atVec(person.pos).lit>0;
+        const personIsLit = map.cells.atVec(person.pos).lit>0;
 
-        let d2 = vec2.squaredLen(d);
+        const d2 = vec2.squaredLen(d);
         if (d2 >= this.sightCutoff(personIsLit)) {
             return false;
         }
@@ -526,7 +526,7 @@ class Guard {
         } else if (!isRelaxedGuardMode(this.mode) || this.angry) {
             return litTarget ? 75 : 15;
         } else {
-            return litTarget ? 40 : 3;
+            return litTarget ? 40 : 5;
         }
     }
 
