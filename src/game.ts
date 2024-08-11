@@ -1307,7 +1307,6 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     } else if (cellMid.type === TerrainType.GroundWater) {
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
-        state.sounds['splash'].play(0.5);
     }
 
     // Let guards take a turn
@@ -1351,8 +1350,7 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
             sounds.footstepCreaky.play(0.6);
             break;
         case NoiseType.Splash:
-            // TODO: splash sound effect
-            // sounds.leapSplash.play(0.6);
+            sounds.splash.play(0.5);
             break;
         case NoiseType.Thud:
             break;
