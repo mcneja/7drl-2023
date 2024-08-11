@@ -167,25 +167,25 @@ function updateControllerState(state:State) {
             state.camera.panning = false;
         }
         if (activated('left')) {
-            if (state.leapToggleActive || controller.controlStates['jump']) {
+            if (state.leapToggleActive !== controller.controlStates['jump']) {
                 tryPlayerLeap(state, -1, 0);
             } else {
                 tryPlayerStep(state, -1, 0, StepType.Normal);
             }
         } else if (activated('right')) {
-            if (state.leapToggleActive || controller.controlStates['jump']) {
+            if (state.leapToggleActive !== controller.controlStates['jump']) {
                 tryPlayerLeap(state, 1, 0);
             } else {
                 tryPlayerStep(state, 1, 0, StepType.Normal);
             }
         } else if (activated('down')) {
-            if (state.leapToggleActive || controller.controlStates['jump']) {
+            if (state.leapToggleActive !== controller.controlStates['jump']) {
                 tryPlayerLeap(state, 0, -1);
             } else {
                 tryPlayerStep(state, 0, -1, StepType.Normal);
             }
         } else if (activated('up')) {
-            if (state.leapToggleActive || controller.controlStates['jump']) {
+            if (state.leapToggleActive !== controller.controlStates['jump']) {
                 tryPlayerLeap(state, 0, 1);
             } else {
                 tryPlayerStep(state, 0, 1, StepType.Normal);
