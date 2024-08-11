@@ -1131,7 +1131,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     if (!canLeapToPos(state, posNew)) {
         if (canStepToPos(state, posMid)) {
-            if (guard !== undefined && !isRelaxedGuardMode(guard.mode) && canLeapToPosDisregardingGuard(state, posNew)) {
+            if (guard !== undefined && guard.overheadIcon() === GuardStates.Alerted && canLeapToPosDisregardingGuard(state, posNew)) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
@@ -1783,7 +1783,7 @@ function renderGuards(state: State, renderer: Renderer) {
 function renderParticles(state: State, renderer: Renderer) {
     for(let p of state.particles) {
         if(p.animation) {
-            const a = p.animation
+            const a = p.animation;
             const offset = a instanceof SpriteAnimation ? a.offset : vec2.create();
             const x = p.pos[0] + offset[0];
             const y = p.pos[1] + offset[1];
@@ -1794,7 +1794,7 @@ function renderParticles(state: State, renderer: Renderer) {
 }
 
 function renderIconOverlays(state: State, renderer: Renderer) {
-    const player = state.player
+    const player = state.player;
     const bubble_right = renderer.tileSet.namedTiles['speechBubbleR'];
     const bubble_left = renderer.tileSet.namedTiles['speechBubbleL'];
     for (const guard of state.gameMap.guards) {
@@ -1846,7 +1846,6 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         const y = player.pos[1] - 0.5;
         renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['noise']);
     }
-
 }
 
 function renderGuardSight(state: State, renderer: Renderer) {
