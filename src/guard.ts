@@ -711,7 +711,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): Popu
                 case GuardMode.Look: return PopupType.GuardFinishLooking;
                 case GuardMode.Listen: return PopupType.GuardFinishListening;
                 case GuardMode.MoveToLastSound: return PopupType.GuardFinishInvestigating;
-                case GuardMode.MoveToGuardShout: return PopupType.GuardFinishInvestigating;
+                case GuardMode.MoveToGuardShout: return PopupType.GuardEndChase;
                 case GuardMode.MoveToLastSighting: return PopupType.GuardEndChase;
                 case GuardMode.Unconscious: return PopupType.GuardAwakesWarning;
                 default: return undefined;
