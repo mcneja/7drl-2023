@@ -24,6 +24,7 @@ enum NoiseType {
     Splash,
     Thud,
     BangDoor,
+    BangChair,
 }
 
 enum StepType {
@@ -1239,7 +1240,9 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // Generate movement AI noises
 
-    if (cellNew.type === TerrainType.GroundWoodCreaky) {
+    if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
+        makeNoise(state.gameMap, player, NoiseType.BangChair, 17, state.sounds);
+    } else if (cellNew.type === TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
@@ -1366,6 +1369,9 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
             // Sound effect currently played in executeLeapAttack
             break;
         case NoiseType.BangDoor:
+            // TODO: sound effect
+            break;
+        case NoiseType.BangChair:
             // TODO: sound effect
             break;
     }
