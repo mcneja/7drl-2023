@@ -138,10 +138,10 @@ class Guard {
         case GuardMode.ChaseVisibleTarget:
         case GuardMode.MoveToLastSighting:
         case GuardMode.MoveToGuardShout:
+        case GuardMode.MoveToLastSound:
             this.goals = this.chooseMoveTowardPosition(this.goal, state.gameMap);
             break;
 
-        case GuardMode.MoveToLastSound:
         case GuardMode.MoveToDownedGuard:
         case GuardMode.WakeGuard:
         case GuardMode.MoveToTorch:
