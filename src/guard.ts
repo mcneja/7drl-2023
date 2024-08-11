@@ -26,6 +26,7 @@ class Guard {
     pos: vec2;
     dir: vec2 = vec2.fromValues(1, 0);
     mode: GuardMode = GuardMode.Patrol;
+    modePrev: GuardMode = GuardMode.Patrol;
     angry: boolean = false;
     hasTorch: boolean = false;
     hasPurse: boolean = false;
@@ -176,7 +177,6 @@ class Guard {
     }
 
     act(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
-        const modePrev = this.mode;
         const posPrev = vec2.clone(this.pos);
 
         // Immediately upgrade to chasing if we see the player while investigating;
@@ -220,7 +220,7 @@ class Guard {
             vec2.copy(this.goal, player.pos);
             if (this.adjacentTo(player.pos) && !this.pos.equals(player.pos)) {
                 updateDir(this.dir, this.pos, this.goal);
-                if (modePrev === GuardMode.ChaseVisibleTarget) {
+                if (this.modePrev === GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
                         popups.add(PopupType.Damage, () => this.posAnimated());
                         this.speaking = true;
@@ -345,16 +345,9 @@ class Guard {
             }
             break;
         }
+    }
 
-        // If the guard's moved and has a torch, recompute the level's lighting so the guard can spot
-        // the player using the new lighting
-
-        if (this.hasTorch && !posPrev.equals(this.pos)) {
-            map.computeLighting(map.cells.at(player.pos[0], player.pos[1]));
-        }
-
-        // Change states based on sensory input
-
+    postActSense(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
         if (this.mode !== GuardMode.Unconscious) {
 
             // See the thief, or lose sight of the thief
@@ -366,7 +359,7 @@ class Guard {
                 } else {
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
-            } else if (this.mode === GuardMode.ChaseVisibleTarget && modePrev === GuardMode.ChaseVisibleTarget) {
+            } else if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
             }
@@ -449,16 +442,16 @@ class Guard {
     
         this.heardThief = false;
         this.heardThiefClosest = false;
-    
+
         // Say something to indicate state changes
 
-        const popupType = popupTypeForStateChange(modePrev, this.mode);
+        const popupType = popupTypeForStateChange(this.modePrev, this.mode);
         if (popupType !== undefined) {
             popups.add(popupType, () => this.posAnimated());
             this.speaking = true;
         }
-    
-        if (this.mode === GuardMode.ChaseVisibleTarget && modePrev !== GuardMode.ChaseVisibleTarget) {
+
+        if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
             this.speaking = true;
             ++levelStats.numSpottings;
@@ -644,6 +637,7 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
     for (const guard of map.guards) {
+        guard.modePrev = guard.mode;
         guard.heardGuard = guard.hearingGuard;
         guard.hearingGuard = false;
         guard.speaking = false;
@@ -678,6 +672,16 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
         guard.act(map, popups, player, state.levelStats, shouts);
         guard.hasMoved = true;
         ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
+    }
+
+    // Update lighting to account for guards moving with torches, or opening/closing doors
+
+    map.computeLighting(map.cells.atVec(player.pos));
+
+    // Update guard states based on their senses
+
+    for (const guard of map.guards) {
+        guard.postActSense(map, popups, player, state.levelStats, shouts);
     }
 
     // Process shouts
