@@ -23,6 +23,12 @@ enum NoiseType {
     Creak,
     Splash,
     Thud,
+    BangDoor,
+}
+
+enum StepType {
+    Normal,
+    AttemptedLeap,
 }
 
 const debugInitialLevel = 0; // set to non-zero to test level generation
@@ -163,25 +169,25 @@ function updateControllerState(state:State) {
             if (state.leapToggleActive || controller.controlStates['jump']) {
                 tryPlayerLeap(state, -1, 0);
             } else {
-                tryPlayerStep(state, -1, 0);
+                tryPlayerStep(state, -1, 0, StepType.Normal);
             }
         } else if (activated('right')) {
             if (state.leapToggleActive || controller.controlStates['jump']) {
                 tryPlayerLeap(state, 1, 0);
             } else {
-                tryPlayerStep(state, 1, 0);
+                tryPlayerStep(state, 1, 0, StepType.Normal);
             }
         } else if (activated('down')) {
             if (state.leapToggleActive || controller.controlStates['jump']) {
                 tryPlayerLeap(state, 0, -1);
             } else {
-                tryPlayerStep(state, 0, -1);
+                tryPlayerStep(state, 0, -1, StepType.Normal);
             }
         } else if (activated('up')) {
             if (state.leapToggleActive || controller.controlStates['jump']) {
                 tryPlayerLeap(state, 0, 1);
             } else {
-                tryPlayerStep(state, 0, 1);
+                tryPlayerStep(state, 0, 1, StepType.Normal);
             }
         } else if (activated('wait')) {
             tryPlayerWait(state);
@@ -775,7 +781,7 @@ function tryPlayerWait(state: State) {
     advanceTime(state);
 }
 
-function tryPlayerStep(state: State, dx: number, dy: number) {
+function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType) {
 
     // Can't move if you're dead
 
@@ -1017,7 +1023,11 @@ function tryPlayerStep(state: State, dx: number, dy: number) {
 
     // Generate movement AI noises
 
-    if (cellNew.type === TerrainType.GroundWoodCreaky) {
+    if (stepType === StepType.AttemptedLeap &&
+        (cellNew.type === TerrainType.DoorNS || cellNew.type === TerrainType.DoorEW) &&
+        state.gameMap.items.find((item)=>item.pos.equals(posNew) && isDoorItemType(item.type))) {
+        makeNoise(state.gameMap, player, NoiseType.BangDoor, 17, state.sounds);
+    } else if (cellNew.type === TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     }
 
@@ -1062,7 +1072,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         if (guardMid.mode === GuardMode.ChaseVisibleTarget) {
             // Swap places with the guard
             moveGuardToPlayerPos(state, guardMid);
-            tryPlayerStep(state, dx, dy);
+            tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         } else {
             preTurn(state);
 
@@ -1085,7 +1095,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // If player is in water, downgrade to a step
 
     if (state.gameMap.cells.atVec(posOld).type === TerrainType.GroundWater) {
-        tryPlayerStep(state, dx, dy);
+        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
 
@@ -1095,7 +1105,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         posMid[1] < 0 ||
         posMid[0] >= state.gameMap.cells.sizeX ||
         posMid[1] >= state.gameMap.cells.sizeY) {
-        tryPlayerStep(state, dx, dy);
+        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
 
@@ -1103,7 +1113,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const cellMid = state.gameMap.cells.atVec(posMid);
     if (cellMid.blocksPlayerMove) {
-        tryPlayerStep(state, dx, dy);
+        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
 
@@ -1111,7 +1121,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     if ((cellMid.type === TerrainType.DoorNS || cellMid.type === TerrainType.DoorEW) &&
         state.gameMap.items.find((item)=>item.pos.equals(posMid) && isDoorItemType(item.type))) {
-        tryPlayerStep(state, dx, dy);
+        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
 
@@ -1121,7 +1131,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         (cellMid.type == TerrainType.OneWayWindowW && posNew[0] >= posOld[0]) ||
         (cellMid.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellMid.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
-        tryPlayerStep(state, dx, dy);
+        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
 
@@ -1135,7 +1145,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
-                tryPlayerStep(state, dx, dy);
+                tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
             }
         } else if (collectLoot(state, posMid, player.pos)) {
             preTurn(state);
@@ -1353,6 +1363,10 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
             sounds.splash.play(0.5);
             break;
         case NoiseType.Thud:
+            // Sound effect currently played in executeLeapAttack
+            break;
+        case NoiseType.BangDoor:
+            // TODO: sound effect
             break;
     }
 
