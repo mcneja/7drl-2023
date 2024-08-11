@@ -144,6 +144,14 @@ const guardSeeThiefSet:Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ugh.mp3'), 'Uhh...'],
 ];
 
+// TODO: We don't have a guard rest state to attach these too.
+const guardRestSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
+    [require('url:./audio/guards/aww.mp3'), 'Aww...'],
+    [require('url:./audio/guards/quiet out.mp3'), 'Quiet out...'],
+    [require('url:./audio/guards/rest me bones.mp3'), 'Rest me old\nbones...'],
+];
+
 const guardFinishLookingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
     [require('url:./audio/guards/What.mp3'), 'What?'],
@@ -151,11 +159,7 @@ const guardFinishLookingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/quiet out.mp3'), 'Quiet out\nthere...'],
     [require('url:./audio/guards/jumpy.mp3'), 'Jumpy tonight...'],
     [require('url:./audio/guards/jumpin shadows.mp3'), 'Jumpin\' at\nshadows!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
-    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
     [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/aww.mp3'), 'Aww...'],
-    [require('url:./audio/guards/rest me bones.mp3'), 'Rest me old\nbones...'],
     [require('url:./audio/guards/oh well.mp3'), 'Oh well...'],
     [require('url:./audio/guards/case of the jitters.mp3'), 'I\'ve got myself\na case of the\njitters...'],
     [require('url:./audio/guards/must be seeing.mp3'), 'I must be\nseein\' things...'],
@@ -190,19 +194,14 @@ const guardHearThiefSet:Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ugh.mp3'), 'Uhh...'],
     [require('url:./audio/guards/hark.mp3'), 'Hark?'],
     [require('url:./audio/guards/noise.mp3'), 'What was that noise?'],
+    [require('url:./audio/guards/noise.mp3'), 'What was that noise?'],
+    [require('url:./audio/guards/heard something.mp3'), 'I heard something...'],
     [require('url:./audio/guards/heard something.mp3'), 'I heard something...'],
 ];
 
 const guardFinishListeningSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
-    [require('url:./audio/guards/quiet out.mp3'), 'Quiet out...'],
     [require('url:./audio/guards/jumpy.mp3'), 'Jumpy tonight...'],
-    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
-    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/aww.mp3'), 'Aww...'],
-    [require('url:./audio/guards/rest me bones.mp3'), 'Rest me old\nbones...'],
     [require('url:./audio/guards/oh well.mp3'), 'Oh well...'],
     [require('url:./audio/guards/case of the jitters.mp3'), 'I\'ve got myself\na case of the\njitters...'],
     [require('url:./audio/guards/what in my coffee.mp3'), 'What\'s in my\ncoffee today?'],
@@ -223,15 +222,19 @@ const guardInvestigateSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/noise again.mp3'), 'That noise\nagain?'],
     [require('url:./audio/guards/someone there.mp3'), 'Someone\'s there!'],
     [require('url:./audio/guards/who could that be.mp3'), 'Who could\nthat be?'],
-    [require('url:./audio/guards/there it is again.mp3'), 'There it\nis again.'],
     [require('url:./audio/guards/better check it out.mp3'), 'Better check\nit out.'],
-    [require('url:./audio/guards/what keeps making those noises.mp3'), 'What keeps making\nthose noises?'],
     [require('url:./audio/guards/better be rats.mp3'), 'That better\nbe rats!'],
-    [require('url:./audio/guards/again.mp3'), 'Again!?'],
     [require('url:./audio/guards/who that.mp3'), 'Who is that?'],
     [require('url:./audio/guards/come out come out.mp3'), 'Come out, come out\nwherever you are!'],
+    // TODO: These ones would ideally only play after a player has been heard once before
+    // [require('url:./audio/guards/again.mp3'), 'Again!?'],
+    // [require('url:./audio/guards/there it is again.mp3'), 'There it\nis again.'],
+    // [require('url:./audio/guards/what keeps making those noises.mp3'), 'What keeps making\nthose noises?'],
 ];
 
+// TODO: When the thief has been chased, many of these lines will no longer seem appropriate
+// Perhaps need to disambiguate the state in some way 
+// (guardFinishedInvestgiateButUnseen gaurdFinishedInvestigateAndSeen or something)
 const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
     [require('url:./audio/guards/jumpin shadows.mp3'), 'Jumpin\' at\nshadows!'],
@@ -253,15 +256,17 @@ const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/what do you want me to do about it.mp3'), 'What do you\nwant me to\ndo about it?'],
 ];
 
+// TODO: If we split this group up for guards that are in the same room vs another room
+// we could use more of these
 const guardHearGuardSet: Array<SubtitledSoundDesc> = [ //Repond to guards that enter the chase set
     [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
     [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/where.mp3'), 'Where!?'],
+    // [require('url:./audio/guards/where.mp3'), 'Where!?'],
     [require('url:./audio/guards/coming.mp3'), 'Coming!'],
-    [require('url:./audio/guards/here I come.mp3'), 'Here I come!'],
+    // [require('url:./audio/guards/here I come.mp3'), 'Here I come!'],
     [require('url:./audio/guards/to arms.mp3'), 'To arms!'],
-    [require('url:./audio/guards/what is it.mp3'), 'What is it!?'],
-    [require('url:./audio/guards/i dont know how to whistle.mp3'), 'I don\'t know\nhow to whistle.'],
+    // [require('url:./audio/guards/what is it.mp3'), 'What is it!?'],
+    // [require('url:./audio/guards/i dont know how to whistle.mp3'), 'I don\'t know\nhow to whistle.'],
 ];
 
 const guardChaseSet: Array<SubtitledSoundDesc> = [ //Yells a warning that will be heard by other guards
@@ -512,4 +517,5 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardFinishListening = new SubtitledHowlGroup(guardFinishListeningSet, howlPool);
     subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet, howlPool);
     subtitledSounds.guardStirring = new SubtitledHowlGroup(guardStirringSet, howlPool);
+    subtitledSounds.guardRest =  new SubtitledHowlGroup(guardRestSet, howlPool);
 }
