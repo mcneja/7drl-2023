@@ -1131,7 +1131,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     if (!canLeapToPos(state, posNew)) {
         if (canStepToPos(state, posMid)) {
-            if (guard !== undefined && guard.overheadIcon() === GuardStates.Alerted && canLeapToPosDisregardingGuard(state, posNew)) {
+            if (guard !== undefined && guard.overheadIcon() === GuardStates.Alerted) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
