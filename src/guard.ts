@@ -482,7 +482,7 @@ class Guard {
         const personIsLit = map.cells.atVec(person.pos).lit>0;
 
         const d2 = vec2.squaredLen(d);
-        if (d2 >= this.sightCutoff(personIsLit)) {
+        if (d2 >= this.sightCutoff(personIsLit) && !(d[0] === this.dir[0] * 2 && d[1] === this.dir[1] * 2)) {
             return false;
         }
 
@@ -519,7 +519,7 @@ class Guard {
         } else if (!isRelaxedGuardMode(this.mode) || this.angry) {
             return litTarget ? 75 : 15;
         } else {
-            return litTarget ? 40 : 5;
+            return litTarget ? 40 : 3;
         }
     }
 
