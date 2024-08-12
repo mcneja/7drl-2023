@@ -2676,11 +2676,11 @@ function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, num
     return [viewWorldSizeX, viewWorldSizeY];
 }
 
-function statusBarZoom(screenSize: vec2): number {
+export function statusBarZoom(screenSize: vec2): number {
     const minCharsX = 45;
-    const minCharsY = 22;
-    const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (statusBarCharPixelSizeX * minCharsX)));
-    const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (statusBarCharPixelSizeY * minCharsY)));
+    const minCharsY = 25;
+    const scaleLargestX = Math.max(1, screenSize[0] / (statusBarCharPixelSizeX * minCharsX));
+    const scaleLargestY = Math.max(1, screenSize[1] / (statusBarCharPixelSizeY * minCharsY));
     const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
     return scaleFactor;
 }
@@ -2768,10 +2768,8 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
 function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
     const tileZoom = statusBarZoom(screenSize);
 
-    const statusBarPixelSizeY = tileZoom * statusBarCharPixelSizeY;
-
     const screenSizeInTilesX = screenSize[0] / (tileZoom * statusBarCharPixelSizeX);
-    const screenSizeInTilesY = screenSize[1] / statusBarPixelSizeY;
+    const screenSizeInTilesY = screenSize[1] / (tileZoom * statusBarCharPixelSizeY);
 
     const offsetTilesY = 1 - screenSizeInTilesY;
 
@@ -2786,16 +2784,15 @@ function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) 
 
     renderer.start(matScreenFromWorld, 0);
 
-    const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
     const colorBackground = colorLerp(0xff101010, 0xff404040, 1 - (1 - state.topStatusMessageAnim)**2);
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
+    renderer.addGlyph(0, 0, screenSizeInTilesX, 1, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
 
     if(state.dailyRun) {
         putString(renderer, 0, 'Daily run', colorPreset.lightYellow);    
     }
 
     const message = state.topStatusMessage;
-    const messageX = Math.floor((statusBarTileSizeX - message.length) / 2 + 0.5);
+    const messageX = (screenSizeInTilesX - message.length) / 2;
     putString(renderer, messageX, message, colorPreset.lightGray);
 
     renderer.flush();
@@ -2826,7 +2823,8 @@ function putString(renderer: Renderer, x: number, s: string, color: number) {
         if (glyphIndex === 10) {
             glyphIndex = 32;
         }
-        renderer.addGlyph(x + i, 0, x + i + 1, 1, {textureIndex:glyphIndex, color:color});
+        renderer.addGlyph(x, 0, x + 1, 1, {textureIndex:glyphIndex, color:color});
+        ++x;
     }
 }
 
@@ -2847,8 +2845,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     renderer.start(matScreenFromWorld, 0);
 
-    const statusBarTileSizeX = Math.ceil(screenSizeInTilesX);
-    renderer.addGlyph(0, 0, statusBarTileSizeX, 1, fontTileSet.background);
+    renderer.addGlyph(0, 0, screenSizeInTilesX, 1, fontTileSet.background);
 
     let leftSideX = 1;
 
@@ -2882,7 +2879,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     }
     leftSideX += msgLeapToggle.length;
 
-    let rightSideX = statusBarTileSizeX;
+    let rightSideX = screenSizeInTilesX;
 
     const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
     if (percentRevealed >= 100) {
@@ -2918,7 +2915,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         msgTimer += '!';
     }
 
-    const centeredX = Math.floor((leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2);
+    const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2;
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
     putString(renderer, centeredX + msgLevel.length + 1, msgTimer, colorPreset.darkGray);
 

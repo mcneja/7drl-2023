@@ -10,8 +10,6 @@ import { ItemType, TerrainType } from './game-map';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
 
-const menuCharSizeX: number = 43;
-
 function scoreToClipboard(stats:GameStats) {
     const numGhostedLevels = stats.numGhostedLevels;
     const totalScore = stats.totalScore;
@@ -170,11 +168,7 @@ class TextWindow {
         }
     }
     updateScreenSize(screenSize: vec2) {
-        const minCharsX = menuCharSizeX + 2;
-        const minCharsY = 22;
-        const scaleLargestX = Math.max(1, Math.floor(screenSize[0] / (this.textW * minCharsX)));
-        const scaleLargestY = Math.max(1, Math.floor(screenSize[1] / (this.textH * minCharsY)));
-        const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
+        const scaleFactor = game.statusBarZoom(screenSize);
         this.pixelsPerCharX = this.textW * scaleFactor;
         this.pixelsPerCharY = this.textH * scaleFactor;
         const linesPixelSizeX = this.maxLineLength * this.pixelsPerCharX;
