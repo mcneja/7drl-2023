@@ -30,6 +30,7 @@ enum NoiseType {
 enum StepType {
     Normal,
     AttemptedLeap,
+    AttemptedLeapBounceBack,
 }
 
 const debugInitialLevel = 0; // set to non-zero to test level generation
@@ -1024,9 +1025,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     // Generate movement AI noises
 
-    if (stepType === StepType.AttemptedLeap &&
-        (cellNew.type === TerrainType.DoorNS || cellNew.type === TerrainType.DoorEW) &&
-        state.gameMap.items.find((item)=>item.pos.equals(posNew) && isDoorItemType(item.type))) {
+    if (stepType === StepType.AttemptedLeapBounceBack) {
         makeNoise(state.gameMap, player, NoiseType.BangDoor, 17, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
@@ -1146,7 +1145,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
-                tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
+                tryPlayerStep(state, dx, dy, StepType.AttemptedLeapBounceBack);
             }
         } else if (collectLoot(state, posMid, player.pos)) {
             preTurn(state);
