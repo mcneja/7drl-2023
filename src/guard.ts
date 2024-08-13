@@ -555,10 +555,8 @@ class Guard {
         }
     }
 
-    updateDirInitial()
-    {
+    updateDirInitial() {
         const patrolPathIndexNext = (this.patrolPathIndex + 1) % this.patrolPath.length;
-
         updateDir(this.dir, this.pos, this.patrolPath[patrolPathIndexNext]);
     }
 
@@ -575,6 +573,19 @@ class Guard {
     tryGetPosLookAt(map: GameMap): vec2 | undefined {
         const x = this.pos[0];
         const y = this.pos[1];
+
+        // If there's a door adjacent to us, look the opposite way
+        if (this.patrolPath.length===1) {
+            if (x > 0 && map.cells.at(x - 1, y).type === TerrainType.DoorNS) {
+                return vec2.fromValues(x + 1, y);
+            } else if (x < map.cells.sizeX - 1 && map.cells.at(x + 1, y).type === TerrainType.DoorNS) {
+                return vec2.fromValues(x - 1, y);
+            } else if (y > 0 && map.cells.at(x, y - 1).type === TerrainType.DoorEW) {
+                return vec2.fromValues(x, y + 1);
+            } else if (y < map.cells.sizeY - 1 && map.cells.at(x, y + 1).type == TerrainType.DoorEW) {
+                return vec2.fromValues(x, y - 1);
+            }
+        }
 
         // If there's a window adjacent to us, look out it
         if (x > 0 && map.cells.at(x - 1, y).type == TerrainType.OneWayWindowW) {

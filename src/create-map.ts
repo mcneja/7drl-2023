@@ -284,6 +284,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 //        patrolRoutes = placePatrolRoutesLong(level, map, rooms, outsidePatrolRoute, rng);
 //        patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outsidePatrolRoute, rng);
     }
+    addStationaryPatrols(level, map, rooms, adjacencies, patrolRoutes, rng);
 
     // Place loot
 
@@ -331,6 +332,44 @@ function makeSiheyuanRoomGrid(inside: BooleanGrid, rng: RNG) {
 
     return inside;
 }
+
+function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adjacencies:Array<Adjacency>, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
+    if (level<8) return;
+    const ttypes = [TerrainType.GroundGrass, TerrainType.GroundMarble, TerrainType.GroundWood];
+    const room = rooms.find((r)=>r.roomType===RoomType.Vault);
+    if (room===undefined) return;
+    for(let adj of room.edges) {
+        if (adj.doorType===DoorType.Locked) {
+            let pos = adj.origin;
+            const outsideVault = adj.roomLeft.roomType===RoomType.Vault?adj.roomRight:adj.roomLeft;
+            for(let i=0; i<adj.length; i++) {
+                if (map.cells.atVec(pos).type===TerrainType.DoorEW||map.cells.atVec(pos).type===TerrainType.DoorNS) {
+                    if(adj.dir[0]===0) {
+                        for(let dx of [-1,1]) {
+                            const pos0 = pos.add(new vec2(dx,0));
+                            if(ttypes.includes(map.cells.atVec(pos0).type)) {
+                                patrolRoutes.push({rooms: [outsideVault], path:[pos0]});
+                                return;
+                            }    
+                        }
+                    }
+                    if(adj.dir[1]===0) {
+                        for(let dy of [-1,1]) {
+                            const pos0 = pos.add(new vec2(0,dy));
+                            if(ttypes.includes(map.cells.atVec(pos0).type)) {
+                                patrolRoutes.push({rooms: [outsideVault], path:[pos0]});
+                                return;
+                            }    
+                        }
+                    }
+                }
+                pos = pos.add(adj.dir);
+            }
+        }
+    }
+    return;
+}
+
 
 function offsetWalls(
     roomsX: number,
