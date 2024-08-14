@@ -758,6 +758,18 @@ function blocksPushedGuard(state: State, posGuardNew: vec2): boolean {
     return false;
 }
 
+function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepType) {
+    if (stepType === StepType.AttemptedLeap) {
+        preTurn(state);
+        state.player.pickTarget = null;
+        bumpAnim(state, dx, dy);
+        makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 17, state.sounds);
+        advanceTime(state);
+    } else {
+        bumpFail(state, dx, dy);
+    }
+}
+
 function tryPlayerWait(state: State) {
     const player = state.player;
 
@@ -849,7 +861,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             bumpAnim(state, dx, dy);
             advanceTime(state);
         } else {
-            bumpFail(state, dx, dy);
+            tryMakeBangNoise(state, dx, dy, stepType);
         }
         return;
     }
@@ -867,7 +879,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
         }
 
-        bumpFail(state, dx, dy);
+        tryMakeBangNoise(state, dx, dy, stepType);
         return;
     }
 
@@ -898,7 +910,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
                 bumpAnim(state, dx, dy);
                 advanceTime(state);
             } else {
-                bumpFail(state, dx, dy);
+                tryMakeBangNoise(state, dx, dy, stepType);
             }
             return;
 
@@ -935,7 +947,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             if (!player.hasVaultKey) {
                 setStatusMessage(state, 'Locked!');
 
-                bumpFail(state, dx, dy);
+                tryMakeBangNoise(state, dx, dy, stepType);
                 return;
             }
             break;
@@ -1025,9 +1037,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     // Generate movement AI noises
 
-    if (stepType === StepType.AttemptedLeapBounceBack) {
-        makeNoise(state.gameMap, player, NoiseType.BangDoor, 17, state.sounds);
-    } else if (cellNew.type === TerrainType.GroundWoodCreaky) {
+    if (cellNew.type === TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     }
 
@@ -1099,12 +1109,12 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         return;
     }
 
-    // If the midpoint is off the map, downgrade to a step
+    // If the endpoint is off the map, downgrade to a step
 
-    if (posMid[0] < 0 ||
-        posMid[1] < 0 ||
-        posMid[0] >= state.gameMap.cells.sizeX ||
-        posMid[1] >= state.gameMap.cells.sizeY) {
+    if (posNew[0] < 0 ||
+        posNew[1] < 0 ||
+        posNew[0] >= state.gameMap.cells.sizeX ||
+        posNew[1] >= state.gameMap.cells.sizeY) {
         tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
@@ -1147,13 +1157,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
             } else {
                 tryPlayerStep(state, dx, dy, StepType.AttemptedLeapBounceBack);
             }
-        } else if (collectLoot(state, posMid, player.pos)) {
-            preTurn(state);
-            player.pickTarget = null;
-            bumpAnim(state, dx, dy);
-            advanceTime(state);
         } else {
-            bumpFail(state, dx, dy);
+            tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         }
         return;
     }
@@ -1239,9 +1244,12 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // Generate movement AI noises
 
+    /*
     if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
         makeNoise(state.gameMap, player, NoiseType.BangChair, 17, state.sounds);
-    } else if (cellNew.type === TerrainType.GroundWoodCreaky) {
+    } else
+    */
+    if (cellNew.type === TerrainType.GroundWoodCreaky) {
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, state.sounds);
