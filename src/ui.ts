@@ -338,6 +338,7 @@ class OptionsScreen extends TextWindow {
 [-|volumeDown]      Volume down
 [0|volumeMute]      Volume mute: $volumeMute$
 [9|guardMute]      Guard mute: $guardMute$
+[J|screenShakeEnabled]      Jolt screen: $screenShakeEnabled$
 [K|keyRepeatRate]      Key repeat rate $keyRepeatRate$ms
 [D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
 [Ctrl+R|forceRestart] Reset data
@@ -348,6 +349,7 @@ class OptionsScreen extends TextWindow {
         this.state.set('volumeLevel', (state.soundVolume * 100).toFixed(0));
         this.state.set('volumeMute', state.volumeMute ? 'Yes' : 'No');
         this.state.set('guardMute', state.guardMute ? 'Yes' : 'No');
+        this.state.set('screenShakeEnabled', state.screenShakeEnabled ? 'Yes' : 'No');
         this.state.set('keyRepeatRate', state.keyRepeatRate.toString());
         this.state.set('keyRepeatDelay', state.keyRepeatDelay.toString());
     }
@@ -365,6 +367,8 @@ class OptionsScreen extends TextWindow {
             game.setVolumeMute(state, !state.volumeMute);
         } else if (activated('guardMute') || action=='guardMute') {
             game.setGuardMute(state, !state.guardMute);
+        } else if (activated('screenShakeEnabled') || action==='screenShakeEnabled') {
+            game.setScreenShakeEnabled(state, !state.screenShakeEnabled);
         } else if(activated('keyRepeatRate') || action=='keyRepeatRate') {
             state.keyRepeatRate -= 50;
             if(state.keyRepeatRate<100) state.keyRepeatRate = 400;

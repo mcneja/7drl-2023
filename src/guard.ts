@@ -177,8 +177,12 @@ class Guard {
         return [this.pos, bumpedPlayer];
     }
 
-    act(map: GameMap, popups: Popups, player: Player, camera: Camera, levelStats: LevelStats, shouts: Array<Shout>) {
+    act(state: State, shouts: Array<Shout>) {
         const posPrev = vec2.clone(this.pos);
+        const map = state.gameMap;
+        const player = state.player;
+        const popups = state.popups;
+        const levelStats = state.levelStats;
 
         // Immediately upgrade to chasing if we see the player while investigating;
         // this lets us start moving toward the player on this turn rather than
@@ -237,7 +241,7 @@ class Guard {
                         ],
                         []);
                     player.applyDamage(1);
-                    joltCamera(camera, player.pos[0] - this.pos[0], player.pos[1] - this.pos[1]);
+                    joltCamera(state, player.pos[0] - this.pos[0], player.pos[1] - this.pos[1]);
                     ++levelStats.damageTaken;
                 }
             } else {
@@ -681,7 +685,7 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
-        guard.act(map, popups, player, state.camera, state.levelStats, shouts);
+        guard.act(state, shouts);
         guard.hasMoved = true;
         ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
     }

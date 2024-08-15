@@ -758,8 +758,12 @@ function blocksPushedGuard(state: State, posGuardNew: vec2): boolean {
     return false;
 }
 
-export function joltCamera(camera: Camera, dx: number, dy: number) {
-    vec2.scaleAndAdd(camera.joltVelocity, camera.joltVelocity, vec2.fromValues(dx, dy), -8);
+export function joltCamera(state: State, dx: number, dy: number) {
+    if (!state.screenShakeEnabled) {
+        return;
+    }
+
+    vec2.scaleAndAdd(state.camera.joltVelocity, state.camera.joltVelocity, vec2.fromValues(dx, dy), -8);
 }
 
 function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepType) {
@@ -767,7 +771,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         preTurn(state);
         state.player.pickTarget = null;
         bumpAnim(state, dx*1.25, dy*1.25);
-        joltCamera(state.camera, dx, dy);
+        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 17, dx, dy, state.sounds);
         advanceTime(state);
     } else {
@@ -1043,7 +1047,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Generate movement AI noises
 
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        joltCamera(state.camera, dx, dy);
+        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     }
 
@@ -1115,7 +1119,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     
             bumpAnim(state, dx, dy);
 
-            joltCamera(state.camera, dx, dy);
+            joltCamera(state, dx, dy);
         }
         return;
     }
@@ -1263,15 +1267,15 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     /*
     if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
-        joltCamera(state.camera, dx, dy);
+        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.BangChair, 17, 0, 0, state.sounds);
     } else
     */
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        joltCamera(state.camera, dx, dy);
+        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
-        joltCamera(state.camera, dx, dy);
+        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
     }
 
@@ -1348,7 +1352,7 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
     }
 
-    joltCamera(state.camera, dx, dy);
+    joltCamera(state, dx, dy);
     makeNoise(state.gameMap, player, NoiseType.Thud, 17, dx, dy, state.sounds);
 
     // Let guards take a turn
@@ -2026,6 +2030,11 @@ export function setGuardMute(state: State, guardMute: boolean) {
     }
 }
 
+export function setScreenShakeEnabled(state: State, screenShakeEnabled: boolean) {
+    state.screenShakeEnabled = screenShakeEnabled;
+    window.localStorage.setItem('LLL/screenShakeEnabled', screenShakeEnabled ? 'true' : 'false');
+}
+
 //TODO: should do some runtime type checking here to validate what's being written
 export function getStat<T>(name:string):T | undefined {
     const statJson = window.localStorage.getItem('LLL/stat/'+name);
@@ -2093,6 +2102,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const volumeMute = (volumeMuteSaved === null) ? false : volumeMuteSaved === 'true';
     let guardMuteSaved: string | null = window.localStorage.getItem('LLL/guardMute');
     const guardMute = (guardMuteSaved === null) ? false : guardMuteSaved === 'true';
+    let screenShakeEnabledSaved: string | null = window.localStorage.getItem('LLL/screenShakeEnabled');
+    const screenShakeEnabled = (screenShakeEnabledSaved === null) ? true : screenShakeEnabledSaved === 'true';
 
     const state: State = {
         gameStats: {    
@@ -2160,6 +2171,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         soundVolume: soundVolume,
         guardMute: guardMute,
         volumeMute: volumeMute,
+        screenShakeEnabled: screenShakeEnabled,
         keyRepeatActive: undefined,
         keyRepeatRate: keyRepeatRate,
         keyRepeatDelay: keyRepeatDelay,

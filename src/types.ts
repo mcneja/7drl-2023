@@ -129,6 +129,7 @@ type State = {
     soundVolume: number;
     guardMute: boolean;
     volumeMute: boolean;
+    screenShakeEnabled: boolean;
     touchController: TouchController;
     keyboardController: KeyboardController;
     gamepadManager: GamepadManager;

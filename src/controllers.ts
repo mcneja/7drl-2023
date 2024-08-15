@@ -73,7 +73,7 @@ const defaultKeyMap:KeyMap = {
     'KeyD': ['right','homeDaily','keyRepeatDelay'],
     'KeyF': ['jumpToggle', 'fullscreen'],
     'KeyG': ['guardMute'],
-    'KeyJ': ['down'],
+    'KeyJ': ['down', 'screenShakeEnabled'],
     'KeyK': ['up', 'keyRepeatRate'],
     'KeyH': ['left', 'helpControls'],
     'KeyL': ['right'],
