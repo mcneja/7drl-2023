@@ -96,21 +96,11 @@ function main(images: Array<HTMLImageElement>) {
     }
 
     const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-            const width = entry.devicePixelContentBoxSize?.[0].inlineSize ||
-                          entry.contentBoxSize[0].inlineSize * devicePixelRatio;
-            const height = entry.devicePixelContentBoxSize?.[0].blockSize ||
-                           entry.contentBoxSize[0].blockSize * devicePixelRatio;
-            canvasSizeX = Math.max(1, width);
-            canvasSizeY = Math.max(1, height);
-            state.camera.snapped = false;
-        }
+        canvasSizeX = canvas.clientWidth;
+        canvasSizeY = canvas.clientHeight;
+        state.camera.snapped = false;
     });
-    try {
-        observer.observe(canvas, { box: 'device-pixel-content-box' });
-    } catch {
-        observer.observe(canvas, { box: 'content-box' });
-    }
+    observer.observe(canvas);
 
     requestUpdateAndRender();
 }
