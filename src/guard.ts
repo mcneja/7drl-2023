@@ -664,13 +664,10 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
             return guard0Chasing ? -1 : 1;
         }
 
-        const guard0Moving = guard0.moving();
-        const guard1Moving = guard1.moving();
-        if (guard0Moving !== guard1Moving) {
-            return guard0Moving ? -1 : 1;
-        }
+        // Sort by descending patrol length, so the stationary guards move last.
+        // This allows other guards to get by them.
 
-        return 0;
+        return guard1.patrolPath.length - guard0.patrolPath.length;
     };
 
     map.guards.sort(guardOrdering);
