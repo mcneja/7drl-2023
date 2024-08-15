@@ -660,12 +660,14 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
     const guardOrdering = (guard0: Guard, guard1: Guard) => {
         const guard0Chasing = guard0.mode === GuardMode.ChaseVisibleTarget;
         const guard1Chasing = guard1.mode === GuardMode.ChaseVisibleTarget;
-    
-        if (guard0Chasing && !guard1Chasing) {
-            return -1;
+        if (guard0Chasing !== guard1Chasing) {
+            return guard0Chasing ? -1 : 1;
         }
-        if (!guard0Chasing && guard1Chasing) {
-            return 1;
+
+        const guard0Moving = guard0.moving();
+        const guard1Moving = guard1.moving();
+        if (guard0Moving !== guard1Moving) {
+            return guard0Moving ? -1 : 1;
         }
 
         return 0;
