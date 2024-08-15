@@ -1418,21 +1418,14 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
             break;
     }
 
-    let closestGuardDist = Infinity;
-    let closestGuard: Guard | null = null;
+    let foundClosestGuard = false;
 
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
         guard.heardThief = true;
-
-        const dist = player.pos.squaredDistance(guard.pos);
-        if (dist < closestGuardDist && isRelaxedGuardMode(guard.mode)) {
-            closestGuardDist = dist;
-            closestGuard = guard;
+        if (!foundClosestGuard) {
+            foundClosestGuard = true;
+            guard.heardThiefClosest = true;
         }
-    }
-
-    if (closestGuard !== null) {
-        closestGuard.heardThiefClosest = true;
     }
 }
 
