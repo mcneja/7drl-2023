@@ -2777,11 +2777,12 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
 
     const xMin = Math.floor(Math.max(0, Math.min(screenSize[0] - rectSizeX, popupPixelX - rectSizeX / 2)));
 
-    if (playerPixelY <= popupPixelY) {
-        yMin = Math.floor(popupPixelY + 1.0 * worldToPixelScaleY);
-    } else {
+    if (state.popups.currentPopupBelow) {
         yMin = Math.floor(popupPixelY + -0.5 * worldToPixelScaleY - rectSizeY);
+    } else {
+        yMin = Math.floor(popupPixelY + 1.0 * worldToPixelScaleY);
     }
+
     yMin = Math.max(pixelsPerCharY, Math.min(screenSize[1] - (pixelsPerCharY + rectSizeY), yMin));
 
     renderer.start(matScreenFromWorld, 0);

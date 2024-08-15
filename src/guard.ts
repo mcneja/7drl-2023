@@ -222,7 +222,7 @@ class Guard {
                 updateDir(this.dir, this.pos, this.goal);
                 if (this.modePrev === GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
-                        popups.add(PopupType.Damage, () => this.posAnimated());
+                        popups.add(PopupType.Damage, () => this.posAnimated(), player.pos);
                         this.speaking = true;
                     }
                     const startend = vec2.create();
@@ -333,14 +333,14 @@ class Guard {
             // this.modeTimeout -= 1;
             if (this.modeTimeout === 5) {
                 const popup = PopupType.GuardStirring;
-                popups.add(popup, () => this.posAnimated());
+                popups.add(popup, () => this.posAnimated(), player.pos);
                 this.speaking = true;
             } else if (this.modeTimeout <= 0) {
                 this.enterPatrolMode(map);
                 this.modeTimeout = 0;
                 this.angry = true;
                 shouts.push({pos_shouter: this.pos, pos_target: this.pos, target:this});
-                popups.add(PopupType.GuardAwakesWarning, () => this.posAnimated());
+                popups.add(PopupType.GuardAwakesWarning, () => this.posAnimated(), player.pos);
                 this.speaking = true;
             }
             break;
@@ -447,7 +447,7 @@ class Guard {
 
         const popupType = popupTypeForStateChange(this.modePrev, this.mode);
         if (popupType !== undefined) {
-            popups.add(popupType, () => this.posAnimated());
+            popups.add(popupType, () => this.posAnimated(), player.pos);
             this.speaking = true;
         }
 

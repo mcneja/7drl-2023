@@ -23,6 +23,7 @@ enum PopupType {
 type Popup = {
     popupType: PopupType;
     posWorld: () => vec2;
+    below: boolean;
 }
 
 class Popups {
@@ -30,17 +31,20 @@ class Popups {
 
     currentPopup: string;
     currentPopupWorldPos: () => vec2;
+    currentPopupBelow: boolean;
     currentPopupTimeRemaining: number;
 
     constructor() {
         this.popups = [];
         this.currentPopup = '';
         this.currentPopupWorldPos = () => vec2.create();
+        this.currentPopupBelow = false;
         this.currentPopupTimeRemaining = 0;
     }
 
-    add(popupType: PopupType, posWorld: () => vec2) {
-        this.popups.push({ popupType: popupType, posWorld: posWorld });
+    add(popupType: PopupType, posWorld: () => vec2, playerPos: vec2) {
+        const below = posWorld()[1] < playerPos[1];
+        this.popups.push({ popupType: popupType, posWorld: posWorld, below: below });
     }
 
     clear() {
@@ -50,6 +54,7 @@ class Popups {
     reset() {
         this.popups.length = 0;
         this.currentPopup = '';
+        this.currentPopupBelow = false;
         this.currentPopupTimeRemaining = 0;
     }
 
@@ -81,6 +86,7 @@ class Popups {
 
         this.currentPopup = subtitledSound.subtitle;
         this.currentPopupWorldPos = popup.posWorld;
+        this.currentPopupBelow = popup.below;
         this.currentPopupTimeRemaining = 2.0;
 
         return subtitledSound.subtitle;
