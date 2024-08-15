@@ -1618,6 +1618,7 @@ function renderWorld(state: State, renderer: Renderer) {
     updateAnimatedLight(state.gameMap.cells, state.lightStates, state.seeAll);
 
     // Draw terrain
+    const terrTiles = state.level<9?renderer.tileSet.terrainTiles:renderer.tileSet.fortressTerrainTiles
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
@@ -1636,9 +1637,9 @@ function renderWorld(state: State, renderer: Renderer) {
             // Draw tile
             if (terrainType === TerrainType.PortcullisEW &&
                 state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                renderer.addGlyphLit4(x, y, x+1, y+1, renderer.tileSet.terrainTiles[TerrainType.PortcullisNS], lv);
+                renderer.addGlyphLit4(x, y, x+1, y+1, terrTiles[TerrainType.PortcullisNS], lv);
             } else {
-                const tile = cell.animation? cell.animation.currentTile():renderer.tileSet.terrainTiles[terrainType];
+                const tile = cell.animation? cell.animation.currentTile():terrTiles[terrainType];
                 renderer.addGlyphLit4(x, y, x+1, y+1, tile, lv);
             }
 
@@ -1658,6 +1659,7 @@ function renderWorld(state: State, renderer: Renderer) {
     }
 
     // Draw items
+    const itemTiles = state.level<9?renderer.tileSet.itemTiles:renderer.tileSet.fortressItemTiles
 
     for(const item of state.gameMap.items) {
         let x = item.pos[0];
@@ -1670,7 +1672,7 @@ function renderWorld(state: State, renderer: Renderer) {
         const lv = litVertices(x, y, state.gameMap.cells);
         if (terrainType === TerrainType.PortcullisEW &&
             state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-            renderer.addGlyphLit4(x, y, x + 1, y + 1, renderer.tileSet.itemTiles[ItemType.PortcullisNS], lv);
+            renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[ItemType.PortcullisNS], lv);
         } else {
             //Don't draw the door if someone standing in it
             if([TerrainType.DoorEW, TerrainType.DoorNS].includes(terrainType)) {
@@ -1680,7 +1682,7 @@ function renderWorld(state: State, renderer: Renderer) {
             }
             const ti = item.animation ?
                 item.animation.currentTile() :
-                renderer.tileSet.itemTiles[item.type];
+                itemTiles[item.type];
             if (item.animation instanceof SpriteAnimation) {
                 const o = item.animation.offset;
                 x += o[0];
