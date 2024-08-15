@@ -1024,12 +1024,12 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         ];
     } else if (stepType === StepType.AttemptedLeapBounceBack) {
         vec2.subtract(mid, end, start);
-        vec2.scale(mid, mid, 1.25);
+        vec2.scale(mid, mid, 1.15);
         vec2.add(mid, mid, start);
         vec2.add(mid, mid, vec2.fromValues(0, 0.125));
         tweenSeq = [
-            {pt0:start, pt1:mid, duration:0.15, fn:tween.easeInQuad},
-            {pt0:mid, pt1:end, duration:0.05, fn:tween.easeOutQuad},
+            {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
+            {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
             {pt0:end, pt1:end, duration:(dy>0 && !hid)?0.5:0.1, fn:tween.easeOutQuad}
         ]
         if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
@@ -1058,7 +1058,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Generate movement AI noises
 
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     }
 
@@ -1278,15 +1277,12 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     /*
     if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
-        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.BangChair, 17, 0, 0, state.sounds);
     } else
     */
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
-        joltCamera(state, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
     }
 
