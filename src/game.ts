@@ -1411,7 +1411,7 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
             // Sound effect currently played in executeLeapAttack
             break;
         case NoiseType.BangDoor:
-            // TODO: sound effect
+            sounds.thump.play(0.5);
             break;
         case NoiseType.BangChair:
             // TODO: sound effect

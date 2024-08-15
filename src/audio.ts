@@ -90,6 +90,10 @@ const gateSet = [
     require('url:./audio/gate-5.mp3'),    
 ];
 
+const thumpSet = [
+    require('url:./audio/thump.mp3'),
+]
+
 const splashSet = [
     require('url:./audio/splash1.mp3'),
     require('url:./audio/splash2.mp3'),
@@ -492,16 +496,17 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
 
-    sounds.grunt = new HowlGroup(gruntSet),
-    sounds.douse = new HowlGroup(douseSet),
-    sounds.ignite = new HowlGroup(igniteSet),
-    sounds.hide = new HowlGroup(hideSet),
-    sounds.gate = new HowlGroup(gateSet),
-    sounds.splash = new HowlGroup(splashSet),
-    sounds.waterEnter = new HowlGroup(waterEnterSet),
-    sounds.waterExit = new HowlGroup(waterExitSet),
-    sounds.jump = new HowlGroup(jumpSet),
-    sounds.tooHigh = new HowlGroup(tooHighSet),
+    sounds.grunt = new HowlGroup(gruntSet);
+    sounds.douse = new HowlGroup(douseSet);
+    sounds.ignite = new HowlGroup(igniteSet);
+    sounds.hide = new HowlGroup(hideSet);
+    sounds.gate = new HowlGroup(gateSet);
+    sounds.thump = new HowlGroup(thumpSet);
+    sounds.splash = new HowlGroup(splashSet);
+    sounds.waterEnter = new HowlGroup(waterEnterSet);
+    sounds.waterExit = new HowlGroup(waterExitSet);
+    sounds.jump = new HowlGroup(jumpSet);
+    sounds.tooHigh = new HowlGroup(tooHighSet);
 
     subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet, howlPool);
     subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);
