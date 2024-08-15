@@ -1114,6 +1114,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
             advanceTime(state);
     
             bumpAnim(state, dx, dy);
+
+            joltCamera(state.camera, dx, dy);
         }
         return;
     }
