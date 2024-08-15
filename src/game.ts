@@ -758,8 +758,12 @@ function blocksPushedGuard(state: State, posGuardNew: vec2): boolean {
     return false;
 }
 
-export function joltCamera(camera: Camera, dx: number, dy: number) {
-    vec2.scaleAndAdd(camera.joltVelocity, camera.joltVelocity, vec2.fromValues(dx, dy), -8);
+export function joltCamera(state: State, dx: number, dy: number) {
+    if (!state.screenShakeEnabled) {
+        return;
+    }
+
+    vec2.scaleAndAdd(state.camera.joltVelocity, state.camera.joltVelocity, vec2.fromValues(dx, dy), -8);
 }
 
 function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepType) {
@@ -767,8 +771,8 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         preTurn(state);
         state.player.pickTarget = null;
         bumpAnim(state, dx*1.25, dy*1.25);
-        joltCamera(state.camera, dx, dy);
-        makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 17, dx, dy, state.sounds);
+        joltCamera(state, dx, dy);
+        makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
         advanceTime(state);
     } else {
         bumpFail(state, dx, dy);
@@ -1007,7 +1011,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
+    const mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
     const hid = player.hidden(state.gameMap);
 
     let tweenSeq: Array<TweenData>;
@@ -1018,6 +1022,17 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
             {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},
         ];
+    } else if (stepType === StepType.AttemptedLeapBounceBack) {
+        vec2.subtract(mid, end, start);
+        vec2.scale(mid, mid, 1.15);
+        vec2.add(mid, mid, start);
+        vec2.add(mid, mid, vec2.fromValues(0, 0.125));
+        tweenSeq = [
+            {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
+            {pt0:mid, pt1:end, duration:0.1, fn:tween.easeOutQuad},
+            {pt0:end, pt1:end, duration:(dy>0 && !hid)?0.5:0.1, fn:tween.easeOutQuad}
+        ]
+        if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     } else {
         tweenSeq = [
             {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
@@ -1043,8 +1058,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Generate movement AI noises
 
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        joltCamera(state.camera, dx, dy);
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
     }
 
     // Let guards take a turn
@@ -1115,7 +1129,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     
             bumpAnim(state, dx, dy);
 
-            joltCamera(state.camera, dx, dy);
+            joltCamera(state, dx, dy);
         }
         return;
     }
@@ -1263,16 +1277,13 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     /*
     if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
-        joltCamera(state.camera, dx, dy);
-        makeNoise(state.gameMap, player, NoiseType.BangChair, 17, 0, 0, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.BangChair, 0, 0, state.sounds);
     } else
     */
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        joltCamera(state.camera, dx, dy);
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
-        joltCamera(state.camera, dx, dy);
-        makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Splash, 0, 0, state.sounds);
     }
 
     // Let guards take a turn
@@ -1343,13 +1354,13 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     // Generate movement AI noises
 
     if (cellMid.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
     } else if (cellMid.type === TerrainType.GroundWater) {
-        makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Splash, 0, 0, state.sounds);
     }
 
-    joltCamera(state.camera, dx, dy);
-    makeNoise(state.gameMap, player, NoiseType.Thud, 17, dx, dy, state.sounds);
+    joltCamera(state, dx, dy);
+    makeNoise(state.gameMap, player, NoiseType.Thud, dx, dy, state.sounds);
 
     // Let guards take a turn
 
@@ -1384,10 +1395,12 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
     }
 }
 
-function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: number, dx: number, dy: number, sounds: Howls) {
+function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: number, dy: number, sounds: Howls) {
     player.noisy = true;
     player.noiseOffset[0] = dx / 2;
     player.noiseOffset[1] = dy / 2;
+
+    const radius = 23;
 
     switch (noiseType) {
         case NoiseType.Creak:
@@ -1400,28 +1413,21 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: n
             // Sound effect currently played in executeLeapAttack
             break;
         case NoiseType.BangDoor:
-            // TODO: sound effect
+            sounds.thump.play(0.5);
             break;
         case NoiseType.BangChair:
             // TODO: sound effect
             break;
     }
 
-    let closestGuardDist = Infinity;
-    let closestGuard: Guard | null = null;
+    let foundClosestGuard = false;
 
     for (const guard of map.guardsInEarshot(player.pos, radius)) {
         guard.heardThief = true;
-
-        const dist = player.pos.squaredDistance(guard.pos);
-        if (dist < closestGuardDist && isRelaxedGuardMode(guard.mode)) {
-            closestGuardDist = dist;
-            closestGuard = guard;
+        if (!foundClosestGuard) {
+            foundClosestGuard = true;
+            guard.heardThiefClosest = true;
         }
-    }
-
-    if (closestGuard !== null) {
-        closestGuard.heardThiefClosest = true;
     }
 }
 
@@ -1577,7 +1583,10 @@ function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: 
 }
 
 function litVertices(x:number, y:number, cells:CellGrid):[number,number,number,number] {
-    const scale = (cells.at(x, y).lit ? 1 : 0.05) / 4;
+    // The scale of 0.1 for unlit tiles creates a hard-ish edge at the boundary of lit and unlit tiles
+    // 0 would give a completely hard edge, while 1 will be smooth but hard for the player to tell
+    // which tiles at the boundary are lit
+    const scale = (cells.at(x, y).lit ? 1 : 0.1) / 4;
 
     const l   = cells.at(x,  y  ).litAnim;
     const lld = cells.at(x-1,y-1).litAnim;
@@ -2028,6 +2037,11 @@ export function setGuardMute(state: State, guardMute: boolean) {
     }
 }
 
+export function setScreenShakeEnabled(state: State, screenShakeEnabled: boolean) {
+    state.screenShakeEnabled = screenShakeEnabled;
+    window.localStorage.setItem('LLL/screenShakeEnabled', screenShakeEnabled ? 'true' : 'false');
+}
+
 //TODO: should do some runtime type checking here to validate what's being written
 export function getStat<T>(name:string):T | undefined {
     const statJson = window.localStorage.getItem('LLL/stat/'+name);
@@ -2095,6 +2109,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const volumeMute = (volumeMuteSaved === null) ? false : volumeMuteSaved === 'true';
     let guardMuteSaved: string | null = window.localStorage.getItem('LLL/guardMute');
     const guardMute = (guardMuteSaved === null) ? false : guardMuteSaved === 'true';
+    let screenShakeEnabledSaved: string | null = window.localStorage.getItem('LLL/screenShakeEnabled');
+    const screenShakeEnabled = (screenShakeEnabledSaved === null) ? true : screenShakeEnabledSaved === 'true';
 
     const state: State = {
         gameStats: {    
@@ -2162,6 +2178,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         soundVolume: soundVolume,
         guardMute: guardMute,
         volumeMute: volumeMute,
+        screenShakeEnabled: screenShakeEnabled,
         keyRepeatActive: undefined,
         keyRepeatRate: keyRepeatRate,
         keyRepeatDelay: keyRepeatDelay,

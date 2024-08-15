@@ -1029,18 +1029,20 @@ class GameMap {
         return distField;
     }
 
-    guardsInEarshot(soundPos: vec2, radius: number): Array<Guard> {
-        const coords = this.coordsInEarshot(soundPos, radius);
-        return this.guards.filter(guard => coords.has(this.cells.sizeX * guard.pos[1] + guard.pos[0]));
-    }
+    guardsInEarshot(soundPos: vec2, costCutoff: number): Array<Guard> {
+        const sizeX = this.cells.sizeX;
+        const sizeY = this.cells.sizeY;
 
-    coordsInEarshot(soundPos: vec2, costCutoff: number): Set<number> {
-        let sizeX = this.cells.sizeX;
-        let sizeY = this.cells.sizeY;
-    
+        // Make a map for quickly seeing what guard (if any) is at a given location
+        const guardAtPos: Map<number, Guard> = new Map();
+        for (const guard of this.guards) {
+            guardAtPos.set(sizeX * guard.pos[1] + guard.pos[0], guard);
+        }
+
+        // Visit squares in the map, recording guards as we encounter them.
         const toVisit: PriorityQueue<DistPos> = [];
         const distField = new Float64Grid(sizeX, sizeY, Infinity);
-        const coordsVisited: Set<number> = new Set();
+        const guards: Array<Guard> = [];
     
         priorityQueuePush(toVisit, { priority: 0, pos: soundPos });
     
@@ -1049,10 +1051,14 @@ class GameMap {
             if (distPos.priority >= distField.get(distPos.pos[0], distPos.pos[1])) {
                 continue;
             }
-    
+
             distField.set(distPos.pos[0], distPos.pos[1], distPos.priority);
-            coordsVisited.add(sizeX * distPos.pos[1] + distPos.pos[0]);
-    
+
+            const guard = guardAtPos.get(sizeX * distPos.pos[1] + distPos.pos[0]);
+            if (guard !== undefined) {
+                guards.push(guard);
+            }
+
             for (const adjacentMove of adjacentMoves) {
                 const posNew = vec2.fromValues(distPos.pos[0] + adjacentMove.dx, distPos.pos[1] + adjacentMove.dy);
                 if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
@@ -1075,8 +1081,8 @@ class GameMap {
                 priorityQueuePush(toVisit, { priority: costNew, pos: posNew });
             }
         }
-    
-        return coordsVisited;
+
+        return guards;
     }
 }
 
