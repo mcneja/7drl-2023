@@ -758,13 +758,17 @@ function blocksPushedGuard(state: State, posGuardNew: vec2): boolean {
     return false;
 }
 
+export function joltCamera(camera: Camera, dx: number, dy: number) {
+    vec2.scaleAndAdd(camera.joltVelocity, camera.joltVelocity, vec2.fromValues(dx, dy), -8);
+}
+
 function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepType) {
     if (stepType === StepType.AttemptedLeap) {
         preTurn(state);
         state.player.pickTarget = null;
         bumpAnim(state, dx*1.25, dy*1.25);
-        vec2.scaleAndAdd(state.camera.joltVelocity, state.camera.joltVelocity, vec2.fromValues(dx, dy), -8);
-        makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 17, dx / 2, dy / 2, state.sounds);
+        joltCamera(state.camera, dx, dy);
+        makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 17, dx, dy, state.sounds);
         advanceTime(state);
     } else {
         bumpFail(state, dx, dy);
@@ -1039,7 +1043,8 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Generate movement AI noises
 
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -0.5, state.sounds);
+        joltCamera(state.camera, dx, dy);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     }
 
     // Let guards take a turn
@@ -1256,14 +1261,16 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     /*
     if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
+        joltCamera(state.camera, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.BangChair, 17, 0, 0, state.sounds);
     } else
     */
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -0.5, state.sounds);
+        joltCamera(state.camera, dx, dy);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
+        joltCamera(state.camera, dx, dy);
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
-        state.sounds['splash'].play(0.5);
     }
 
     // Let guards take a turn
@@ -1332,12 +1339,15 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     player.animation = new SpriteAnimation(tweenSeq, [tile, tile2, tile2, tileSet.playerTiles.left]);
 
     // Generate movement AI noises
-    makeNoise(state.gameMap, player, NoiseType.Thud, 17, dx / 2, dy / 2, state.sounds);
+
     if (cellMid.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -0.5, state.sounds);
+        makeNoise(state.gameMap, player, NoiseType.Creak, 17, 0, -1, state.sounds);
     } else if (cellMid.type === TerrainType.GroundWater) {
         makeNoise(state.gameMap, player, NoiseType.Splash, 17, 0, 0, state.sounds);
     }
+
+    joltCamera(state.camera, dx, dy);
+    makeNoise(state.gameMap, player, NoiseType.Thud, 17, dx, dy, state.sounds);
 
     // Let guards take a turn
 
@@ -1374,8 +1384,8 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
 
 function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, radius: number, dx: number, dy: number, sounds: Howls) {
     player.noisy = true;
-    player.noiseOffset[0] = dx;
-    player.noiseOffset[1] = dy;
+    player.noiseOffset[0] = dx / 2;
+    player.noiseOffset[1] = dy / 2;
 
     switch (noiseType) {
         case NoiseType.Creak:

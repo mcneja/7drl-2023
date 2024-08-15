@@ -5,7 +5,8 @@ import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
-import { LevelStats, State } from './types';
+import { Camera, LevelStats, State } from './types';
+import { joltCamera } from './game';
 
 enum GuardMode {
     Patrol,
@@ -176,7 +177,7 @@ class Guard {
         return [this.pos, bumpedPlayer];
     }
 
-    act(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
+    act(map: GameMap, popups: Popups, player: Player, camera: Camera, levelStats: LevelStats, shouts: Array<Shout>) {
         const posPrev = vec2.clone(this.pos);
 
         // Immediately upgrade to chasing if we see the player while investigating;
@@ -236,6 +237,7 @@ class Guard {
                         ],
                         []);
                     player.applyDamage(1);
+                    joltCamera(camera, player.pos[0] - this.pos[0], player.pos[1] - this.pos[1]);
                     ++levelStats.damageTaken;
                 }
             } else {
@@ -679,7 +681,7 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
-        guard.act(map, popups, player, state.levelStats, shouts);
+        guard.act(map, popups, player, state.camera, state.levelStats, shouts);
         guard.hasMoved = true;
         ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
     }
