@@ -762,7 +762,8 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
     if (stepType === StepType.AttemptedLeap) {
         preTurn(state);
         state.player.pickTarget = null;
-        bumpAnim(state, dx, dy);
+        bumpAnim(state, dx*1.25, dy*1.25);
+        vec2.scaleAndAdd(state.camera.joltVelocity, state.camera.joltVelocity, vec2.fromValues(dx, dy), -8);
         makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 17, dx / 2, dy / 2, state.sounds);
         advanceTime(state);
     } else {
@@ -1976,6 +1977,8 @@ function createCamera(posPlayer: vec2, zoomLevel: number): Camera {
     const camera = {
         position: vec2.create(),
         velocity: vec2.create(),
+        joltOffset: vec2.create(),
+        joltVelocity: vec2.create(),
         zoom: zoomLevel,
         zoomVelocity: 0,
         scale: Math.pow(zoomPower, zoomLevel),
@@ -2595,6 +2598,18 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
     vec2.scaleAndAdd(state.camera.position, state.camera.position, state.camera.velocity, 0.5 * dt);
     vec2.scaleAndAdd(state.camera.position, state.camera.position, velNew, 0.5 * dt);
     vec2.copy(state.camera.velocity, velNew);
+
+    // Animate jolt
+
+    const kSpringJolt = 24;
+    const joltAcc = vec2.create();
+    vec2.scale(joltAcc, state.camera.joltOffset, -(kSpringJolt**2));
+    vec2.scaleAndAdd(joltAcc, joltAcc, state.camera.joltVelocity, -2*kSpringJolt);
+    const joltVelNew = vec2.create();
+    vec2.scaleAndAdd(joltVelNew, state.camera.joltVelocity, joltAcc, dt);
+    vec2.scaleAndAdd(state.camera.joltOffset, state.camera.joltOffset, state.camera.joltVelocity, 0.5 * dt);
+    vec2.scaleAndAdd(state.camera.joltOffset, state.camera.joltOffset, joltVelNew, 0.5 * dt);
+    vec2.copy(state.camera.joltVelocity, joltVelNew);
 }
 
 function zoomToFitCamera(state: State, screenSize: vec2) {
@@ -2625,6 +2640,8 @@ function snapCamera(state: State, screenSize: vec2) {
         state.player.pos
     );
     vec2.zero(state.camera.velocity);
+    vec2.zero(state.camera.joltOffset);
+    vec2.zero(state.camera.joltVelocity);
 }
 
 function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
@@ -2669,8 +2686,8 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
 
-    const viewWorldCenterX = state.camera.position[0];
-    const viewWorldCenterY = state.camera.position[1];
+    const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
+    const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
     const statusBarWorldSizeY = statusBarPixelSizeY / (pixelsPerTileY * state.camera.scale);
 
@@ -2726,8 +2743,8 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * pixelsPerCharY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
 
-    const viewWorldCenterX = state.camera.position[0];
-    const viewWorldCenterY = state.camera.position[1];
+    const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
+    const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
     const playerPixelY = Math.floor(((state.player.pos[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
 

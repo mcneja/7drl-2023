@@ -12,6 +12,8 @@ export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, ScoreEnt
 type Camera = {
     position: vec2;
     velocity: vec2;
+    joltOffset: vec2;
+    joltVelocity: vec2;
     zoom: number;
     zoomVelocity: number;
     scale: number;
