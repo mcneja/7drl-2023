@@ -1562,7 +1562,7 @@ function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: 
 }
 
 function litVertices(x:number, y:number, cells:CellGrid):[number,number,number,number] {
-    const scale = (cells.at(x, y).lit ? 1 : 0.03) / 4;
+    const scale = (cells.at(x, y).lit ? 1 : 0.05) / 4;
 
     const l   = cells.at(x,  y  ).litAnim;
     const lld = cells.at(x-1,y-1).litAnim;

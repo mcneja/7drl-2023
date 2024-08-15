@@ -79,7 +79,7 @@ const basicFontTileset:FontTileSet = {
 
 const colorWallUnlit    = 0xffc0aaaa;
 const colorWallLit      = 0xffd0ffff;
-const colorGroundUnlit  = 0xff956a6a;
+const colorGroundUnlit  = 0xff754a4a;
 const colorGroundLit    = 0xffd0f3ff;
 const colorWoodFloorLit = 0xffc2e3ee;
 const colorItemUnlit    = 0xffb49090;

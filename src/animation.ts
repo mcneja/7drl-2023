@@ -134,9 +134,9 @@ class LightSourceAnimation extends Animator {
         let lm = this.lightVector[this.lightId];
         if(lm==0 && Math.random()>0.995**(dt*60)) {
             this.state = LightState.dimmed;
-            lm = 3; //0.98;        
+            lm = 1.5; //Previously 3 but falloff is too hard;        
         } else if(lm>0) {
-            lm = Math.max(lm-5*dt,0);
+            lm = Math.max(lm-3*dt,0); //3 is matched to the maximum dim state of 1.5
         }
         if(lm==0) {
             this.state = LightState.idle;

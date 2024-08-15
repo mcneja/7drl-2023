@@ -660,8 +660,12 @@ class GameMap {
         }
         let lightId = 0;
         for (const item of this.items) {
-            if (item.type === ItemType.TorchLit || item.type === ItemType.Stove) {
+            if (item.type === ItemType.TorchLit) {
                 this.castLight(item.pos, 45, lightId, occupied);
+                lightId++;
+            }
+            if (item.type === ItemType.Stove) {
+                this.castLight(item.pos, 25, lightId, occupied);
                 lightId++;
             }
             if (item.type == ItemType.TorchUnlit) {
@@ -731,7 +735,8 @@ class GameMap {
         // The cell is lit
         if(!cell.litSrc.has(lightId)) {
             const dist2 = dx**2 + dy**2;
-            cell.lit += 1/(4*dist2+1);
+            //We apply a scale paramter of 0.5 to the dist2 to control falloff
+            cell.lit += 1/(0.5*dist2+1); 
             cell.lit = Math.min(cell.lit, 1);
             cell.litSrc.add(lightId);
         }
