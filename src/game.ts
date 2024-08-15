@@ -2721,7 +2721,8 @@ export function statusBarZoom(screenSize: vec2): number {
     const scaleLargestX = Math.max(1, screenSize[0] / (statusBarCharPixelSizeX * minCharsX));
     const scaleLargestY = Math.max(1, screenSize[1] / (statusBarCharPixelSizeY * minCharsY));
     const scaleFactor = Math.min(scaleLargestX, scaleLargestY);
-    return scaleFactor;
+    const scaleFactorSnapped = Math.floor(scaleFactor * 2) / 2;
+    return scaleFactorSnapped;
 }
 
 function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
