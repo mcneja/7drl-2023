@@ -1011,7 +1011,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
-    let mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
+    const mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
     const hid = player.hidden(state.gameMap);
 
     let tweenSeq: Array<TweenData>;
@@ -1022,6 +1022,17 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             {pt0:start, pt1:gp, duration:0.2, fn:tween.easeInQuad},
             {pt0:gp, pt1:end, duration:0.1, fn:tween.easeOutQuad},
         ];
+    } else if (stepType === StepType.AttemptedLeapBounceBack) {
+        vec2.subtract(mid, end, start);
+        vec2.scale(mid, mid, 1.25);
+        vec2.add(mid, mid, start);
+        vec2.add(mid, mid, vec2.fromValues(0, 0.125));
+        tweenSeq = [
+            {pt0:start, pt1:mid, duration:0.15, fn:tween.easeInQuad},
+            {pt0:mid, pt1:end, duration:0.05, fn:tween.easeOutQuad},
+            {pt0:end, pt1:end, duration:(dy>0 && !hid)?0.5:0.1, fn:tween.easeOutQuad}
+        ]
+        if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     } else {
         tweenSeq = [
             {pt0:start, pt1:mid, duration:0.1, fn:tween.easeInQuad},
