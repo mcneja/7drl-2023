@@ -1581,7 +1581,10 @@ function updateAnimatedLight(cells:CellGrid, lightStates:Array<number>, seeAll: 
 }
 
 function litVertices(x:number, y:number, cells:CellGrid):[number,number,number,number] {
-    const scale = (cells.at(x, y).lit ? 1 : 0.05) / 4;
+    // The scale of 0.1 for unlit tiles creates a hard-ish edge at the boundary of lit and unlit tiles
+    // 0 would give a completely hard edge, while 1 will be smooth but hard for the player to tell
+    // which tiles at the boundary are lit
+    const scale = (cells.at(x, y).lit ? 1 : 0.1) / 4;
 
     const l   = cells.at(x,  y  ).litAnim;
     const lld = cells.at(x-1,y-1).litAnim;
