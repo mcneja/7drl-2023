@@ -1072,6 +1072,11 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const posMid = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
     const posNew = vec2.fromValues(player.pos[0] + 2*dx, player.pos[1] + 2*dy);
 
+    const cellOld = state.gameMap.cells.atVec(posOld)
+    const cellMid = state.gameMap.cells.atVec(posMid);
+    const cellNew = state.gameMap.cells.atVec(posNew);
+
+
     // If an unaware guard is adjacent in the leap direction, knock them unconscious
 
     const guardMid = state.gameMap.guards.find((guard) =>
@@ -1079,7 +1084,12 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         guard.mode !== GuardMode.Unconscious);
 
     if (guardMid) {
-        if (guardMid.mode === GuardMode.ChaseVisibleTarget) {
+        if (cellMid.type===TerrainType.PortcullisEW ||
+            cellMid.type===TerrainType.PortcullisNS) {
+            //Can't attack or leap over a guard on a portcullis
+            tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);             
+            return;
+        } else if (guardMid.mode === GuardMode.ChaseVisibleTarget) {
             // Swap places with the guard
             moveGuardToPlayerPos(state, guardMid);
             tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
@@ -1104,7 +1114,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // If player is in water, downgrade to a step
 
-    if (state.gameMap.cells.atVec(posOld).type === TerrainType.GroundWater) {
+    if (cellOld.type === TerrainType.GroundWater) {
         tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
@@ -1121,7 +1131,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // If the midpoint is a wall, downgrade to a step
 
-    const cellMid = state.gameMap.cells.atVec(posMid);
     if (cellMid.blocksPlayerMove) {
         tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
@@ -1148,10 +1157,12 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // If the leap destination is blocked, try a step if it can succeeed; else fail
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
-
     if (!canLeapToPos(state, posNew)) {
         if (canStepToPos(state, posMid)) {
-            if (guard !== undefined && guard.overheadIcon() === GuardStates.Alerted) {
+            if (guard !== undefined && 
+                guard.overheadIcon() === GuardStates.Alerted &&
+                cellNew.type !== TerrainType.PortcullisEW &&
+                cellNew.type !== TerrainType.PortcullisNS) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
@@ -1213,8 +1224,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     ++state.numLeapMoves;
 
     // Identify creaky floor under player
-
-    const cellNew = state.gameMap.cells.atVec(posNew);
     cellNew.identified = true;
 
     // Animate player moving
