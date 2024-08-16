@@ -211,7 +211,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Compute a list of room adjacencies.
 
-    const mirrorAdjacencies = rng.randomInRange(24) >= level;
+    const mirrorAdjacencies = levelType !== LevelType.Fortress && rng.randomInRange(24) >= level;
     const mirrorAdjacenciesX = mirrorRoomsX && mirrorAdjacencies;
     const mirrorAdjacenciesY = mirrorRoomsY && mirrorAdjacencies;
 
@@ -1098,7 +1098,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Occasionally create a back door to the exterior.
 
-    if (rng.randomInRange(30) < rooms.length) {
+    if (levelType !== LevelType.Fortress && rng.randomInRange(30) < rooms.length) {
         const adjDoor = backDoorAdjacency(edgeSets);
         if (adjDoor !== undefined) {
             adjDoor.door = true;
@@ -1116,7 +1116,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Also create side doors sometimes.
 
-    if (rng.randomInRange(30) < rooms.length) {
+    if (levelType !== LevelType.Fortress && rng.randomInRange(30) < rooms.length) {
         const adjDoor = sideDoorAdjacency(edgeSets);
         if (adjDoor !== undefined) {
             const doorType = (level < 3) ? DoorType.GateBack : DoorType.Locked;
@@ -3294,8 +3294,6 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
 
     const adjHandled: Set<Adjacency> = new Set();
 
-    const allowExteriorWindows = levelType !== LevelType.Fortress;
-
     for (const adj0 of adjacencies) {
         if (adjHandled.has(adj0)) {
             continue;
@@ -3330,16 +3328,19 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             const dir = vec2.clone(a.dir);
 
             if ((roomTypeL === RoomType.Exterior) !== (roomTypeR === RoomType.Exterior)) {
-                if (!allowExteriorWindows) {
-                    continue;
-                }
-
                 if (roomTypeR == RoomType.Exterior) {
                     vec2.negate(dir, dir);
                 }
             } else if (isCourtyardRoomType(roomTypeL) !== isCourtyardRoomType(roomTypeR)) {
                 if (isCourtyardRoomType(roomTypeR)) {
+                    if (levelType === LevelType.Fortress && a.roomLeft.depth < a.roomRight.depth) {
+                        continue;
+                    }
                     vec2.negate(dir, dir);
+                } else {
+                    if (levelType === LevelType.Fortress && a.roomRight.depth < a.roomLeft.depth) {
+                        continue;
+                    }
                 }
             } else {
                 continue;
@@ -3347,7 +3348,12 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
 
             const windowType = oneWayWindowTerrainTypeFromDir(dir);
 
-            if (a.length === 5) {
+            if (levelType === LevelType.Fortress) {
+                if (a.length > 2 && (a.length & 1) === 0) {
+                    const p = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length / 2);
+                    map.cells.atVec(p).type = windowType;
+                }
+            } else if (a.length === 5) {
                 const p = vec2.clone(a.origin).scaleAndAdd(a.dir, 2 + ((a.origin[0] + a.origin[1]) & 1));
                 map.cells.atVec(p).type = windowType;
             } else {
