@@ -228,8 +228,19 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Compute room distances from entrance.
 
-    computeRoomBetweenness(rooms);
     computeRoomDepths(rooms);
+
+    // In fortresses, connectRooms added only the bare minimum of doors necessary to connect the level.
+    //  Add additional doors now, but lock them.
+
+    if (levelType === LevelType.Fortress) {
+        addAdditionalFortressDoors(adjacencies, rng);
+        computeRoomDepths(rooms);
+    }
+
+    // Compute a measure of how much each room is on paths between other rooms.
+
+    computeRoomBetweenness(rooms);
 
     // Assign types to the rooms.
 
@@ -1017,7 +1028,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
             if (adj.roomLeft.group !== adj.roomRight.group) {
                 addDoor = true;
-            } else if (rng.random() < 0.4) {
+            } else if (levelType !== LevelType.Fortress && rng.random() < 0.4) {
                 addDoor = true;
             }
 
@@ -1058,7 +1069,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
             if (adj.roomLeft.group !== adj.roomRight.group) {
                 addDoor = true;
-            } else if (rng.random() < ((levelType === LevelType.Fortress) ? 0.1 : 0.4)) {
+            } else if (levelType !== LevelType.Fortress && rng.random() < 0.4) {
                 addDoor = true;
             }
 
@@ -1256,6 +1267,35 @@ function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
     }
 
     return adjs[Math.floor(adjs.length / 2)];
+}
+
+function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
+    for (const adj of adjacencies) {
+        if (adj.door) {
+            continue;
+        }
+
+        if (adj.length < 2) {
+            continue;
+        }
+
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+
+        if (room0.roomType !== RoomType.PublicRoom) {
+            continue;
+        }
+        if (room1.roomType !== RoomType.PublicRoom) {
+            continue;
+        }
+
+        if (rng.random() >= 0.4) {
+            continue;
+        }
+
+        adj.door = true;
+        adj.doorType = DoorType.Locked;
+    }
 }
 
 function computeRoomDepths(rooms: Array<Room>) {
