@@ -244,7 +244,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Assign types to the rooms.
 
-    assignRoomTypes(rooms, level, rng);
+    assignRoomTypes(rooms, level, levelType, rng);
 
     // Create the actual map
 
@@ -303,7 +303,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const guardsAvailableForLoot = patrolRoutes.length - (needKey ? 1 : 0);
     const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
 
-    placeLoot(plan.totalLoot - guardLoot, rooms, map, rng);
+    placeLoot(plan.totalLoot - guardLoot, rooms, map, levelType, rng);
 
     placeHealth(level, map, rooms, rng);
 
@@ -1453,7 +1453,7 @@ function hasExteriorDoor(room: Room): boolean {
     return false;
 }
 
-function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
+function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType, rng: RNG) {
 
     // Assign master-suite room type to the inner rooms.
 
@@ -1527,6 +1527,10 @@ function assignRoomTypes(rooms: Array<Room>, level: number, rng: RNG) {
 
         for (const room of rooms) {
             if (room.roomType === RoomType.Exterior) {
+                continue;
+            }
+
+            if (levelType === LevelType.Fortress && isCourtyardRoomType(room.roomType)) {
                 continue;
             }
 
@@ -4268,7 +4272,7 @@ function placeItem(map: GameMap, pos: vec2, type: ItemType) {
     });
 }
 
-function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, rng: RNG) {
+function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, levelType: LevelType, rng: RNG) {
 
     let totalLootPlaced = 0;
 
@@ -4279,7 +4283,14 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, r
             continue;
         }
 
-        for (let i = rng.randomInRange(3) + rng.randomInRange(3); i > 0; --i) {
+        let i = rng.randomInRange(3) + rng.randomInRange(3);
+        if (levelType === LevelType.Fortress) {
+            i += 2;
+        }
+
+        while (i > 0) {
+            --i;
+
             if (totalLootPlaced >= totalLootToPlace) {
                 break;
             }
