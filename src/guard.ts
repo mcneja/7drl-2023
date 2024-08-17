@@ -755,13 +755,17 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): Popu
 
 function alertNearbyGuards(map: GameMap, shout: Shout) {
     for (const guard of map.guardsInEarshot(shout.pos_shouter, 25)) {
-        if (guard.pos[0] != shout.pos_shouter[0] || guard.pos[1] != shout.pos_shouter[1]) {
-            guard.hearingGuard = true;
-            if (shout.target instanceof Guard) {
-                guard.angry = true;
-            }
-            vec2.copy(guard.heardGuardPos, shout.pos_shouter);
+        if (guard.mode === GuardMode.Unconscious) {
+            continue;
         }
+        if (guard.pos.equals(shout.pos_shouter)) {
+            continue;
+        }
+        guard.hearingGuard = true;
+        if (shout.target instanceof Guard) {
+            guard.angry = true;
+        }
+        vec2.copy(guard.heardGuardPos, shout.pos_shouter);
     }
 }
 
