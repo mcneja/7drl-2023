@@ -20,7 +20,7 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { Animator, SpriteAnimation } from './animation';
+import { Animator, RadialAnimation, SpriteAnimation } from './animation';
 import { RNG } from './random';
 import { Adjacency } from './create-map';
 
@@ -311,6 +311,9 @@ class Player {
     turnsRemainingUnderwater: number;
     animation: SpriteAnimation|null = null;
     pickTarget: Guard|null = null;
+    idle: boolean = false;
+    idleCursorAnimation: Animator[]|null = null;
+    idleCursorType:'orbs'|'bracket'|'off' = 'orbs';
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);

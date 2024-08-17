@@ -103,6 +103,8 @@ const tileSet31Color:TileSet = {
         patrolRoute: {textureIndex:0x1f, color:0xff80ff80},
         speechBubbleR: {textureIndex:0xb7, color:0xffffffff},
         speechBubbleL: {textureIndex:0xb8, color:0xffffffff},
+        idleIndicator: {textureIndex:0xbc, color:0xffffffff},
+        idleIndicatorAlt: {textureIndex:0xfd, color:0xffffffff},
     },
     touchButtons: {
         'menu':             {textureIndex: r([11, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},

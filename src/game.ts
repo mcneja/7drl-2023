@@ -1,7 +1,7 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
-import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData } from './animation';
+import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, Animator, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
@@ -240,6 +240,20 @@ function updateControllerState(state:State) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
+        } else if (activated('idleCursorToggle')) {
+            switch (state.player.idleCursorType) {
+                case 'orbs':
+                    state.player.idleCursorType = 'bracket';
+                    break;
+                case 'bracket':
+                    state.player.idleCursorType = 'off';
+                    break;
+                case 'off':
+                    state.player.idleCursorType = 'orbs';
+                    break;
+            }
+            state.player.idle = false;
+            setStatusMessage(state, "Setting player idle cursor to "+state.player.idleCursorType);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
         } else if (activated('volumeDown')) {
@@ -787,7 +801,7 @@ function tryPlayerWait(state: State) {
         return;
     }
 
-    state.idleTimer = 5;
+    player.idle = false;
 
     // Move camera with player by releasing any panning motion
     state.camera.panning = false;
@@ -813,7 +827,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         return;
     }
 
-    state.idleTimer = 5;
+    player.idle = false;
 
     // Move camera with player by releasing any panning motion
 
@@ -1069,7 +1083,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         return;
     }
 
-    state.idleTimer = 5;
+    player.idle = false;
 
     // Move camera with player by releasing any panning motion
 
@@ -1762,8 +1776,30 @@ function renderPlayer(state: State, renderer: Renderer) {
             p.normal;
     }
 
+    const frontRenders:[number, number, number, number, TileInfo, number][] = [];
     const tileInfoTinted = structuredClone(tileInfo);
     if (!dead) {
+        if (player.idle) {
+            // const idleTileInfo = renderer.tileSet.namedTiles['idleIndicatorAlt'];
+            if(player.idleCursorAnimation !== null && player.idleCursorAnimation.length === 1 && 
+                player.idleCursorAnimation[0] instanceof PulsingColorAnimation) {
+                const tile = player.idleCursorAnimation[0].currentTile();
+                renderer.addGlyphLit(x0, y0, x0+1, y0+1, tile, 1);
+            }
+            if(player.idleCursorAnimation !== null && player.idleCursorAnimation.length > 1) {
+                for (let anim of player.idleCursorAnimation) {
+                    if (anim instanceof RadialAnimation) {
+                        const tile = anim.currentTile();
+                        const off = anim.offset;
+                        if(off[1]>0) {
+                            renderer.addGlyphLit(x0+off[0], y0+off[1]/4-0.125, x0+off[0]+1, y0+off[1]/4+1-0.125, tile, 1);        
+                        } else {
+                            frontRenders.push([x0+off[0], y0+off[1]/4-0.125, x0+off[0]+1, y0+off[1]/4+1-0.125, tile, 1])
+                        }
+                    }
+                }
+            }
+        }
         if (player.damagedLastTurn) {
             tileInfoTinted.color = colorPreset.lightRed;
             tileInfoTinted.unlitColor = colorPreset.darkRed;
@@ -1774,6 +1810,9 @@ function renderPlayer(state: State, renderer: Renderer) {
     }
 
     renderer.addGlyphLit(x, y, x+1, y+1, tileInfoTinted, lit);
+    for(let dr of frontRenders) {
+        renderer.addGlyphLit(...dr);
+    }
 }
 
 function renderGuards(state: State, renderer: Renderer) {
@@ -1834,7 +1873,7 @@ function renderParticles(state: State, renderer: Renderer) {
     for(let p of state.particles) {
         if(p.animation) {
             const a = p.animation;
-            const offset = a instanceof SpriteAnimation ? a.offset : vec2.create();
+            const offset = (a instanceof SpriteAnimation)||(a instanceof IdleRadialAnimation) ? a.offset : vec2.create();
             const x = p.pos[0] + offset[0];
             const y = p.pos[1] + offset[1];
             const tileInfo = a.currentTile();
@@ -2123,7 +2162,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         particles:[],
         tLast: undefined,
         dt: 0,
-        idleTimer: 0,
+        idleTimer: 5,
         rng: rng,
         dailyRun: null,
         leapToggleActive: false,
@@ -2323,11 +2362,18 @@ function resetState(state: State) {
 
 
 function updateIdle(state:State, dt:number) {
+    const player = state.player;
+    if (!player.idle) {
+        if(state.idleTimer<=0) {
+            state.idleTimer = 5;
+        }
+    }
+
     if (state.player.health <= 0) {
         return;
     }
 
-    if (state.gameMode === GameMode.MansionComplete || state.gameMode === GameMode.Win) {
+    if (state.gameMode !== GameMode.Mansion) {
         return;
     }
 
@@ -2340,8 +2386,8 @@ function updateIdle(state:State, dt:number) {
         return;
     }
 
-    state.idleTimer = 5;
-    const player = state.player;
+    player.idle = true;
+    state.idleTimer = 5; //Time to next movement
     const start = vec2.create();
     const left = vec2.fromValues(-0.125, 0);
     const right = vec2.fromValues(0.125, 0);
@@ -2349,7 +2395,7 @@ function updateIdle(state:State, dt:number) {
     const hid = player.hidden(state.gameMap);
     const p = tileSet.playerTiles;
     let tweenSeq: Array<TweenData>, tiles: Array<TileInfo>;
-    if(hid || Math.random()>0.5) {
+    if (hid || Math.random() > 0.5) {
         tweenSeq = [
             {pt0:start, pt1:up, duration:0.1, fn:tween.easeInQuad},
             {pt0:up, pt1:start, duration:0.05, fn:tween.easeOutQuad},
@@ -2370,6 +2416,24 @@ function updateIdle(state:State, dt:number) {
         tiles = [p.left, p.left, p.normal, p.right, p.right, p.normal];        
     }
     player.animation = new SpriteAnimation(tweenSeq, tiles);
+    if(player.idleCursorType==='bracket') {
+        const tile = tileSet.namedTiles['idleIndicatorAlt'];
+        if(tile.color) {
+            tile.color = 0xa0FFFFFF & tile.color;
+            tile.unlitColor = 0x00FFFFFF & tile.color;
+        }
+            player.idleCursorAnimation = [
+            new PulsingColorAnimation(tile, 0, 1/Math.PI),
+        ];    
+    } else if(player.idleCursorType==='orbs') {
+        player.idleCursorAnimation = [
+            new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 0, 0),
+            new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 2*Math.PI/3, 0),
+            new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 4*Math.PI/3, 0),
+        ];    
+    } else {
+        player.idleCursorAnimation = [];
+    }
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
@@ -2426,6 +2490,9 @@ function updateState(state: State, screenSize: vec2, dt: number) {
         if(state.player.animation.update(dt)) {
             state.player.animation = null;
         }
+    }
+    if(state.player.idle && state.player.idleCursorAnimation) {
+        state.player.idleCursorAnimation = state.player.idleCursorAnimation.filter((anim)=>!anim.update(dt));
     }
     for(let c of state.gameMap.cells.values) {
         c.animation?.update(dt);

@@ -27,7 +27,7 @@ class FrameAnimator extends Animator {
     time: number;
     tileInfo:Array<TileInfo>;
     constructor(tileInfo:Array<TileInfo>, frameDuration:number|Array<number>, time:number=0, frame:number=0) {
-        super()
+        super();
         this.time = time;
         this.tileInfo = tileInfo;
         this.activeFrame = frame;
@@ -58,7 +58,7 @@ class SpriteAnimation extends Animator {
     tweenSeq: Array<TweenData>;
     removeOnFinish: boolean;
     constructor(tweenSeq: Array<TweenData>, tileInfo:Array<TileInfo>) {
-        super()
+        super();
         this.time = 0;
         this.offset = vec2.clone(tweenSeq[0].pt0);
         this.tileInfo = tileInfo;
@@ -94,6 +94,122 @@ class SpriteAnimation extends Animator {
     }
 }
 
+export class PulsingColorAnimation extends Animator {
+    tile: TileInfo;
+    offset: vec2 = new vec2();
+    duration: number = 0;
+    period: number = 1;
+    time: number = 0;
+
+    /**
+     * 
+     * @param tile Tile index and optional color tint values for lit and unlit states
+     * @param duration Lenght of time the animation will run for
+     * @param period 
+     */
+    constructor(tile:TileInfo, duration:number, period:number) {
+        super();
+        this.tile = tile;
+        this.duration = duration;
+        this.period = period;
+    }
+
+    update(dt:number):boolean {
+        if (this.duration > 0) {
+            this.time = Math.min(this.time + dt, this.duration);
+        } else {
+            this.time += dt;
+        }
+        return this.duration > 0 && this.time === this.duration;
+    }
+    get intensity() {
+        return Math.sin(this.time/this.period);
+    }
+    agbr_color_to_tuple(color:number):[number, number, number, number] {
+        // Extract the alpha, blue, green, and red components from the first color
+        const a1 = (color >> 24) & 0xFF;
+        const b1 = (color >> 16) & 0xFF;
+        const g1 = (color >> 8) & 0xFF;
+        const r1 = color & 0xFF;
+        return [a1,b1,g1,r1];
+    }
+    abgr_tuple_to_color(a:number, b:number, g:number, r:number) {
+        return ((Math.floor(a%256) << 24) | (Math.floor(b%256) << 16) | (Math.floor(g%256) << 8) | Math.floor(r%256)) >>> 0;
+    }
+    blend(color1:number, color2:number, weight:number) {
+        const c1 = this.agbr_color_to_tuple(color1);
+        const c2 = this.agbr_color_to_tuple(color2);
+        const blended = c1.map((v,ind) =>  v*weight + c2[ind]*(1-weight));
+        return this.abgr_tuple_to_color(blended[0], blended[1], blended[2], blended[3]);
+    }
+    currentTile():TileInfo {
+        const intensity = this.intensity;
+        const weight = (1+intensity)/2
+        return {
+            textureIndex: this.tile.textureIndex,
+            color: this.tile.color!==undefined&&this.tile.unlitColor!==undefined?
+                    this.blend(this.tile.color, this.tile.unlitColor, weight):
+                    0xffffffff,
+        }
+    }    
+}
+
+export class RadialAnimation extends Animator {
+    offset: vec2;
+    centerPos: vec2;
+    time: number;
+    tileInfo: TileInfo;
+    removeOnFinish: boolean;
+    radius:number;
+    speed: number;
+    startingPos: number;
+    posRadians: number;
+    duration: number;
+
+    /**
+     * 
+     * @param tile tile texture index and color tint values
+     * @param radius 
+     * @param speed 
+     * @param startingPos 
+     * @param duration 
+     * @param centerPos
+     * @param oscillationRadius
+     * @param oscillationPeriod
+     * 
+     */
+    constructor(tile:TileInfo, radius:number, speed:number, startingPos:number, duration:number, 
+        centerPos:vec2=new vec2(0,0), oscillationRadius:number=0, oscillationPeriod:number=0) {
+        super();
+        this.time = 0;
+        this.tileInfo = tile;
+        this.offset = new vec2();
+        this.centerPos = centerPos;
+        this.radius = radius;
+        this.speed = speed;
+        this.startingPos = startingPos;
+        this.duration = duration;
+        this.posRadians = startingPos;
+        this.removeOnFinish = false;
+    }
+    update(dt:number):boolean {
+        if(this.duration > 0) {
+            this.time=Math.min(this.time+dt, this.duration);
+        } else {
+            this.time += dt;
+        }
+        this.posRadians += this.speed*dt;
+        this.offset[0] = this.centerPos[0] + Math.cos(this.posRadians)*this.radius;
+        this.offset[1] = this.centerPos[1] + Math.sin(this.posRadians)*this.radius;
+        console.log(this.posRadians, this.radius, this.speed, Math.cos(this.posRadians)*this.radius);
+        return this.time===this.duration;
+    }
+    currentTile():TileInfo {
+        return this.tileInfo;
+    }    
+}
+
+
 enum LightState {
     idle,
     dimmed,
@@ -122,7 +238,7 @@ class LightSourceAnimation extends Animator {
         this.item = item;
     }
     update(dt:number):boolean {
-        if(this.item!==null) {
+        if (this.item!==null) {
             if(this.item.type === ItemType.TorchUnlit) this.state = LightState.off;
             if(this.item.type !== ItemType.TorchUnlit && this.state === LightState.off) {
                 this.state = LightState.idle;
@@ -130,15 +246,15 @@ class LightSourceAnimation extends Animator {
             }
         } 
         this.time+=dt;
-        if(this.state == LightState.off) return false;
+        if( this.state == LightState.off) return false;
         let lm = this.lightVector[this.lightId];
-        if(lm==0 && Math.random()>0.995**(dt*60)) {
+        if (lm==0 && Math.random()>0.995**(dt*60)) {
             this.state = LightState.dimmed;
             lm = 1.5; //Previously 3 but falloff is too hard;        
         } else if(lm>0) {
             lm = Math.max(lm-3*dt,0); //3 is matched to the maximum dim state of 1.5
         }
-        if(lm==0) {
+        if (lm==0) {
             this.state = LightState.idle;
             const duration = this.idleTiles[this.activeFrame][1];
             if(this.time>=duration) {

@@ -42,6 +42,7 @@ const controlStates0: ControlStates = {
     'prevLevel': false,
     'fullscreen': false,
     'showSpeech': false,
+    'idleCursorToggle': false,
 };
 
 var lastController:Controller|null = null;
@@ -73,6 +74,7 @@ const defaultKeyMap:KeyMap = {
     'KeyD': ['right','homeDaily','keyRepeatDelay'],
     'KeyF': ['jumpToggle', 'fullscreen'],
     'KeyG': ['guardMute'],
+    'KeyI': ['idleCursorToggle'],
     'KeyJ': ['down', 'screenShakeEnabled'],
     'KeyK': ['up', 'keyRepeatRate'],
     'KeyH': ['left', 'helpControls'],
