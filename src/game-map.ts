@@ -1036,6 +1036,9 @@ class GameMap {
         // Make a map for quickly seeing what guard (if any) is at a given location
         const guardAtPos: Map<number, Guard> = new Map();
         for (const guard of this.guards) {
+            if (guard.mode === GuardMode.Unconscious) {
+                continue;
+            }
             guardAtPos.set(sizeX * guard.pos[1] + guard.pos[0], guard);
         }
 
