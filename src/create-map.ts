@@ -234,6 +234,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     //  Add additional doors now, but lock them.
 
     if (levelType === LevelType.Fortress) {
+        assignVaultRoom(rooms, levelType, rng);
         addAdditionalFortressDoors(adjacencies, rng);
         computeRoomDepths(rooms);
     }
@@ -1453,6 +1454,45 @@ function hasExteriorDoor(room: Room): boolean {
     return false;
 }
 
+function assignVaultRoom(rooms: Array<Room>, levelType: LevelType, rng: RNG) {
+    const deadEndRooms: Array<Room> = [];
+
+    for (const room of rooms) {
+        if (room.roomType === RoomType.Exterior) {
+            continue;
+        }
+
+        if (levelType === LevelType.Fortress && isCourtyardRoomType(room.roomType)) {
+            continue;
+        }
+
+        let numDoors = 0;
+        for (const adj of room.edges) {
+            if (adj.door) {
+                ++numDoors;
+            }
+        }
+
+        if (numDoors <= 1) {
+            deadEndRooms.push(room);
+        }
+    }
+
+    if (deadEndRooms.length > 0) {
+        rng.shuffleArray(deadEndRooms);
+        deadEndRooms.sort((a, b) => roomArea(a) - roomArea(b));
+        const vaultRoom = deadEndRooms[0];
+
+        vaultRoom.roomType = RoomType.Vault;
+
+        for (const adj of vaultRoom.edges) {
+            if (adj.door) {
+                adj.doorType = DoorType.Locked;
+            }
+        }
+    }
+}
+
 function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType, rng: RNG) {
 
     // Assign master-suite room type to the inner rooms.
@@ -1521,44 +1561,10 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
     }
 
     // Pick a dead-end room to be a Vault room
+    // Note: On Fortress levels we did this in a previous step
 
-    if (level > 4) {
-        const deadEndRooms: Array<Room> = [];
-
-        for (const room of rooms) {
-            if (room.roomType === RoomType.Exterior) {
-                continue;
-            }
-
-            if (levelType === LevelType.Fortress && isCourtyardRoomType(room.roomType)) {
-                continue;
-            }
-
-            let numDoors = 0;
-            for (const adj of room.edges) {
-                if (adj.door) {
-                    ++numDoors;
-                }
-            }
-
-            if (numDoors <= 1) {
-                deadEndRooms.push(room);
-            }
-        }
-
-        if (deadEndRooms.length > 0) {
-            rng.shuffleArray(deadEndRooms);
-            deadEndRooms.sort((a, b) => roomArea(a) - roomArea(b));
-            const vaultRoom = deadEndRooms[0];
-
-            vaultRoom.roomType = RoomType.Vault;
-
-            for (const adj of vaultRoom.edges) {
-                if (adj.door) {
-                    adj.doorType = DoorType.Locked;
-                }
-            }
-        }
+    if (level > 4 && levelType !== LevelType.Fortress) {
+        assignVaultRoom(rooms, levelType, rng);
     }
 
     // Assign private rooms with only one or two entrances to be bedrooms, if they are large enough
