@@ -1,8 +1,8 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
-import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
-import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, Animator, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
-import { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode } from './guard';
+import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
+import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
+import { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -1631,11 +1631,25 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
     renderer.flush();
 }
 
+function terrainTileSetForLevelType(levelType: LevelType, renderer: Renderer) {
+    switch (levelType) {
+        case LevelType.Mansion: return renderer.tileSet.terrainTiles;
+        case LevelType.Fortress: return renderer.tileSet.fortressTerrainTiles;
+    }
+}
+
+function itemTileSetForLevelType(levelType: LevelType, renderer: Renderer) {
+    switch (levelType) {
+        case LevelType.Mansion: return renderer.tileSet.itemTiles;
+        case LevelType.Fortress: return renderer.tileSet.fortressItemTiles;
+    }
+}
+
 function renderWorld(state: State, renderer: Renderer) {
     updateAnimatedLight(state.gameMap.cells, state.lightStates, state.seeAll);
 
     // Draw terrain
-    const terrTiles = state.level<9?renderer.tileSet.terrainTiles:renderer.tileSet.fortressTerrainTiles
+    const terrTiles = terrainTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer);
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
@@ -1676,7 +1690,7 @@ function renderWorld(state: State, renderer: Renderer) {
     }
 
     // Draw items
-    const itemTiles = state.level<9?renderer.tileSet.itemTiles:renderer.tileSet.fortressItemTiles
+    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer);
 
     for(const item of state.gameMap.items) {
         let x = item.pos[0];

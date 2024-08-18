@@ -1,6 +1,6 @@
 export { createGameMap, createGameMapRoughPlans, Adjacency };
 
-import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, LevelType, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { RNG } from './random';
@@ -22,11 +22,6 @@ const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     [5,9,4,6,30,42],
     [7,9,7,9,36,49],
 ];
-
-enum LevelType {
-    Mansion,
-    Fortress,
-}
 
 enum RoomType {
     Exterior,
@@ -92,6 +87,7 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
         const levelType = levelTypeFromLevel(level);
         const [numRoomsX, numRoomsY] = makeLevelSize(level, levelType, levelRNG);
         gameMapRoughPlans.push({
+            levelType: levelType,
             numRoomsX: numRoomsX,
             numRoomsY: numRoomsY,
             totalLoot: 0,
@@ -157,7 +153,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const rng = plan.rng;
     rng.reset();
 
-    const levelType = levelTypeFromLevel(level);
+    const levelType = plan.levelType;
 
     // Designate rooms as interior or courtyard
 

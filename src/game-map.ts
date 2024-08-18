@@ -8,6 +8,7 @@ export {
     ItemType,
     GameMap,
     GameMapRoughPlan,
+    LevelType,
     Player,
     TerrainType,
     GuardStates,
@@ -109,7 +110,13 @@ class Float64Grid {
     }
 }
 
+enum LevelType {
+    Mansion,
+    Fortress,
+}
+
 type GameMapRoughPlan = {
+    levelType: LevelType;
     numRoomsX: number;
     numRoomsY: number;
     totalLoot: number;
