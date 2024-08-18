@@ -381,6 +381,17 @@ export function numTurnsParForCurrentMap(state: State): number {
     return par;
 }
 
+const mansionCompleteTopStatusHint: Array<string> = [
+    'Run with Shift+Dir',
+    'Escape out windows with Shift+Dir',
+    'Knock out adjacent, unaware guards with Shift+Dir',
+    'Pickpocket by following exactly for two turns',
+    'Zoom view with [ and ]',
+    'Bang walls to make noise with Shift+Dir',
+    '\'Ghost\' by never being fully seen',
+    'Knock out spotting guard by leaping onto them',
+];
+
 function advanceToMansionComplete(state: State) {
     scoreCompletedLevel(state);
     state.activeSoundPool.empty();
@@ -389,9 +400,16 @@ function advanceToMansionComplete(state: State) {
         state.persistedStats.totalGhosts++;
         setStat('totalGhosts',state.persistedStats.totalGhosts);
     }
-    state.topStatusMessage = '';
-    state.topStatusMessageSticky = false;
-    state.topStatusMessageAnim = 0;
+
+    if (state.level < mansionCompleteTopStatusHint.length) {
+        state.topStatusMessage = 'Hint: ' + mansionCompleteTopStatusHint[state.level];
+        state.topStatusMessageSticky = true;
+        state.topStatusMessageAnim = 1;
+    } else {
+        state.topStatusMessage = '';
+        state.topStatusMessageSticky = false;
+        state.topStatusMessageAnim = 0;
+    }
 
     state.gameMode = GameMode.MansionComplete;
 }
@@ -1521,7 +1539,7 @@ function postTurn(state: State) {
     } else if (state.numLeapMoves < 4) {
         setStatusMessage(state, leapPrompt);
     } else if (state.level === 0) {
-        setStatusMessage(state, 'Map entire mansion');
+        setStatusMessage(state, 'Explore entire mansion');
     } else if (state.level === 1) {
         if (state.numWaitMoves < 4) {
             setStatusMessage(state, 'Z, Period, or Space: Wait');
@@ -2821,7 +2839,7 @@ function viewWorldSize(viewportPixelSize: vec2, zoomScale: number): [number, num
 }
 
 export function statusBarZoom(screenSize: vec2): number {
-    const minCharsX = 45;
+    const minCharsX = 56;
     const minCharsY = 25;
     const scaleLargestX = Math.max(1, screenSize[0] / (statusBarCharPixelSizeX * minCharsX));
     const scaleLargestY = Math.max(1, screenSize[1] / (statusBarCharPixelSizeY * minCharsY));
