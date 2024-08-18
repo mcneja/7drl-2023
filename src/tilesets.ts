@@ -214,7 +214,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([11,  3]),  color:colorWallLit,           unlitColor:colorWallUnlit}, // ItemType.PortcullisEW,
         {textureIndex: r([0,  13]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.TorchUnlit,
         {textureIndex: r([1,  13]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.TorchLit,    
-        {textureIndex: r([12, 13]),  color:colorPreset.yellowTint, unlitColor:colorPreset.yellowTint}, // ItemType.TorchCarry,    
+        {textureIndex: r([15, 13]),  color:colorPreset.yellowTint, unlitColor:colorPreset.yellowTint}, // ItemType.TorchCarry,    
         {textureIndex: r([0,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.PurseCarry,    
         {textureIndex: r([6,  13]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Key,    
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.KeyCarry,    

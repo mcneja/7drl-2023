@@ -1850,7 +1850,9 @@ function renderGuards(state: State, renderer: Renderer) {
         if(guard.hasTorch || guard.hasPurse || guard.hasVaultKey) {
             let t0 = x+guard.dir[0]*0.375+guard.dir[1]*0.375;
             let t1 = y-0.125;
-            const tti = guard.torchAnimation?.currentTile() ?? renderer.tileSet.itemTiles[ItemType.TorchCarry];
+            const tti = guard.mode!==GuardMode.Unconscious&&guard.torchAnimation?
+                    guard.torchAnimation.currentTile():
+                    renderer.tileSet.itemTiles[ItemType.TorchCarry];
             let p0 = x-guard.dir[0]*0.250+(guard.dir[1]<0?0.375:0);
             let p1 = y-0.125;
             const pti = guard.hasVaultKey?tileSet.itemTiles[ItemType.KeyCarry]:renderer.tileSet.itemTiles[ItemType.PurseCarry];
