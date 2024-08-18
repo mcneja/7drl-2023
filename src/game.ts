@@ -253,6 +253,7 @@ function updateControllerState(state:State) {
                     break;
             }
             state.player.idle = false;
+            state.idleTimer = 2;
             setStatusMessage(state, "Setting player idle cursor to "+state.player.idleCursorType);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
@@ -802,6 +803,7 @@ function tryPlayerWait(state: State) {
     }
 
     player.idle = false;
+    state.idleTimer = 5;
 
     // Move camera with player by releasing any panning motion
     state.camera.panning = false;
@@ -828,6 +830,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     }
 
     player.idle = false;
+    state.idleTimer = 5;
 
     // Move camera with player by releasing any panning motion
 
@@ -1084,6 +1087,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     }
 
     player.idle = false;
+    state.idleTimer = 5;
 
     // Move camera with player by releasing any panning motion
 
@@ -2363,11 +2367,6 @@ function resetState(state: State) {
 
 function updateIdle(state:State, dt:number) {
     const player = state.player;
-    if (!player.idle) {
-        if(state.idleTimer<=0) {
-            state.idleTimer = 5;
-        }
-    }
 
     if (state.player.health <= 0) {
         return;
@@ -2386,8 +2385,6 @@ function updateIdle(state:State, dt:number) {
         return;
     }
 
-    player.idle = true;
-    state.idleTimer = 5; //Time to next movement
     const start = vec2.create();
     const left = vec2.fromValues(-0.125, 0);
     const right = vec2.fromValues(0.125, 0);
@@ -2416,24 +2413,28 @@ function updateIdle(state:State, dt:number) {
         tiles = [p.left, p.left, p.normal, p.right, p.right, p.normal];        
     }
     player.animation = new SpriteAnimation(tweenSeq, tiles);
-    if(player.idleCursorType==='bracket') {
-        const tile = tileSet.namedTiles['idleIndicatorAlt'];
-        if(tile.color) {
-            tile.color = 0xa0FFFFFF & tile.color;
-            tile.unlitColor = 0x00FFFFFF & tile.color;
-        }
+    if(!player.idle) {
+        if(player.idleCursorType==='bracket') {
+            const tile = tileSet.namedTiles['idleIndicatorAlt'];
+            if(tile.color) {
+                tile.color = 0xa0FFFFFF & tile.color;
+                tile.unlitColor = 0x00FFFFFF & tile.color;
+            }
+                player.idleCursorAnimation = [
+                new PulsingColorAnimation(tile, 0, 1/Math.PI),
+            ];    
+        } else if(player.idleCursorType==='orbs') {
             player.idleCursorAnimation = [
-            new PulsingColorAnimation(tile, 0, 1/Math.PI),
-        ];    
-    } else if(player.idleCursorType==='orbs') {
-        player.idleCursorAnimation = [
-            new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 0, 0),
-            new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 2*Math.PI/3, 0),
-            new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 4*Math.PI/3, 0),
-        ];    
-    } else {
-        player.idleCursorAnimation = [];
+                new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 0, 0),
+                new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 2*Math.PI/3, 0),
+                new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 4*Math.PI/3, 0),
+            ];    
+        } else {
+            player.idleCursorAnimation = [];
+        }    
     }
+    player.idle = true;
+    state.idleTimer = 5; //Time to next movement
 }
 
 function updateAndRender(now: number, renderer: Renderer, state: State) {
