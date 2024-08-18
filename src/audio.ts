@@ -315,7 +315,7 @@ const guardEndChaseSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/blast.mp3'), 'Blast!'],
     [require('url:./audio/guards/dont come back.mp3'), 'Don\'t come back!'],
     [require('url:./audio/guards/wont get away next time.mp3'), 'You won\'t\nget away\nnext time!'],
-    [require('url:./audio/guards/for his holiness.mp3'), 'His Holiness is a\nlord of mercy!'],
+    [require('url:./audio/guards/for his holiness.mp3'), 'For His Holiness!'],
     [require('url:./audio/guards/lousy day at work.mp3'), 'What a lousy day\nat work!'],
     [require('url:./audio/guards/i give up.mp3'), 'I give up...'],
     [require('url:./audio/guards/what do i do help me.mp3'), 'What do I do?\nHelp me, help me...'],
