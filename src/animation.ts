@@ -201,7 +201,7 @@ export class RadialAnimation extends Animator {
         this.posRadians += this.speed*dt;
         this.offset[0] = this.centerPos[0] + Math.cos(this.posRadians)*this.radius;
         this.offset[1] = this.centerPos[1] + Math.sin(this.posRadians)*this.radius;
-        console.log(this.posRadians, this.radius, this.speed, Math.cos(this.posRadians)*this.radius);
+        //console.log(this.posRadians, this.radius, this.speed, Math.cos(this.posRadians)*this.radius);
         return this.time===this.duration;
     }
     currentTile():TileInfo {
