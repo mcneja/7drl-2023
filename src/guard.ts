@@ -429,7 +429,7 @@ class Guard {
 
             // If we see an extinguished torch, move to light it.
 
-            if (this.mode === GuardMode.Patrol && (this.angry || this.hasTorch)) {
+            if (this.mode === GuardMode.Patrol && this.hasTorch) {
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
