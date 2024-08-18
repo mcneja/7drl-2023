@@ -345,7 +345,7 @@ class Guard {
                 this.enterPatrolMode(map);
                 this.modeTimeout = 0;
                 this.angry = true;
-                shouts.push({pos_shouter: this.pos, pos_target: this.pos, target:this});
+                shouts.push({posShouter: vec2.clone(this.pos), target: this});
                 popups.add(PopupType.GuardAwakesWarning, () => this.posAnimated(), player.pos);
                 this.speaking = true;
             }
@@ -422,7 +422,7 @@ class Guard {
                     this.mode = GuardMode.MoveToDownedGuard;
                     this.angry = true;
                     this.modeTimeout = 3;
-                    shouts.push({pos_shouter: this.pos, pos_target: guard.pos, target:guard});
+                    shouts.push({posShouter: vec2.clone(this.pos), target: guard});
                     break;
                 }
             }
@@ -458,7 +458,7 @@ class Guard {
         }
 
         if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev !== GuardMode.ChaseVisibleTarget) {
-            shouts.push({pos_shouter: this.pos, pos_target: player.pos, target: player});
+            shouts.push({posShouter: vec2.clone(this.pos), target: player});
             this.speaking = true;
             ++levelStats.numSpottings;
         }
@@ -633,8 +633,7 @@ function isRelaxedGuardMode(guardMode: GuardMode): boolean {
 }
 
 type Shout = {
-    pos_shouter: vec2; // where is the person shouting?
-    pos_target: vec2; // where are they reporting the target is?
+    posShouter: vec2; // where is the person shouting?
     target: Player|Guard;
 }
 
@@ -754,18 +753,18 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): Popu
 }
 
 function alertNearbyGuards(map: GameMap, shout: Shout) {
-    for (const guard of map.guardsInEarshot(shout.pos_shouter, 25)) {
+    for (const guard of map.guardsInEarshot(shout.posShouter, 25)) {
         if (guard.mode === GuardMode.Unconscious) {
             continue;
         }
-        if (guard.pos.equals(shout.pos_shouter)) {
+        if (guard.pos.equals(shout.posShouter)) {
             continue;
         }
         guard.hearingGuard = true;
         if (shout.target instanceof Guard) {
             guard.angry = true;
         }
-        vec2.copy(guard.heardGuardPos, shout.pos_shouter);
+        vec2.copy(guard.heardGuardPos, shout.posShouter);
     }
 }
 
