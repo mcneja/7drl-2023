@@ -1458,7 +1458,6 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: numbe
 }
 
 function preTurn(state: State) {
-    state.popups.clear();
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
 }
@@ -1525,8 +1524,6 @@ function postTurn(state: State) {
     }
 
     // Update top status-bar message
-
-    state.popups.endOfUpdate(state.player.pos, state.subtitledSounds);
 
     if (allSeen) {
         if (allLooted) {
@@ -1935,7 +1932,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         const x = guard.pos[0] + offset[0];
         const y = guard.pos[1] + offset[1];
 
-        if(guard.speaking) {
+        if (guard.speaking && state.popups.currentPopupTimeRemaining <= 0) {
             const dir = guard.dir[0];
             if(dir>=0) {
                 renderer.addGlyph(x+1, y, x+2, y+1, bubble_right);

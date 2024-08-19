@@ -5,7 +5,7 @@ import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { Popups, PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
-import { Camera, LevelStats, State } from './types';
+import { LevelStats, State } from './types';
 import { joltCamera } from './game';
 
 enum GuardMode {
@@ -21,6 +21,11 @@ enum GuardMode {
     MoveToTorch,
     LightTorch,
     Unconscious,
+}
+
+type Speech = {
+    speaker: Guard;
+    speechType: PopupType;
 }
 
 class Guard {
@@ -177,11 +182,10 @@ class Guard {
         return [this.pos, bumpedPlayer];
     }
 
-    act(state: State, shouts: Array<Shout>) {
+    act(state: State, speech: Array<Speech>, shouts: Array<Shout>) {
         const posPrev = vec2.clone(this.pos);
         const map = state.gameMap;
         const player = state.player;
-        const popups = state.popups;
         const levelStats = state.levelStats;
 
         // Immediately upgrade to chasing if we see the player while investigating;
@@ -227,8 +231,7 @@ class Guard {
                 updateDir(this.dir, this.pos, this.goal);
                 if (this.modePrev === GuardMode.ChaseVisibleTarget) {
                     if (!player.damagedLastTurn) {
-                        popups.add(PopupType.Damage, () => this.posAnimated(), player.pos);
-                        this.speaking = true;
+                        speech.push({ speaker: this, speechType: PopupType.Damage });
                     }
                     const startend = vec2.create();
                     const middle = vec2.create();
@@ -338,22 +341,19 @@ class Guard {
         case GuardMode.Unconscious:
             // this.modeTimeout -= 1;
             if (this.modeTimeout === 5) {
-                const popup = PopupType.GuardStirring;
-                popups.add(popup, () => this.posAnimated(), player.pos);
-                this.speaking = true;
+                speech.push({ speaker: this, speechType: PopupType.GuardStirring });
             } else if (this.modeTimeout <= 0) {
                 this.enterPatrolMode(map);
                 this.modeTimeout = 0;
                 this.angry = true;
                 shouts.push({posShouter: vec2.clone(this.pos), target: this});
-                popups.add(PopupType.GuardAwakesWarning, () => this.posAnimated(), player.pos);
-                this.speaking = true;
+                speech.push({ speaker: this, speechType: PopupType.GuardAwakesWarning });
             }
             break;
         }
     }
 
-    postActSense(map: GameMap, popups: Popups, player: Player, levelStats: LevelStats, shouts: Array<Shout>) {
+    postActSense(map: GameMap, player: Player, levelStats: LevelStats, speech: Array<Speech>, shouts: Array<Shout>) {
         if (this.mode !== GuardMode.Unconscious) {
 
             // See the thief, or lose sight of the thief
@@ -453,13 +453,11 @@ class Guard {
 
         const popupType = popupTypeForStateChange(this.modePrev, this.mode);
         if (popupType !== undefined) {
-            popups.add(popupType, () => this.posAnimated(), player.pos);
-            this.speaking = true;
+            speech.push({ speaker: this, speechType: popupType });
         }
 
         if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({posShouter: vec2.clone(this.pos), target: player});
-            this.speaking = true;
             ++levelStats.numSpottings;
         }
     }
@@ -694,12 +692,13 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
 
     // Update each guard for this turn.
 
+    const speech: Array<Speech> = [];
     const shouts: Array<Shout> = [];
     let ontoGate = false;
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
-        guard.act(state, shouts);
+        guard.act(state, speech, shouts);
         guard.hasMoved = true;
         ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
     }
@@ -711,7 +710,36 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
     // Update guard states based on their senses
 
     for (const guard of map.guards) {
-        guard.postActSense(map, popups, player, state.levelStats, shouts);
+        guard.postActSense(map, player, state.levelStats, speech, shouts);
+    }
+
+    // Of all the guards trying to talk, pick the one that seems most important and create a speech bubble for them
+
+    if (speech.length > 0) {
+        speech.sort((a, b) => {
+            if (a.speechType < b.speechType)
+                return -1;
+            if (a.speechType > b.speechType)
+                return 1;
+            const posA = a.speaker.pos;
+            const posB = b.speaker.pos;
+            const aDist = vec2.squaredDistance(posA, player.pos);
+            const bDist = vec2.squaredDistance(posB, player.pos);
+            if (aDist < bDist)
+                return -1;
+            if (aDist > bDist)
+                return 1;
+            return 0;
+        });
+
+        const speechBest = speech[0];
+        const soundName = soundNameForPopupType(speechBest.speechType);
+        const subtitledSound = state.subtitledSounds[soundName].play(0.6);
+
+        const speaker: Guard | Player = speech[0].speaker;
+        const below = speaker.pos[1] < player.pos[1];
+        state.popups.setCur(subtitledSound.subtitle, () => speaker.posAnimated(), below);
+        speaker.speaking = true;
     }
 
     // Process shouts
@@ -729,6 +757,25 @@ function guardActAll(state: State, map: GameMap, popups: Popups, player: Player)
 
     if (ontoGate) {
         state.sounds['gate'].play(0.2);
+    }
+}
+
+function soundNameForPopupType(popupType: PopupType): string {
+    switch (popupType) {
+        case PopupType.Damage: return 'guardDamage';
+        case PopupType.GuardChase: return 'guardChase';
+        case PopupType.GuardSeeThief: return 'guardSeeThief';
+        case PopupType.GuardHearThief: return 'guardHearThief';
+        case PopupType.GuardHearGuard: return 'guardHearGuard';
+        case PopupType.GuardDownWarning: return 'guardDownWarning';
+        case PopupType.GuardAwakesWarning: return 'guardAwakesWarning';
+        case PopupType.GuardWarningResponse: return 'guardWarningResponse';
+        case PopupType.GuardInvestigate: return 'guardInvestigate';
+        case PopupType.GuardEndChase: return 'guardEndChase';
+        case PopupType.GuardFinishInvestigating: return 'guardFinishInvestigating';
+        case PopupType.GuardFinishLooking: return 'guardFinishLooking';
+        case PopupType.GuardFinishListening: return 'guardFinishListening';
+        case PopupType.GuardStirring: return 'guardStirring';
     }
 }
 
