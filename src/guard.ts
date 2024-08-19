@@ -578,30 +578,32 @@ class Guard {
         const x = this.pos[0];
         const y = this.pos[1];
 
-        // If there's a locked door adjacent to us, look the opposite way
-        const lockedDoorsAdj = map.items.filter((item)=>
-            (Math.abs(item.pos[0] - x) < 2 &&
-             Math.abs(item.pos[1] - y) < 2) &&
-             (item.type === ItemType.LockedDoorEW || item.type === ItemType.LockedDoorNS));
-        if (lockedDoorsAdj.find((item)=>item.pos[0] === x - 1 && item.pos[1] === y)) {
-            return vec2.fromValues(x + 1, y);
-        } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x + 1 && item.pos[1] === y)) {
-            return vec2.fromValues(x - 1, y);
-        } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x && item.pos[1] === y - 1)) {
-            return vec2.fromValues(x, y + 1);
-        } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x && item.pos[1] === y + 1)) {
-            return vec2.fromValues(x, y - 1);
-        }
+        if (this.patrolPath.length === 1) {
+            // If there's a locked door adjacent to us, look the opposite way
+            const lockedDoorsAdj = map.items.filter((item)=>
+                (Math.abs(item.pos[0] - x) < 2 &&
+                Math.abs(item.pos[1] - y) < 2) &&
+                (item.type === ItemType.LockedDoorEW || item.type === ItemType.LockedDoorNS));
+            if (lockedDoorsAdj.find((item)=>item.pos[0] === x - 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x + 1, y);
+            } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x + 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x - 1, y);
+            } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x && item.pos[1] === y - 1)) {
+                return vec2.fromValues(x, y + 1);
+            } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x && item.pos[1] === y + 1)) {
+                return vec2.fromValues(x, y - 1);
+            }
 
-        // If there's a doorway adjacent to us, look the opposite way
-        if (x > 0 && map.cells.at(x - 1, y).type === TerrainType.DoorNS) {
-            return vec2.fromValues(x + 1, y);
-        } else if (x < map.cells.sizeX - 1 && map.cells.at(x + 1, y).type === TerrainType.DoorNS) {
-            return vec2.fromValues(x - 1, y);
-        } else if (y > 0 && map.cells.at(x, y - 1).type === TerrainType.DoorEW) {
-            return vec2.fromValues(x, y + 1);
-        } else if (y < map.cells.sizeY - 1 && map.cells.at(x, y + 1).type == TerrainType.DoorEW) {
-            return vec2.fromValues(x, y - 1);
+            // If there's a doorway adjacent to us, look the opposite way
+            if (x > 0 && map.cells.at(x - 1, y).type === TerrainType.DoorNS) {
+                return vec2.fromValues(x + 1, y);
+            } else if (x < map.cells.sizeX - 1 && map.cells.at(x + 1, y).type === TerrainType.DoorNS) {
+                return vec2.fromValues(x - 1, y);
+            } else if (y > 0 && map.cells.at(x, y - 1).type === TerrainType.DoorEW) {
+                return vec2.fromValues(x, y + 1);
+            } else if (y < map.cells.sizeY - 1 && map.cells.at(x, y + 1).type == TerrainType.DoorEW) {
+                return vec2.fromValues(x, y - 1);
+            }
         }
 
         // If there's a window adjacent to us, look out it
