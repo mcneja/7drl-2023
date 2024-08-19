@@ -303,7 +303,7 @@ function guardMoveCostForItemType(itemType: ItemType): number {
     }
 }
 
-const maxPlayerHealth: number = 5;
+const maxPlayerHealth: number = 3;
 const maxPlayerTurnsUnderwater: number = 7;
 
 class Player {
