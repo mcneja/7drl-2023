@@ -264,7 +264,7 @@ function updateControllerState(state:State) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
         } else if (activated('showSpeech')) {
-            state.popups.currentPopupTimeRemaining = 2.0;
+            state.popups.currentPopupTimeRemaining = (state.popups.currentPopupTimeRemaining > 0) ? 0 : 2;
         }
     }
 }
