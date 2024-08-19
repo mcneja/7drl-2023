@@ -7,7 +7,8 @@ import { RNG } from './random';
 
 const roomSizeX = 5;
 const roomSizeY = 5;
-const outerBorder = 3;
+const outerBorder = 2;
+const outerBorderBottom = 3;
 
 const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     //xmin,xmax,ymin,ymax,areamin,areamax -- params used to constrain the map size
@@ -197,9 +198,9 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
         }
     }
 
-    // Translate the building so it abuts the X and Y axes with outerBorder padding
+    // Translate the building so it abuts the X and Y axes with outerBorder/outerBorderBottom padding
 
-    offsetBuilding(offsetX, offsetY, outerBorder);
+    offsetBuilding(offsetX, offsetY, outerBorder, outerBorderBottom);
 
     // Make a set of rooms.
 
@@ -544,7 +545,7 @@ function mirrorOffsetsBottomToTop(offsetX: Int32Grid, offsetY: Int32Grid) {
     }
 }
 
-function offsetBuilding(offsetX: Int32Grid, offsetY: Int32Grid, borderSize: number) {
+function offsetBuilding(offsetX: Int32Grid, offsetY: Int32Grid, borderSizeLeft: number, borderSizeBottom: number) {
     const roomsX = offsetY.sizeX;
     const roomsY = offsetX.sizeY;
 
@@ -552,7 +553,7 @@ function offsetBuilding(offsetX: Int32Grid, offsetY: Int32Grid, borderSize: numb
     for (let y = 0; y < roomsY; ++y) {
         roomOffsetX = Math.max(roomOffsetX, -offsetX.get(0, y));
     }
-    roomOffsetX += outerBorder;
+    roomOffsetX += borderSizeLeft;
 
     for (let x = 0; x < roomsX + 1; ++x) {
         for (let y = 0; y < roomsY; ++y) {
@@ -564,7 +565,7 @@ function offsetBuilding(offsetX: Int32Grid, offsetY: Int32Grid, borderSize: numb
     for (let x = 0; x < roomsX; ++x) {
         roomOffsetY = Math.max(roomOffsetY, -offsetY.get(x, 0));
     }
-    roomOffsetY += outerBorder;
+    roomOffsetY += borderSizeBottom;
 
     for (let x = 0; x < roomsX; ++x) {
         for (let y = 0; y < roomsY + 1; ++y) {
@@ -4549,21 +4550,55 @@ function placeExteriorBushes(map: GameMap, outerPerimeter: Array<vec2>, rng: RNG
         map.cells.atVec(pos).type = TerrainType.GroundNormal;
     }
 
-    setRectTerrainType(map, 0, 0, sx, outerBorder, TerrainType.GroundNormal);
+    setRectTerrainType(map, 0, 0, sx, outerBorderBottom, TerrainType.GroundNormal);
 
-    for (let x = 0; x < sx; ++x) {
-        if ((x & 1) == 0 && rng.random() < 0.8) {
-            placeItem(map, vec2.fromValues(x, sy - 1), ItemType.Bush);
+    // Collect all grass terrain outside the mansion
+
+    const visited = new BooleanGrid(map.cells.sizeX, map.cells.sizeY, false);
+    const grass: Array<vec2> = [];
+
+    const toVisit: Array<vec2> = [map.playerStartPos];
+    for (let iToVisit = 0; iToVisit < toVisit.length; ++iToVisit) {
+        const p = toVisit[iToVisit];
+        if (visited.get(p[0], p[1])) {
+            continue;
+        }
+        visited.set(p[0], p[1], true);
+
+        if (map.cells.atVec(p).type >= TerrainType.Wall0000) {
+            continue;
+        }
+
+        if (map.cells.atVec(p).type === TerrainType.GroundGrass) {
+            grass.push(p);
+        }
+
+        for (let dx = -1; dx <= 1; ++dx) {
+            for (let dy = -1; dy <= 1; ++dy) {
+                const p2 = vec2.fromValues(p[0] + dx, p[1] + dy);
+                if (p2[0] >= 0 && p2[1] >= 0 && p2[0] < map.cells.sizeX && p2[1] < map.cells.sizeY && !visited.get(p2[0], p2[1])) {
+                    toVisit.push(p2);
+                }
+            }
         }
     }
 
-    for (let y = outerBorder; y < sy - outerBorder + 1; ++y) {
-        if (((sy - y) & 1) != 0) {
-            if (rng.random() < 0.8) {
-                placeItem(map, vec2.fromValues(0, y), ItemType.Bush);
-            }
-            if (rng.random() < 0.8) {
-                placeItem(map, vec2.fromValues(sx - 1, y), ItemType.Bush);
+    rng.shuffleArray(grass);
+
+    grass.length = Math.floor(grass.length / 3);
+
+    visited.fill(false);
+
+    for (const pos of grass) {
+        if (visited.get(pos[0], pos[1])) {
+            continue;
+        }
+
+        placeItem(map, pos, ItemType.Bush);
+
+        for (let x = Math.max(0, pos[0] - 1); x < Math.min(sx, pos[0] + 2); ++x) {
+            for (let y = Math.max(0, pos[1] - 1); y < Math.min(sy, pos[1] + 2); ++y) {
+                visited.set(x, y, true);
             }
         }
     }
