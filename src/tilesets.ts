@@ -33,6 +33,7 @@ export type TileSet = {
         down:    TileInfo;
         up:      TileInfo;
         dead:    TileInfo;
+        litFace: TileInfo;
     };
     ledgeTiles: Array<TileInfo>;
     unlitTile: TileInfo;
@@ -96,7 +97,6 @@ const tileSet31Color:TileSet = {
     flattenTexture: true,
     unlitTile: {textureIndex: r([0, 0])}, //color:colorPreset.lightBlue
     namedTiles: {
-        litPlayer: {textureIndex:0xbc, color:0xffffffff},
         pickTarget: {textureIndex:0xbc, color:0xffffffff},
         noise: {textureIndex: 0xbb, color: 0x80ffffff},
         crossHatch: {textureIndex:3, color:0xffffffff},
@@ -274,6 +274,7 @@ const tileSet31Color:TileSet = {
         down:    {textureIndex: r([1, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
         up:      {textureIndex: r([4, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
         dead:    {textureIndex: r([5, 9]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
+        litFace: {textureIndex:0xb0, color:0xffffffff},
     },
     guardStateTiles: [
         {textureIndex: r([0,11])}, //Relaxed

@@ -1871,6 +1871,9 @@ function renderPlayer(state: State, renderer: Renderer) {
     }
 
     renderer.addGlyphLit(x, y, x+1, y+1, tileInfoTinted, lit);
+    if(hidden) {
+        renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.namedTiles['litFace'], lit);
+    }
     for(let dr of frontRenders) {
         renderer.addGlyphLit(...dr);
     }
@@ -1980,17 +1983,6 @@ function renderIconOverlays(state: State, renderer: Renderer) {
             renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile);
         } 
     }
-
-    // DISABLING BUT MIGHT BE USEFUL AS AN ACCESSIBILITY OPTION
-    // Render the light status indicator if player is standing in the light
-    // const litVal = state.gameMap.cells.atVec(player.pos).lit?1:0;
-    // if(litVal) {
-    //     const litTile = tileSet.namedTiles['litPlayer'];
-    //     const offset = player.animation?.offset?? vec2.create();
-    //     const x = player.pos[0] + offset[0];
-    //     const y = player.pos[1] + offset[1];
-    //     renderer.addGlyph(x, y+0.625, x+1, y+1.625, litTile, litVal);                
-    // }
 
     // Render an icon over the player if the player is being noisy
     if (player.noisy) {
