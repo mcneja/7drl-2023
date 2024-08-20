@@ -959,12 +959,16 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             return;
 
         case ItemType.TorchUnlit:
-            preTurn(state);
-            state.sounds["ignite"].play(0.08);
-            item.type = ItemType.TorchLit;
-            player.pickTarget = null;
-            bumpAnim(state, dx, dy);
-            advanceTime(state);
+            if (stepType === StepType.Normal) {
+                preTurn(state);
+                state.sounds["ignite"].play(0.08);
+                item.type = ItemType.TorchLit;
+                player.pickTarget = null;
+                bumpAnim(state, dx, dy);
+                advanceTime(state);
+            } else {
+                bumpFail(state, dx, dy);
+            }
             return;
 
         case ItemType.TorchLit:
@@ -1198,6 +1202,13 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         (cellMid.type == TerrainType.OneWayWindowW && posNew[0] >= posOld[0]) ||
         (cellMid.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellMid.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
+        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
+        return;
+    }
+
+    // If the midpoint is a lit lamp, downgrade to a step
+
+    if (state.gameMap.items.find((item)=>item.pos.equals(posMid) && item.type === ItemType.TorchLit)) {
         tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
         return;
     }
