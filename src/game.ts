@@ -1538,13 +1538,19 @@ function postTurn(state: State) {
             setStatusMessage(state, 'Loot collected! Exit any map edge');
         } else if (state.level < 3) {
             setStatusMessage(state, 'Collect all loot');
+        } else if (state.level === 3 && remainingLootIsOnGuard(state)) {
+            setStatusMessage(state, 'Pickpocket or knock out guard to steal loot');
+        } else if (!state.topStatusMessageSticky) {
+            setStatusMessage(state, '');
         }
-    } else if (state.numStepMoves < 4) {
-        setStatusMessage(state, 'Left, Right, Up, Down: Move');
-    } else if (state.numLeapMoves < 4) {
-        setStatusMessage(state, leapPrompt);
     } else if (state.level === 0) {
-        setStatusMessage(state, 'Explore entire mansion');
+        if (state.numStepMoves < 4) {
+            setStatusMessage(state, 'Left, Right, Up, Down: Move');
+        } else if (state.numLeapMoves < 4) {
+            setStatusMessage(state, leapPrompt);
+        } else {
+            setStatusMessage(state, 'Explore entire mansion');
+        }
     } else if (state.level === 1) {
         if (state.numWaitMoves < 4) {
             setStatusMessage(state, 'Z, Period, or Space: Wait');
@@ -1553,11 +1559,21 @@ function postTurn(state: State) {
         } else if (!state.topStatusMessageSticky) {
             setStatusMessage(state, '');
         }
-    } else if (state.level === 3 && state.turns === 0) {
-        setStatusMessage(state, 'Zoom view with brackets [ and ]');
+    } else if (state.level === 3) {
+        if (state.turns === 0) {
+            setStatusMessage(state, 'Zoom view with brackets [ and ]');
+        } else if (!state.topStatusMessageSticky) {
+            setStatusMessage(state, '');
+        }
     } else if (!state.topStatusMessageSticky) {
         setStatusMessage(state, '');
     }
+}
+
+function remainingLootIsOnGuard(state: State): boolean {
+    const lootOnGround = state.gameMap.items.reduce((count, item)=>count + (item.type === ItemType.Coin ? 1 : 0), 0);
+    const lootOnGuards = state.gameMap.guards.reduce((count, guard)=>count + (guard.hasPurse ? 1 : 0), 0);
+    return lootOnGround === 0 && lootOnGuards > 0;
 }
 
 function setStatusMessage(state: State, msg: string) {
