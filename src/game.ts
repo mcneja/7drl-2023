@@ -382,7 +382,7 @@ export function numTurnsParForCurrentMap(state: State): number {
 }
 
 const mansionCompleteTopStatusHint: Array<string> = [
-    'Run with Shift+Dir',
+    'Use darkness or hiding places to avoid guards',
     'Escape out windows with Shift+Dir',
     'Knock out adjacent, unaware guards with Shift+Dir',
     'Pickpocket by following exactly for two turns',
