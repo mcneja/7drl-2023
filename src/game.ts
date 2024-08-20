@@ -2,7 +2,7 @@ import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
-import { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, } from './guard';
+import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight, } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
@@ -1539,7 +1539,13 @@ function postTurn(state: State) {
         } else if (state.level < 3) {
             setStatusMessage(state, 'Collect all loot');
         } else if (state.level === 3 && remainingLootIsOnGuard(state)) {
-            setStatusMessage(state, 'Pickpocket or knock out guard to steal loot');
+            if (state.player.pickTarget !== null) {
+                setStatusMessage(state, 'Follow to pickpocket');
+            } else if (adjacentToUnawareGuardWithLoot(state)) {
+                setStatusMessage(state, 'Follow to pickpocket or leap to knock out');
+            } else {
+                setStatusMessage(state, 'Get next to guard carrying loot');
+            }
         } else if (!state.topStatusMessageSticky) {
             setStatusMessage(state, '');
         }
@@ -1574,6 +1580,14 @@ function remainingLootIsOnGuard(state: State): boolean {
     const lootOnGround = state.gameMap.items.reduce((count, item)=>count + (item.type === ItemType.Coin ? 1 : 0), 0);
     const lootOnGuards = state.gameMap.guards.reduce((count, guard)=>count + (guard.hasPurse ? 1 : 0), 0);
     return lootOnGround === 0 && lootOnGuards > 0;
+}
+
+function adjacentToUnawareGuardWithLoot(state: State): boolean {
+    return state.gameMap.guards.some((guard)=>{
+        const dx = Math.abs(guard.pos[0]-state.player.pos[0]);
+        const dy = Math.abs(guard.pos[1]-state.player.pos[1]);
+        return ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) && isRelaxedGuardMode(guard.mode) && guard.hasPurse;
+    });
 }
 
 function setStatusMessage(state: State, msg: string) {
