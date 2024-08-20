@@ -1872,7 +1872,7 @@ function renderPlayer(state: State, renderer: Renderer) {
 
     renderer.addGlyphLit(x, y, x+1, y+1, tileInfoTinted, lit);
     if(hidden) {
-        renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.namedTiles['litFace'], lit);
+        renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.playerTiles.litFace, lit);
     }
     for(let dr of frontRenders) {
         renderer.addGlyphLit(...dr);
