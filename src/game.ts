@@ -327,7 +327,7 @@ export function setupLevel(state: State, level: number) {
     setCellAnimations(state.gameMap, state);
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
-    state.topStatusMessageAnim = 0;
+    state.topStatusMessageSlide = 1;
     state.finishedLevel = false;
 
     state.turns = 0;
@@ -404,11 +404,9 @@ function advanceToMansionComplete(state: State) {
     if (state.level < mansionCompleteTopStatusHint.length) {
         state.topStatusMessage = 'Hint: ' + mansionCompleteTopStatusHint[state.level];
         state.topStatusMessageSticky = true;
-        state.topStatusMessageAnim = 1;
     } else {
         state.topStatusMessage = '';
         state.topStatusMessageSticky = false;
-        state.topStatusMessageAnim = 0;
     }
 
     state.gameMode = GameMode.MansionComplete;
@@ -1539,7 +1537,7 @@ function postTurn(state: State) {
     if (allSeen) {
         if (allLooted) {
             setStatusMessage(state, 'Loot collected! Exit any map edge');
-        } else {
+        } else if (state.level < 3) {
             setStatusMessage(state, 'Collect all loot');
         }
     } else if (state.numStepMoves < 4) {
@@ -1570,7 +1568,6 @@ function setStatusMessage(state: State, msg: string) {
 
     state.topStatusMessage = msg;
     state.topStatusMessageSticky = false;
-    state.topStatusMessageAnim = (msg.length === 0) ? 0 : 1;
 }
 
 function setStatusMessageSticky(state: State, msg: string) {
@@ -1580,7 +1577,6 @@ function setStatusMessageSticky(state: State, msg: string) {
 
     state.topStatusMessage = msg;
     state.topStatusMessageSticky = true;
-    state.topStatusMessageAnim = (msg.length === 0) ? 0 : 1;
 }
 
 function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
@@ -2228,7 +2224,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         player: new Player(gameMap.playerStartPos),
         topStatusMessage: '',
         topStatusMessageSticky: false,
-        topStatusMessageAnim: 0,
+        topStatusMessageSlide: 1,
         numStepMoves: 0,
         numLeapMoves: 0,
         numWaitMoves: 0,
@@ -2354,7 +2350,6 @@ export function restartGame(state: State) {
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
-    state.topStatusMessageAnim = 0;
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
     state.numWaitMoves = 0;
@@ -2392,7 +2387,6 @@ function resetState(state: State) {
 
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
-    state.topStatusMessageAnim = 0;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
@@ -2491,7 +2485,13 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 
     updateControllerState(state);
 
-    state.topStatusMessageAnim = Math.max(0, state.topStatusMessageAnim - 4 * dt);
+    const topStatusMessageTargetUpper = state.player.pos[1] >= state.gameMap.cells.sizeY / 2;
+    const slideRate = 4.0 * dt;
+    if (topStatusMessageTargetUpper) {
+        state.topStatusMessageSlide = Math.min(1, state.topStatusMessageSlide + slideRate);
+    } else {
+        state.topStatusMessageSlide = Math.max(0, state.topStatusMessageSlide - slideRate);
+    }
 
     if (!state.camera.zoomed) {
         state.camera.zoomed = true;
@@ -2590,13 +2590,13 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderTextBox(renderer, screenSize, state);
     }
 
+    if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
+        renderStatusOverlay(renderer, screenSize, state);
+    }
+
     const menuWindow = state.textWindows[state.gameMode];
     if(menuWindow !== undefined) {
         menuWindow.render(renderer);    
-    }
-
-    if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
-        renderTopStatusBar(renderer, screenSize, state);
     }
 
     renderBottomStatusBar(renderer, screenSize, state);
@@ -2773,6 +2773,8 @@ function snapCamera(state: State, screenSize: vec2) {
     vec2.zero(state.camera.velocity);
     vec2.zero(state.camera.joltOffset);
     vec2.zero(state.camera.joltVelocity);
+
+    state.topStatusMessageSlide = (state.player.pos[1] >= state.gameMap.cells.sizeY / 2) ? 1 : 0
 }
 
 function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
@@ -2787,7 +2789,7 @@ function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoom
 function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, posLegalMin: vec2, posLegalMax: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
     const viewPixelSizeX = screenSize[0];
-    const viewPixelSizeY = screenSize[1] - 2 * statusBarPixelSizeY;
+    const viewPixelSizeY = screenSize[1] - statusBarPixelSizeY;
     const viewWorldSizeX = viewPixelSizeX / (pixelsPerTileX * zoomScale);
     const viewWorldSizeY = viewPixelSizeY / (pixelsPerTileY * zoomScale);
 
@@ -2814,7 +2816,7 @@ function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomS
 
 function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat4) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
-    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * statusBarPixelSizeY);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - statusBarPixelSizeY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
 
     const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
@@ -2830,7 +2832,7 @@ function setupViewMatrix(state: State, screenSize: vec2, matScreenFromWorld: mat
         viewWorldMinX,
         viewWorldMinX + viewWorldSizeX,
         viewWorldMinY - statusBarWorldSizeY,
-        viewWorldMinY + viewWorldSizeY + statusBarWorldSizeY,
+        viewWorldMinY + viewWorldSizeY,
         1,
         -1
     );
@@ -2877,8 +2879,6 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
 
     const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
     const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
-
-    const playerPixelY = Math.floor(((state.player.pos[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
 
     const posPopupWorld = state.popups.currentPopupWorldPos();
     const popupPixelX = Math.floor(((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX);
@@ -2937,37 +2937,56 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     renderer.flush();
 }
 
-function renderTopStatusBar(renderer: Renderer, screenSize: vec2, state: State) {
+function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State) {
+    const message = state.topStatusMessage;
+    if (message.length === 0) {
+        return;
+    }
+
+    const borderX = 1;
+    const borderY = 0.25;
+
     const tileZoom = statusBarZoom(screenSize);
+    const colorBackground = 0xb0000000;
 
     const screenSizeInTilesX = screenSize[0] / (tileZoom * statusBarCharPixelSizeX);
     const screenSizeInTilesY = screenSize[1] / (tileZoom * statusBarCharPixelSizeY);
 
-    const offsetTilesY = 1 - screenSizeInTilesY;
+    const matScreenFromText = mat4.create();
 
-    const matScreenFromWorld = mat4.create();
+    const offsetTilesX = (screenSizeInTilesX - message.length) / -2;
 
-    mat4.ortho(
-        matScreenFromWorld,
-        0, screenSizeInTilesX,
-        offsetTilesY, screenSizeInTilesY + offsetTilesY,
-        1, -1
-    );
+    {
+        const offsetTilesY = borderY + state.topStatusMessageSlide * -(2 + borderY);
 
-    renderer.start(matScreenFromWorld, 0);
-
-    const colorBackground = colorLerp(0xff101010, 0xff404040, 1 - (1 - state.topStatusMessageAnim)**2);
-    renderer.addGlyph(0, 0, screenSizeInTilesX, 1, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
-
-    if(state.dailyRun) {
-        putString(renderer, 0, 'Daily run', colorPreset.lightYellow);    
+        mat4.ortho(
+            matScreenFromText,
+            offsetTilesX, screenSizeInTilesX + offsetTilesX,
+            offsetTilesY, screenSizeInTilesY + offsetTilesY,
+            1, -1
+        );
+    
+        renderer.start(matScreenFromText, 0);
+        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
+        putString(renderer, 0, message, 0xffffffff);
+        renderer.flush();
     }
 
-    const message = state.topStatusMessage;
-    const messageX = (screenSizeInTilesX - message.length) / 2;
-    putString(renderer, messageX, message, colorPreset.lightGray);
+    {
+        const offsetTilesY = (1 - state.topStatusMessageSlide) * (2 + borderY) - (screenSizeInTilesY + borderY);
 
-    renderer.flush();
+        mat4.ortho(
+            matScreenFromText,
+            offsetTilesX, screenSizeInTilesX + offsetTilesX,
+            offsetTilesY, screenSizeInTilesY + offsetTilesY,
+            1, -1
+        );
+    
+        renderer.start(matScreenFromText, 0);
+        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
+        putString(renderer, 0, message, 0xffffffff);
+        renderer.flush();
+    }
 }
 
 function colorLerp(color0: number, color1: number, u: number): number {
@@ -3078,7 +3097,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     // Level number, turn count, and speed bonus
 
-    const msgLevel = 'Lvl ' + (state.level + 1);
+    const msgLevel = (state.dailyRun ? 'Daily Lvl ' : 'Lvl ') + (state.level + 1);
 
     let msgTimer = state.turns + '/' + numTurnsParForCurrentMap(state);
 
