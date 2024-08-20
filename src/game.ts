@@ -403,11 +403,10 @@ function advanceToMansionComplete(state: State) {
 
     if (state.level < mansionCompleteTopStatusHint.length) {
         state.topStatusMessage = 'Hint: ' + mansionCompleteTopStatusHint[state.level];
-        state.topStatusMessageSticky = true;
     } else {
         state.topStatusMessage = '';
-        state.topStatusMessageSticky = false;
     }
+    state.topStatusMessageSticky = false;
 
     state.gameMode = GameMode.MansionComplete;
 }
@@ -1562,19 +1561,11 @@ function postTurn(state: State) {
 }
 
 function setStatusMessage(state: State, msg: string) {
-    if (state.topStatusMessage === msg) {
-        return;
-    }
-
     state.topStatusMessage = msg;
     state.topStatusMessageSticky = false;
 }
 
 function setStatusMessageSticky(state: State, msg: string) {
-    if (state.topStatusMessage === msg) {
-        return;
-    }
-
     state.topStatusMessage = msg;
     state.topStatusMessageSticky = true;
 }
