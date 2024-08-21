@@ -240,6 +240,7 @@ function updateControllerState(state:State) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
+            setStatusMessage(state, 'Guard speech ' + (state.guardMute ? 'disabled' : 'enabled'));
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
@@ -257,12 +258,15 @@ function updateControllerState(state:State) {
             setStatusMessage(state, "Setting player idle cursor to "+state.player.idleCursorType);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
+            setStatusMessage(state, 'Sound ' + (state.volumeMute ? 'disabled' : 'enabled'));
         } else if (activated('volumeDown')) {
             const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
             setSoundVolume(state, soundVolume);
+            setStatusMessage(state, 'Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%');
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
+            setStatusMessage(state, 'Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%');
         } else if (activated('showSpeech')) {
             state.popups.currentPopupTimeRemaining = (state.popups.currentPopupTimeRemaining > 0) ? 0 : 2;
         }
