@@ -3031,7 +3031,7 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
     const offsetTilesX = (screenSizeInTilesX - message.length) / -2;
 
     {
-        const offsetTilesY = borderY + state.topStatusMessageSlide * -(2 + borderY);
+        const offsetTilesY = borderY + -(3 + borderY);
 
         mat4.ortho(
             matScreenFromText,
@@ -3039,15 +3039,18 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
             offsetTilesY, screenSizeInTilesY + offsetTilesY,
             1, -1
         );
-    
+
+        const u = state.topStatusMessageSlide;
+        const colorBackgroundFade = colorLerp(0x00080808, 0xb0080808, u);
+        const colorForegroundFade = colorLerp(0x00ffffff, 0xffffffff, u);
         renderer.start(matScreenFromText, 0);
-        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
-        putString(renderer, 0, message, 0xffffffff);
+        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackgroundFade, unlitColor: colorBackgroundFade});
+        putString(renderer, 0, message, colorForegroundFade);
         renderer.flush();
     }
 
     {
-        const offsetTilesY = (1 - state.topStatusMessageSlide) * (2 + borderY) - (screenSizeInTilesY + borderY);
+        const offsetTilesY = (3 + borderY) - (screenSizeInTilesY + borderY);
 
         mat4.ortho(
             matScreenFromText,
@@ -3055,10 +3058,14 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
             offsetTilesY, screenSizeInTilesY + offsetTilesY,
             1, -1
         );
-    
+
+        const u = 1 - state.topStatusMessageSlide;
+        const colorBackgroundFade = colorLerp(0x00080808, 0xb0080808, u);
+        const colorForegroundFade = colorLerp(0x00ffffff, 0xffffffff, u);
+
         renderer.start(matScreenFromText, 0);
-        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
-        putString(renderer, 0, message, 0xffffffff);
+        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackgroundFade, unlitColor: colorBackgroundFade});
+        putString(renderer, 0, message, colorForegroundFade);
         renderer.flush();
     }
 }
