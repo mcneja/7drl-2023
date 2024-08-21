@@ -10,9 +10,10 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './au
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen } from './ui'
-import {Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
+import {Achievements, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
+import { getAchievements } from './achievements';
 
 export const gameConfig = {
     numGameMaps: 10,
@@ -313,6 +314,27 @@ function clearLevelStats(levelStats: LevelStats) {
     levelStats.damageTaken = 0;
 }
 
+function updateAchievements(state: State, type:'turnEnd'|'levelEnd'|'gameEnd'|'gameStart') {
+    let key:keyof Achievements;
+    for(key in state.achievements) {
+        state.achievements[key].update(state, type);
+    }
+}
+
+function persistAchievements(state: State) {
+    let key:keyof Achievements;
+    let pKey:keyof PersistedStats;
+    for(key in state.achievements) {
+        if(key in state.persistedStats) {
+            pKey = key;
+            if(state.achievements[key].complete) {
+                state.persistedStats[pKey]++;
+                setStat(pKey, state.persistedStats[pKey]);
+            }
+        }
+    }
+}
+
 export function setupLevel(state: State, level: number) {
     state.level = level;
     if (state.level >= gameConfig.numGameMaps) {
@@ -394,6 +416,7 @@ const mansionCompleteTopStatusHint: Array<string> = [
 
 function advanceToMansionComplete(state: State) {
     scoreCompletedLevel(state);
+    updateAchievements(state, "levelEnd");
     state.activeSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
     if(state.levelStats.numSpottings === 0) {
@@ -423,6 +446,7 @@ export function advanceToWin(state: State) {
         turns: state.totalTurns,
         level: state.level+1
     };
+    updateAchievements(state, "gameEnd");
     state.persistedStats.scores.push(scoreEntry);
     if(state.dailyRun) {
         state.persistedStats.currentDailyBestScore = Math.max(state.persistedStats.currentDailyBestScore, score);
@@ -435,6 +459,7 @@ export function advanceToWin(state: State) {
         // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(score, state.totalTurns, state.level+1);
     }
     saveStats(state.persistedStats);
+    persistAchievements(state);
 
     state.gameMode = GameMode.Win;
 }
@@ -1572,6 +1597,8 @@ function postTurn(state: State) {
     } else if (!state.topStatusMessageSticky) {
         setStatusMessage(state, '');
     }
+
+    updateAchievements(state, "turnEnd");
 }
 
 function remainingLootIsOnGuard(state: State): boolean {
@@ -2179,11 +2206,12 @@ export function loadStats(): PersistedStats {
         achievementZippy: getStat('achievementZippy') ?? 0,
         achievementHungry: getStat('achievementHungry') ?? 0,
         achievementThumpy: getStat('achievementThumpy') ?? 0,
-        achievementHippy: getStat('achievementHippy') ?? 0,
+        achievementSofty: getStat('achievementSofty') ?? 0,
         achievementNoisy: getStat('achievementNoisy') ?? 0,
         achievementLeapy: getStat('achievementLeapy') ?? 0,
         achievementCreepy: getStat('achievementCreepy') ?? 0,
         achievementHurty: getStat('achievementHurty') ?? 0,
+        achievementVictory: getStat('achievementVictory') ?? 0,
     };
 }
 
@@ -2207,7 +2235,7 @@ export function saveStats(persistedStats: PersistedStats) {
     setStat('achievementZippy', persistedStats.achievementZippy);
     setStat('achievementHungry', persistedStats.achievementHungry);
     setStat('achievementThumpy', persistedStats.achievementThumpy);
-    setStat('achievementHippy', persistedStats.achievementHippy);
+    setStat('achievementSofty', persistedStats.achievementSofty);
     setStat('achievementNoisy', persistedStats.achievementNoisy);
     setStat('achievementLeapy', persistedStats.achievementLeapy);
     setStat('achievementCreepy', persistedStats.achievementCreepy);
@@ -2250,6 +2278,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             numSpottings: 0,
             damageTaken: 0,
         },
+        achievements: getAchievements(),
         lightStates: Array(gameMap.lightCount).fill(0),
         particles:[],
         tLast: undefined,
@@ -2273,6 +2302,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.CreditsScreen]: new CreditsScreen(),
         },
         player: new Player(gameMap.playerStartPos),
+        oldPlayerPos: gameMap.playerStartPos,
         topStatusMessage: '',
         topStatusMessageSticky: false,
         topStatusMessageSlide: 1,
@@ -2377,6 +2407,8 @@ export function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
     state.level = debugInitialLevel;
 
+
+
     state.persistedStats.totalPlays++;
     setStat('totalPlays',state.persistedStats.totalPlays);
     if(state.dailyRun) {
@@ -2413,6 +2445,7 @@ export function restartGame(state: State) {
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     clearLevelStats(state.levelStats);
+    updateAchievements(state, "gameStart");
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
@@ -2437,6 +2470,7 @@ function resetState(state: State) {
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
     clearLevelStats(state.levelStats);
+    updateAchievements(state, "gameStart");
 
     state.topStatusMessage = '';
     state.topStatusMessageSticky = false;
@@ -2535,8 +2569,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     canvas.width = canvasSizeX;
     canvas.height = canvasSizeY;
     const screenSize = vec2.fromValues(canvasSizeX, canvasSizeY);
-
-    const oldPlayerPos = vec2.clone(state.player.pos);
+    state.oldPlayerPos = vec2.clone(state.player.pos);
 
     updateControllerState(state);
 
@@ -2560,7 +2593,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     }
 
     if (dt > 0) {
-        updateState(state, screenSize, dt, oldPlayerPos);
+        updateState(state, screenSize, dt);
     }
 
     const tw = state.textWindows[state.gameMode];
@@ -2577,7 +2610,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 }
 
 
-function updateState(state: State, screenSize: vec2, dt: number, oldPlayerPos:vec2) {
+function updateState(state: State, screenSize: vec2, dt: number) {
     updateCamera(state, screenSize, dt);
 
     updateIdle(state, dt);
@@ -2603,8 +2636,8 @@ function updateState(state: State, screenSize: vec2, dt: number, oldPlayerPos:ve
             g.torchAnimation = null;
         }    
     }
-    if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress && !oldPlayerPos.equals(state.player.pos)) {
-        const item = state.gameMap.items.find((item) => item.pos.equals(oldPlayerPos))
+    if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress && !state.oldPlayerPos.equals(state.player.pos)) {
+        const item = state.gameMap.items.find((item) => item.pos.equals(state.oldPlayerPos))
         if(item && item.type === ItemType.Bush) {
             const ti0 = itemTileSetForLevelType(LevelType.Fortress, getTileSet())[item.type];
             const ti1 = {...ti0};

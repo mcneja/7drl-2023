@@ -1,5 +1,6 @@
 import { vec2 } from './my-matrix';
 import { GameMap, GameMapRoughPlan, Player } from './game-map';
+import { Achievement } from './achievements';
 import { RNG } from './random';
 import { Howls, SubtitledHowls, ActiveHowlPool } from './audio';
 import { Popups } from './popups';
@@ -7,7 +8,7 @@ import { TouchController, GamepadManager, KeyboardController } from './controlle
 import { TextWindow } from './ui';
 import { Animator } from './animation';
 
-export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, ScoreEntry}
+export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, Achievements, ScoreEntry}
 
 type Camera = {
     position: vec2;
@@ -51,6 +52,19 @@ type LevelStats = {
     damageTaken: number;
 }
 
+type Achievements = {
+    achievementGhostly: Achievement;
+    achievementZippy: Achievement;
+    achievementHungry: Achievement;
+    achievementThumpy: Achievement;
+    achievementSofty: Achievement;
+    achievementNoisy: Achievement;
+    achievementLeapy: Achievement;
+    achievementCreepy: Achievement;
+    achievementHurty: Achievement;
+    achievementVictory: Achievement;
+}
+
 type GameStats = {
     totalScore: number;
     turns: number;
@@ -83,11 +97,12 @@ type PersistedStats = {
     achievementZippy: number;
     achievementHungry: number;
     achievementThumpy: number;
-    achievementHippy: number;
+    achievementSofty: number;
     achievementNoisy: number;
     achievementLeapy: number;
     achievementCreepy: number;
     achievementHurty: number;
+    achievementVictory: number;
 }
 
 interface Particle {
@@ -99,6 +114,7 @@ type State = {
     gameStats: GameStats;
     persistedStats: PersistedStats;
     levelStats: LevelStats;
+    achievements: Achievements;
     rng: RNG;
     dailyRun: string|null;
     tLast: number | undefined;
@@ -113,6 +129,7 @@ type State = {
     textWindows: {[key in GameMode]?: TextWindow };
     particles: Array<Particle>;
     player: Player;
+    oldPlayerPos: vec2,
     topStatusMessage: string;
     topStatusMessageSticky: boolean;
     topStatusMessageSlide: number;
