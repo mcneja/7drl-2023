@@ -326,10 +326,10 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([10, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
         {textureIndex: r([7, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
         //KO'd
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
-        {textureIndex: r([0, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
+        {textureIndex: r([6, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE
+        {textureIndex: r([6, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardN
+        {textureIndex: r([6, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardW
+        {textureIndex: r([6, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardS
     ],
     playerTiles: {
         normal:  {textureIndex: r([1, 8]), color:colorPreset.white, unlitColor:colorPreset.lightGray},
