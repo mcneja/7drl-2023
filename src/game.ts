@@ -956,16 +956,12 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             return;
 
         case ItemType.TorchUnlit:
-            if (stepType === StepType.Normal) {
-                preTurn(state);
-                state.sounds["ignite"].play(0.08);
-                item.type = ItemType.TorchLit;
-                player.pickTarget = null;
-                bumpAnim(state, dx, dy);
-                advanceTime(state);
-            } else {
-                bumpFail(state, dx, dy);
-            }
+            preTurn(state);
+            state.sounds["ignite"].play(0.08);
+            item.type = ItemType.TorchLit;
+            player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
             return;
 
         case ItemType.TorchLit:
@@ -1203,13 +1199,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         return;
     }
 
-    // If the midpoint is a lit lamp, downgrade to a step
-
-    if (state.gameMap.items.find((item)=>item.pos.equals(posMid) && item.type === ItemType.TorchLit)) {
-        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
-        return;
-    }
-
     // If the leap destination is blocked, try a step if it can succeeed; else fail
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
@@ -1244,6 +1233,14 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // Collect any loot from posMid
 
     collectLoot(state, posMid, posNew);
+
+    // Extinguish torch at posMid
+
+    const torchMid = state.gameMap.items.find((item)=>item.pos.equals(posMid) && item.type === ItemType.TorchLit);
+    if (torchMid !== undefined) {
+        state.sounds["douse"].play(0.05);
+        torchMid.type = ItemType.TorchUnlit;
+    }
 
     // End level if moving off the map
 
