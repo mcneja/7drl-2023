@@ -241,6 +241,7 @@ function updateControllerState(state:State) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
+            setStatusMessage(state, 'Guard speech ' + (state.guardMute ? 'disabled' : 'enabled'));
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
@@ -258,12 +259,15 @@ function updateControllerState(state:State) {
             setStatusMessage(state, "Setting player idle cursor to "+state.player.idleCursorType);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
+            setStatusMessage(state, 'Sound ' + (state.volumeMute ? 'disabled' : 'enabled'));
         } else if (activated('volumeDown')) {
             const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
             setSoundVolume(state, soundVolume);
+            setStatusMessage(state, 'Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%');
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
+            setStatusMessage(state, 'Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%');
         } else if (activated('showSpeech')) {
             state.popups.currentPopupTimeRemaining = (state.popups.currentPopupTimeRemaining > 0) ? 0 : 2;
         }
@@ -280,8 +284,9 @@ function scoreCompletedLevel(state: State) {
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
     const lootScore = state.lootStolen * 10;
+    const foodScore = state.levelStats.extraFoodCollected * 5;
     const ghostBonus = ghosted ? lootScore : 0;
-    const score = lootScore + timeBonus + ghostBonus;
+    const score = lootScore + foodScore + timeBonus + ghostBonus;
 
     state.gameStats.totalScore += score;
     state.gameStats.turns += state.totalTurns;
@@ -298,7 +303,7 @@ function scoreIncompleteLevel(state: State) {
     }
     state.gameMapRoughPlans[state.level].played = true;
 
-    const score = state.lootStolen * 10;
+    const score = state.lootStolen * 10 + state.levelStats.extraFoodCollected * 5;
 
     state.gameStats.totalScore += score;
     state.gameStats.turns += state.totalTurns;
@@ -312,6 +317,7 @@ function clearLevelStats(levelStats: LevelStats) {
     levelStats.numKnockouts = 0;
     levelStats.numSpottings = 0;
     levelStats.damageTaken = 0;
+    levelStats.extraFoodCollected = 0;
 }
 
 function updateAchievements(state: State, type:'turnEnd'|'levelEnd'|'gameEnd'|'gameStart') {
@@ -477,6 +483,9 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             ++state.lootStolen;
             coinCollected = true;
         } else if (item.type === ItemType.Health) {
+            if (state.player.health >= maxPlayerHealth) {
+                ++state.levelStats.extraFoodCollected;
+            }
             state.player.health = Math.min(maxPlayerHealth, state.player.health + 1);
             healthCollected = true;
         }
@@ -981,16 +990,12 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             return;
 
         case ItemType.TorchUnlit:
-            if (stepType === StepType.Normal) {
-                preTurn(state);
-                state.sounds["ignite"].play(0.08);
-                item.type = ItemType.TorchLit;
-                player.pickTarget = null;
-                bumpAnim(state, dx, dy);
-                advanceTime(state);
-            } else {
-                bumpFail(state, dx, dy);
-            }
+            preTurn(state);
+            state.sounds["ignite"].play(0.08);
+            item.type = ItemType.TorchLit;
+            player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
             return;
 
         case ItemType.TorchLit:
@@ -1228,13 +1233,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         return;
     }
 
-    // If the midpoint is a lit lamp, downgrade to a step
-
-    if (state.gameMap.items.find((item)=>item.pos.equals(posMid) && item.type === ItemType.TorchLit)) {
-        tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
-        return;
-    }
-
     // If the leap destination is blocked, try a step if it can succeeed; else fail
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
@@ -1269,6 +1267,14 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     // Collect any loot from posMid
 
     collectLoot(state, posMid, posNew);
+
+    // Extinguish torch at posMid
+
+    const torchMid = state.gameMap.items.find((item)=>item.pos.equals(posMid) && item.type === ItemType.TorchLit);
+    if (torchMid !== undefined) {
+        state.sounds["douse"].play(0.05);
+        torchMid.type = ItemType.TorchUnlit;
+    }
 
     // End level if moving off the map
 
@@ -2277,6 +2283,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             numKnockouts: 0,
             numSpottings: 0,
             damageTaken: 0,
+            extraFoodCollected: 0,
         },
         achievements: getAchievements(),
         lightStates: Array(gameMap.lightCount).fill(0),
@@ -3061,7 +3068,7 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
     const offsetTilesX = (screenSizeInTilesX - message.length) / -2;
 
     {
-        const offsetTilesY = borderY + state.topStatusMessageSlide * -(2 + borderY);
+        const offsetTilesY = borderY + -(3 + borderY);
 
         mat4.ortho(
             matScreenFromText,
@@ -3069,15 +3076,18 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
             offsetTilesY, screenSizeInTilesY + offsetTilesY,
             1, -1
         );
-    
+
+        const u = state.topStatusMessageSlide;
+        const colorBackgroundFade = colorLerp(0x00080808, 0xb0080808, u);
+        const colorForegroundFade = colorLerp(0x00ffffff, 0xffffffff, u);
         renderer.start(matScreenFromText, 0);
-        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
-        putString(renderer, 0, message, 0xffffffff);
+        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackgroundFade, unlitColor: colorBackgroundFade});
+        putString(renderer, 0, message, colorForegroundFade);
         renderer.flush();
     }
 
     {
-        const offsetTilesY = (1 - state.topStatusMessageSlide) * (2 + borderY) - (screenSizeInTilesY + borderY);
+        const offsetTilesY = (3 + borderY) - (screenSizeInTilesY + borderY);
 
         mat4.ortho(
             matScreenFromText,
@@ -3085,10 +3095,14 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
             offsetTilesY, screenSizeInTilesY + offsetTilesY,
             1, -1
         );
-    
+
+        const u = 1 - state.topStatusMessageSlide;
+        const colorBackgroundFade = colorLerp(0x00080808, 0xb0080808, u);
+        const colorForegroundFade = colorLerp(0x00ffffff, 0xffffffff, u);
+
         renderer.start(matScreenFromText, 0);
-        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
-        putString(renderer, 0, message, 0xffffffff);
+        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackgroundFade, unlitColor: colorBackgroundFade});
+        putString(renderer, 0, message, colorForegroundFade);
         renderer.flush();
     }
 }
