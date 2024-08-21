@@ -1539,12 +1539,10 @@ function postTurn(state: State) {
         } else if (state.level < 3) {
             setStatusMessage(state, 'Collect all loot');
         } else if (state.level === 3 && remainingLootIsOnGuard(state)) {
-            if (state.player.pickTarget !== null) {
-                setStatusMessage(state, 'Follow to pickpocket');
-            } else if (adjacentToUnawareGuardWithLoot(state)) {
-                setStatusMessage(state, 'Follow to pickpocket or leap to knock out');
+            if (state.player.pickTarget !== null || adjacentToUnawareGuardWithLoot(state)) {
+                setStatusMessage(state, 'Step to pickpocket or leap to knock out');
             } else {
-                setStatusMessage(state, 'Get next to guard carrying loot');
+                setStatusMessage(state, 'Stand behind loot-carrying guard');
             }
         } else if (!state.topStatusMessageSticky) {
             setStatusMessage(state, '');
