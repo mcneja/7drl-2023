@@ -9,7 +9,7 @@ import { TileInfo, getTileSet, getFontTileSet, TileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
-import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen } from './ui'
+import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen } from './ui'
 import {Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
@@ -2175,6 +2175,15 @@ export function loadStats(): PersistedStats {
         allDailyPlays: getStat('allDailyPlays') ?? 0,
         allDailyWins: getStat('allDailyWins') ?? 0,
         allDailyWinsFirstTry: getStat('allDailyWinsFirstTry') ?? 0,
+        achievementGhostly: getStat('achievementGhostly') ?? 0,
+        achievementZippy: getStat('achievementZippy') ?? 0,
+        achievementHungry: getStat('achievementHungry') ?? 0,
+        achievementThumpy: getStat('achievementThumpy') ?? 0,
+        achievementHippy: getStat('achievementHippy') ?? 0,
+        achievementNoisy: getStat('achievementNoisy') ?? 0,
+        achievementLeapy: getStat('achievementLeapy') ?? 0,
+        achievementCreepy: getStat('achievementCreepy') ?? 0,
+        achievementHurty: getStat('achievementHurty') ?? 0,
     };
 }
 
@@ -2193,6 +2202,16 @@ export function saveStats(persistedStats: PersistedStats) {
     setStat('totalPlays', persistedStats.totalPlays);
     setStat('totalWins', persistedStats.totalWins);
     setStat('totalGhosts', persistedStats.totalGhosts);
+    
+    setStat('achievementGhostly', persistedStats.achievementGhostly);
+    setStat('achievementZippy', persistedStats.achievementZippy);
+    setStat('achievementHungry', persistedStats.achievementHungry);
+    setStat('achievementThumpy', persistedStats.achievementThumpy);
+    setStat('achievementHippy', persistedStats.achievementHippy);
+    setStat('achievementNoisy', persistedStats.achievementNoisy);
+    setStat('achievementLeapy', persistedStats.achievementLeapy);
+    setStat('achievementCreepy', persistedStats.achievementCreepy);
+    setStat('achievementHurty', persistedStats.achievementHurty);
 }
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
@@ -2244,6 +2263,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.HomeScreen]: new HomeScreen(),
             [GameMode.OptionsScreen]: new OptionsScreen(),
             [GameMode.StatsScreen]: new StatsScreen(),
+            [GameMode.AchievementsScreen]: new AchievementsScreen(),
             [GameMode.DailyHub]: new DailyHubScreen(),
             [GameMode.HelpControls]: new HelpControls(),
             [GameMode.HelpKey]: new HelpKey(),

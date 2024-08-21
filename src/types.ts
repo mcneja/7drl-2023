@@ -26,6 +26,7 @@ type Camera = {
 enum GameMode {
     HomeScreen,
     StatsScreen,
+    AchievementsScreen,
     OptionsScreen,
     HelpControls,
     HelpKey,
@@ -77,6 +78,16 @@ type PersistedStats = {
     allDailyPlays: number;
     allDailyWins: number;
     allDailyWinsFirstTry: number;
+
+    achievementGhostly: number;
+    achievementZippy: number;
+    achievementHungry: number;
+    achievementThumpy: number;
+    achievementHippy: number;
+    achievementNoisy: number;
+    achievementLeapy: number;
+    achievementCreepy: number;
+    achievementHurty: number;
 }
 
 interface Particle {

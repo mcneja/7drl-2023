@@ -8,7 +8,7 @@ import { RNG } from './random';
 import { getFontTileSet, getTileSet } from './tilesets';
 import { ItemType, TerrainType } from './game-map';
 
-export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
+export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
 
 function scoreToClipboard(stats:GameStats) {
     const numGhostedLevels = stats.numGhostedLevels;
@@ -292,6 +292,7 @@ $playRestartOrResume$
 [D|homeDaily]: Daily challenge
 [O|homeOptions]: Options
 [S|homeStats]: Statistics
+[A|homeAchievements]: Achievements
 [C|credits]: Credits`
     ]; 
     constructor() {
@@ -317,6 +318,8 @@ $playRestartOrResume$
             state.gameMode = GameMode.DailyHub;
         } else if(activated('homeStats') || actionSelected=='homeStats') {
             state.gameMode = GameMode.StatsScreen;
+        } else if(activated('homeAchievements') || actionSelected=='homeAchievements') {
+            state.gameMode = GameMode.AchievementsScreen;
         } else if(activated('homeOptions') || actionSelected=='homeOptions') {
             state.gameMode = GameMode.OptionsScreen;
         } else if (activated('helpControls') || actionSelected=='helpControls') {
@@ -633,6 +636,43 @@ Total wins first try:    $allDailyWinsFirstTry$
         };
     }
 }
+
+class AchievementsScreen extends TextWindow {
+    pages = [
+`Achievements
+
+Earn achievements by meeting certain requirements
+when you complete a game.
+
+<$ghostlyAchieved$> Ghostly: ghost every level
+<$zippyAchieved$> Zippy: under par time on every level
+<$hungryAchieved$> Hungry: got all the food
+<$thumpyAchieved$> Thumpy: KO'd all guards
+<$hippyAchieved$> Hippy: did not KO anyone
+<$noisyAchieved$> Noisy: alerted guards with noise on levels 2-10
+<$leapyAchieved$> Leapy: leapt more than 90% of your turns
+<$creepyAchieved$> Creepy: walked more than 90% of your turns
+
+[Esc|menu] Back to menu`];
+    update(state:State) {
+        this.state.set('ghostlyAchieved', state.persistedStats.achievementGhostly>0?'X':' ');
+        this.state.set('zippyAchieved', state.persistedStats.achievementZippy>0?'X':' ');
+        this.state.set('hungryAchieved', state.persistedStats.achievementHungry>0?'X':' ');
+        this.state.set('thumpyAchieved', state.persistedStats.achievementThumpy>0?'X':' ');
+        this.state.set('hippyAchieved', state.persistedStats.achievementHippy>0?'X':' ');
+        this.state.set('noisyAchieved', state.persistedStats.achievementNoisy>0?'X':' ');
+        this.state.set('leapyAchieved', state.persistedStats.achievementLeapy>0?'X':' ');
+        this.state.set('creepyAchieved', state.persistedStats.achievementCreepy>0?'X':' ');
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+        };
+    }
+}
+
+
 
 class MansionCompleteScreen extends TextWindow {
     pages = [
