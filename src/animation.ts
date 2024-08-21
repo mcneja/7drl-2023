@@ -26,22 +26,31 @@ class FrameAnimator extends Animator {
     frameDuration: number|Array<number>;
     time: number;
     tileInfo:Array<TileInfo>;
-    constructor(tileInfo:Array<TileInfo>, frameDuration:number|Array<number>, time:number=0, frame:number=0) {
+    removeOnFinish:boolean;
+    loops: number;
+    constructor(tileInfo:Array<TileInfo>, frameDuration:number|Array<number>, startingFrame:number=0, loops:number=-1) {
         super();
-        this.time = time;
+        this.time = 0;
         this.tileInfo = tileInfo;
-        this.activeFrame = frame;
+        this.activeFrame = startingFrame;
         this.frameDuration = frameDuration;
+        this.removeOnFinish = false;
+        this.loops = loops;
     }
     update(dt:number):boolean {
         this.time+=dt;
         const fDuration = this.frameDuration instanceof Array? this.frameDuration[this.activeFrame]:this.frameDuration;
         if(this.time>fDuration) {
             this.activeFrame++;
-            if(this.activeFrame>=this.tileInfo.length) this.activeFrame=0;
+            if(this.activeFrame>=this.tileInfo.length) {
+                this.activeFrame=0;
+                if (this.loops>0) {
+                    this.loops--;
+                }
+            }
             this.time = 0;
         }
-        return false;
+        return this.loops===0;
     }
     currentTile():TileInfo {
         return this.tileInfo[this.activeFrame];

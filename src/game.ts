@@ -5,7 +5,7 @@ import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight, } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
-import { TileInfo, getTileSet, getFontTileSet } from './tilesets';
+import { TileInfo, getTileSet, getFontTileSet, TileSet } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
@@ -1471,7 +1471,7 @@ function preTurn(state: State) {
 }
 
 function advanceTime(state: State) {
-    let oldHealth = state.player.health;
+    const oldHealth = state.player.health;
     ++state.turns;
     ++state.totalTurns;
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
@@ -1674,17 +1674,27 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
     renderer.flush();
 }
 
-function terrainTileSetForLevelType(levelType: LevelType, renderer: Renderer) {
+function waterTileSetForLevelType(levelType: LevelType, tileset:TileSet) {
     switch (levelType) {
-        case LevelType.Mansion: return renderer.tileSet.terrainTiles;
-        case LevelType.Fortress: return renderer.tileSet.fortressTerrainTiles;
+        case LevelType.Manor: return tileset.waterAnimation;
+        case LevelType.Mansion: return tileset.manseWaterAnimation;
+        case LevelType.Fortress: return tileset.fortressWaterAnimation;
     }
 }
 
-function itemTileSetForLevelType(levelType: LevelType, renderer: Renderer) {
+function terrainTileSetForLevelType(levelType: LevelType, tileset:TileSet) {
     switch (levelType) {
-        case LevelType.Mansion: return renderer.tileSet.itemTiles;
-        case LevelType.Fortress: return renderer.tileSet.fortressItemTiles;
+        case LevelType.Manor: return tileset.terrainTiles;
+        case LevelType.Mansion: return tileset.manseTerrainTiles;
+        case LevelType.Fortress: return tileset.fortressTerrainTiles;
+    }
+}
+
+function itemTileSetForLevelType(levelType: LevelType, tileset:TileSet) {
+    switch (levelType) {
+        case LevelType.Manor: return tileset.itemTiles;
+        case LevelType.Mansion: return tileset.manseItemTiles;
+        case LevelType.Fortress: return tileset.fortressItemTiles;
     }
 }
 
@@ -1692,7 +1702,7 @@ function renderWorld(state: State, renderer: Renderer) {
     updateAnimatedLight(state.gameMap.cells, state.lightStates, state.seeAll);
 
     // Draw terrain
-    const terrTiles = terrainTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer);
+    const terrTiles = terrainTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.tileSet);
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
@@ -1709,9 +1719,20 @@ function renderWorld(state: State, renderer: Renderer) {
             const lv = litVertices(x, y, state.gameMap.cells);
 
             // Draw tile
-            if (terrainType === TerrainType.PortcullisEW &&
-                state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-                renderer.addGlyphLit4(x, y, x+1, y+1, terrTiles[TerrainType.PortcullisNS], lv);
+            if (terrainType === TerrainType.PortcullisEW || 
+                terrainType === TerrainType.PortcullisNS ||
+                terrainType === TerrainType.DoorEW ||
+                terrainType === TerrainType.DoorNS) {
+                //The door/portcullis terrain renders the door/gate open
+                if (!state.gameMap.items.find((item)=> {
+                    return item.pos[0] === x && 
+                        item.pos[1] === y &&
+                        item.type >= ItemType.DoorNS 
+                        && item.type <=ItemType.PortcullisEW;})) {
+                    renderer.addGlyphLit4(x, y, x+1, y+1, terrTiles[terrainType], lv);
+                } else if (state.gameMap.guards.find((guard)=>guard.pos[0]===x && guard.pos[1]===y)) {
+                        renderer.addGlyphLit4(x, y, x+1, y+1, terrTiles[terrainType], lv);
+                }
             } else {
                 const tile = cell.animation? cell.animation.currentTile():terrTiles[terrainType];
                 renderer.addGlyphLit4(x, y, x+1, y+1, tile, lv);
@@ -1733,7 +1754,7 @@ function renderWorld(state: State, renderer: Renderer) {
     }
 
     // Draw items
-    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer);
+    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.tileSet);
 
     for(const item of state.gameMap.items) {
         let x = item.pos[0];
@@ -1744,16 +1765,15 @@ function renderWorld(state: State, renderer: Renderer) {
         }
         const terrainType = cell.type;
         const lv = litVertices(x, y, state.gameMap.cells);
-        if (terrainType === TerrainType.PortcullisEW &&
-            state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y)) {
-            renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[ItemType.PortcullisNS], lv);
-        } else {
-            //Don't draw the door if someone standing in it
-            if([TerrainType.DoorEW, TerrainType.DoorNS].includes(terrainType)) {
-                if(state.gameMap.guards.find((guard)=>guard.pos[0]==x && guard.pos[1]==y) || state.player.pos[0]==x && state.player.pos[1]==y) {
-                    continue;
-                }
+        if (terrainType === TerrainType.PortcullisEW || 
+            terrainType === TerrainType.PortcullisNS ||
+            terrainType === TerrainType.DoorEW ||
+            terrainType === TerrainType.DoorNS) {
+                //The door/portcullis item renders the door/gate closed if there is no guard present
+            if (!state.gameMap.guards.find((guard)=>guard.pos[0]===x && guard.pos[1]===y)) {
+                renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[item.type], lv);
             }
+        } else {
             const ti = item.animation ?
                 item.animation.currentTile() :
                 itemTiles[item.type];
@@ -1871,8 +1891,8 @@ function renderPlayer(state: State, renderer: Renderer) {
     }
 
     renderer.addGlyphLit(x, y, x+1, y+1, tileInfoTinted, lit);
-    if(hidden) {
-        renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.playerTiles.litFace, lit);
+    if(hidden && player.idle) {
+        renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.playerTiles.litFace, 0.15);
     }
     for(let dr of frontRenders) {
         renderer.addGlyphLit(...dr);
@@ -2291,9 +2311,11 @@ export function zoomOut(state: State) {
 }
 
 function setCellAnimations(gameMap: GameMap, state: State) {
+    const levelType = state.gameMapRoughPlans[state.level].levelType;
+    const tileSet = getTileSet();
     for(let c of gameMap.cells.values) {
         if(c.type===TerrainType.GroundWater) {
-            c.animation = new FrameAnimator(tileSet.waterAnimation, .5);
+            c.animation = new FrameAnimator(waterTileSetForLevelType(levelType, tileSet), 1);
         }
     }
 }
@@ -2496,6 +2518,8 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     canvas.height = canvasSizeY;
     const screenSize = vec2.fromValues(canvasSizeX, canvasSizeY);
 
+    const oldPlayerPos = vec2.clone(state.player.pos);
+
     updateControllerState(state);
 
     const topStatusMessageTargetUpper = state.player.pos[1] >= state.gameMap.cells.sizeY / 2;
@@ -2518,7 +2542,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     }
 
     if (dt > 0) {
-        updateState(state, screenSize, dt);
+        updateState(state, screenSize, dt, oldPlayerPos);
     }
 
     const tw = state.textWindows[state.gameMode];
@@ -2535,7 +2559,7 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
 }
 
 
-function updateState(state: State, screenSize: vec2, dt: number) {
+function updateState(state: State, screenSize: vec2, dt: number, oldPlayerPos:vec2) {
     updateCamera(state, screenSize, dt);
 
     updateIdle(state, dt);
@@ -2561,10 +2585,26 @@ function updateState(state: State, screenSize: vec2, dt: number) {
             g.torchAnimation = null;
         }    
     }
+    if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress && !oldPlayerPos.equals(state.player.pos)) {
+        const item = state.gameMap.items.find((item) => item.pos.equals(oldPlayerPos))
+        if(item && item.type === ItemType.Bush) {
+            const ti0 = itemTileSetForLevelType(LevelType.Fortress, getTileSet())[item.type];
+            const ti1 = {...ti0};
+            const ti2 = {...ti0};
+            const ti3 = {...ti0};
+            ti1.textureIndex = ti0.textureIndex? ti0.textureIndex+1:0;
+            ti2.textureIndex = ti0.textureIndex? ti0.textureIndex+2:0;
+            ti3.textureIndex = ti0.textureIndex? ti0.textureIndex+3:0;
+            item.animation = new FrameAnimator([ti0, ti1, ti2, ti3, ti3, ti3, ti2, ti1, ti0], 1, 0, 1);
+        }
+    }
     state.gameMap.items = state.gameMap.items.filter( (i) => {
         const done = i.animation?.update(dt);
-        if(i.animation instanceof SpriteAnimation) {
-            return !(i.animation.removeOnFinish && done);
+        if(done === true) {
+            i.animation = undefined;
+        }
+        if((i instanceof SpriteAnimation || i instanceof FrameAnimator) && i.removeOnFinish) {
+            return done !== true;
         }
         return true;
     });

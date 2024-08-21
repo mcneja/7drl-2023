@@ -75,7 +75,9 @@ type PatrolRoute = {
 }
 
 function levelTypeFromLevel(level: number): LevelType {
-    return (level === 9) ? LevelType.Fortress : LevelType.Mansion;
+    return (level === 9) ? LevelType.Fortress : 
+            (level > 4) ? LevelType.Mansion:
+            LevelType.Manor
 }
 
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {

@@ -111,6 +111,7 @@ class Float64Grid {
 }
 
 enum LevelType {
+    Manor,
     Mansion,
     Fortress,
 }
