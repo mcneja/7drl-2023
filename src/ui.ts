@@ -406,7 +406,7 @@ class HelpControls extends TextWindow {
   Show last speech: Tab
 
 Disable NumLock if using numpad
-Mouse, touch and gamepad also supported
+Touch devices and gamepad also supported
 
 [Esc|menu] Back to menu`,
     ];
@@ -652,6 +652,7 @@ when you complete a game.
 <$noisyAchieved$> Noisy: alerted guards with noise on levels 2-10
 <$leapyAchieved$> Leapy: leapt more than 90% of your turns
 <$creepyAchieved$> Creepy: walked more than 90% of your turns
+<$hurtyAchieved$> Hurty: took a wound on levels 2-10
 
 [Esc|menu] Back to menu`];
     update(state:State) {
@@ -663,6 +664,7 @@ when you complete a game.
         this.state.set('noisyAchieved', state.persistedStats.achievementNoisy>0?'X':' ');
         this.state.set('leapyAchieved', state.persistedStats.achievementLeapy>0?'X':' ');
         this.state.set('creepyAchieved', state.persistedStats.achievementCreepy>0?'X':' ');
+        this.state.set('hurtyAchieved', state.persistedStats.achievementHurty>0?'X':' ');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
