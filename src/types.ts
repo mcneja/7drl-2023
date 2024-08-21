@@ -49,6 +49,7 @@ type LevelStats = {
     numKnockouts: number;
     numSpottings: number;
     damageTaken: number;
+    extraFoodCollected: number;
 }
 
 type GameStats = {

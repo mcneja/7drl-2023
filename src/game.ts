@@ -279,8 +279,9 @@ function scoreCompletedLevel(state: State) {
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
     const lootScore = state.lootStolen * 10;
+    const foodScore = state.levelStats.extraFoodCollected * 5;
     const ghostBonus = ghosted ? lootScore : 0;
-    const score = lootScore + timeBonus + ghostBonus;
+    const score = lootScore + foodScore + timeBonus + ghostBonus;
 
     state.gameStats.totalScore += score;
     state.gameStats.turns += state.totalTurns;
@@ -297,7 +298,7 @@ function scoreIncompleteLevel(state: State) {
     }
     state.gameMapRoughPlans[state.level].played = true;
 
-    const score = state.lootStolen * 10;
+    const score = state.lootStolen * 10 + state.levelStats.extraFoodCollected * 5;
 
     state.gameStats.totalScore += score;
     state.gameStats.turns += state.totalTurns;
@@ -311,6 +312,7 @@ function clearLevelStats(levelStats: LevelStats) {
     levelStats.numKnockouts = 0;
     levelStats.numSpottings = 0;
     levelStats.damageTaken = 0;
+    levelStats.extraFoodCollected = 0;
 }
 
 export function setupLevel(state: State, level: number) {
@@ -452,6 +454,9 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             ++state.lootStolen;
             coinCollected = true;
         } else if (item.type === ItemType.Health) {
+            if (state.player.health >= maxPlayerHealth) {
+                ++state.levelStats.extraFoodCollected;
+            }
             state.player.health = Math.min(maxPlayerHealth, state.player.health + 1);
             healthCollected = true;
         }
@@ -2246,6 +2251,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             numKnockouts: 0,
             numSpottings: 0,
             damageTaken: 0,
+            extraFoodCollected: 0,
         },
         lightStates: Array(gameMap.lightCount).fill(0),
         particles:[],
