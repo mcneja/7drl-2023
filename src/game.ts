@@ -2368,9 +2368,11 @@ export function zoomOut(state: State) {
 function setCellAnimations(gameMap: GameMap, state: State) {
     const levelType = state.gameMapRoughPlans[state.level].levelType;
     const tileSet = getTileSet();
+    let counter = 1;
     for(let c of gameMap.cells.values) {
         if(c.type===TerrainType.GroundWater) {
-            c.animation = new FrameAnimator(waterTileSetForLevelType(levelType, tileSet), 1);
+            c.animation = new FrameAnimator(waterTileSetForLevelType(levelType, tileSet), 1, (counter*1369)%4);
+            counter++;
         }
     }
 }
