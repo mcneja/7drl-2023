@@ -149,12 +149,9 @@ function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number,
                 ++y;
             }
         }
-    /*
-    // Working on a mansion layout algorithm
     } else if (levelType === LevelType.Mansion) {
         x = 3 * Math.floor((x + 2) / 3) - 1;
         y = 3 * Math.floor((y + 2) / 3) - 1;
-    */
     }
 
     return [x,y];
@@ -218,7 +215,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Make a set of rooms.
 
-    const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY);
+    const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY, levelType);
 
     // Compute a list of room adjacencies.
 
@@ -357,7 +354,78 @@ function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
 }
 
 function makeMansionRoomGrid(inside: BooleanGrid, rng: RNG) {
-    makeManorRoomGrid(inside, rng);
+    const numCellsX = Math.floor((inside.sizeX + 1) / 3);
+    const numCellsY = Math.floor((inside.sizeY + 1) / 3);
+
+    inside.fill(false);
+    for (let cellX = 0; cellX < numCellsX; ++cellX) {
+        for (let cellY = 0; cellY < numCellsY; ++cellY) {
+            for (let x = 0; x < 2; ++x) {
+                for (let y = 0; y < 2; ++y) {
+                    inside.set(3*cellX + x, 3 * cellY + y, true);
+                }
+            }
+        }
+    }
+
+    const cellGroup: Array<number> = [];
+    for (let cellX = 0; cellX < numCellsX; ++cellX) {
+        for (let cellY = 0; cellY < numCellsY; ++cellY) {
+            cellGroup.push(cellX * numCellsY + cellY);
+        }
+    }
+
+    const cellAdjacencies: Array<[number, number]> = [];
+    for (let cellX = 1; cellX < numCellsX; ++cellX) {
+        for (let cellY = 0; cellY < numCellsY; ++cellY) {
+            const cellIndex0 = (cellX - 1) * numCellsY + cellY;
+            const cellIndex1 = cellX * numCellsY + cellY;
+            cellAdjacencies.push([cellIndex0, cellIndex1]);
+        }
+    }
+
+    for (let cellX = 0; cellX < numCellsX; ++cellX) {
+        for (let cellY = 1; cellY < numCellsY; ++cellY) {
+            const cellIndex0 = cellX * numCellsY + (cellY - 1);
+            const cellIndex1 = cellX * numCellsY + cellY;
+            cellAdjacencies.push([cellIndex0, cellIndex1]);
+        }
+    }
+
+    rng.shuffleArray(cellAdjacencies);
+
+    for (const cellAdjacency of cellAdjacencies) {
+        const cellIndex0 = cellAdjacency[0];
+        const cellIndex1 = cellAdjacency[1];
+        const cellGroup0 = cellGroup[cellIndex0];
+        const cellGroup1 = cellGroup[cellIndex1];
+
+        const cell0Y = cellIndex0 % numCellsY;
+        const cell0X = Math.floor(cellIndex0 / numCellsY);
+        const cell1Y = cellIndex1 % numCellsY;
+        const cell1X = Math.floor(cellIndex1 / numCellsY);
+
+        if (cellGroup0 === cellGroup1) {
+            continue;
+        }
+
+        for (let i = 0; i < cellGroup.length; ++i) {
+            if (cellGroup[i] === cellGroup1) {
+                cellGroup[i] = cellGroup0;
+            }
+        }
+
+        const xMin = 3 * Math.min(cell0X, cell1X);
+        const xMax = 3 * Math.max(cell0X, cell1X) + 2;
+        const yMin = 3 * Math.min(cell0Y, cell1Y);
+        const yMax = 3 * Math.max(cell0Y, cell1Y) + 2;
+
+        for (let x = xMin; x < xMax; ++x) {
+            for (let y = yMin; y < yMax; ++y) {
+                inside.set(x, y, true);
+            }
+        }
+    }
 }
 
 function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adjacencies:Array<Adjacency>, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
@@ -612,7 +680,8 @@ function createBlankGameMap(rooms: Array<Room>): GameMap {
 function createRooms(
     inside: BooleanGrid,
     offsetX: Int32Grid,
-    offsetY: Int32Grid): [Array<Room>, Int32Grid] {
+    offsetY: Int32Grid,
+    levelType: LevelType): [Array<Room>, Int32Grid] {
     const roomsX = inside.sizeX;
     const roomsY = inside.sizeY;
 
@@ -634,6 +703,8 @@ function createRooms(
         gridY: -1,
     });
 
+    const roomTypeCourtyard = (levelType === LevelType.Mansion) ? RoomType.Exterior : RoomType.PublicCourtyard;
+
     for (let rx = 0; rx < roomsX; ++rx) {
         for (let ry = 0; ry < roomsY; ++ry) {
             let group_index = rooms.length;
@@ -641,7 +712,7 @@ function createRooms(
             roomIndex.set(rx, ry, group_index);
 
             rooms.push({
-                roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : RoomType.PublicCourtyard,
+                roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : roomTypeCourtyard,
                 group: group_index,
                 depth: 0,
                 betweenness: 0,
@@ -3348,6 +3419,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             continue;
         }
 
+        if (type0 === RoomType.Exterior && type1 === RoomType.Exterior) {
+            continue;
+        }
+
         for (let i = 0; i < adj.length + 1; ++i) {
             const pos = vec2.create();
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
@@ -3482,7 +3557,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
 
         let cellType: TerrainType;
         switch (room.roomType) {
-            case RoomType.Exterior: cellType = TerrainType.GroundNormal; break;
+            case RoomType.Exterior: cellType = TerrainType.GroundGrass; break;
             case RoomType.PublicCourtyard: cellType = TerrainType.GroundGrass; break;
             case RoomType.PublicRoom: cellType = TerrainType.GroundWood; break;
             case RoomType.PrivateCourtyard: cellType = TerrainType.GroundGrass; break;
@@ -4652,7 +4727,7 @@ function outerBuildingPerimeter(adjacencies: Array<Adjacency>, map: GameMap): Ar
     const pos = vec2.clone(posStart);
     const dir = vec2.fromValues(1, 0);
 
-    while (true) {
+    for (let i = map.cells.sizeX * map.cells.sizeY; i > 0; --i) {
         // Add current position to path
 
         path.push(vec2.clone(pos));
