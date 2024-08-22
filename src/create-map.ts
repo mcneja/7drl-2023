@@ -77,7 +77,7 @@ type PatrolRoute = {
 function levelTypeFromLevel(level: number): LevelType {
     return (level === 9) ? LevelType.Fortress : 
             (level > 4) ? LevelType.Mansion:
-            LevelType.Manor
+            LevelType.Manor;
 }
 
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
@@ -134,19 +134,27 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
 function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number, number] {
     let xmin: number, xmax: number, ymin: number, ymax: number, Amin: number, Amax: number;
     [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];
-    const x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
+    let x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
     let y = ymin + rng.randomInRange(1+ymax-ymin);
     y = Math.min(Math.floor(Amax/x), y);
     y = Math.max(y, Math.ceil(Amin/x));
 
-    // Ensure LevelType.Fortress levels have odd number of rooms vertically
-    // (All levels have an odd number of rooms horizontally)
-    if (levelType === LevelType.Fortress && (y & 1) === 0) {
-        if (y > 5) {
-            --y;
-        } else {
-            ++y;
+    if (levelType === LevelType.Fortress) {
+        // Ensure LevelType.Fortress levels have odd number of rooms vertically
+        // (All levels have an odd number of rooms horizontally)
+        if ((y & 1) === 0) {
+            if (y > 5) {
+                --y;
+            } else {
+                ++y;
+            }
         }
+    /*
+    // Working on a mansion layout algorithm
+    } else if (levelType === LevelType.Mansion) {
+        x = 3 * Math.floor((x + 2) / 3) - 1;
+        y = 3 * Math.floor((y + 2) / 3) - 1;
+    */
     }
 
     return [x,y];
@@ -163,8 +171,12 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const inside = new BooleanGrid(plan.numRoomsX, plan.numRoomsY, true);
 
     switch (levelType) {
+    case LevelType.Manor:
+        makeManorRoomGrid(inside, rng);
+        break;
+
     case LevelType.Mansion:
-        makeSiheyuanRoomGrid(inside, rng);
+        makeMansionRoomGrid(inside, rng);
         break;
 
     case LevelType.Fortress:
@@ -322,7 +334,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     return map;
 }
 
-function makeSiheyuanRoomGrid(inside: BooleanGrid, rng: RNG) {
+function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
     const sizeX = inside.sizeX;
     const sizeY = inside.sizeY;
 
@@ -342,6 +354,10 @@ function makeSiheyuanRoomGrid(inside: BooleanGrid, rng: RNG) {
     }
 
     return inside;
+}
+
+function makeMansionRoomGrid(inside: BooleanGrid, rng: RNG) {
+    makeManorRoomGrid(inside, rng);
 }
 
 function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adjacencies:Array<Adjacency>, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
