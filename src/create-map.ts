@@ -189,6 +189,17 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
         break;
     }
 
+    /*
+    console.log('Finished grid:');
+    for (let y = inside.sizeY - 1; y >= 0; --y) {
+        let s: string = y.toString() + ': ';
+        for (let x = 0; x < inside.sizeX; ++x) {
+            s += inside.get(x, y) ? 'X' : '.';
+        }
+        console.log(s);
+    }
+    */
+
     // Randomly offset walls, and establish mirror relationships between them
 
     const mirrorRoomsX: boolean = (plan.numRoomsX & 1) === 1;
@@ -199,8 +210,10 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     // Enforce symmetry by overwriting one area with another area
 
     if (mirrorRoomsX) {
-        mirrorInteriorLeftToRight(inside);
         mirrorOffsetsLeftToRight(offsetX, offsetY);
+        if (levelType !== LevelType.Mansion) {
+            mirrorInteriorLeftToRight(inside);
+        }
     }
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
@@ -464,7 +477,6 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adja
     }
     return;
 }
-
 
 function offsetWalls(
     roomsX: number,
@@ -1180,7 +1192,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Create a door to the surrounding exterior.
 
-    const adjDoor = frontDoorAdjacency(edgeSets);
+    const adjDoor = frontDoorAdjacency(edgeSets, rooms[0]);
     if (adjDoor !== undefined) {
         adjDoor.door = true;
         adjDoor.doorType = DoorType.GateFront;
@@ -1197,7 +1209,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
     // Occasionally create a back door to the exterior.
 
     if (levelType !== LevelType.Fortress && rng.randomInRange(30) < rooms.length) {
-        const adjDoor = backDoorAdjacency(edgeSets);
+        const adjDoor = backDoorAdjacency(edgeSets, rooms[0]);
         if (adjDoor !== undefined) {
             adjDoor.door = true;
             adjDoor.doorType = (level < 3 || rng.random() < 0.75) ? DoorType.GateBack : DoorType.Locked;
@@ -1215,7 +1227,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
     // Also create side doors sometimes.
 
     if (levelType !== LevelType.Fortress && rng.randomInRange(30) < rooms.length) {
-        const adjDoor = sideDoorAdjacency(edgeSets);
+        const adjDoor = sideDoorAdjacency(edgeSets, rooms[0]);
         if (adjDoor !== undefined) {
             const doorType = (level < 3) ? DoorType.GateBack : DoorType.Locked;
             adjDoor.door = true;
@@ -1267,7 +1279,7 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
     }
 }
 
-function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
+function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
@@ -1276,9 +1288,9 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefi
                 continue;
             }
 
-            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
+            if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
                 adjs.push(adj);
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] > 0) {
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] > 0) {
                 adjs.push(adj);
             }
         }
@@ -1293,7 +1305,7 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefi
     return adjs[Math.floor(adjs.length / 2)];
 }
 
-function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
+function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
@@ -1302,9 +1314,9 @@ function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
                 continue;
             }
 
-            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
+            if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
                 adjs.push(adj);
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] < 0) {
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] < 0) {
                 adjs.push(adj);
             }
         }
@@ -1319,7 +1331,7 @@ function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
     return adjs[Math.floor(adjs.length / 2)];
 }
 
-function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
+function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
@@ -1334,7 +1346,7 @@ function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
                 continue;
             }
 
-            if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+            if ((adj.roomLeft === roomExterior) === (adj.roomRight === roomExterior)) {
                 continue;
             }
 
@@ -1820,7 +1832,7 @@ function roomCanBePrivateLibrary(room: Room): boolean {
     return true;
 }
 
-function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency | undefined {
+function removableAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room, rng: RNG): Adjacency | undefined {
     const removableAdjs: Array<[Adjacency, number]> = [];
 
     for (const adj of adjacencies) {
@@ -1832,6 +1844,14 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
         }
 
         if (room0.roomType !== room1.roomType) {
+            continue;
+        }
+
+        if (room0 === roomExterior) {
+            continue;
+        }
+
+        if (room1 === roomExterior) {
             continue;
         }
 
@@ -2028,7 +2048,7 @@ function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng:
     rng.shuffleArray(adjacencies);
 
     for (let numMergeAttempts = 2 * Math.floor(rooms.length / 12); numMergeAttempts > 0; --numMergeAttempts) {
-        const adj = removableAdjacency(adjacencies, rng);
+        const adj = removableAdjacency(adjacencies, rooms[0], rng);
         if (adj === undefined) {
             return;
         }
@@ -3465,6 +3485,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                 continue;
             }
 
+            if (roomTypeL === RoomType.Exterior && roomTypeR === RoomType.Exterior) {
+                continue;
+            }
+
             const dir = vec2.clone(a.dir);
 
             if ((roomTypeL === RoomType.Exterior) !== (roomTypeR === RoomType.Exterior)) {
@@ -3532,6 +3556,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
 
             let roomTypeLeft = a.roomLeft.roomType;
             let roomTypeRight = a.roomRight.roomType;
+
+            if (roomTypeLeft === RoomType.Exterior && roomTypeRight === RoomType.Exterior) {
+                continue;
+            }
 
             if (a.doorType === DoorType.GateFront || a.doorType === DoorType.GateBack) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
