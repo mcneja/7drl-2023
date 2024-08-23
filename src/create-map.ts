@@ -74,12 +74,6 @@ type PatrolRoute = {
     path: Array<vec2>,
 }
 
-function levelTypeFromLevel(level: number): LevelType {
-    return (level === 9) ? LevelType.Fortress : 
-            (level > 4) ? LevelType.Mansion:
-            LevelType.Manor;
-}
-
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
@@ -87,7 +81,20 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
 
     for (let level = 0; level < numMaps; ++level) {
         const levelRNG = new RNG('lvl'+level+rng.random());
-        const levelType = levelTypeFromLevel(level);
+
+        let levelType: LevelType;
+        if (level >= 9) {
+            levelType = LevelType.Fortress;
+        } else if (level >= 7) {
+            levelType = (rng.random() < 0.75) ? LevelType.Mansion : LevelType.Manor;
+        } else if (level >= 5) {
+            levelType = (rng.random() < 0.5) ? LevelType.Mansion : LevelType.Manor;
+        } else if (level >= 3) {
+            levelType = (rng.random() < 0.25) ? LevelType.Mansion : LevelType.Manor;
+        } else {
+            levelType = LevelType.Manor;
+        }
+
         const [numRoomsX, numRoomsY] = makeLevelSize(level, levelType, levelRNG);
         gameMapRoughPlans.push({
             levelType: levelType,
