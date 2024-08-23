@@ -202,24 +202,18 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Randomly offset walls, and establish mirror relationships between them
 
-    const mirrorRoomsX: boolean = (plan.numRoomsX & 1) === 1;
-    const mirrorRoomsY: boolean = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
-
     const [offsetX, offsetY] = offsetWalls(plan.numRoomsX, plan.numRoomsY, rng);
 
-    // Enforce symmetry by overwriting one area with another area
+    // Enforce symmetry by mirroring wall offsets from one side to the other
 
+    const mirrorRoomsX = (plan.numRoomsX & 1) === 1 && levelType !== LevelType.Mansion;
     if (mirrorRoomsX) {
         mirrorOffsetsLeftToRight(offsetX, offsetY);
-        if (levelType !== LevelType.Mansion) {
-            mirrorInteriorLeftToRight(inside);
-        }
     }
+
+    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
-        if (levelType !== LevelType.Fortress) {
-            mirrorInteriorBottomToTop(inside);
-        }
     }
 
     // Translate the building so it abuts the X and Y axes with outerBorder/outerBorderBottom padding
@@ -362,6 +356,9 @@ function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
             inside.set(x, y, inside.get((sizeX - 1) - x, y));
         }
     }
+
+    mirrorInteriorLeftToRight(inside);
+    mirrorInteriorBottomToTop(inside);
 
     return inside;
 }
@@ -1086,6 +1083,26 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
     // Collect sets of edges that are mirrors of each other
 
     const edgeSets = getEdgeSets(adjacencies, rng);
+
+    // Connect all adjacent exterior rooms together.
+
+    for (const adj of adjacencies) {
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+        if (room0.roomType != RoomType.Exterior || room1.roomType != RoomType.Exterior) {
+            continue;
+        }
+
+        if (adj.length < 2) {
+            continue;
+        }
+
+        adj.door = true;
+        adj.doorType = DoorType.Standard;
+        const group0 = room0.group;
+        const group1 = room1.group;
+        joinGroups(rooms, group0, group1);
+    }
 
     // Connect all adjacent courtyard rooms together.
 
