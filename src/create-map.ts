@@ -150,8 +150,17 @@ function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number,
             }
         }
     } else if (levelType === LevelType.Mansion) {
-        x = 3 * Math.floor((x + 2) / 3) - 1;
-        y = 3 * Math.floor((y + 2) / 3) - 1;
+        // Try to quantize the level dimensions we chose above to ones that work for the mansion style
+        x = Math.floor((x + 1) / 3 + 0.5);
+        y = Math.floor((y + 1) / 3 + 0.5);
+        x = Math.max(2, x);
+        y = Math.max(2, y);
+        x = Math.min(4, x);
+        y = Math.min(4, y);
+        x *= 3;
+        y *= 3;
+        x -= 1;
+        y -= 1;
     }
 
     return [x,y];
