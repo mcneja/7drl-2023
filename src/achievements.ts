@@ -146,7 +146,7 @@ class HungryAchievement extends Achievement {
     levelsWithFoodLeft: number = 0;
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
         if (type === 'levelEnd') {
-            if (!state.gameMap.items.find((item) => ItemType.Health)) this.levelsWithFoodLeft++;
+            if (!state.gameMap.items.find((item) => item.type === ItemType.Health)) this.levelsWithFoodLeft++;
         } else if (type === 'gameStart') {
             this.complete = false;
             this.levelsWithFoodLeft = 0;

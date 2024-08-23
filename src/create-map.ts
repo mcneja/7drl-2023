@@ -74,12 +74,6 @@ type PatrolRoute = {
     path: Array<vec2>,
 }
 
-function levelTypeFromLevel(level: number): LevelType {
-    return (level === 9) ? LevelType.Fortress : 
-            (level > 4) ? LevelType.Mansion:
-            LevelType.Manor
-}
-
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
@@ -87,7 +81,20 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
 
     for (let level = 0; level < numMaps; ++level) {
         const levelRNG = new RNG('lvl'+level+rng.random());
-        const levelType = levelTypeFromLevel(level);
+
+        let levelType: LevelType;
+        if (level >= 9) {
+            levelType = LevelType.Fortress;
+        } else if (level >= 7) {
+            levelType = (rng.random() < 0.75) ? LevelType.Mansion : LevelType.Manor;
+        } else if (level >= 5) {
+            levelType = (rng.random() < 0.5) ? LevelType.Mansion : LevelType.Manor;
+        } else if (level >= 3) {
+            levelType = (rng.random() < 0.25) ? LevelType.Mansion : LevelType.Manor;
+        } else {
+            levelType = LevelType.Manor;
+        }
+
         const [numRoomsX, numRoomsY] = makeLevelSize(level, levelType, levelRNG);
         gameMapRoughPlans.push({
             levelType: levelType,
@@ -134,19 +141,33 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
 function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number, number] {
     let xmin: number, xmax: number, ymin: number, ymax: number, Amin: number, Amax: number;
     [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];
-    const x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
+    let x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
     let y = ymin + rng.randomInRange(1+ymax-ymin);
     y = Math.min(Math.floor(Amax/x), y);
     y = Math.max(y, Math.ceil(Amin/x));
 
-    // Ensure LevelType.Fortress levels have odd number of rooms vertically
-    // (All levels have an odd number of rooms horizontally)
-    if (levelType === LevelType.Fortress && (y & 1) === 0) {
-        if (y > 5) {
-            --y;
-        } else {
-            ++y;
+    if (levelType === LevelType.Fortress) {
+        // Ensure LevelType.Fortress levels have odd number of rooms vertically
+        // (All levels have an odd number of rooms horizontally)
+        if ((y & 1) === 0) {
+            if (y > 5) {
+                --y;
+            } else {
+                ++y;
+            }
         }
+    } else if (levelType === LevelType.Mansion) {
+        // Try to quantize the level dimensions we chose above to ones that work for the mansion style
+        x = Math.floor((x + 1) / 3 + 0.5);
+        y = Math.floor((y + 1) / 3 + 0.5);
+        x = Math.max(2, x);
+        y = Math.max(2, y);
+        x = Math.min(4, x);
+        y = Math.min(4, y);
+        x *= 3;
+        y *= 3;
+        x -= 1;
+        y -= 1;
     }
 
     return [x,y];
@@ -163,8 +184,12 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const inside = new BooleanGrid(plan.numRoomsX, plan.numRoomsY, true);
 
     switch (levelType) {
+    case LevelType.Manor:
+        makeManorRoomGrid(inside, rng);
+        break;
+
     case LevelType.Mansion:
-        makeSiheyuanRoomGrid(inside, rng);
+        makeMansionRoomGrid(inside, rng);
         break;
 
     case LevelType.Fortress:
@@ -180,24 +205,31 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
         break;
     }
 
-    // Randomly offset walls, and establish mirror relationships between them
+    /*
+    console.log('Finished grid:');
+    for (let y = inside.sizeY - 1; y >= 0; --y) {
+        let s: string = y.toString() + ': ';
+        for (let x = 0; x < inside.sizeX; ++x) {
+            s += inside.get(x, y) ? 'X' : '.';
+        }
+        console.log(s);
+    }
+    */
 
-    const mirrorRoomsX: boolean = (plan.numRoomsX & 1) === 1;
-    const mirrorRoomsY: boolean = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
+    // Randomly offset walls, and establish mirror relationships between them
 
     const [offsetX, offsetY] = offsetWalls(plan.numRoomsX, plan.numRoomsY, rng);
 
-    // Enforce symmetry by overwriting one area with another area
+    // Enforce symmetry by mirroring wall offsets from one side to the other
 
+    const mirrorRoomsX = (plan.numRoomsX & 1) === 1 && levelType !== LevelType.Mansion;
     if (mirrorRoomsX) {
-        mirrorInteriorLeftToRight(inside);
         mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
+
+    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
-        if (levelType !== LevelType.Fortress) {
-            mirrorInteriorBottomToTop(inside);
-        }
     }
 
     // Translate the building so it abuts the X and Y axes with outerBorder/outerBorderBottom padding
@@ -206,7 +238,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Make a set of rooms.
 
-    const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY);
+    const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY, levelType);
 
     // Compute a list of room adjacencies.
 
@@ -322,7 +354,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     return map;
 }
 
-function makeSiheyuanRoomGrid(inside: BooleanGrid, rng: RNG) {
+function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
     const sizeX = inside.sizeX;
     const sizeY = inside.sizeY;
 
@@ -341,7 +373,85 @@ function makeSiheyuanRoomGrid(inside: BooleanGrid, rng: RNG) {
         }
     }
 
+    mirrorInteriorLeftToRight(inside);
+    mirrorInteriorBottomToTop(inside);
+
     return inside;
+}
+
+function makeMansionRoomGrid(inside: BooleanGrid, rng: RNG) {
+    const numCellsX = Math.floor((inside.sizeX + 1) / 3);
+    const numCellsY = Math.floor((inside.sizeY + 1) / 3);
+
+    inside.fill(false);
+    for (let cellX = 0; cellX < numCellsX; ++cellX) {
+        for (let cellY = 0; cellY < numCellsY; ++cellY) {
+            for (let x = 0; x < 2; ++x) {
+                for (let y = 0; y < 2; ++y) {
+                    inside.set(3*cellX + x, 3 * cellY + y, true);
+                }
+            }
+        }
+    }
+
+    const cellGroup: Array<number> = [];
+    for (let cellX = 0; cellX < numCellsX; ++cellX) {
+        for (let cellY = 0; cellY < numCellsY; ++cellY) {
+            cellGroup.push(cellX * numCellsY + cellY);
+        }
+    }
+
+    const cellAdjacencies: Array<[number, number]> = [];
+    for (let cellX = 1; cellX < numCellsX; ++cellX) {
+        for (let cellY = 0; cellY < numCellsY; ++cellY) {
+            const cellIndex0 = (cellX - 1) * numCellsY + cellY;
+            const cellIndex1 = cellX * numCellsY + cellY;
+            cellAdjacencies.push([cellIndex0, cellIndex1]);
+        }
+    }
+
+    for (let cellX = 0; cellX < numCellsX; ++cellX) {
+        for (let cellY = 1; cellY < numCellsY; ++cellY) {
+            const cellIndex0 = cellX * numCellsY + (cellY - 1);
+            const cellIndex1 = cellX * numCellsY + cellY;
+            cellAdjacencies.push([cellIndex0, cellIndex1]);
+        }
+    }
+
+    rng.shuffleArray(cellAdjacencies);
+
+    for (const cellAdjacency of cellAdjacencies) {
+        const cellIndex0 = cellAdjacency[0];
+        const cellIndex1 = cellAdjacency[1];
+        const cellGroup0 = cellGroup[cellIndex0];
+        const cellGroup1 = cellGroup[cellIndex1];
+
+        const cell0Y = cellIndex0 % numCellsY;
+        const cell0X = Math.floor(cellIndex0 / numCellsY);
+        const cell1Y = cellIndex1 % numCellsY;
+        const cell1X = Math.floor(cellIndex1 / numCellsY);
+
+        if (cellGroup0 === cellGroup1) {
+            continue;
+        }
+
+        for (let i = 0; i < cellGroup.length; ++i) {
+            if (cellGroup[i] === cellGroup1) {
+                cellGroup[i] = cellGroup0;
+            }
+        }
+
+        const xMin = 3 * Math.min(cell0X, cell1X);
+        const xMax = 3 * Math.max(cell0X, cell1X) + 2;
+        const yMin = 3 * Math.min(cell0Y, cell1Y);
+        const yMax = 3 * Math.max(cell0Y, cell1Y) + 2;
+
+        for (let x = xMin; x < xMax; ++x) {
+            for (let y = yMin; y < yMax; ++y) {
+                inside.set(x, y, true);
+            }
+        }
+    }
 }
 
 function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adjacencies:Array<Adjacency>, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
@@ -380,7 +490,6 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adja
     }
     return;
 }
-
 
 function offsetWalls(
     roomsX: number,
@@ -596,7 +705,8 @@ function createBlankGameMap(rooms: Array<Room>): GameMap {
 function createRooms(
     inside: BooleanGrid,
     offsetX: Int32Grid,
-    offsetY: Int32Grid): [Array<Room>, Int32Grid] {
+    offsetY: Int32Grid,
+    levelType: LevelType): [Array<Room>, Int32Grid] {
     const roomsX = inside.sizeX;
     const roomsY = inside.sizeY;
 
@@ -618,6 +728,8 @@ function createRooms(
         gridY: -1,
     });
 
+    const roomTypeCourtyard = (levelType === LevelType.Mansion) ? RoomType.Exterior : RoomType.PublicCourtyard;
+
     for (let rx = 0; rx < roomsX; ++rx) {
         for (let ry = 0; ry < roomsY; ++ry) {
             let group_index = rooms.length;
@@ -625,7 +737,7 @@ function createRooms(
             roomIndex.set(rx, ry, group_index);
 
             rooms.push({
-                roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : RoomType.PublicCourtyard,
+                roomType: inside.get(rx, ry) ?  RoomType.PublicRoom : roomTypeCourtyard,
                 group: group_index,
                 depth: 0,
                 betweenness: 0,
@@ -988,6 +1100,26 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     const edgeSets = getEdgeSets(adjacencies, rng);
 
+    // Connect all adjacent exterior rooms together.
+
+    for (const adj of adjacencies) {
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
+        if (room0.roomType != RoomType.Exterior || room1.roomType != RoomType.Exterior) {
+            continue;
+        }
+
+        if (adj.length < 2) {
+            continue;
+        }
+
+        adj.door = true;
+        adj.doorType = DoorType.Standard;
+        const group0 = room0.group;
+        const group1 = room1.group;
+        joinGroups(rooms, group0, group1);
+    }
+
     // Connect all adjacent courtyard rooms together.
 
     for (const adj of adjacencies) {
@@ -1093,7 +1225,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Create a door to the surrounding exterior.
 
-    const adjDoor = frontDoorAdjacency(edgeSets);
+    const adjDoor = frontDoorAdjacency(edgeSets, rooms[0]);
     if (adjDoor !== undefined) {
         adjDoor.door = true;
         adjDoor.doorType = DoorType.GateFront;
@@ -1110,7 +1242,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
     // Occasionally create a back door to the exterior.
 
     if (levelType !== LevelType.Fortress && rng.randomInRange(30) < rooms.length) {
-        const adjDoor = backDoorAdjacency(edgeSets);
+        const adjDoor = backDoorAdjacency(edgeSets, rooms[0]);
         if (adjDoor !== undefined) {
             adjDoor.door = true;
             adjDoor.doorType = (level < 3 || rng.random() < 0.75) ? DoorType.GateBack : DoorType.Locked;
@@ -1128,7 +1260,7 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
     // Also create side doors sometimes.
 
     if (levelType !== LevelType.Fortress && rng.randomInRange(30) < rooms.length) {
-        const adjDoor = sideDoorAdjacency(edgeSets);
+        const adjDoor = sideDoorAdjacency(edgeSets, rooms[0]);
         if (adjDoor !== undefined) {
             const doorType = (level < 3) ? DoorType.GateBack : DoorType.Locked;
             adjDoor.door = true;
@@ -1180,7 +1312,7 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
     }
 }
 
-function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
+function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
@@ -1189,9 +1321,9 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefi
                 continue;
             }
 
-            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
+            if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
                 adjs.push(adj);
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] > 0) {
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] > 0) {
                 adjs.push(adj);
             }
         }
@@ -1206,7 +1338,7 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefi
     return adjs[Math.floor(adjs.length / 2)];
 }
 
-function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
+function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
@@ -1215,9 +1347,9 @@ function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
                 continue;
             }
 
-            if (adj.roomLeft.roomType === RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
+            if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
                 adjs.push(adj);
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType === RoomType.Exterior && adj.dir[0] < 0) {
+            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] < 0) {
                 adjs.push(adj);
             }
         }
@@ -1232,7 +1364,7 @@ function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
     return adjs[Math.floor(adjs.length / 2)];
 }
 
-function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefined {
+function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
     for (const edgeSet of edgeSets) {
@@ -1247,7 +1379,7 @@ function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>): Adjacency | undefin
                 continue;
             }
 
-            if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+            if ((adj.roomLeft === roomExterior) === (adj.roomRight === roomExterior)) {
                 continue;
             }
 
@@ -1733,7 +1865,7 @@ function roomCanBePrivateLibrary(room: Room): boolean {
     return true;
 }
 
-function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency | undefined {
+function removableAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room, rng: RNG): Adjacency | undefined {
     const removableAdjs: Array<[Adjacency, number]> = [];
 
     for (const adj of adjacencies) {
@@ -1745,6 +1877,14 @@ function removableAdjacency(adjacencies: Array<Adjacency>, rng: RNG): Adjacency 
         }
 
         if (room0.roomType !== room1.roomType) {
+            continue;
+        }
+
+        if (room0 === roomExterior) {
+            continue;
+        }
+
+        if (room1 === roomExterior) {
             continue;
         }
 
@@ -1941,7 +2081,7 @@ function makeDoubleRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, rng:
     rng.shuffleArray(adjacencies);
 
     for (let numMergeAttempts = 2 * Math.floor(rooms.length / 12); numMergeAttempts > 0; --numMergeAttempts) {
-        const adj = removableAdjacency(adjacencies, rng);
+        const adj = removableAdjacency(adjacencies, rooms[0], rng);
         if (adj === undefined) {
             return;
         }
@@ -3161,19 +3301,13 @@ function playerStartPositionFrontDoor(adjacencies: Array<Adjacency>, gameMap: Ga
             continue;
         }
 
-        if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
             continue;
         }
 
         const y = adj.origin[1] + Math.max(0, adj.dir[1]) * adj.length;
 
-        if (adjFrontDoor === undefined) {
-            adjFrontDoor = adj;
-            yMin = y;
-            continue;
-        }
-
-        if (y < yMin) {
+        if (adjFrontDoor === undefined || y < yMin) {
             adjFrontDoor = adj;
             yMin = y;
         }
@@ -3332,6 +3466,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             continue;
         }
 
+        if (type0 === RoomType.Exterior && type1 === RoomType.Exterior) {
+            continue;
+        }
+
         for (let i = 0; i < adj.length + 1; ++i) {
             const pos = vec2.create();
             vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
@@ -3371,6 +3509,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             const roomTypeR = a.roomRight.roomType;
 
             if (roomTypeL === RoomType.Vault || roomTypeR === RoomType.Vault) {
+                continue;
+            }
+
+            if (roomTypeL === RoomType.Exterior && roomTypeR === RoomType.Exterior) {
                 continue;
             }
 
@@ -3442,6 +3584,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             let roomTypeLeft = a.roomLeft.roomType;
             let roomTypeRight = a.roomRight.roomType;
 
+            if (roomTypeLeft === RoomType.Exterior && roomTypeRight === RoomType.Exterior) {
+                continue;
+            }
+
             if (a.doorType === DoorType.GateFront || a.doorType === DoorType.GateBack) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.PortcullisNS : TerrainType.PortcullisEW;
                 placeItem(map, p, orientNS ? ItemType.PortcullisNS : ItemType.PortcullisEW);
@@ -3466,7 +3612,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
 
         let cellType: TerrainType;
         switch (room.roomType) {
-            case RoomType.Exterior: cellType = TerrainType.GroundNormal; break;
+            case RoomType.Exterior: cellType = TerrainType.GroundGrass; break;
             case RoomType.PublicCourtyard: cellType = TerrainType.GroundGrass; break;
             case RoomType.PublicRoom: cellType = TerrainType.GroundWood; break;
             case RoomType.PrivateCourtyard: cellType = TerrainType.GroundGrass; break;
@@ -4636,7 +4782,7 @@ function outerBuildingPerimeter(adjacencies: Array<Adjacency>, map: GameMap): Ar
     const pos = vec2.clone(posStart);
     const dir = vec2.fromValues(1, 0);
 
-    while (true) {
+    for (let i = map.cells.sizeX * map.cells.sizeY; i > 0; --i) {
         // Add current position to path
 
         path.push(vec2.clone(pos));

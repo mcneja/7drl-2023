@@ -367,10 +367,10 @@ const tileSet31Color:TileSet = {
         {textureIndex: 0x93, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray},
     ],
     fortressWaterAnimation: [
-        {textureIndex: 0x60, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
-        {textureIndex: 0x61, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
-        {textureIndex: 0x62, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray}, 
-        {textureIndex: 0x63, color: colorPreset.yellowTint, unlitColor: colorPreset.midGray},
+        {textureIndex: 0x60, color: colorPreset.midGray, unlitColor: colorPreset.darkerGray}, 
+        {textureIndex: 0x61, color: colorPreset.midGray, unlitColor: colorPreset.darkerGray}, 
+        {textureIndex: 0x62, color: colorPreset.midGray, unlitColor: colorPreset.darkerGray}, 
+        {textureIndex: 0x63, color: colorPreset.midGray, unlitColor: colorPreset.darkerGray},
     ],
     stoveAnimation: [
         {textureIndex: 0xee, color: colorPreset.white, unlitColor: colorPreset.midGray}, // stove cycle
