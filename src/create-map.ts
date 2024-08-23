@@ -3301,19 +3301,13 @@ function playerStartPositionFrontDoor(adjacencies: Array<Adjacency>, gameMap: Ga
             continue;
         }
 
-        if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight.roomType !== RoomType.Exterior) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
             continue;
         }
 
         const y = adj.origin[1] + Math.max(0, adj.dir[1]) * adj.length;
 
-        if (adjFrontDoor === undefined) {
-            adjFrontDoor = adj;
-            yMin = y;
-            continue;
-        }
-
-        if (y < yMin) {
+        if (adjFrontDoor === undefined || y < yMin) {
             adjFrontDoor = adj;
             yMin = y;
         }
