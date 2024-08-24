@@ -4830,7 +4830,7 @@ function outerBuildingPerimeter(adjacencies: Array<Adjacency>, map: GameMap): Ar
 
 function placeFrontPillars(map: GameMap) {
     let sx = map.cells.sizeX - 1;
-    let cx = Math.floor(map.cells.sizeX / 2);
+    let cx = Math.floor(sx / 2);
 
     for (let x = outerBorder; x < cx; x += 5) {
         map.cells.at(x, 1).type = TerrainType.Wall0000;
