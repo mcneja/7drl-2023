@@ -208,9 +208,13 @@ class Guard {
             if (!this.pos.equals(this.patrolPath[this.patrolPathIndex])) {
                 this.enterPatrolMode(map);
             } else if (this.pos.equals(posPrev)) {
-                const posLookAt = this.tryGetPosLookAt(map);
-                if (posLookAt !== undefined) {
-                    updateDir(this.dir, this.pos, posLookAt);
+                // Stand still for a turn before rotating to face look-at direction
+                const posPrev2 = this.patrolPath[(this.patrolPathIndex + this.patrolPath.length - 2) % this.patrolPath.length];
+                if (posPrev.equals(posPrev2)) {
+                    const posLookAt = this.tryGetPosLookAt(map);
+                    if (posLookAt !== undefined) {
+                        updateDir(this.dir, this.pos, posLookAt);
+                    }
                 }
             }
             break;
