@@ -644,29 +644,31 @@ class AchievementsScreen extends TextWindow {
 Earn achievements by meeting certain requirements
 when you complete a game.
 
-<$victoryAchieved$> Victory: winning is enough...
-<$ghostlyAchieved$> Ghostly: ghost every level
-<$zippyAchieved$> Zippy: under par time on every level
-<$hungryAchieved$> Hungry: got all the food
-<$thumpyAchieved$> Thumpy: KO'd all guards
-<$softyAchieved$> Softy: did not KO anyone
-<$noisyAchieved$> Noisy: alerted guards with noise on levels 2-10
-<$leapyAchieved$> Leapy: leapt more than 80% of your turns
-<$creepyAchieved$> Creepy: leap no more than 20 turns
-<$hurtyAchieved$> Hurty: took a wound on levels 2-10
+ $victoryAchieved$ Victory: winning is enough...
+ $ghostyAchieved$ Ghosty: ghost every level
+ $zippyAchieved$ Zippy: under par time on every level
+ $hungryAchieved$ Hungry: got all the food
+ $thumpyAchieved$ Thumpy: KO'd all guards
+ $softyAchieved$ Softy: did not KO anyone
+ $noisyAchieved$ Noisy: alerted guards with noise on levels 2-10
+ $leapyAchieved$ Leapy: leapt more than 80% of your turns
+ $steppyAchieved$ Steppy: leap no more than 20 turns
+ $hurtyAchieved$ Hurty: took a wound on levels 2-10
 
 [Esc|menu] Back to menu`];
     update(state:State) {
-        this.state.set('victoryAchieved', state.persistedStats.achievementVictory>0?'X':' ');
-        this.state.set('ghostlyAchieved', state.persistedStats.achievementGhostly>0?'X':' ');
-        this.state.set('zippyAchieved', state.persistedStats.achievementZippy>0?'X':' ');
-        this.state.set('hungryAchieved', state.persistedStats.achievementHungry>0?'X':' ');
-        this.state.set('thumpyAchieved', state.persistedStats.achievementThumpy>0?'X':' ');
-        this.state.set('softyAchieved', state.persistedStats.achievementSofty>0?'X':' ');
-        this.state.set('noisyAchieved', state.persistedStats.achievementNoisy>0?'X':' ');
-        this.state.set('leapyAchieved', state.persistedStats.achievementLeapy>0?'X':' ');
-        this.state.set('creepyAchieved', state.persistedStats.achievementCreepy>0?'X':' ');
-        this.state.set('hurtyAchieved', state.persistedStats.achievementHurty>0?'X':' ');
+        const ts = getTileSet().achievementIcons
+        const inc = getTileSet().achievementIncompleteIcon.textureIndex;
+        this.state.set('victoryAchieved', state.persistedStats.achievementVictory>0?`#${ts.achievementVictory.textureIndex}#`:`#${inc}#`);
+        this.state.set('ghostyAchieved', state.persistedStats.achievementGhosty>0?`#${ts.achievementGhosty.textureIndex}#`:`#${inc}#`);
+        this.state.set('zippyAchieved', state.persistedStats.achievementZippy>0?    `#${ts.achievementZippy.textureIndex}#`:`#${inc}#`);
+        this.state.set('hungryAchieved', state.persistedStats.achievementHungry>0?  `#${ts.achievementHungry.textureIndex}#`:`#${inc}#`);
+        this.state.set('thumpyAchieved', state.persistedStats.achievementThumpy>0?  `#${ts.achievementThumpy.textureIndex}#`:`#${inc}#`);
+        this.state.set('softyAchieved', state.persistedStats.achievementSofty>0?    `#${ts.achievementSofty.textureIndex}#`:`#${inc}#`);
+        this.state.set('noisyAchieved', state.persistedStats.achievementNoisy>0?    `#${ts.achievementNoisy.textureIndex}#`:`#${inc}#`);
+        this.state.set('leapyAchieved', state.persistedStats.achievementLeapy>0?    `#${ts.achievementLeapy.textureIndex}#`:`#${inc}#`);
+        this.state.set('steppyAchieved', state.persistedStats.achievementSteppy>0?  `#${ts.achievementSteppy.textureIndex}#`:`#${inc}#`);
+        this.state.set('hurtyAchieved', state.persistedStats.achievementHurty>0?    `#${ts.achievementHurty.textureIndex}#`:`#${inc}#`);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);

@@ -2208,14 +2208,14 @@ export function loadStats(): PersistedStats {
         allDailyPlays: getStat('allDailyPlays') ?? 0,
         allDailyWins: getStat('allDailyWins') ?? 0,
         allDailyWinsFirstTry: getStat('allDailyWinsFirstTry') ?? 0,
-        achievementGhostly: getStat('achievementGhostly') ?? 0,
+        achievementGhosty: getStat('achievementGhosty') ?? 0,
         achievementZippy: getStat('achievementZippy') ?? 0,
         achievementHungry: getStat('achievementHungry') ?? 0,
         achievementThumpy: getStat('achievementThumpy') ?? 0,
         achievementSofty: getStat('achievementSofty') ?? 0,
         achievementNoisy: getStat('achievementNoisy') ?? 0,
         achievementLeapy: getStat('achievementLeapy') ?? 0,
-        achievementCreepy: getStat('achievementCreepy') ?? 0,
+        achievementSteppy: getStat('achievementSteppy') ?? 0,
         achievementHurty: getStat('achievementHurty') ?? 0,
         achievementVictory: getStat('achievementVictory') ?? 0,
     };
@@ -2237,14 +2237,14 @@ export function saveStats(persistedStats: PersistedStats) {
     setStat('totalWins', persistedStats.totalWins);
     setStat('totalGhosts', persistedStats.totalGhosts);
     
-    setStat('achievementGhostly', persistedStats.achievementGhostly);
+    setStat('achievementGhosty', persistedStats.achievementGhosty);
     setStat('achievementZippy', persistedStats.achievementZippy);
     setStat('achievementHungry', persistedStats.achievementHungry);
     setStat('achievementThumpy', persistedStats.achievementThumpy);
     setStat('achievementSofty', persistedStats.achievementSofty);
     setStat('achievementNoisy', persistedStats.achievementNoisy);
     setStat('achievementLeapy', persistedStats.achievementLeapy);
-    setStat('achievementCreepy', persistedStats.achievementCreepy);
+    setStat('achievementSteppy', persistedStats.achievementSteppy);
     setStat('achievementHurty', persistedStats.achievementHurty);
 }
 

@@ -54,14 +54,14 @@ type LevelStats = {
 }
 
 type Achievements = {
-    achievementGhostly: Achievement;
+    achievementGhosty: Achievement;
     achievementZippy: Achievement;
     achievementHungry: Achievement;
     achievementThumpy: Achievement;
     achievementSofty: Achievement;
     achievementNoisy: Achievement;
     achievementLeapy: Achievement;
-    achievementCreepy: Achievement;
+    achievementSteppy: Achievement;
     achievementHurty: Achievement;
     achievementVictory: Achievement;
 }
@@ -94,14 +94,14 @@ type PersistedStats = {
     allDailyWins: number;
     allDailyWinsFirstTry: number;
 
-    achievementGhostly: number;
+    achievementGhosty: number;
     achievementZippy: number;
     achievementHungry: number;
     achievementThumpy: number;
     achievementSofty: number;
     achievementNoisy: number;
     achievementLeapy: number;
-    achievementCreepy: number;
+    achievementSteppy: number;
     achievementHurty: number;
     achievementVictory: number;
 }

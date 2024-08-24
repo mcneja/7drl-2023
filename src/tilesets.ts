@@ -1,4 +1,5 @@
 import * as colorPreset from './color-preset';
+import { Achievements } from './types';
 
 const imageTileset31Color = require('url:./tiles31color.png')
 const imageTilesetFont = require('url:./font.png')
@@ -46,6 +47,8 @@ export type TileSet = {
     stoveAnimation: Array<TileInfo>;
     candleAnimation: Array<TileInfo>;
     torchAnimation: Array<TileInfo>;
+    achievementIcons: {[key in keyof Achievements]: TileInfo};
+    achievementIncompleteIcon: TileInfo;
 }
 
 export type FontTileSet = {
@@ -390,6 +393,19 @@ const tileSet31Color:TileSet = {
         {textureIndex: 0xdf}, //torch low
         {textureIndex: 0xdf}, //torch off
     ],
+    achievementIcons: {
+        achievementVictory: {textureIndex: 0x4b},
+        achievementGhosty: {textureIndex: 0x4c},
+        achievementZippy: {textureIndex: 0x4d},
+        achievementHungry: {textureIndex: 0x4e},
+        achievementThumpy: {textureIndex: 0x4f},
+        achievementSofty: {textureIndex: 0x5b},
+        achievementNoisy: {textureIndex: 0x5c},
+        achievementLeapy: {textureIndex: 0x5d},
+        achievementSteppy: {textureIndex: 0x5e},
+        achievementHurty: {textureIndex: 0x5f},
+    },
+    achievementIncompleteIcon: {textureIndex: 0x3f},
 }
 
 

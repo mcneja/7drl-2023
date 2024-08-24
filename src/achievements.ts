@@ -6,10 +6,10 @@ import { State, Achievements } from './types';
 export function getAchievements(): Achievements {
     return {
         achievementVictory: new VictoryAchievement(),
-        achievementGhostly: new GhostlyAchievement(),
+        achievementGhosty: new GhostyAchievement(),
         achievementZippy: new ZippyAchievement(),
         achievementLeapy: new LeapyAchievement(),
-        achievementCreepy: new CreepyAchievement(),
+        achievementSteppy: new SteppyAchievement(),
         achievementNoisy: new NoisyAchievement(),
         achievementThumpy: new ThumpyAchievement(),
         achievementSofty: new SoftyAchievement(),
@@ -33,7 +33,7 @@ class VictoryAchievement extends Achievement {
     }
 }
 
-class GhostlyAchievement extends Achievement {
+class GhostyAchievement extends Achievement {
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
         if (type === 'gameStart') {
             this.complete = false;
@@ -76,7 +76,7 @@ class LeapyAchievement extends Achievement {
     }
 }
 
-class CreepyAchievement extends Achievement {
+class SteppyAchievement extends Achievement {
     leapMoves: number = 0;
     leapLevels: number = 0;
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
