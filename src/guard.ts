@@ -209,7 +209,7 @@ class Guard {
                 this.enterPatrolMode(map);
             } else if (this.pos.equals(posPrev)) {
                 // Stand still for a turn before rotating to face look-at direction
-                const posPrev2 = this.patrolPath[(this.patrolPathIndex + this.patrolPath.length - 2) % this.patrolPath.length];
+                const posPrev2 = this.patrolPath[(Math.max(0, this.patrolPathIndex + this.patrolPath.length - 2)) % this.patrolPath.length];
                 if (posPrev.equals(posPrev2)) {
                     const posLookAt = this.tryGetPosLookAt(map);
                     if (posLookAt !== undefined) {
