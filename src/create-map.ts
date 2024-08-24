@@ -222,12 +222,12 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Enforce symmetry by mirroring wall offsets from one side to the other
 
-    const mirrorRoomsX = (plan.numRoomsX & 1) === 1 && levelType !== LevelType.Mansion;
+    const mirrorRoomsX = (plan.numRoomsX & 1) === 1 && insideIsHorizontallySymmetric(inside);
     if (mirrorRoomsX) {
         mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
 
-    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && levelType === LevelType.Fortress;
+    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && levelType !== LevelType.Manor && insideIsVerticallySymmetric(inside);
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
     }
@@ -352,6 +352,28 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     map.adjacencies = adjacencies;
 
     return map;
+}
+
+function insideIsHorizontallySymmetric(inside: BooleanGrid): boolean {
+    for (let y = 0; y < inside.sizeY; ++y) {
+        for (let x = 0; x < Math.floor(inside.sizeX / 2); ++x) {
+            if (inside.get(x, y) !== inside.get(inside.sizeX - 1 - x, y)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+function insideIsVerticallySymmetric(inside: BooleanGrid): boolean {
+    for (let x = 0; x < inside.sizeX; ++x) {
+        for (let y = 0; y < Math.floor(inside.sizeY / 2); ++y) {
+            if (inside.get(x, y) !== inside.get(x, inside.sizeY - 1 - y)) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
