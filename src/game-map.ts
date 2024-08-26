@@ -1098,6 +1098,73 @@ class GameMap {
 
         return guards;
     }
+
+    tryGetPosLookAt(pos: vec2, includeDoors: boolean): vec2 | undefined {
+        const x = pos[0];
+        const y = pos[1];
+
+        if (includeDoors) {
+            // If there's a locked door adjacent to us, look the opposite way
+            const lockedDoorsAdj = this.items.filter((item)=>
+                (Math.abs(item.pos[0] - x) < 2 &&
+                Math.abs(item.pos[1] - y) < 2) &&
+                (item.type === ItemType.LockedDoorEW || item.type === ItemType.LockedDoorNS));
+            if (lockedDoorsAdj.find((item)=>item.pos[0] === x - 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x + 1, y);
+            } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x + 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x - 1, y);
+            } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x && item.pos[1] === y - 1)) {
+                return vec2.fromValues(x, y + 1);
+            } else if (lockedDoorsAdj.find((item)=>item.pos[0] === x && item.pos[1] === y + 1)) {
+                return vec2.fromValues(x, y - 1);
+            }
+
+            // If there's a doorway adjacent to us, look the opposite way
+            if (x > 0 && this.cells.at(x - 1, y).type === TerrainType.DoorNS) {
+                return vec2.fromValues(x + 1, y);
+            } else if (x < this.cells.sizeX - 1 && this.cells.at(x + 1, y).type === TerrainType.DoorNS) {
+                return vec2.fromValues(x - 1, y);
+            } else if (y > 0 && this.cells.at(x, y - 1).type === TerrainType.DoorEW) {
+                return vec2.fromValues(x, y + 1);
+            } else if (y < this.cells.sizeY - 1 && this.cells.at(x, y + 1).type == TerrainType.DoorEW) {
+                return vec2.fromValues(x, y - 1);
+            }
+        }
+
+        // If there's a window adjacent to us, look out it
+        if (x > 0 && this.cells.at(x - 1, y).type == TerrainType.OneWayWindowW) {
+            return vec2.fromValues(x - 1, y);
+        } else if (x < this.cells.sizeX - 1 && this.cells.at(x + 1, y).type == TerrainType.OneWayWindowE) {
+            return vec2.fromValues(x + 1, y);
+        } else if (y > 0 && this.cells.at(x, y - 1).type == TerrainType.OneWayWindowS) {
+            return vec2.fromValues(x, y - 1);
+        } else if (y < this.cells.sizeY - 1 && this.cells.at(x, y + 1).type == TerrainType.OneWayWindowN) {
+            return vec2.fromValues(x, y + 1);
+        }
+
+        // If guard is on a chair, try to come up with a direction to look
+        if (this.items.find((item)=>item.pos.equals(pos) && item.type === ItemType.Chair)) {
+            // If there's a table or lamp adjacent, look at it
+            const tables = this.items.filter((item)=>
+                (Math.abs(item.pos[0] - x) < 2 &&
+                 Math.abs(item.pos[1] - y) < 2) &&
+                 (item.type === ItemType.Table || item.type === ItemType.TorchLit || item.type === ItemType.TorchUnlit));
+            if (tables.find((item)=>item.pos[0] === x - 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x - 1, y);
+            }
+            if (tables.find((item)=>item.pos[0] === x + 1 && item.pos[1] === y)) {
+                return vec2.fromValues(x + 1, y);
+            }
+            if (tables.find((item)=>item.pos[0] === x && item.pos[1] === y - 1)) {
+                return vec2.fromValues(x, y - 1);
+            }
+            if (tables.find((item)=>item.pos[0] === x && item.pos[1] === y + 1)) {
+                return vec2.fromValues(x, y + 1);
+            }
+        }
+
+        return undefined;
+    }
 }
 
 function isWindowTerrainType(terrainType: TerrainType): boolean {

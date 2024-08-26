@@ -395,8 +395,13 @@ function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
         }
     }
 
-    mirrorInteriorLeftToRight(inside);
-    mirrorInteriorBottomToTop(inside);
+    if ((sizeX & 1) === 1) {
+        mirrorInteriorLeftToRight(inside);
+    }
+
+    if ((sizeY & 1) === 1) {
+        mirrorInteriorBottomToTop(inside);
+    }
 
     return inside;
 }
@@ -2994,6 +2999,25 @@ function generatePatrolPathsFromNodes(
 
                 for (const pos of pathBetweenPointsInRoom(gameMap, room, posStart, posMid)) {
                     patrolPositions.push(pos);
+                }
+
+                // If the activity look direction is at right angles to the approaching move direction,
+                // insert an extra turn at the activity station, to account for the turn the guard will
+                // spend rotating to face the activity look direction.
+
+                if (patrolPositions.length > 0) {
+                    const includeDoors = false;
+                    const lookPos = gameMap.tryGetPosLookAt(posMid, includeDoors);
+                    if (lookPos !== undefined) {
+                        const moveDir = vec2.create();
+                        vec2.subtract(moveDir, posMid, patrolPositions[patrolPositions.length - 1]);
+                        const lookDir = vec2.create();
+                        vec2.subtract(lookDir, lookPos, posMid);
+                        if (vec2.dot(moveDir, lookDir) <= 0) {
+                            console.log('Inserting extra turn at %d,%d (move dir %d,%d, look dir %d,%d)', posMid[0], posMid[1], moveDir[0], moveDir[1], lookDir[0], lookDir[1]);
+                            patrolPositions.push(vec2.clone(posMid));
+                        }
+                    }
                 }
 
                 patrolPositions.push(vec2.clone(posMid));
