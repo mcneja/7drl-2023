@@ -150,10 +150,10 @@ function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number,
         // Ensure LevelType.Fortress levels have odd number of rooms vertically
         // (All levels have an odd number of rooms horizontally)
         if ((y & 1) === 0) {
-            if (y > 5) {
-                --y;
-            } else {
+            if (y < 7) {
                 ++y;
+            } else {
+                --y;
             }
         }
     } else if (levelType === LevelType.Mansion) {
@@ -193,7 +193,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
         break;
 
     case LevelType.Fortress:
-        const ringCourtyard = rng.random() < 0.5;
+        const ringCourtyard = rng.random() < 0.25;
         for (let x = 0; x < plan.numRoomsX; ++x) {
             for (let y = 0; y < plan.numRoomsY; ++y) {
                 const dx = Math.min(x, (plan.numRoomsX - 1) - x);
