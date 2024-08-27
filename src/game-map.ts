@@ -430,6 +430,7 @@ class GameMap {
     lightCount: number;
     numPreRevealedCells: number;
     adjacencies: Array<Adjacency>;
+    backtrackingCoefficient: number;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -441,6 +442,7 @@ class GameMap {
         this.lightCount = 0;
         this.numPreRevealedCells = 0;
         this.adjacencies = [];
+        this.backtrackingCoefficient = 1;
     }
 
     collectLootAt(pos:vec2): Array<Item> {

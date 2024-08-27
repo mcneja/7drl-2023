@@ -290,6 +290,10 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     renderRooms(level, rooms, map, rng);
 
+    // Estimate how much backtracking is required to visit all rooms.
+
+    map.backtrackingCoefficient = estimateBacktracking(rooms);
+
     // Set player start position
 
     map.playerStartPos = playerStartPosition(level, adjacencies, map);
@@ -1589,6 +1593,74 @@ function computeRoomBetweenness(rooms: Array<Room>) {
             }
         }
     }
+}
+
+function estimateBacktracking(rooms: Array<Room>): number {
+    // Compute shortest paths from every room to every other room
+
+    const dist: Map<Room, Map<Room, number>> = new Map();
+
+    for (const room0 of rooms) {
+        dist.set(room0, new Map());
+        for (const room1 of rooms) {
+            dist.get(room0)!.set(room1, Infinity);
+        }
+    }
+
+    for (const room0 of rooms) {
+        dist.get(room0)!.set(room0, 0);
+
+        for (const edge of room0.edges) {
+            if (!edge.door) {
+                continue;
+            }
+            const room1 = (edge.roomLeft === room0) ? edge.roomRight : edge.roomLeft;
+            dist.get(room0)!.set(room1, 1);
+        }
+    }
+
+    for (const room0 of rooms) {
+        for (const room1 of rooms) {
+            for (const room2 of rooms) {
+                const dist12 = dist.get(room1)!.get(room2)!;
+                const dist10 = dist.get(room1)!.get(room0)!;
+                const dist02 = dist.get(room0)!.get(room2)!;
+                if (dist12 > dist10 + dist02) {
+                    dist.get(room1)!.set(room2, dist10 + dist02);
+                }
+            }
+        }
+    }
+
+    // Explore the graph using nearest-neighbor algorithm
+
+    const visited: Set<Room> = new Set();
+
+    let roomCur = rooms[0];
+    let distTotal = 0;
+
+    while (visited.size < rooms.length) {
+        visited.add(roomCur);
+        let roomNearest = roomCur;
+        let distNearest = Infinity;
+        for (const room of rooms) {
+            if (room !== roomCur && !visited.has(room)) {
+                const d = dist.get(roomCur)!.get(room)!;
+                if (d < distNearest) {
+                    roomNearest = room;
+                    distNearest = d;
+                }
+            }
+        }
+        if (distNearest === Infinity) {
+            break;
+        }
+
+        roomCur = roomNearest;
+        distTotal += distNearest;
+    }
+
+    return distTotal / (rooms.length - 1);
 }
 
 function hasExteriorDoor(room: Room): boolean {
@@ -3004,6 +3076,9 @@ function generatePatrolPathsFromNodes(
                 // If the activity look direction is at right angles to the approaching move direction,
                 // insert an extra turn at the activity station, to account for the turn the guard will
                 // spend rotating to face the activity look direction.
+                // This is not quite right; sometimes someone will be approaching diagaonally and will
+                // need to turn but this won't recognize it. Need to look farther back to determine
+                // what orientation the approaching person will have.
 
                 if (patrolPositions.length > 0) {
                     const includeDoors = false;
@@ -3014,7 +3089,6 @@ function generatePatrolPathsFromNodes(
                         const lookDir = vec2.create();
                         vec2.subtract(lookDir, lookPos, posMid);
                         if (vec2.dot(moveDir, lookDir) <= 0) {
-                            console.log('Inserting extra turn at %d,%d (move dir %d,%d, look dir %d,%d)', posMid[0], posMid[1], moveDir[0], moveDir[1], lookDir[0], lookDir[1]);
                             patrolPositions.push(vec2.clone(posMid));
                         }
                     }
@@ -3363,7 +3437,7 @@ function playerStartPositionFrontDoor(adjacencies: Array<Adjacency>, gameMap: Ga
         return vec2.fromValues(0, 0);
     }
 
-    let roomFrom, roomTo;
+    let roomFrom: Room, roomTo: Room;
     if (adjFrontDoor.roomLeft.roomType === RoomType.Exterior) {
         roomFrom = adjFrontDoor.roomRight;
         roomTo = adjFrontDoor.roomLeft;
@@ -3605,23 +3679,14 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             }
         }
 
-        let installMasterSuiteDoor = rng.random() < 0.3333;
-
-        let offset = Math.floor(adj0.length / 2);
-        /*
-        if (adjMirror === adj0) {
-            offset = Math.floor(adj0.length / 2);
-        } else if (adj0.length > 2) {
-            offset = 2 + rng.randomInRange(adj0.length - 3);
-        } else {
-            offset = 1 + rng.randomInRange(adj0.length - 1);
-        }
-        */
+        const installMasterSuiteDoor = rng.random() < 0.3333;
 
         for (const a of walls) {
             if (!a.door) {
                 continue;
             }
+
+            const offset = Math.floor(a.length / 2);
 
             const p = vec2.clone(a.origin).scaleAndAdd(a.dir, offset);
 

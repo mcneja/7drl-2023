@@ -385,27 +385,30 @@ export function setupLevel(state: State, level: number) {
 
 function analyzeLevel(state: State) {
     const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
+    const numCellsTraversal = numDiscoverableCells * state.gameMap.backtrackingCoefficient;
     const numGuards = state.gameMap.guards.length;
-    const guardsPerCell = numGuards / numDiscoverableCells;
-    const turnsForDiscovery = numDiscoverableCells / 3;
+    const guardsPerCell = numGuards / numCellsTraversal;
+    const turnsForTraversal = numCellsTraversal / 4.5;
     const turnsForGuardAvoidance = 8 * numGuards + 800 * guardsPerCell;
-    const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
+    const par = 10 * Math.ceil((turnsForTraversal + turnsForGuardAvoidance) / 10);
     console.log('Level:', state.level);
     console.log('Discoverable cells:', numDiscoverableCells);
+    console.log('Backtracking coefficient:', state.gameMap.backtrackingCoefficient);
     console.log('Number of guards:', numGuards);
     console.log('Guards per cell:', guardsPerCell);
-    console.log('Turns for discovery:', turnsForDiscovery);
+    console.log('Turns for discovery:', turnsForTraversal);
     console.log('Turns for guards:', turnsForGuardAvoidance);
     console.log('Par:', par);
 }
 
 export function numTurnsParForCurrentMap(state: State): number {
     const numDiscoverableCells = state.gameMap.numCells() - state.gameMap.numPreRevealedCells;
+    const numCellsTraversal = numDiscoverableCells * state.gameMap.backtrackingCoefficient;
     const numGuards = state.gameMap.guards.length;
-    const guardsPerCell = numGuards / numDiscoverableCells;
-    const turnsForDiscovery = numDiscoverableCells / 3;
+    const guardsPerCell = numGuards / numCellsTraversal;
+    const turnsForTraversal = numCellsTraversal * (state.gameMap.backtrackingCoefficient / 4.5);
     const turnsForGuardAvoidance = 8 * numGuards + 1000 * guardsPerCell;
-    const par = 10 * Math.ceil((turnsForDiscovery + turnsForGuardAvoidance) / 10);
+    const par = 10 * Math.ceil((turnsForTraversal + turnsForGuardAvoidance) / 10);
     return par;
 }
 
