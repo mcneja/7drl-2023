@@ -2987,7 +2987,7 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     const worldToPixelScaleX = pixelsPerTileX * state.camera.scale;
     const worldToPixelScaleY = pixelsPerTileY * state.camera.scale;
 
-    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - 2 * pixelsPerCharY);
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - pixelsPerCharY);
     const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
 
     const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
@@ -3027,7 +3027,7 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
         yMin = Math.floor(popupPixelY + 1.0 * worldToPixelScaleY);
     }
 
-    yMin = Math.max(pixelsPerCharY, Math.min(screenSize[1] - (pixelsPerCharY + rectSizeY), yMin));
+    yMin = Math.max(pixelsPerCharY, Math.min(screenSize[1] - rectSizeY, yMin));
 
     renderer.start(matScreenFromWorld, 0);
 
