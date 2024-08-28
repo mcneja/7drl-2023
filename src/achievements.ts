@@ -100,7 +100,7 @@ class NoisyAchievement extends Achievement {
     levelsWithNoisesHeard: number = 0;
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
         if (type === 'turnEnd') {
-            if (state.gameMap.guards.find(g => g.mode === GuardMode.Listen || g.mode === GuardMode.MoveToLastSound)) this.noisesHeard++;
+            if (state.gameMap.guards.some(g => g.mode === GuardMode.Listen || g.mode === GuardMode.MoveToLastSound)) this.noisesHeard++;
         } else if (type === 'levelEnd') {
             if (this.noisesHeard > 0) this.levelsWithNoisesHeard++;
             this.noisesHeard = 0;
@@ -115,43 +115,43 @@ class NoisyAchievement extends Achievement {
 }
 
 class ThumpyAchievement extends Achievement {
-    levelsWithAwakeGuards: number = 0;
+    failed: boolean = false;
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
         if (type === 'levelEnd') {
-            if (state.gameMap.guards.find((g) => (g.mode !== GuardMode.Unconscious))) this.levelsWithAwakeGuards++;
+            if (state.gameMap.guards.some((g) => (g.mode !== GuardMode.Unconscious))) this.failed = true;
         } else if (type === 'gameStart') {
             this.complete = false;
-            this.levelsWithAwakeGuards = 0;
+            this.failed = false;
         } else if (type === 'gameEnd') {
-            this.complete = this.levelsWithAwakeGuards === 0;
+            this.complete = !this.failed;
         }
     }
 }
 
 class SoftyAchievement extends Achievement {
-    levelsWithDownedGuards: number = 0;
+    failed: boolean = false;
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
         if (type === 'levelEnd') {
-            if (state.levelStats.numKnockouts > 0) this.levelsWithDownedGuards++;
+            if (state.levelStats.numKnockouts > 0) this.failed = true;
         } else if (type === 'gameStart') {
             this.complete = false;
-            this.levelsWithDownedGuards = 0;
+            this.failed = false;
         } else if (type === 'gameEnd') {
-            this.complete = this.levelsWithDownedGuards === 0;
+            this.complete = !this.failed;
         }
     }
 }
 
 class HungryAchievement extends Achievement {
-    levelsWithFoodLeft: number = 0;
+    failed: boolean = false;
     update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
         if (type === 'levelEnd') {
-            if (!state.gameMap.items.find((item) => item.type === ItemType.Health)) this.levelsWithFoodLeft++;
+            if (state.gameMap.items.some((item) => item.type === ItemType.Health)) this.failed = true;
         } else if (type === 'gameStart') {
             this.complete = false;
-            this.levelsWithFoodLeft = 0;
+            this.failed = false;
         } else if (type === 'gameEnd') {
-            this.complete = this.levelsWithFoodLeft === 0;
+            this.complete = !this.failed;
         }
     }
 }
