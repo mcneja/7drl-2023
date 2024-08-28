@@ -77,7 +77,11 @@ type PatrolRoute = {
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
-    // Establish the level sizes
+    // Establish the level types and sizes
+    // Only two Mansion levels, and not consecutive
+
+    const iLevelMansion0 = 4 + rng.randomInRange(3);
+    const iLevelMansion1 = iLevelMansion0 + 2 + rng.randomInRange(7 - iLevelMansion0);
 
     for (let level = 0; level < numMaps; ++level) {
         const levelRNG = new RNG('lvl'+level+rng.random());
@@ -85,12 +89,8 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
         let levelType: LevelType;
         if (level >= 9) {
             levelType = LevelType.Fortress;
-        } else if (level >= 7) {
-            levelType = (rng.random() < 0.75) ? LevelType.Mansion : LevelType.Manor;
-        } else if (level >= 5) {
-            levelType = (rng.random() < 0.5) ? LevelType.Mansion : LevelType.Manor;
-        } else if (level >= 3) {
-            levelType = (rng.random() < 0.25) ? LevelType.Mansion : LevelType.Manor;
+        } else if (level === iLevelMansion0 || level === iLevelMansion1) {
+            levelType = LevelType.Mansion;
         } else {
             levelType = LevelType.Manor;
         }
@@ -293,6 +293,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     // Estimate how much backtracking is required to visit all rooms.
 
     map.backtrackingCoefficient = estimateBacktracking(rooms);
+    //console.log('backtrack coefficient:', map.backtrackingCoefficient);
 
     // Set player start position
 
