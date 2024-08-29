@@ -2150,6 +2150,9 @@ function renderGuardSight(state: State, renderer: Renderer) {
                 if (vec2.squaredLen(dpos) >= guard.sightCutoff(cell.lit>0) && !(dpos[0] === guard.dir[0] * 2 && dpos[1] === guard.dir[1] * 2)) {
                     continue;
                 }
+                if (cell.hidesPlayer && (Math.abs(dpos[0]) > 1 || Math.abs(dpos[1]) > 1 || isRelaxedGuardMode(guard.mode))) {
+                    continue;
+                }
                 if (!lineOfSight(state.gameMap, guard.pos, pos)) {
                     continue;
                 }
