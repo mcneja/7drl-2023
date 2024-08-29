@@ -2111,7 +2111,8 @@ function renderIconOverlays(state: State, renderer: Renderer) {
 }
 
 function renderGuardSight(state: State, renderer: Renderer) {
-    if (!state.seeGuardSight) {
+    if (!state.seeGuardSight &&
+        (state.level > 1 || !state.gameMap.guards.some(guard => !isRelaxedGuardMode(guard.mode)))) {
         return;
     }
 
@@ -2124,30 +2125,29 @@ function renderGuardSight(state: State, renderer: Renderer) {
     const dpos = vec2.create();
 
     for (const guard of state.gameMap.guards) {
-        const maxSightCutoff = 3;
+        const maxSightCutoff = 10;
         const xMin = Math.max(0, Math.floor(guard.pos[0] - maxSightCutoff));
         const xMax = Math.min(mapSizeX, Math.floor(guard.pos[0] + maxSightCutoff) + 1);
         const yMin = Math.max(0, Math.floor(guard.pos[1] - maxSightCutoff));
         const yMax = Math.min(mapSizeY, Math.floor(guard.pos[1] + maxSightCutoff) + 1);
         for (let y = yMin; y < yMax; ++y) {
             for (let x = xMin; x < xMax; ++x) {
+                if (seenByGuard.get(x, y)) {
+                    continue;
+                }
                 vec2.set(pos, x, y);
                 vec2.subtract(dpos, pos, guard.pos);
-                const cell = state.gameMap.cells.at(x, y);
-
-                if (seenByGuard.get(x, y)) {
+                const cell = state.gameMap.cells.atVec(pos);
+                if (!state.seeAll && !cell.seen) {
                     continue;
                 }
                 if (cell.blocksPlayerMove) {
                     continue;
                 }
-                if (!state.seeAll && !cell.seen) {
+                if (guard.mode !== GuardMode.ChaseVisibleTarget && vec2.dot(guard.dir, dpos) < 0) {
                     continue;
                 }
-                if (vec2.dot(guard.dir, dpos) < 0) {
-                    continue;
-                }
-                if (vec2.squaredLen(dpos) >= guard.sightCutoff(cell.lit>0)) {
+                if (vec2.squaredLen(dpos) >= guard.sightCutoff(cell.lit>0) && !(dpos[0] === guard.dir[0] * 2 && dpos[1] === guard.dir[1] * 2)) {
                     continue;
                 }
                 if (!lineOfSight(state.gameMap, guard.pos, pos)) {
