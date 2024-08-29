@@ -137,7 +137,9 @@ type State = {
     numStepMoves: number;
     numLeapMoves: number;
     numWaitMoves: number;
+    numZoomMoves: number;
     hasOpenedMenu: boolean;
+    hasClosedMenu: boolean;
     hasStartedGame: boolean;
     finishedLevel: boolean;
     zoomLevel: number;

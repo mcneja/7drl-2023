@@ -109,7 +109,7 @@ function main(images: Array<HTMLImageElement>) {
 function updateControllerState(state:State) {
     state.gamepadManager.updateGamepadStates();
     if(lastController !== null) {
-        if(state.gameMode == GameMode.Mansion) {
+        if(state.gameMode === GameMode.Mansion) {
             onControlsInMansion(lastController);
         } else {
             state.textWindows[state.gameMode]?.onControls(state, menuActivated);
@@ -1576,6 +1576,8 @@ function advanceTime(state: State) {
             setStatusMessageSticky(state, 'You were killed. Press Escape/Menu to see score.');
         }
     }
+
+    updateAchievements(state, "turnEnd");
 }
 
 function postTurn(state: State) {
@@ -1621,31 +1623,29 @@ function postTurn(state: State) {
         } else if (item !== undefined && (item.type === ItemType.BedL || item.type === ItemType.BedR)) {
             setStatusMessage(state, 'Hide under beds');
         } else if (state.numStepMoves < 4) {
-            setStatusMessage(state, 'Left, Right, Up, Down: Move');
+            setStatusMessage(state, '(' + state.numStepMoves + '/4) Left, Right, Up, Down: Move');
         } else if (state.numLeapMoves < 4) {
-            setStatusMessage(state, leapPrompt);
+            setStatusMessage(state, '(' + state.numLeapMoves + '/4) ' + leapPrompt);
         } else {
             setStatusMessage(state, 'Explore entire mansion');
         }
     } else if (state.level === 1) {
         if (state.numWaitMoves < 4) {
-            setStatusMessage(state, 'Z, Period, or Space: Wait');
+            setStatusMessage(state, '(' + state.numWaitMoves + '/4) Z, Period, or Space: Wait');
         } else if (!state.hasOpenedMenu) {
             setStatusMessage(state, 'Esc or Slash: More help');
         } else if (!state.topStatusMessageSticky) {
             setStatusMessage(state, '');
         }
     } else if (state.level === 3) {
-        if (state.turns === 0) {
-            setStatusMessage(state, 'Zoom view with brackets [ and ]');
+        if (state.numZoomMoves < 4) {
+            setStatusMessage(state, '(' + state.numZoomMoves + '/4): [ and ]: Zoom view');
         } else if (!state.topStatusMessageSticky) {
             setStatusMessage(state, '');
         }
     } else if (!state.topStatusMessageSticky) {
         setStatusMessage(state, '');
     }
-
-    updateAchievements(state, "turnEnd");
 }
 
 function remainingLootIsOnGuard(state: State): boolean {
@@ -1662,7 +1662,7 @@ function adjacentToUnawareGuardWithLoot(state: State): boolean {
     });
 }
 
-function setStatusMessage(state: State, msg: string) {
+export function setStatusMessage(state: State, msg: string) {
     state.topStatusMessage = msg;
     state.topStatusMessageSticky = false;
 }
@@ -2358,7 +2358,9 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         numStepMoves: 0,
         numLeapMoves: 0,
         numWaitMoves: 0,
+        numZoomMoves: 0,
         hasOpenedMenu: false,
+        hasClosedMenu: false,
         finishedLevel: false,
         hasStartedGame: false,
         zoomLevel: initZoomLevel,
@@ -2400,11 +2402,15 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 export function zoomIn(state: State) {
     state.zoomLevel = Math.min(maxZoomLevel, state.zoomLevel + 1);
     state.camera.panning = false;
+    ++state.numZoomMoves;
+    postTurn(state);
 }
 
 export function zoomOut(state: State) {
     state.zoomLevel = Math.max(minZoomLevel, state.zoomLevel - 1);
     state.camera.panning = false;
+    ++state.numZoomMoves;
+    postTurn(state);
 }
 
 function setCellAnimations(gameMap: GameMap, state: State) {
@@ -2489,7 +2495,9 @@ export function restartGame(state: State) {
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
     state.numWaitMoves = 0;
+    state.numZoomMoves = 0;
     state.hasOpenedMenu = false;
+    state.hasClosedMenu = false;
     state.finishedLevel = false;
     state.turns = 0;
     state.totalTurns = 0;
