@@ -1022,7 +1022,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             bumpAnim(state, dx, dy);
             advanceTime(state);
             if (state.level === 0) {
-                setStatusMessage(state, 'The torch is lit');
+                setStatusMessage(state, 'Lit torch');
             }
             return;
 
@@ -1034,7 +1034,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             bumpAnim(state, dx, dy);
             advanceTime(state);
             if (state.level === 0) {
-                setStatusMessage(state, 'The torch is unlit');
+                setStatusMessage(state, 'Doused torch');
             }
             return;
 
