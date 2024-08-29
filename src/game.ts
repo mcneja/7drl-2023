@@ -2045,7 +2045,8 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         if (Math.abs(offset[0]) < 0.5 && Math.abs(offset[1]) < 0.5) {
             const x = player.pos[0] + player.noiseOffset[0];
             const y = player.pos[1] + player.noiseOffset[1];
-            renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['noise']);
+            const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
+            renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, tileSet.namedTiles['noise']);
         }
     }
 }
@@ -2628,6 +2629,9 @@ function updateState(state: State, screenSize: vec2, dt: number) {
     updateIdle(state, dt);
 
     state.popups.currentPopupTimeRemaining = Math.max(0, state.popups.currentPopupTimeRemaining - dt);
+
+    state.player.noisyAnim += 2.0 * dt;
+    state.player.noisyAnim -= Math.floor(state.player.noisyAnim);
 
     if(state.player.animation) {
         if(state.player.animation.update(dt)) {

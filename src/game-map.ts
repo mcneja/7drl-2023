@@ -314,6 +314,7 @@ class Player {
     loot: number;
     noisy: boolean; // did the player make noise last turn?
     noiseOffset: vec2; // which direction was the noise made relative to the player's position?
+    noisyAnim: number;
     hasVaultKey: boolean;
     damagedLastTurn: boolean;
     turnsRemainingUnderwater: number;
@@ -330,6 +331,7 @@ class Player {
         this.loot = 0;
         this.noisy = false;
         this.noiseOffset = vec2.fromValues(0, 0);
+        this.noisyAnim = 0;
         this.hasVaultKey = false;
         this.damagedLastTurn = false;
         this.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
