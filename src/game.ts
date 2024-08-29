@@ -367,6 +367,7 @@ export function setupLevel(state: State, level: number) {
     state.player.pos = state.gameMap.playerStartPos;
     state.player.dir = vec2.fromValues(0, -1);
     state.player.noisy = false;
+    state.player.preNoisy = false;
     state.player.hasVaultKey = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
@@ -835,14 +836,24 @@ export function joltCamera(state: State, dx: number, dy: number) {
 
 function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepType) {
     if (stepType === StepType.AttemptedLeap) {
-        preTurn(state);
-        state.player.pickTarget = null;
-        bumpAnim(state, dx*1.25, dy*1.25);
-        joltCamera(state, dx, dy);
-        makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
-        advanceTime(state);
-        if (state.level === 0) {
-            setStatusMessage(state, 'Noise attracts people');
+        if (state.player.preNoisy && dx === state.player.noiseOffset[0] && dy === state.player.noiseOffset[1]) {
+            preTurn(state);
+            state.player.pickTarget = null;
+            bumpAnim(state, dx*1.25, dy*1.25);
+            joltCamera(state, dx, dy);
+            makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
+            advanceTime(state);
+            if (state.level === 0) {
+                setStatusMessage(state, 'Noise attracts people');
+            }
+        } else {
+            state.player.preNoisy = true;
+            state.player.noiseOffset[0] = dx;
+            state.player.noiseOffset[1] = dy;
+            state.player.pickTarget = null;
+            if (state.level === 0) {
+                setStatusMessage(state, 'Repeat to make noise');
+            }
         }
     } else {
         bumpFail(state, dx, dy);
@@ -872,6 +883,7 @@ function tryPlayerWait(state: State) {
     state.gameMap.identifyAdjacentCells(player.pos);
 
     player.pickTarget = null;
+    player.preNoisy = false;
 
     ++state.numWaitMoves;
 
@@ -885,6 +897,10 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     const player = state.player;
     if (player.health <= 0) {
         return;
+    }
+
+    if (stepType !== StepType.AttemptedLeap) {
+        player.preNoisy = false;
     }
 
     player.idle = false;
@@ -1489,8 +1505,8 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
 
 function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: number, dy: number, sounds: Howls) {
     player.noisy = true;
-    player.noiseOffset[0] = dx / 2;
-    player.noiseOffset[1] = dy / 2;
+    player.noiseOffset[0] = dx;
+    player.noiseOffset[1] = dy;
 
     const radius = 23;
 
@@ -1530,6 +1546,7 @@ function preTurn(state: State) {
 
 function advanceTime(state: State) {
     const oldHealth = state.player.health;
+    state.player.preNoisy = false;
     ++state.turns;
     ++state.totalTurns;
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
@@ -2077,14 +2094,18 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     }
 
     // Render an icon over the player if the player is being noisy
-    if (player.noisy) {
+    if (player.preNoisy || player.noisy) {
         const a = player.animation;
         const offset = a && a instanceof SpriteAnimation ? a.offset : vec2.create();
         if (Math.abs(offset[0]) < 0.5 && Math.abs(offset[1]) < 0.5) {
-            const x = player.pos[0] + player.noiseOffset[0];
-            const y = player.pos[1] + player.noiseOffset[1];
-            const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
-            renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, tileSet.namedTiles['noise']);
+            const x = player.pos[0] + player.noiseOffset[0] / 2;
+            const y = player.pos[1] + player.noiseOffset[1] / 2;
+            if (player.preNoisy) {
+                renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['pickTarget']);
+            } else {
+                const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
+                renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, tileSet.namedTiles['noise']);
+            }
         }
     }
 }
