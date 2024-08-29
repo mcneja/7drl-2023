@@ -15,16 +15,12 @@ const footstepGravel = require('url:./audio/footstep-gravel.mp3');
 const footstepGrass = require('url:./audio/footstep-grass.mp3');
 
 const footstepCreakSet =[
-    require('url:./audio/creak.mp3'),
-    require('url:./audio/creak-2.mp3'),
-    require('url:./audio/creak-3.mp3'),
-    require('url:./audio/creak-4.mp3'),
-    require('url:./audio/creak-5.mp3'),
-    require('url:./audio/creak-6.mp3'),
-    require('url:./audio/squeak1.wav'),
-    require('url:./audio/squeak2.wav'),
-    require('url:./audio/squeak3.wav'),
-    require('url:./audio/squeak4.wav'),
+    require('url:./audio/creak-7.mp3'),
+    require('url:./audio/creak-8.mp3'),
+    require('url:./audio/creak-9.mp3'),
+    require('url:./audio/creak-10.mp3'),
+    require('url:./audio/creak-11.mp3'),
+    require('url:./audio/creak-12.mp3'),
 ];
 
 const hitPlayerSet:Array<string> = [
