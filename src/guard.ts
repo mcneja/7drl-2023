@@ -435,7 +435,7 @@ class Guard {
             // If we see an extinguished torch, move to light it.
 
             if (this.mode === GuardMode.Patrol && this.hasTorch) {
-                const torch = torchNeedingRelighting(map, this.pos);
+                const torch = torchNeedingRelighting(map, this.pos, this.dir);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
                     if (this.cardinallyAdjacentTo(this.goal)) {
@@ -796,12 +796,17 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
     }
 }
 
-function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined {
+function torchNeedingRelighting(map: GameMap, posViewer: vec2, dirViewer: vec2): Item | undefined {
     let bestItem: Item | undefined = undefined;
     let bestDistSquared = 65;
+    const dpos = vec2.create();
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit) {
-            const distSquared = vec2.squaredDistance(item.pos, posViewer);
+            vec2.subtract(dpos, item.pos, posViewer);
+            if (vec2.dot(dirViewer, dpos) < 0) {
+                continue;
+            }
+            const distSquared = vec2.squaredLen(dpos);
             if (distSquared >= bestDistSquared) {
                 continue;
             }
