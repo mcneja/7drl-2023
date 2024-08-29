@@ -841,8 +841,14 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         joltCamera(state, dx, dy);
         makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
         advanceTime(state);
+        if (state.level === 0) {
+            setStatusMessage(state, 'Noise attracts people');
+        }
     } else {
         bumpFail(state, dx, dy);
+        if (state.level === 0) {
+            setStatusMessage(state, 'Shift+Move: Make noise');
+        }
     }
 }
 
@@ -999,6 +1005,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             player.pickTarget = null;
             bumpAnim(state, dx, dy);
             advanceTime(state);
+            if (state.level < 2) {
+                setStatusMessage(state, 'The torch is lit');
+            }
             return;
 
         case ItemType.TorchLit:
@@ -1008,6 +1017,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             player.pickTarget = null;
             bumpAnim(state, dx, dy);
             advanceTime(state);
+            if (state.level < 2) {
+                setStatusMessage(state, 'The torch is unlit');
+            }
             return;
 
         case ItemType.PortcullisEW:
@@ -1066,6 +1078,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     // Execute the move
     const fromHid = player.hidden(state.gameMap);
+    const litOld = state.gameMap.cells.atVec(posOld).lit !== 0;
 
     preTurn(state);
 
@@ -1127,6 +1140,17 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Play sound for terrain type changes
 
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellNew);
+
+    if (state.level === 0) {
+        const litNew = state.gameMap.cells.atVec(state.player.pos).lit !== 0;
+        if (litNew !== litOld) {
+            if (litNew) {
+                setStatusMessage(state, 'You are lit');
+            } else {
+                setStatusMessage(state, 'You are unlit');
+            }
+        }
+    }
 }
 
 function tryPlayerLeap(state: State, dx: number, dy: number) {
@@ -1582,7 +1606,21 @@ function postTurn(state: State) {
             setStatusMessage(state, '');
         }
     } else if (state.level === 0) {
-        if (state.numStepMoves < 4) {
+        const item = state.gameMap.items.find(item=>item.pos.equals(state.player.pos));
+        const cell = state.gameMap.cells.atVec(state.player.pos);
+        if (cell.type == TerrainType.GroundWater) {
+            if (state.player.turnsRemainingUnderwater > 0) {
+                setStatusMessage(state, 'Hold breath and hide underwater');
+            } else {
+                setStatusMessage(state, 'Exit water regain your breath');
+            }
+        } else if (item !== undefined && item.type === ItemType.Bush) {
+            setStatusMessage(state, 'Hide in bushes');
+        } else if (item !== undefined && item.type === ItemType.Table) {
+            setStatusMessage(state, 'Hide under tables');
+        } else if (item !== undefined && (item.type === ItemType.BedL || item.type === ItemType.BedR)) {
+            setStatusMessage(state, 'Hide under beds');
+        } else if (state.numStepMoves < 4) {
             setStatusMessage(state, 'Left, Right, Up, Down: Move');
         } else if (state.numLeapMoves < 4) {
             setStatusMessage(state, leapPrompt);
@@ -3167,7 +3205,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     let leftSideX = 1;
 
-    const playerUnderwater = state.gameMap.cells.at(state.player.pos[0], state.player.pos[1]).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
+    const playerUnderwater = state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
     if (playerUnderwater) {
         // Underwater indicator
 
