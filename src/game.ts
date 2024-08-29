@@ -388,8 +388,8 @@ function analyzeLevel(state: State) {
     const numCellsTraversal = numDiscoverableCells * state.gameMap.backtrackingCoefficient;
     const numGuards = state.gameMap.guards.length;
     const guardsPerCell = numGuards / numCellsTraversal;
-    const turnsForTraversal = numCellsTraversal / 5;
-    const turnsForGuardAvoidance = 8 * numGuards + 800 * guardsPerCell;
+    const turnsForTraversal = numCellsTraversal / 4.5;
+    const turnsForGuardAvoidance = 8 * numGuards + 1000 * guardsPerCell;
     const par = 10 * Math.ceil((turnsForTraversal + turnsForGuardAvoidance) / 10);
     console.log('Level:', state.level);
     console.log('Discoverable cells:', numDiscoverableCells);
@@ -406,7 +406,7 @@ export function numTurnsParForCurrentMap(state: State): number {
     const numCellsTraversal = numDiscoverableCells * state.gameMap.backtrackingCoefficient;
     const numGuards = state.gameMap.guards.length;
     const guardsPerCell = numGuards / numCellsTraversal;
-    const turnsForTraversal = numCellsTraversal * (state.gameMap.backtrackingCoefficient / 5);
+    const turnsForTraversal = numCellsTraversal / 4.5;
     const turnsForGuardAvoidance = 8 * numGuards + 1000 * guardsPerCell;
     const par = 10 * Math.ceil((turnsForTraversal + turnsForGuardAvoidance) / 10);
     return par;
