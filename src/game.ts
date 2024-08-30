@@ -1639,7 +1639,7 @@ function statusBarMessage(state: State): string {
             } else {
                 return 'Stand behind loot-carrying guard';
             }
-        } else if (state.numZoomMoves < 4) {
+        } else if (state.numZoomMoves < 4 && state.turns < 10) {
             return ((state.numZoomMoves > 0) ? '\xfb' : '\x07') + ' Zoom View: [ or ]';
         }
     }
