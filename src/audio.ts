@@ -269,6 +269,18 @@ const guardHearGuardSet: Array<SubtitledSoundDesc> = [ //Repond to guards that e
     // [require('url:./audio/guards/i dont know how to whistle.mp3'), 'I don\'t know\nhow to whistle.'],
 ];
 
+const guardSeeUnlitTorchSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/What.mp3'), 'That torch is out!'],
+    [require('url:./audio/guards/What.mp3'), 'It\'s too dark\nin here.'],
+    [require('url:./audio/guards/What.mp3'), 'Let\'s have more light.'],
+]
+
+const guardFinishLightingTorchSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/Hmm.mp3'), 'That\'s better.'],
+    [require('url:./audio/guards/Hmm.mp3'), 'There we go.'],
+    [require('url:./audio/guards/Hmm.mp3'), 'Now where was I?'],
+]
+
 const guardChaseSet: Array<SubtitledSoundDesc> = [ //Yells a warning that will be heard by other guards
     [require('url:./audio/guards/whistle.mp3'), '(Whistle)'],
     [require('url:./audio/guards/whistle-2.mp3'), '(Whistle)'],
@@ -511,11 +523,13 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardChase = new SubtitledHowlGroup(guardChaseSet, howlPool);
     subtitledSounds.guardEndChase = new SubtitledHowlGroup(guardEndChaseSet, howlPool);
     subtitledSounds.guardHearGuard = new SubtitledHowlGroup(guardHearGuardSet, howlPool);
+    subtitledSounds.guardSeeUnlitTorch = new SubtitledHowlGroup(guardSeeUnlitTorchSet, howlPool);
     subtitledSounds.guardHearThief = new SubtitledHowlGroup(guardHearThiefSet, howlPool);
     subtitledSounds.guardAwakesWarning = new SubtitledHowlGroup(guardAwakesWarningSet, howlPool);
     subtitledSounds.guardDownWarning = new SubtitledHowlGroup(guardDownWarningSet, howlPool);
     subtitledSounds.guardWarningResponse = new SubtitledHowlGroup(guardWarningResponseSet, howlPool);
     subtitledSounds.guardFinishListening = new SubtitledHowlGroup(guardFinishListeningSet, howlPool);
+    subtitledSounds.guardFinishLightingTorch = new SubtitledHowlGroup(guardFinishLightingTorchSet, howlPool);
     subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet, howlPool);
     subtitledSounds.guardStirring = new SubtitledHowlGroup(guardStirringSet, howlPool);
     subtitledSounds.guardRest =  new SubtitledHowlGroup(guardRestSet, howlPool);

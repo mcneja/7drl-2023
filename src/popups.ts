@@ -12,10 +12,12 @@ enum PopupType {
     GuardAwakesWarning,
     GuardWarningResponse,
     GuardHearGuard,
+    GuardSeeUnlitTorch,
     GuardEndChase,
     GuardFinishInvestigating,
     GuardFinishLooking,
     GuardFinishListening,
+    GuardFinishLightingTorch,
     GuardStirring,
 }
 

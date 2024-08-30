@@ -339,7 +339,20 @@ class Guard {
             updateDir(this.dir, this.pos, this.goal);
             if (this.modeTimeout <= 0) {
                 relightTorchAt(map, this.goal, player);
-                this.enterPatrolMode(map);
+
+                const torch = torchNeedingRelighting(map, this.pos);
+                if (torch === undefined) {
+                    this.enterPatrolMode(map);
+                } else {
+                    vec2.copy(this.goal, torch.pos);
+                    if (this.cardinallyAdjacentTo(this.goal)) {
+                        this.mode = GuardMode.LightTorch;
+                        this.modeTimeout = 5;
+                    } else {
+                        this.mode = GuardMode.MoveToTorch;
+                        this.modeTimeout = 3;
+                    }
+                }
             }
             break;
 
@@ -434,8 +447,8 @@ class Guard {
 
             // If we see an extinguished torch, move to light it.
 
-            if (this.mode === GuardMode.Patrol && this.hasTorch) {
-                const torch = torchNeedingRelighting(map, this.pos, this.dir);
+            if (this.hasTorch && this.mode === GuardMode.Patrol) {
+                const torch = torchNeedingRelighting(map, this.pos);
                 if (torch !== undefined) {
                     vec2.copy(this.goal, torch.pos);
                     if (this.cardinallyAdjacentTo(this.goal)) {
@@ -456,7 +469,7 @@ class Guard {
 
         // Say something to indicate state changes
 
-        const popupType = popupTypeForStateChange(this.modePrev, this.mode);
+        const popupType = popupTypeForStateChange(this.modePrev, this.mode, vec2.squaredDistance(this.pos, player.pos));
         if (popupType !== undefined) {
             speech.push({ speaker: this, speechType: popupType });
         }
@@ -708,6 +721,7 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardSeeThief: return 'guardSeeThief';
         case PopupType.GuardHearThief: return 'guardHearThief';
         case PopupType.GuardHearGuard: return 'guardHearGuard';
+        case PopupType.GuardSeeUnlitTorch: return 'guardSeeUnlitTorch';
         case PopupType.GuardDownWarning: return 'guardDownWarning';
         case PopupType.GuardAwakesWarning: return 'guardAwakesWarning';
         case PopupType.GuardWarningResponse: return 'guardWarningResponse';
@@ -716,25 +730,27 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardFinishInvestigating: return 'guardFinishInvestigating';
         case PopupType.GuardFinishLooking: return 'guardFinishLooking';
         case PopupType.GuardFinishListening: return 'guardFinishListening';
+        case PopupType.GuardFinishLightingTorch: return 'guardFinishLightingTorch';
         case PopupType.GuardStirring: return 'guardStirring';
     }
 }
 
-function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): PopupType | undefined {
+function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squaredPlayerDist: number): PopupType | undefined {
     if (modeNext == modePrev) {
         return undefined;
     }
 
+    const inEarshot = squaredPlayerDist < 65;
+
     switch (modeNext) {
         case GuardMode.Patrol:
-        case GuardMode.MoveToTorch:
-        case GuardMode.LightTorch:
             switch (modePrev) {
                 case GuardMode.Look: return PopupType.GuardFinishLooking;
                 case GuardMode.Listen: return PopupType.GuardFinishListening;
                 case GuardMode.MoveToLastSound: return PopupType.GuardFinishInvestigating;
                 case GuardMode.MoveToGuardShout: return PopupType.GuardEndChase;
                 case GuardMode.MoveToLastSighting: return PopupType.GuardEndChase;
+                case GuardMode.LightTorch: return inEarshot ? PopupType.GuardFinishLightingTorch : undefined;
                 case GuardMode.Unconscious: return PopupType.GuardAwakesWarning;
                 default: return undefined;
             }
@@ -746,9 +762,16 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode): Popu
             } else {
                 return undefined;
             }
+        case GuardMode.LightTorch:
+            if (modePrev === GuardMode.Patrol && inEarshot) {
+                return PopupType.GuardSeeUnlitTorch;
+            } else {
+                return undefined;
+            }
         case GuardMode.MoveToLastSighting: return undefined;
         case GuardMode.MoveToLastSound: return PopupType.GuardInvestigate;
         case GuardMode.MoveToGuardShout: return PopupType.GuardHearGuard;
+        case GuardMode.MoveToTorch: return inEarshot ? PopupType.GuardSeeUnlitTorch : undefined;
         case GuardMode.MoveToDownedGuard: return PopupType.GuardDownWarning;
     }
 
@@ -796,17 +819,12 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
     }
 }
 
-function torchNeedingRelighting(map: GameMap, posViewer: vec2, dirViewer: vec2): Item | undefined {
+function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined {
     let bestItem: Item | undefined = undefined;
     let bestDistSquared = 65;
-    const dpos = vec2.create();
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit) {
-            vec2.subtract(dpos, item.pos, posViewer);
-            if (vec2.dot(dirViewer, dpos) < 0) {
-                continue;
-            }
-            const distSquared = vec2.squaredLen(dpos);
+            const distSquared = vec2.squaredDistance(item.pos, posViewer);
             if (distSquared >= bestDistSquared) {
                 continue;
             }
