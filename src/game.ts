@@ -2111,8 +2111,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
 }
 
 function renderGuardSight(state: State, renderer: Renderer) {
-    if (!state.seeGuardSight &&
-        (state.level > 1 || !state.gameMap.guards.some(guard => !isRelaxedGuardMode(guard.mode)))) {
+    if (!state.seeGuardSight) {
         return;
     }
 
