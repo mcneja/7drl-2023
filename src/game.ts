@@ -1021,9 +1021,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             player.pickTarget = null;
             bumpAnim(state, dx, dy);
             advanceTime(state);
-            if (state.level === 0) {
-                setStatusMessage(state, 'Lit torch');
-            }
             return;
 
         case ItemType.TorchLit:
@@ -1033,9 +1030,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             player.pickTarget = null;
             bumpAnim(state, dx, dy);
             advanceTime(state);
-            if (state.level === 0) {
-                setStatusMessage(state, 'Doused torch');
-            }
             return;
 
         case ItemType.PortcullisEW:
