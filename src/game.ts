@@ -55,8 +55,6 @@ const initZoomLevel: number = 4;
 const minZoomLevel: number = -4;
 const maxZoomLevel: number = 16;
 
-const leapPrompt = 'Shift+Move: Leap/Run';
-
 function loadResourcesThenRun() {
     Promise.all([
         loadImage(fontTileSet.imageSrc, fontTileSet.image),
@@ -354,7 +352,6 @@ export function setupLevel(state: State, level: number) {
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
     state.topStatusMessage = '';
-    state.topStatusMessageSticky = false;
     state.topStatusMessageSlide = 1;
     state.finishedLevel = false;
 
@@ -439,7 +436,6 @@ function advanceToMansionComplete(state: State) {
     } else {
         state.topStatusMessage = '';
     }
-    state.topStatusMessageSticky = false;
 
     state.gameMode = GameMode.MansionComplete;
 }
@@ -852,13 +848,13 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
             if (state.level === 0) {
-                setStatusMessage(state, 'Repeat to make noise');
+                setStatusMessage(state, 'Make Noise (repeat): Shift + ' + directionArrowCharacter(dx, dy));
             }
         }
     } else {
         bumpFail(state, dx, dy);
         if (state.level === 0) {
-            setStatusMessage(state, 'Shift+Move: Make noise');
+            setStatusMessage(state, 'Make Noise: Shift + ' + directionArrowCharacter(dx, dy));
         }
     }
 }
@@ -986,7 +982,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Trying to move into a one-way window instead of leaping through?
 
     if (isOneWayWindowTerrainType(cellNew.type)) {
-        setStatusMessage(state, leapPrompt);
+        setLeapStatusMessage(state, dx, dy);
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['jump'].play(0.3), 250);
@@ -1002,7 +998,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         switch (item.type) {
         case ItemType.DrawersShort:
             if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
-                setStatusMessage(state, leapPrompt);
+                setLeapStatusMessage(state, dx, dy);
             }
             if (collectLoot(state, posNew, player.pos)) {
                 preTurn(state);
@@ -1034,7 +1030,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
-            setStatusMessage(state, leapPrompt);
+            setLeapStatusMessage(state, dx, dy);
             state.sounds['gate'].play(0.3);
             if (state.level === 0) {
                 setTimeout(()=>state.sounds['jump'].play(0.3), 1000);
@@ -1088,7 +1084,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     // Execute the move
     const fromHid = player.hidden(state.gameMap);
-    const litOld = state.gameMap.cells.atVec(posOld).lit !== 0;
 
     preTurn(state);
 
@@ -1150,17 +1145,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Play sound for terrain type changes
 
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellNew);
-
-    if (state.level === 0) {
-        const litNew = state.gameMap.cells.atVec(state.player.pos).lit !== 0;
-        if (litNew !== litOld) {
-            if (litNew) {
-                setStatusMessage(state, 'You are lit');
-            } else {
-                setStatusMessage(state, 'You are unlit');
-            }
-        }
-    }
 }
 
 function tryPlayerLeap(state: State, dx: number, dy: number) {
@@ -1584,7 +1568,6 @@ function advanceTime(state: State) {
 //                setStat('lastDaily', state.gameStats);
             }
             saveStats(state.persistedStats);
-            setStatusMessageSticky(state, 'You were killed. Press Escape/Menu to see score.');
         }
     }
 
@@ -1602,61 +1585,83 @@ function postTurn(state: State) {
         state.finishedLevel = true;
     }
 
-    // Update top status-bar message
+    setStatusMessage(state, statusBarMessage(state));
+}
+
+function statusBarMessage(state: State): string {
+    if (state.player.health <= 0) {
+        return 'You were killed. Press Escape/Menu to see score.';
+    }
+
+    const allSeen = state.gameMap.allSeen();
+    const allLooted = state.lootStolen >= state.lootAvailable;
 
     if (allSeen) {
         if (allLooted) {
-            setStatusMessage(state, 'Loot collected! Exit any map edge');
+            return 'Loot collected! Exit any map edge';
         } else if (state.level < 3) {
-            setStatusMessage(state, 'Collect all loot');
-        } else if (state.level === 3 && remainingLootIsOnGuard(state)) {
-            if (state.player.pickTarget !== null || adjacentToUnawareGuardWithLoot(state)) {
-                setStatusMessage(state, 'Step to pickpocket or leap to knock out');
-            } else {
-                setStatusMessage(state, 'Stand behind loot-carrying guard');
-            }
-        } else if (!state.topStatusMessageSticky) {
-            setStatusMessage(state, '');
+            return 'Collect all loot';
         }
-    } else if (state.level === 0) {
+    }
+
+    if (state.level === 0) {
         const item = state.gameMap.items.find(item=>item.pos.equals(state.player.pos));
         const cell = state.gameMap.cells.atVec(state.player.pos);
         if (cell.type == TerrainType.GroundWater) {
             if (state.player.turnsRemainingUnderwater > 0) {
-                setStatusMessage(state, 'Hold breath and hide underwater');
+                return 'Hold breath and hide underwater';
             } else {
-                setStatusMessage(state, 'Exit water regain your breath');
+                return 'Exit water regain your breath';
             }
         } else if (item !== undefined && item.type === ItemType.Bush) {
-            setStatusMessage(state, 'Hide in bushes');
+            return 'Hide in bushes';
         } else if (item !== undefined && item.type === ItemType.Table) {
-            setStatusMessage(state, 'Hide under tables');
+            return 'Hide under tables';
         } else if (item !== undefined && (item.type === ItemType.BedL || item.type === ItemType.BedR)) {
-            setStatusMessage(state, 'Hide under beds');
+            return 'Hide under beds';
         } else if (state.numStepMoves < 4) {
-            setStatusMessage(state, '(' + state.numStepMoves + '/4) Left, Right, Up, Down: Move');
+            return ((state.numStepMoves > 0) ? '\xfb' : '\x07') + ' Move: \x18\x19\x1b\x1a';
         } else if (state.numLeapMoves < 4) {
-            setStatusMessage(state, '(' + state.numLeapMoves + '/4) ' + leapPrompt);
+            return ((state.numLeapMoves > 0) ? '\xfb' : '\x07') + ' Leap/Run: Shift + \x18\x19\x1b\x1a';
         } else {
-            setStatusMessage(state, 'Explore entire mansion');
+            return 'Explore entire mansion';
         }
     } else if (state.level === 1) {
         if (state.numWaitMoves < 4) {
-            setStatusMessage(state, '(' + state.numWaitMoves + '/4) Z, Period, or Space: Wait');
-        } else if (!state.hasOpenedMenu) {
-            setStatusMessage(state, 'Esc or Slash: More help');
-        } else if (!state.topStatusMessageSticky) {
-            setStatusMessage(state, '');
+            return ((state.numWaitMoves > 0) ? '\xfb' : '\x07') + ' Wait: Z, Period, or Space';
+        } else if (!state.hasOpenedMenu && state.turns < 10) {
+            return 'Esc or Slash: More help';
         }
     } else if (state.level === 3) {
-        if (state.numZoomMoves < 4) {
-            setStatusMessage(state, '(' + state.numZoomMoves + '/4): [ and ]: Zoom view');
-        } else if (!state.topStatusMessageSticky) {
-            setStatusMessage(state, '');
+        if (allSeen && !allLooted && remainingLootIsOnGuard(state)) {
+            if (state.player.pickTarget !== null || adjacentToUnawareGuardWithLoot(state)) {
+                return 'Step to pickpocket or leap to knock out';
+            } else {
+                return 'Stand behind loot-carrying guard';
+            }
+        } else if (state.numZoomMoves < 4) {
+            return ((state.numZoomMoves > 0) ? '\xfb' : '\x07') + ' Zoom View: [ or ]';
         }
-    } else if (!state.topStatusMessageSticky) {
-        setStatusMessage(state, '');
     }
+
+    return '';
+}
+
+function setLeapStatusMessage(state: State, dx: number, dy: number) {
+    setStatusMessage(state, 'Leap: Shift + ' + directionArrowCharacter(dx, dy));
+}
+
+function directionArrowCharacter(dx: number, dy: number): string {
+    if (dx > 0) {
+        return '\x1a';
+    } else if (dx < 0) {
+        return '\x1b';
+    } else if (dy > 0) {
+        return '\x18';
+    } else if (dy < 0) {
+        return '\x19';
+    }
+    return '\x07';
 }
 
 function remainingLootIsOnGuard(state: State): boolean {
@@ -1675,12 +1680,6 @@ function adjacentToUnawareGuardWithLoot(state: State): boolean {
 
 export function setStatusMessage(state: State, msg: string) {
     state.topStatusMessage = msg;
-    state.topStatusMessageSticky = false;
-}
-
-function setStatusMessageSticky(state: State, msg: string) {
-    state.topStatusMessage = msg;
-    state.topStatusMessageSticky = true;
 }
 
 function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
@@ -2370,7 +2369,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         player: new Player(gameMap.playerStartPos),
         oldPlayerPos: gameMap.playerStartPos,
         topStatusMessage: '',
-        topStatusMessageSticky: false,
         topStatusMessageSlide: 1,
         numStepMoves: 0,
         numLeapMoves: 0,
@@ -2508,7 +2506,6 @@ export function restartGame(state: State) {
     setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = '';
-    state.topStatusMessageSticky = false;
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
     state.numWaitMoves = 0;
@@ -2549,7 +2546,6 @@ function resetState(state: State) {
     updateAchievements(state, "gameStart");
 
     state.topStatusMessage = '';
-    state.topStatusMessageSticky = false;
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);

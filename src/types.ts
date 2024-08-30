@@ -132,7 +132,6 @@ type State = {
     player: Player;
     oldPlayerPos: vec2,
     topStatusMessage: string;
-    topStatusMessageSticky: boolean;
     topStatusMessageSlide: number;
     numStepMoves: number;
     numLeapMoves: number;
