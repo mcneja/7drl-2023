@@ -771,7 +771,12 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
         case GuardMode.MoveToLastSighting: return undefined;
         case GuardMode.MoveToLastSound: return PopupType.GuardInvestigate;
         case GuardMode.MoveToGuardShout: return PopupType.GuardHearGuard;
-        case GuardMode.MoveToTorch: return inEarshot ? PopupType.GuardSeeUnlitTorch : undefined;
+        case GuardMode.MoveToTorch:
+            if (modePrev !== GuardMode.LightTorch && inEarshot) {
+                return PopupType.GuardSeeUnlitTorch;
+            } else {
+                return undefined;
+            }
         case GuardMode.MoveToDownedGuard: return PopupType.GuardDownWarning;
     }
 
