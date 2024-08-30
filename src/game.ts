@@ -1627,10 +1627,12 @@ function statusBarMessage(state: State): string {
             return 'Explore entire mansion';
         }
     } else if (state.level === 1) {
-        if (state.numWaitMoves < 4) {
-            return ((state.numWaitMoves > 0) ? '\xfb' : '\x07') + ' Wait: Z, Period, or Space';
-        } else if (!state.hasOpenedMenu && state.turns < 10) {
-            return 'Esc or Slash: More help';
+        if (state.turns < 10) {
+            if (state.numWaitMoves < 4) {
+                return ((state.numWaitMoves > 0) ? '\xfb' : '\x07') + ' Wait: Z, Period, or Space';
+            } else if (!state.hasOpenedMenu) {
+                return 'Esc or Slash: More help';
+            }
         }
     } else if (state.level === 3) {
         if (allSeen && !allLooted && remainingLootIsOnGuard(state)) {
