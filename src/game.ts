@@ -848,13 +848,13 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
             if (state.level === 0) {
-                setStatusMessage(state, 'Make Noise (repeat): Shift + ' + directionArrowCharacter(dx, dy));
+                setStatusMessage(state, 'Make Noise (repeat): Shift+' + directionArrowCharacter(dx, dy));
             }
         }
     } else {
         bumpFail(state, dx, dy);
         if (state.level === 0) {
-            setStatusMessage(state, 'Make Noise: Shift + ' + directionArrowCharacter(dx, dy));
+            setStatusMessage(state, 'Make Noise: Shift+' + directionArrowCharacter(dx, dy));
         }
     }
 }
@@ -1626,7 +1626,7 @@ function statusBarMessage(state: State): string {
         } else if (state.numStepMoves < 4) {
             return ((state.numStepMoves > 0) ? '\xfb' : '\x07') + ' Move: \x18\x19\x1b\x1a';
         } else if (state.numLeapMoves < 4) {
-            return ((state.numLeapMoves > 0) ? '\xfb' : '\x07') + ' Leap/Run: Shift + \x18\x19\x1b\x1a';
+            return ((state.numLeapMoves > 0) ? '\xfb' : '\x07') + ' Leap/Run: Shift+Direction';
         } else {
             return 'Explore entire mansion';
         }
@@ -1654,7 +1654,7 @@ function statusBarMessage(state: State): string {
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
-    setStatusMessage(state, 'Leap: Shift + ' + directionArrowCharacter(dx, dy));
+    setStatusMessage(state, 'Leap: Shift+' + directionArrowCharacter(dx, dy));
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {
