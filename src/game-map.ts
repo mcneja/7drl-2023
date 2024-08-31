@@ -322,6 +322,7 @@ class Player {
     turnsRemainingUnderwater: number;
     animation: SpriteAnimation|null = null;
     pickTarget: Guard|null = null;
+    lightActive: boolean = false;
     idle: boolean = false;
     idleCursorAnimation: Animator[]|null = null;
     idleCursorType:'orbs'|'bracket'|'off' = 'orbs';
@@ -666,12 +667,12 @@ class GameMap {
         }
     }
 
-    computeLighting(playerCell:Cell|null=null) {
+    computeLighting(player: Player | null) {
         //TODO: These light source calculation depend on the number of lights (either on or off) 
         //not changing and not changing their order during play to avoid ugly flickering when lights
         //switch on/off
         const occupied:Set<Cell> = new Set();
-        if(playerCell!==null && playerCell.type>=TerrainType.Wall0000) occupied.add(playerCell);
+        if(player!==null && this.cells.atVec(player.pos).type>=TerrainType.Wall0000) occupied.add(this.cells.atVec(player.pos));
         for(let g of this.guards) {
             const gCell = this.cells.at(g.pos[0],g.pos[1]);
             if(gCell.type>=TerrainType.Wall0000) occupied.add(gCell);
@@ -680,7 +681,10 @@ class GameMap {
             cell.lit = 0;
             cell.litSrc.clear();
         }
+
         let lightId = 0;
+
+        // Environment light sources
         for (const item of this.items) {
             if (item.type === ItemType.TorchLit) {
                 this.castLight(item.pos, 45, lightId, occupied);
@@ -694,6 +698,8 @@ class GameMap {
                 lightId++;
             }
         }
+
+        // Guards' light sources
         for (const guard of this.guards) {
             if (guard.hasTorch) {
                 if (guard.mode !== GuardMode.Unconscious) {
@@ -702,6 +708,13 @@ class GameMap {
                 lightId++;
             }
         }
+
+        // Player's light source
+        if (player !== null && player.lightActive) {
+            this.castLight(player.pos, 1, lightId, occupied);
+        }
+        lightId++;
+
         this.lightCount = lightId;
     }
 

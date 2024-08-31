@@ -352,7 +352,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     giveBooksTitles(map.bookTitle, rooms, map.items.filter(item=>item.type === ItemType.Bookshelf), rng);
     markExteriorAsSeen(map);
-    map.computeLighting();
+    map.computeLighting(null);
     map.recomputeVisibility(map.playerStartPos);
 
     map.adjacencies = adjacencies;

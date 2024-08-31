@@ -860,6 +860,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         if (item !== undefined) {
             preTurn(state);
             state.player.pickTarget = null;
+            state.player.lightActive = true;
             bumpAnim(state, dx, dy);
             advanceTime(state);
             const title = state.gameMap.bookTitle.get(item);
@@ -1542,6 +1543,7 @@ function preTurn(state: State) {
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
     state.player.itemUsed = null;
+    state.player.lightActive = false;
 }
 
 function advanceTime(state: State) {
@@ -1561,7 +1563,7 @@ function advanceTime(state: State) {
         state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
     }
 
-    state.gameMap.computeLighting(state.gameMap.cells.atVec(state.player.pos));
+    state.gameMap.computeLighting(state.player);
 
     guardActAll(state);
 

@@ -352,7 +352,7 @@ class Guard {
             --this.modeTimeout;
             updateDir(this.dir, this.pos, this.goal);
             if (this.modeTimeout <= 0) {
-                relightTorchAt(map, this.goal, player);
+                relightTorchAt(map, this.goal);
 
                 const torch = torchNeedingRelighting(map, this.pos);
                 if (torch === undefined) {
@@ -691,7 +691,7 @@ function guardActAll(state: State) {
 
     // Update lighting to account for guards moving with torches, or opening/closing doors
 
-    map.computeLighting(map.cells.atVec(player.pos));
+    map.computeLighting(player);
 
     // Update guard states based on their senses
 
@@ -880,13 +880,12 @@ function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined
     return bestItem;
 }
 
-function relightTorchAt(map: GameMap, posTorch: vec2, player: Player) {
+function relightTorchAt(map: GameMap, posTorch: vec2) {
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit && item.pos.equals(posTorch)) {
             item.type = ItemType.TorchLit;
         }
     }
-    map.computeLighting(map.cells.atVec(player.pos));
 }
 
 function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
