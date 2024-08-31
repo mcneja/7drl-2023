@@ -753,6 +753,7 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardSeeThief: return 'guardSeeThief';
         case PopupType.GuardHearThief: return 'guardHearThief';
         case PopupType.GuardHearGuard: return 'guardHearGuard';
+        case PopupType.GuardSeeTorchLit: return 'guardSeeTorchLit';
         case PopupType.GuardSeeUnlitTorch: return 'guardSeeUnlitTorch';
         case PopupType.GuardDownWarning: return 'guardDownWarning';
         case PopupType.GuardAwakesWarning: return 'guardAwakesWarning';
@@ -763,8 +764,9 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardFinishLooking: return 'guardFinishLooking';
         case PopupType.GuardFinishListening: return 'guardFinishListening';
         case PopupType.GuardFinishLightingTorch: return 'guardFinishLightingTorch';
+        case PopupType.GuardFinishLookingAtLitTorch: return 'guardFinishLookingAtLitTorch';
         case PopupType.GuardStirring: return 'guardStirring';
-        case PopupType.GuardSeeTorchDoused: return 'guardSawTorchDoused';
+        case PopupType.GuardSeeTorchDoused: return 'guardSeeTorchDoused';
     }
 }
 
@@ -779,7 +781,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
         case GuardMode.Patrol:
             switch (modePrev) {
                 case GuardMode.Look: return PopupType.GuardFinishLooking;
-                case GuardMode.LookAtTorch: return PopupType.GuardFinishLooking;
+                case GuardMode.LookAtTorch: return PopupType.GuardFinishLookingAtLitTorch;
                 case GuardMode.Listen: return PopupType.GuardFinishListening;
                 case GuardMode.MoveToLastSound: return PopupType.GuardFinishInvestigating;
                 case GuardMode.MoveToGuardShout: return PopupType.GuardEndChase;
@@ -789,7 +791,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 default: return undefined;
             }
         case GuardMode.Look: return PopupType.GuardSeeThief;
-        case GuardMode.LookAtTorch: return PopupType.GuardSeeThief;
+        case GuardMode.LookAtTorch: return PopupType.GuardSeeTorchLit;
         case GuardMode.Listen: return PopupType.GuardHearThief;
         case GuardMode.ChaseVisibleTarget:
             if (modePrev != GuardMode.MoveToLastSighting) {

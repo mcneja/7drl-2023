@@ -173,6 +173,24 @@ const guardFinishLookingSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
 ];
 
+const guardFinishLookingAtLitTorchSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
+    [require('url:./audio/guards/What.mp3'), 'What?'],
+    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
+    [require('url:./audio/guards/jumpy.mp3'), 'Jumpy tonight...'],
+    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
+    [require('url:./audio/guards/oh well.mp3'), 'Oh well...'],
+    [require('url:./audio/guards/case of the jitters.mp3'), 'I\'ve got myself\na case of the\njitters...'],
+    [require('url:./audio/guards/must be seeing.mp3'), 'I must be\nseein\' things...'],
+    [require('url:./audio/guards/what in my coffee.mp3'), 'What\'d they put\nin my coffee?'],
+    [require('url:./audio/guards/coffee too strong.mp3'), 'Coffee must be\ntoo strong!'],
+    [require('url:./audio/guards/hmm nothing.mp3'), 'Hmm!\nNothing...'],
+    [require('url:./audio/guards/nothing.mp3'), 'Nothing...'],
+    [require('url:./audio/guards/hopefully nothing.mp3'), 'Hopefully\nnothing.'],
+    [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
+    [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
+];
+
 const guardHearThiefSet:Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
     [require('url:./audio/guards/What.mp3'), 'What?'] ,   
@@ -363,7 +381,28 @@ const guardDamageSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ha ya-3.mp3'), 'Hi-yah!'],
 ];
 
-const guardSawTorchDousedSet: Array<SubtitledSoundDesc> = [
+const guardSeeTorchLitSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
+    [require('url:./audio/guards/What.mp3'), 'What?'],    
+    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
+    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
+    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
+    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
+    [require('url:./audio/guards/what was that-2.mp3'), 'What was that?'],
+    [require('url:./audio/guards/what was that-3.mp3'), 'What was that?'],
+    [require('url:./audio/guards/what was that-4.mp3'), 'What was that?'],
+    [require('url:./audio/guards/what was that-5.mp3'), 'What was that?'],
+    [require('url:./audio/guards/who goes there.mp3'), 'Who goes there?'],
+    [require('url:./audio/guards/huh.mp3'), 'Huh?'],
+    [require('url:./audio/guards/What.mp3'), 'What?'],
+    [require('url:./audio/guards/wha.mp3'), 'Wha...'],
+    [require('url:./audio/guards/wait.mp3'), 'Wait!'],
+    [require('url:./audio/guards/who there.mp3'), 'Who\'s there?'],
+    [require('url:./audio/guards/hello.mp3'), 'Hello?'],
+    [require('url:./audio/guards/ugh.mp3'), 'Uhh...'],
+];
+
+const guardSeeTorchDousedSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ahh.mp3'), 'They don\'t\nstay lit!'],
     [require('url:./audio/guards/ahh.mp3'), 'Somebody should\nrelight that.'],
     [require('url:./audio/guards/ahh.mp3'), 'That torch\nburned out.'],
@@ -529,6 +568,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);
     subtitledSounds.guardSeeThief = new SubtitledHowlGroup(guardSeeThiefSet), howlPool;
     subtitledSounds.guardFinishLooking = new SubtitledHowlGroup(guardFinishLookingSet, howlPool);
+    subtitledSounds.guardFinishLookingAtLitTorch = new SubtitledHowlGroup(guardFinishLookingAtLitTorchSet, howlPool);
     subtitledSounds.guardChase = new SubtitledHowlGroup(guardChaseSet, howlPool);
     subtitledSounds.guardEndChase = new SubtitledHowlGroup(guardEndChaseSet, howlPool);
     subtitledSounds.guardHearGuard = new SubtitledHowlGroup(guardHearGuardSet, howlPool);
@@ -542,5 +582,6 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet, howlPool);
     subtitledSounds.guardStirring = new SubtitledHowlGroup(guardStirringSet, howlPool);
     subtitledSounds.guardRest =  new SubtitledHowlGroup(guardRestSet, howlPool);
-    subtitledSounds.guardSawTorchDoused = new SubtitledHowlGroup(guardSawTorchDousedSet, howlPool);
+    subtitledSounds.guardSeeTorchLit = new SubtitledHowlGroup(guardSeeTorchLitSet, howlPool);
+    subtitledSounds.guardSeeTorchDoused = new SubtitledHowlGroup(guardSeeTorchDousedSet, howlPool);
 }
