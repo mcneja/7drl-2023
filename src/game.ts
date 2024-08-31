@@ -1818,7 +1818,8 @@ function renderWorld(state: State, renderer: Renderer) {
                         item.type >= ItemType.DoorNS 
                         && item.type <=ItemType.PortcullisEW;})) {
                     renderer.addGlyphLit4(x, y, x+1, y+1, terrTiles[terrainType], lv);
-                } else if (state.gameMap.guards.find((guard)=>guard.pos[0]===x && guard.pos[1]===y)) {
+                } else if (state.gameMap.guards.find((guard)=>guard.pos[0]===x && guard.pos[1]===y) ||
+                        (state.player.pos[0]===x && state.player.pos[1]===y)) {
                         renderer.addGlyphLit4(x, y, x+1, y+1, terrTiles[terrainType], lv);
                 }
             } else {
@@ -1857,8 +1858,9 @@ function renderWorld(state: State, renderer: Renderer) {
             terrainType === TerrainType.PortcullisNS ||
             terrainType === TerrainType.DoorEW ||
             terrainType === TerrainType.DoorNS) {
-                //The door/portcullis item renders the door/gate closed if there is no guard present
-            if (!state.gameMap.guards.find((guard)=>guard.pos[0]===x && guard.pos[1]===y)) {
+                //The door/portcullis item renders the door/gate closed if there is no guard or player present
+            if (!state.gameMap.guards.find((guard)=>guard.pos[0]===x && guard.pos[1]===y) &&
+                !(state.player.pos[0]===x && state.player.pos[1]===y)) {
                 renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[item.type], lv);
             }
         } else {
