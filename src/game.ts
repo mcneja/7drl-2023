@@ -1643,7 +1643,7 @@ function statusBarMessage(state: State): string {
             if (state.player.pickTarget !== null || adjacentToUnawareGuardWithLoot(state)) {
                 return 'Step to pickpocket or leap to knock out';
             } else {
-                return 'Stand behind loot-carrying guard';
+                return 'Move or leap from behind into loot-carrying guard';
             }
         } else if (state.numZoomMoves < 4 && state.turns < 10) {
             return ((state.numZoomMoves > 0) ? '\xfb' : '\x07') + ' Zoom View: [ or ]';
