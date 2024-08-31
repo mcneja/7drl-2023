@@ -350,6 +350,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Final setup
 
+    giveBooksTitles(map.bookTitle, rooms, map.items.filter(item=>item.type === ItemType.Bookshelf), rng);
     markExteriorAsSeen(map);
     map.computeLighting();
     map.recomputeVisibility(map.playerStartPos);
@@ -5015,6 +5016,255 @@ function placeGuards(
     }
 
     console.assert(guardLoot===0);
+}
+
+const bookTitleFirstWord: Array<string> = [
+    "Alien", "Aliens",
+    "Amulet", "Amulets",
+    "Arm", "Arms",
+    "Armor", "Armor",
+    "Arrow", "Arrows",
+    "Attack", "Attacks",
+    "Aura", "Aurae",
+    "Awakening", "Awakenings",
+    "Axe", "Axes",
+    "Bane", "Banes",
+    "Battle-Axe", "Battle-Axes",
+    "Blood", "Bloods",
+    "Breath", "Breaths",
+    "Captive", "Captives",
+    "Castle", "Castles",
+    "Catacomb", "Catacombs",
+    "Cave", "Caves",
+    "Chamber", "Chambers",
+    "Champion", "Champions",
+    "Child", "Children",
+    "Citadel", "Citadels",
+    "City", "Cities",
+    "Claw", "Claws",
+    "Cow", "Cows",
+    "Crown", "Crowns",
+    "Crusade", "Crusades",
+    "Crystal", "Crystals",
+    "Curse", "Curses",
+    "Dagger", "Daggers",
+    "Daughter", "Daughters",
+    "Dawn", "Dawn",
+    "Day", "Days",
+    "Dungeon", "Dungeons",
+    "Dragon", "Dragons",
+    "Eye", "Eyes",
+    "Field", "Fields",
+    "Fire", "Fires",
+    "Fist", "Fists",
+    "Forest", "Forests",
+    "Fortress", "Fortresses",
+    "Fugitive", "Fugitives",
+    "Game", "Games",
+    "Gem", "Gems",
+    "Guardian", "Guardians",
+    "Hand", "Hands",
+    "Helm", "Helms",
+    "Horde", "Hordes",
+    "Hour", "Hours",
+    "Keep", "Keeps",
+    "Key", "Keys",
+    "Knight", "Knights",
+    "Land", "Lands",
+    "Legend", "Legends",
+    "Lord", "Lords",
+    "Master", "Masters",
+    "Mercenary", "Mercenaries",
+    "Mind", "Minds",
+    "Mine", "Mines",
+    "Minion", "Minions",
+    "Mirror", "Mirrors",
+    "Night", "Nights",
+    "Moon", "Moons",
+    "Omen", "Omens",
+    "Orb", "Orbs",
+    "Path", "Paths",
+    "Pit", "Pits",
+    "Plague", "Plagues",
+    "Pool", "Pools",
+    "Potion", "Potions",
+    "Prince", "Princes",
+    "Princess", "Princesses",
+    "Prison", "Prisons",
+    "Prisoner", "Prisoners",
+    "Prophecy", "Prophecies",
+    "Quest", "Quests",
+    "Rampage", "Rampages",
+    "Realm", "Realms",
+    "Reaper", "Reapers",
+    "Rebirth", "Rebirths",
+    "Return", "Returns",
+    "Revenge", "Revenges",
+    "Ring", "Rings",
+    "Rise", "Rise",
+    "River", "Rivers",
+    "Scroll", "Scrolls",
+    "Serpent", "Serpents",
+    "Servant", "Servants",
+    "Shadow", "Shadows",
+    "Shield", "Shields",
+    "Sign", "Signs",
+    "Siren", "Sirens",
+    "Slave", "Slaves",
+    "Son", "Sons",
+    "Spawn", "Spawn",
+    "Spear", "Spears",
+    "Spell", "Spells",
+    "Sphere", "Spheres",
+    "Staff", "Staves",
+    "Stronghold", "Strongholds",
+    "Sword", "Swords",
+    "Thief", "Thieves",
+    "Threat", "Threats",
+    "Throne", "Thrones",
+    "Tower", "Towers",
+    "Trail", "Trails",
+    "Trial", "Trials",
+    "Valley", "Valleys",
+    "Wand", "Wands",
+    "Warrior", "Warriors",
+    "Weapon", "Weapons",
+    "Wind", "Winds",
+    "Witch", "Witches",
+    "Wizard", "Wizards",
+];
+
+const bookTitleSecondWord: Array<string> = [
+    "Adventure",
+    "Agony",
+    "the Ancients",
+    "Anger",
+    "Avenging",
+    "Battle",
+    "Beholding",
+    "Brilliance",
+    "Danger",
+    "Darkness",
+    "Death",
+    "Deception",
+    "Despair",
+    "Destiny",
+    "Destruction",
+    "Disease",
+    "Ecstacy",
+    "Enchantment",
+    "Enlightenment",
+    "Eternity",
+    "Evil",
+    "Falsehood",
+    "Famine",
+    "Fantasy",
+    "Fate",
+    "Fear",
+    "Flame",
+    "Foretelling",
+    "Forewarning",
+    "Fortune",
+    "Fury",
+    "Gallantry",
+    "Gingivitis",
+    "the Gods",
+    "Intrigue",
+    "Keeping",
+    "Legend",
+    "the Living Dead",
+    "Lore",
+    "Madness",
+    "Magic",
+    "Menace",
+    "Midnight",
+    "Might",
+    "Murder",
+    "Mystery",
+    "Power",
+    "Prophecy",
+    "Radiance",
+    "Rebellion",
+    "Reckoning",
+    "Remembrance",
+    "Shadow",
+    "Sickness",
+    "Strength",
+    "Suffering",
+    "Terror",
+    "Time",
+    "Truth",
+    "the Undead",
+    "the Universe",
+    "Unraveling",
+    "Valor",
+    "Vengeance",
+    "Venom",
+    "War",
+];
+
+function randomBookTitle(rng: RNG): string {
+    const firstWord = bookTitleFirstWord[rng.randomInRange(bookTitleFirstWord.length)];
+    const secondWord = bookTitleSecondWord[rng.randomInRange(bookTitleSecondWord.length)];
+    const title = firstWord + ' of ' + secondWord;
+    return title;
+}
+
+function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookItems: Array<Item>, rng: RNG) {
+    // Divide books into sets by room
+    const booksInRoom: Map<Room, Array<Item>> = new Map();
+
+    for (const room of rooms) {
+        const books: Array<Item> = [];
+        for (const item of bookItems) {
+            if (item.pos[0] >= room.posMin[0] &&
+                item.pos[1] >= room.posMin[1] &&
+                item.pos[0] < room.posMax[0] &&
+                item.pos[1] < room.posMax[1]) {
+                books.push(item);
+            }
+        }
+        if (books.length > 0) {
+            booksInRoom.set(room, books);
+        }
+    }
+
+    for (const i of booksInRoom) {
+        const room = i[0];
+        const books = i[1];
+        const sortAxisPrimary = vec2.create();
+        const sortAxisSecondary = vec2.create();
+        if (room.posMax[0] - room.posMin[0] >= room.posMax[1] - room.posMin[1]) {
+            vec2.set(sortAxisPrimary, rng.random() < 0.5 ? 1 : -1, 0);
+            vec2.set(sortAxisSecondary, 0, rng.random() < 0.5 ? 1 : -1);
+        } else {
+            vec2.set(sortAxisPrimary, 0, rng.random() < 0.5 ? 1 : -1);
+            vec2.set(sortAxisSecondary, rng.random() < 0.5 ? 1 : -1, 0);
+        }
+
+        books.sort((book0, book1) => {
+            let n0 = vec2.dot(sortAxisPrimary, book0.pos);
+            let n1 = vec2.dot(sortAxisPrimary, book1.pos);
+            if (n0 < n1) return -1;
+            if (n0 > n1) return 1;
+            n0 = vec2.dot(sortAxisSecondary, book0.pos);
+            n1 = vec2.dot(sortAxisSecondary, book1.pos);
+            if (n0 < n1) return -1;
+            if (n0 > n1) return 1;
+            return 0;
+        });
+
+        const bookTitles: Array<string> = [];
+        for (let i = 0; i < books.length; ++i) {
+            bookTitles.push(randomBookTitle(rng));
+        }
+
+        bookTitles.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+
+        for (let i = 0; i < books.length; ++i) {
+            bookTitle.set(books[i], bookTitles[i]);
+        }
+    }
 }
 
 function markExteriorAsSeen(map: GameMap) {

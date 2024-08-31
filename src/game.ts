@@ -852,9 +852,27 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             }
         }
     } else {
-        bumpFail(state, dx, dy);
-        if (state.level === 0) {
-            setStatusMessage(state, 'Make Noise: Shift+' + directionArrowCharacter(dx, dy));
+        // See if we are bumping a bookshelf; display the book title, if so.
+        const item = state.gameMap.items.find(item =>
+            item.pos[0] === state.player.pos[0] + dx &&
+            item.pos[1] === state.player.pos[1] + dy &&
+            item.type === ItemType.Bookshelf);
+        if (item !== undefined) {
+            preTurn(state);
+            state.player.pickTarget = null;
+            bumpAnim(state, dx, dy);
+            advanceTime(state);
+            const title = state.gameMap.bookTitle.get(item);
+            if (title === undefined) {
+                setStatusMessage(state, 'Untitled');
+            } else {
+                setStatusMessage(state, title);
+            }
+        } else {
+            bumpFail(state, dx, dy);
+            if (state.level === 0) {
+                setStatusMessage(state, 'Make Noise: Shift+' + directionArrowCharacter(dx, dy));
+            }
         }
     }
 }

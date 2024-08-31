@@ -436,6 +436,7 @@ class GameMap {
     numPreRevealedCells: number;
     adjacencies: Array<Adjacency>;
     backtrackingCoefficient: number;
+    bookTitle: Map<Item, string>;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -448,6 +449,7 @@ class GameMap {
         this.numPreRevealedCells = 0;
         this.adjacencies = [];
         this.backtrackingCoefficient = 1;
+        this.bookTitle = new Map();
     }
 
     collectLootAt(pos:vec2): Array<Item> {
