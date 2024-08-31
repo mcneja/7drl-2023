@@ -363,6 +363,15 @@ const guardDamageSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ha ya-3.mp3'), 'Hi-yah!'],
 ];
 
+const guardSawTorchDousedSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/ahh.mp3'), 'They don\'t\nstay lit!'],
+    [require('url:./audio/guards/ahh.mp3'), 'Somebody should\nrelight that.'],
+    [require('url:./audio/guards/ahh.mp3'), 'That torch\nburned out.'],
+    [require('url:./audio/guards/ahh.mp3'), 'It got dark!'],
+    [require('url:./audio/guards/ahh.mp3'), 'Wish I had\na torch...'],
+    [require('url:./audio/guards/ahh.mp3'), 'Why did that\nhappen?'],
+];
+
 
 export class ActiveHowlPool {
     activeHowls: Array<[Howl, number]>;
@@ -533,4 +542,5 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardDamage = new SubtitledHowlGroup(guardDamageSet, howlPool);
     subtitledSounds.guardStirring = new SubtitledHowlGroup(guardStirringSet, howlPool);
     subtitledSounds.guardRest =  new SubtitledHowlGroup(guardRestSet, howlPool);
+    subtitledSounds.guardSawTorchDoused = new SubtitledHowlGroup(guardSawTorchDousedSet, howlPool);
 }

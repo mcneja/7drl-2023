@@ -318,6 +318,7 @@ class Player {
     noisyAnim: number;
     hasVaultKey: boolean;
     damagedLastTurn: boolean;
+    itemUsed: Item | null = null; // item player used last turn, if any
     turnsRemainingUnderwater: number;
     animation: SpriteAnimation|null = null;
     pickTarget: Guard|null = null;

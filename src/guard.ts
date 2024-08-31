@@ -1,16 +1,19 @@
 export { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode };
 
-import { Cell, GameMap, Item, ItemType, Player, TerrainType, GuardStates, isWindowTerrainType } from './game-map';
+import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
-import { Popups, PopupType } from './popups';
+import { PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
 import { LevelStats, State } from './types';
 import { joltCamera } from './game';
 
+const distSquaredSeeTorchMax: number = 64;
+
 enum GuardMode {
     Patrol,
     Look,
+    LookAtTorch,
     Listen,
     ChaseVisibleTarget,
     MoveToLastSighting,
@@ -62,7 +65,7 @@ class Guard {
     constructor(patrolPath: Array<vec2>, pathIndexStart: number) {
         const posStart = patrolPath[pathIndexStart];
         this.pos = vec2.clone(posStart);
-        this.heardGuardPos = vec2.clone(posStart);
+        this.heardGuardPos = vec2.create();
         this.goal = vec2.clone(posStart);
         this.patrolPath = patrolPath;
         this.patrolPathIndex = pathIndexStart;
@@ -137,6 +140,7 @@ class Guard {
             break;
 
         case GuardMode.Look:
+        case GuardMode.LookAtTorch:
         case GuardMode.Listen:
         case GuardMode.Unconscious:
             this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
@@ -223,6 +227,16 @@ class Guard {
         case GuardMode.Look:
         case GuardMode.Listen:
             this.makeBestAvailableMove(map, player);
+
+            this.modeTimeout -= 1;
+            if (this.modeTimeout <= 0) {
+                this.enterPatrolMode(map);
+            }
+            break;
+
+        case GuardMode.LookAtTorch:
+            this.makeBestAvailableMove(map, player);
+            updateDir(this.dir, this.pos, this.goal);
 
             this.modeTimeout -= 1;
             if (this.modeTimeout <= 0) {
@@ -460,9 +474,25 @@ class Guard {
                     }
                 }
             }
+
+            // If we see a torch lit or doused, turn to look at it (if lit), or remark on it (if unlit)
+
+            if (!this.hasTorch &&
+                isRelaxedGuardMode(this.mode) &&
+                player.itemUsed !== null &&
+                vec2.squaredDistance(this.pos, player.itemUsed.pos) <= distSquaredSeeTorchMax &&
+                lineOfSightToTorch(map, this.pos, player.itemUsed.pos)) {
+                if (player.itemUsed.type === ItemType.TorchLit) {
+                    vec2.copy(this.goal, player.itemUsed.pos);
+                    this.mode = GuardMode.LookAtTorch;
+                    this.modeTimeout = 2 + randomInRange(4);
+                } else if (player.itemUsed.type === ItemType.TorchUnlit) {
+                    speech.push({ speaker: this, speechType: PopupType.GuardSeeTorchDoused });
+                }
+            }
         }
 
-        // Clear heard-thief flags
+        // Clear sense flags
     
         this.heardThief = false;
         this.heardThiefClosest = false;
@@ -615,7 +645,9 @@ function chooseGuardMoves(state: State) {
     }
 }
 
-function guardActAll(state: State, map: GameMap, popups: Popups, player: Player) {
+function guardActAll(state: State) {
+    const map = state.gameMap;
+    const player = state.player;    
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
@@ -732,6 +764,7 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardFinishListening: return 'guardFinishListening';
         case PopupType.GuardFinishLightingTorch: return 'guardFinishLightingTorch';
         case PopupType.GuardStirring: return 'guardStirring';
+        case PopupType.GuardSeeTorchDoused: return 'guardSawTorchDoused';
     }
 }
 
@@ -740,12 +773,13 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
         return undefined;
     }
 
-    const inEarshot = squaredPlayerDist < 65;
+    const inEarshot = squaredPlayerDist <= distSquaredSeeTorchMax;
 
     switch (modeNext) {
         case GuardMode.Patrol:
             switch (modePrev) {
                 case GuardMode.Look: return PopupType.GuardFinishLooking;
+                case GuardMode.LookAtTorch: return PopupType.GuardFinishLooking;
                 case GuardMode.Listen: return PopupType.GuardFinishListening;
                 case GuardMode.MoveToLastSound: return PopupType.GuardFinishInvestigating;
                 case GuardMode.MoveToGuardShout: return PopupType.GuardEndChase;
@@ -755,6 +789,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 default: return undefined;
             }
         case GuardMode.Look: return PopupType.GuardSeeThief;
+        case GuardMode.LookAtTorch: return PopupType.GuardSeeThief;
         case GuardMode.Listen: return PopupType.GuardHearThief;
         case GuardMode.ChaseVisibleTarget:
             if (modePrev != GuardMode.MoveToLastSighting) {
@@ -826,7 +861,7 @@ function updateDir(dir: vec2, pos: vec2, posTarget: vec2) {
 
 function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined {
     let bestItem: Item | undefined = undefined;
-    let bestDistSquared = 65;
+    let bestDistSquared = distSquaredSeeTorchMax + 1;
     for (const item of map.items) {
         if (item.type === ItemType.TorchUnlit) {
             const distSquared = vec2.squaredDistance(item.pos, posViewer);

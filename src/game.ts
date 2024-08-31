@@ -2,7 +2,7 @@ import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
-import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight, } from './guard';
+import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight } from './guard';
 import { Renderer } from './render';
 import { RNG, randomInRange } from './random';
 import { TileInfo, getTileSet, getFontTileSet, TileSet } from './tilesets';
@@ -1015,6 +1015,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             state.sounds["ignite"].play(0.08);
             item.type = ItemType.TorchLit;
             player.pickTarget = null;
+            player.itemUsed = item;
             bumpAnim(state, dx, dy);
             advanceTime(state);
             return;
@@ -1024,6 +1025,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             state.sounds["douse"].play(0.05);
             item.type = ItemType.TorchUnlit;
             player.pickTarget = null;
+            player.itemUsed = item;
             bumpAnim(state, dx, dy);
             advanceTime(state);
             return;
@@ -1295,6 +1297,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     if (torchMid !== undefined) {
         state.sounds["douse"].play(0.05);
         torchMid.type = ItemType.TorchUnlit;
+        player.itemUsed = torchMid;
     }
 
     // End level if moving off the map
@@ -1520,6 +1523,7 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: numbe
 function preTurn(state: State) {
     state.player.noisy = false;
     state.player.damagedLastTurn = false;
+    state.player.itemUsed = null;
 }
 
 function advanceTime(state: State) {
@@ -1541,7 +1545,7 @@ function advanceTime(state: State) {
 
     state.gameMap.computeLighting(state.gameMap.cells.atVec(state.player.pos));
 
-    guardActAll(state, state.gameMap, state.popups, state.player);
+    guardActAll(state);
 
     state.gameMap.recomputeVisibility(state.player.pos);
 

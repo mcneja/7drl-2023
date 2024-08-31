@@ -19,6 +19,7 @@ enum PopupType {
     GuardFinishListening,
     GuardFinishLightingTorch,
     GuardStirring,
+    GuardSeeTorchDoused,
 }
 
 class Popups {
