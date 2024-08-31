@@ -864,9 +864,9 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             advanceTime(state);
             const title = state.gameMap.bookTitle.get(item);
             if (title === undefined) {
-                setStatusMessage(state, 'Untitled');
+                setStatusMessage(state, '"Untitled"');
             } else {
-                setStatusMessage(state, title);
+                setStatusMessage(state, '"' + title + '"');
             }
         } else {
             bumpFail(state, dx, dy);
