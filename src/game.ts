@@ -882,6 +882,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                         ++state.gameMap.treasureUnlock.numSwitchesUsed;
                         if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
                             title = '(rumble) ' + title;
+                            joltCamera(state, dx, dy);
                             state.gameMap.items.push({
                                 pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
                                 type: ItemType.Treasure,
@@ -889,11 +890,13 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                         } else {
                             title = '(click) ' + title;
                         }
-                    } else {
+                    } else if (i === 0) {
                         title = '(click) ' + title;
-                        state.gameMap.treasureUnlock.numSwitchesUsed = (i === 0) ? 1 : 0;
+                        state.gameMap.treasureUnlock.numSwitchesUsed = 1;
+                    } else {
+                        title = '(clunk) ' + title;
+                        state.gameMap.treasureUnlock.numSwitchesUsed = 0;
                     }
-                    console.log('Number switches pressed: %d', state.gameMap.treasureUnlock.numSwitchesUsed);
                     break;
                 }
             }
