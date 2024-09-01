@@ -354,6 +354,10 @@ class Player {
     }
 
     hidden(map: GameMap): boolean {
+        if (this.lightActive) {
+            return false;
+        }
+
         if (map.guards.find((guard) => guard.mode == GuardMode.ChaseVisibleTarget) !== undefined) {
             return false;
         }
