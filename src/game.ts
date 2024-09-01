@@ -482,6 +482,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             ++state.player.loot;
             ++state.lootStolen;
             coinCollected = true;
+        } else if (item.type === ItemType.Treasure) {
+            coinCollected = true;
         } else if (item.type === ItemType.Health) {
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
@@ -881,6 +883,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                     if (i === state.gameMap.treasureUnlock.numSwitchesUsed) {
                         ++state.gameMap.treasureUnlock.numSwitchesUsed;
                         if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+                            state.sounds.switchSuccess.play(0.5);
                             title = '(rumble) ' + title;
                             joltCamera(state, dx, dy);
                             state.gameMap.items.push({
@@ -888,12 +891,15 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                                 type: ItemType.Treasure,
                             });
                         } else {
+                            state.sounds.switchProgress.play(0.5);
                             title = '(click) ' + title;
                         }
                     } else if (i === 0) {
+                        state.sounds.switchProgress.play(0.5);
                         title = '(click) ' + title;
                         state.gameMap.treasureUnlock.numSwitchesUsed = 1;
                     } else {
+                        state.sounds.switchReset.play(0.5);
                         title = '(clunk) ' + title;
                         state.gameMap.treasureUnlock.numSwitchesUsed = 0;
                     }

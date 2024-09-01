@@ -4295,12 +4295,18 @@ function renderRoomTreasure(map: GameMap, room: Room, level: number, rng: RNG) {
     const dx = room.posMax[0] - room.posMin[0];
     const dy = room.posMax[1] - room.posMin[1];
 
-    if (dx > 3 || dy > 3) {
-        setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundMarble);
-    }
-
     const x = room.posMin[0] + Math.floor((dx - 1) / 2);
     const y = room.posMin[1] + Math.floor((dy - 1) / 2);
+
+    if (dx > 3 || dy > 3) {
+        setRectTerrainType(
+            map,
+            Math.max(room.posMin[0] + 1, x - 1),
+            Math.max(room.posMin[1] + 1, y - 1),
+            Math.min(room.posMax[0] - 1, x + 2),
+            Math.min(room.posMax[1] - 1, y + 2),
+            TerrainType.GroundMarble);
+    }
 
     placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLockBox);
 
@@ -4316,12 +4322,18 @@ function renderRoomTreasureCourtyard(map: GameMap, room: Room, level: number, rn
     const dx = room.posMax[0] - room.posMin[0];
     const dy = room.posMax[1] - room.posMin[1];
 
-    if (dx > 3 && dy > 3) {
-        setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundNormal);
-    }
-
     const x = room.posMin[0] + Math.floor((dx - 1) / 2);
     const y = room.posMin[1] + Math.floor((dy - 1) / 2);
+
+    if (dx > 3 && dy > 3) {
+        setRectTerrainType(
+            map,
+            Math.max(room.posMin[0] + 1, x - 1),
+            Math.max(room.posMin[1] + 1, y - 1),
+            Math.min(room.posMax[0] - 1, x + 2),
+            Math.min(room.posMax[1] - 1, y + 2),
+            TerrainType.GroundNormal);
+    }
 
     placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLockBox);
 

@@ -110,6 +110,17 @@ const jumpSet = [
     // require('url:./audio/gotta jump-2.mp3'),    
 ];
 
+const switchProgressSet = [
+    require('url:./audio/switch-progress.mp3'),
+];
+
+const switchResetSet = [
+    require('url:./audio/switch-reset.mp3'),
+];
+
+const switchSuccessSet = [
+    require('url:./audio/switch-success.mp3'),
+];
 
 const tooHighSet = [
     require('url:./audio/too high.mp3'),
@@ -563,6 +574,9 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.waterExit = new HowlGroup(waterExitSet);
     sounds.jump = new HowlGroup(jumpSet);
     sounds.tooHigh = new HowlGroup(tooHighSet);
+    sounds.switchProgress = new HowlGroup(switchProgressSet);
+    sounds.switchReset = new HowlGroup(switchResetSet);
+    sounds.switchSuccess = new HowlGroup(switchSuccessSet);
 
     subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet, howlPool);
     subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);
