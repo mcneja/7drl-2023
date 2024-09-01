@@ -480,6 +480,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
     let coinCollected = false;
     let healthCollected = false;
     for (const item of itemsCollected) {
+        let offset = 0;
         if (item.type === ItemType.Coin) {
             ++state.player.loot;
             ++state.lootStolen;
@@ -487,6 +488,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         } else if (item.type === ItemType.Treasure) {
             coinCollected = true;
             ++state.treasureStolen;
+            offset = 0.625;
         } else if (item.type === ItemType.Health) {
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
@@ -495,8 +497,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             healthCollected = true;
         }
         const pt0 = vec2.create();
-        const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]));
-        const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5));
+        const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]+offset));
+        const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5+offset/2));
         const animation = new SpriteAnimation([
                 {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
                 {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
@@ -543,7 +545,7 @@ function canStepToPos(state: State, pos: vec2): boolean {
         return false;
     }
 
-    // Cannot step onto torches or portcullises
+    // Cannot step onto torches, portcullises, treasure boxes or treasure
 
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(pos))) {
         switch (item.type) {
@@ -552,6 +554,8 @@ function canStepToPos(state: State, pos: vec2): boolean {
         case ItemType.TorchLit:
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
+        case ItemType.TreasureLockBox:
+        case ItemType.Treasure:
             return false;
         }
     }
@@ -1070,6 +1074,19 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             }
             return;
 
+        case ItemType.TreasureLockBox:
+            preTurn(state);
+            if(collectLoot(state, posNew, player.pos)) {
+                player.pickTarget = null;
+                player.itemUsed = item;
+                bumpAnim(state, dx, dy);
+                advanceTime(state);    
+            } else {
+                bumpAnim(state, dx, dy);
+                setLeapStatusMessage(state, dx, dy);
+            }
+            return;
+
         case ItemType.TorchUnlit:
             preTurn(state);
             state.sounds["ignite"].play(0.08);
@@ -1526,6 +1543,8 @@ function canLeapOntoItemType(itemType: ItemType): boolean {
         case ItemType.DrawersShort:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
+        case ItemType.TreasureLockBox:
+        case ItemType.Treasure:
             return false;
         default:
             return true;
@@ -1927,6 +1946,11 @@ function renderWorld(state: State, renderer: Renderer) {
                 !(state.player.pos[0]===x && state.player.pos[1]===y)) {
                 renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[item.type], lv);
             }
+        } else if (item.type===ItemType.Treasure) {
+            const ti = item.animation ?
+                item.animation.currentTile() :
+                itemTiles[item.type];
+            renderer.addGlyphLit4(x, y+0.625, x + 1, y + 1.625, ti, lv);
         } else {
             const ti = item.animation ?
                 item.animation.currentTile() :

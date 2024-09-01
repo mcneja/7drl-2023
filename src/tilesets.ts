@@ -140,6 +140,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([10,   4]), color:colorWoodFloorLit, unlitColor:colorGroundUnlit}, // TerrainType.GroundWood,
         {textureIndex: r([10,   5]), color:colorWoodFloorLit, unlitColor:colorGroundUnlit}, // TerrainType.GroundWoodCreaky,
         {textureIndex: r([4,   5]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundVault,
+        {textureIndex: r([4,   4]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundTreasure,
         {textureIndex: r([4,   2]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0000,
         {textureIndex: r([4,   2]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0001,
         {textureIndex: r([4,   2]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0010,
@@ -174,7 +175,8 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([0,   4]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundMarble,
         {textureIndex: r([7,   4]),  color:colorWoodFloorLit, unlitColor:colorGroundUnlit}, // TerrainType.GroundWood,
         {textureIndex: r([7,   5]),  color:colorWoodFloorLit, unlitColor:colorGroundUnlit}, // TerrainType.GroundWoodCreaky,
-        {textureIndex: r([5,   4]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundVault,
+        {textureIndex: r([4,   5]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundVault,
+        {textureIndex: r([3,   4]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundTreasure,
         {textureIndex: r([4,   9]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0000,
         {textureIndex: r([4,   9]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0001,
         {textureIndex: r([4,   9]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0010,
@@ -210,6 +212,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([6,   4]),  color:colorWoodFloorLit, unlitColor:colorGroundUnlit}, // TerrainType.GroundWood,
         {textureIndex: r([6,   5]),  color:colorWoodFloorLit, unlitColor:colorGroundUnlit}, // TerrainType.GroundWoodCreaky,
         {textureIndex: r([5,   4]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundVault,
+        {textureIndex: r([3,   5]),  color:colorGroundLit,    unlitColor:colorGroundUnlit}, // TerrainType.GroundTreasure,
         {textureIndex: r([4,   6]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0000,
         {textureIndex: r([4,   2]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0001,
         {textureIndex: r([4,   2]),  color:colorWallLit,      unlitColor:colorWallUnlit},   // TerrainType.Wall0010,
@@ -264,7 +267,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.KeyCarry,
         {textureIndex: r([15,  7]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Note,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasureLockBox,
-        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
+        {textureIndex: r([0,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
     ],
     manseItemTiles: [
         {textureIndex: r([3,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Chair,
@@ -322,7 +325,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.KeyCarry,    
         {textureIndex: r([15,  7]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Note,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasureLockBox,
-        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
+        {textureIndex: r([3,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
     ],
     npcTiles: [
         {textureIndex: r([9, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE

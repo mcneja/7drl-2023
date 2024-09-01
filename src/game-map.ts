@@ -133,6 +133,7 @@ enum TerrainType {
     GroundWood,
     GroundWoodCreaky,
     GroundVault,
+    GroundTreasure,
 
     //  NSEW
     Wall0000,
