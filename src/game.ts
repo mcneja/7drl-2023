@@ -432,7 +432,7 @@ function advanceToMansionComplete(state: State) {
     }
 
     if (state.level < mansionCompleteTopStatusHint.length) {
-        state.topStatusMessage = 'Hint: ' + mansionCompleteTopStatusHint[state.level];
+        state.topStatusMessage = '\xFF: ' + mansionCompleteTopStatusHint[state.level];
     } else {
         state.topStatusMessage = '';
     }
@@ -1609,7 +1609,10 @@ function postTurn(state: State) {
         state.finishedLevel = true;
     }
 
-    setStatusMessage(state, statusBarMessage(state));
+    const hintMessage = statusBarMessage(state);
+    state.playerHintMessageIsNew = state.playerHintMessage!==hintMessage && hintMessage!=='';
+    state.playerHintMessage = hintMessage;
+    setStatusMessage(state, hintMessage!=''?'\xFF '+hintMessage:'');
 }
 
 function statusBarMessage(state: State): string {
@@ -2082,6 +2085,13 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     const player = state.player;
     const bubble_right = renderer.tileSet.namedTiles['speechBubbleR'];
     const bubble_left = renderer.tileSet.namedTiles['speechBubbleL'];
+    if(state.playerHintMessageIsNew) {
+        const a = state.player.animation;
+        const offset = a && a instanceof SpriteAnimation ? a.offset : vec2.create();
+        const [x,y] = player.pos.add(offset);
+        const ptile = renderer.tileSet.namedTiles['playerHint'];
+        renderer.addGlyph(x, y+0.625, x+1, y+1.625, ptile);
+    }
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.atVec(guard.pos);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -2380,6 +2390,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         rng: rng,
         dailyRun: null,
         leapToggleActive: false,
+        playerHintMessage: '',
+        playerHintMessageIsNew: false,
         gameMode: GameMode.HomeScreen,
         textWindows: {
             [GameMode.HomeScreen]: new HomeScreen(),

@@ -112,6 +112,7 @@ const tileSet31Color:TileSet = {
         speechBubbleL: {textureIndex:0xb8, color:0xffffffff},
         idleIndicator: {textureIndex:0xbc, color:0xffffffff},
         idleIndicatorAlt: {textureIndex:0xfd, color:0xffffffff},
+        playerHint: {textureIndex:0xb9, color:0xffffffff}
     },
     touchButtons: {
         'menu':             {textureIndex: r([11, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
