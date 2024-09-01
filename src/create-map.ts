@@ -1849,12 +1849,6 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
         }
     }
 
-    // Pick a room to be the treasure room
-
-    for (const room of chooseRooms(rooms, roomCanBeTreasure, 1, rng)) {
-        room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.TreasureCourtyard : RoomType.Treasure;
-    }
-
     // Pick rooms to be dining rooms
 
     for (const room of chooseRooms(rooms, roomCanBeDining, Math.ceil(rooms.length / 21), rng)) {
@@ -1869,6 +1863,14 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
 
     for (const room of chooseRooms(rooms, roomCanBePrivateLibrary, Math.ceil(rooms.length / 42), rng)) {
         room.roomType = RoomType.PrivateLibrary;
+    }
+
+    // Pick a room to be the treasure room
+
+    if (rooms.some(room => room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary)) {
+        for (const room of chooseRooms(rooms, roomCanBeTreasure, 1, rng)) {
+            room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.TreasureCourtyard : RoomType.Treasure;
+        }
     }
 }
 
