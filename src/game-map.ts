@@ -483,7 +483,7 @@ class GameMap {
         this.items = this.items.filter((item) => {
             if (!item.pos.equals(pos)) {
                 return true;
-            } else if (item.type === ItemType.Coin || item.type === ItemType.Health) {
+            } else if (item.type === ItemType.Coin || item.type === ItemType.Treasure || item.type === ItemType.Health) {
                 items.push(item);
                 return false;
             } else {
