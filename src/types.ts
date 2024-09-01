@@ -153,6 +153,7 @@ type State = {
     totalTurns: number;
     lootStolen: number;
     lootAvailable: number;
+    treasureStolen: number;
     gameMapRoughPlans: Array<GameMapRoughPlan>;
     gameMap: GameMap;
     sounds: Howls;

@@ -282,9 +282,10 @@ function scoreCompletedLevel(state: State) {
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
     const lootScore = state.lootStolen * 10;
+    const treasureScore = state.treasureStolen * 40;
     const foodScore = state.levelStats.extraFoodCollected * 5;
     const ghostBonus = ghosted ? lootScore : 0;
-    const score = lootScore + foodScore + timeBonus + ghostBonus;
+    const score = lootScore + treasureScore + foodScore + timeBonus + ghostBonus;
 
     state.gameStats.totalScore += score;
     state.gameStats.turns += state.totalTurns;
@@ -357,6 +358,7 @@ export function setupLevel(state: State, level: number) {
 
     state.turns = 0;
     state.lootStolen = 0;
+    state.treasureStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
 
     clearLevelStats(state.levelStats);
@@ -484,6 +486,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             coinCollected = true;
         } else if (item.type === ItemType.Treasure) {
             coinCollected = true;
+            ++state.treasureStolen;
         } else if (item.type === ItemType.Health) {
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
@@ -2472,6 +2475,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         totalTurns: 0,
         lootStolen: 0,
         lootAvailable: gameMapRoughPlans[initialLevel].totalLoot,
+        treasureStolen: 0,
         gameMapRoughPlans: gameMapRoughPlans,
         gameMap: gameMap,
         sounds: sounds,
@@ -2609,6 +2613,7 @@ export function restartGame(state: State) {
     state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
+    state.treasureStolen = 0;
     clearLevelStats(state.levelStats);
     updateAchievements(state, "gameStart");
     state.player = new Player(gameMap.playerStartPos);
@@ -2634,6 +2639,7 @@ function resetState(state: State) {
     state.totalTurns = 0;
     state.lootStolen = 0;
     state.lootAvailable = state.gameMapRoughPlans[state.level].totalLoot;
+    state.treasureStolen = 0;
     clearLevelStats(state.levelStats);
     updateAchievements(state, "gameStart");
 

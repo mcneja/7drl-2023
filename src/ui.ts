@@ -690,7 +690,7 @@ class MansionCompleteScreen extends TextWindow {
     pages = [
 `Mansion $level$ Complete!
 
-$levelStats$Loot:        $lootScore$$foodScore$
+$levelStats$Loot:        $lootScore$$treasureScore$$foodScore$
 Ghost:       $ghostBonus$
 Speed:       $timeBonus$
 Total:       $levelScore$
@@ -703,10 +703,11 @@ Cumulative:  $totalScore$
         const numTurnsPar = game.numTurnsParForCurrentMap(state);
         const timeBonus = Math.max(0, numTurnsPar - state.turns);
         const lootScore = state.lootStolen * 10;
+        const treasureScore = state.treasureStolen * 40;
         const foodScore = state.levelStats.extraFoodCollected * 5;
         const ghosted = state.levelStats.numSpottings === 0;
         const ghostBonus = ghosted ? lootScore : 0;
-        const score = lootScore + foodScore + timeBonus + ghostBonus;
+        const score = lootScore + treasureScore + foodScore + timeBonus + ghostBonus;
 
         let levelStats = 'Turns:       ' + state.turns + '\n';
         if (state.levelStats.numSpottings > 0) {
@@ -725,6 +726,7 @@ Cumulative:  $totalScore$
         this.state.set('level', (state.level+1).toString());
         this.state.set('levelStats', levelStats);
         this.state.set('lootScore', (state.lootStolen * 10).toString());
+        this.state.set('treasureScore', (state.gameMap.treasureUnlock.switches.length > 0) ? ('\nSecret Loot: ' + treasureScore) : '');
         this.state.set('foodScore', (foodScore > 0) ? ('\nFood:        ' + foodScore) : '');
         this.state.set('timeBonus', timeBonus.toString());
         this.state.set('ghostBonus', ghostBonus.toString());
