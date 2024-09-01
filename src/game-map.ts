@@ -437,6 +437,13 @@ type DistPos = {
     pos: vec2;
 }
 
+type TreasureUnlock = {
+    clue: string;
+    switches: Array<vec2>;
+    numSwitchesUsed: number;
+    posTreasure: vec2;
+}
+
 class GameMap {
     cells: CellGrid;
     patrolRegions: Array<Rect>;
@@ -449,6 +456,7 @@ class GameMap {
     adjacencies: Array<Adjacency>;
     backtrackingCoefficient: number;
     bookTitle: Map<Item, string>;
+    treasureUnlock: TreasureUnlock;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -462,6 +470,12 @@ class GameMap {
         this.adjacencies = [];
         this.backtrackingCoefficient = 1;
         this.bookTitle = new Map();
+        this.treasureUnlock = {
+            clue: '',
+            switches: [],
+            numSwitchesUsed: 0,
+            posTreasure: vec2.create(),
+        }
     }
 
     collectLootAt(pos:vec2): Array<Item> {
@@ -478,7 +492,7 @@ class GameMap {
         })
         return items;
     }
-    
+
     collectAllLoot(): number {
         let gold = 0;
         this.items = this.items.filter((item) => {

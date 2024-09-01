@@ -343,6 +343,8 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
     const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
 
     placeLoot(plan.totalLoot - guardLoot, rooms, map, levelType, rng);
+    giveBooksTitles(map.bookTitle, rooms, map.items.filter(item=>item.type === ItemType.Bookshelf), rng);
+    placeTreasure(map, rng);
 
     placeHealth(level, map, rooms, rng);
 
@@ -352,7 +354,6 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Final setup
 
-    giveBooksTitles(map.bookTitle, rooms, map.items.filter(item=>item.type === ItemType.Bookshelf), rng);
     markExteriorAsSeen(map);
     map.computeLighting(null);
     map.recomputeVisibility(map.playerStartPos);
@@ -4803,6 +4804,30 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 
     placeItem(map, positions[rng.randomInRange(positions.length)], ItemType.Coin);
     return true;
+}
+
+function placeTreasure(map: GameMap, rng: RNG) {
+    const treasureLockBox = map.items.find(item => item.type === ItemType.TreasureLockBox);
+    if (treasureLockBox === undefined) {
+        return;
+    }
+
+    const books = map.items.filter(item => item.type === ItemType.Bookshelf);
+    if (books.length === 0) {
+        return;
+    }
+
+    rng.shuffleArray(books);
+    books.length = Math.min(books.length, 2);
+
+    vec2.copy(map.treasureUnlock.posTreasure, treasureLockBox.pos);
+
+    map.treasureUnlock.clue = '';
+    for (const book of books) {
+        map.treasureUnlock.clue += map.bookTitle.get(book) + '\n';
+        map.treasureUnlock.switches.push(vec2.clone(book.pos));
+    }
+//    console.log(map.treasureUnlock.clue);
 }
 
 function placeHealth(level: number, map: GameMap, rooms: Array<Room>, rng: RNG) {

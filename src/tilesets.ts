@@ -264,7 +264,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.KeyCarry,
         {textureIndex: r([15,  7]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Note,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasureLockBox,
-        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Treasure,
+        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
     ],
     manseItemTiles: [
         {textureIndex: r([3,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Chair,
@@ -293,7 +293,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.KeyCarry,    
         {textureIndex: r([15,  7]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Note,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasureLockBox,
-        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Treasure,
+        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
     ],
     fortressItemTiles: [
         {textureIndex: r([3,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Chair,
@@ -322,7 +322,7 @@ const tileSet31Color:TileSet = {
         {textureIndex: r([1,  15]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.KeyCarry,    
         {textureIndex: r([15,  7]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Note,
         {textureIndex: r([2,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasureLockBox,
-        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Treasure,
+        {textureIndex: r([2,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
     ],
     npcTiles: [
         {textureIndex: r([9, 8]),    color:colorPreset.white,     unlitColor:colorPreset.darkGray},//guardE

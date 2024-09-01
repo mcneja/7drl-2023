@@ -867,12 +867,35 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             }
             bumpAnim(state, dx, dy);
             advanceTime(state);
-            const title = state.gameMap.bookTitle.get(item);
+            let title = state.gameMap.bookTitle.get(item);
             if (title === undefined) {
-                setStatusMessage(state, '"Untitled"');
-            } else {
-                setStatusMessage(state, '"' + title + '"');
+                title = 'Untitled';
             }
+            title = '"' + title + '"';
+            if (state.gameMap.treasureUnlock.numSwitchesUsed < state.gameMap.treasureUnlock.switches.length) {
+                for (let i = 0; i < state.gameMap.treasureUnlock.switches.length; ++i) {
+                    if (state.gameMap.treasureUnlock.switches[i][0] === x &&
+                        state.gameMap.treasureUnlock.switches[i][1] === y) {
+                        if (i === state.gameMap.treasureUnlock.numSwitchesUsed) {
+                            ++state.gameMap.treasureUnlock.numSwitchesUsed;
+                            if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+                                title = '(rumble) ' + title;
+                                state.gameMap.items.push({
+                                    pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
+                                    type: ItemType.Treasure,
+                                });
+                            } else {
+                                title = '(click) ' + title;
+                            }
+                        } else {
+                            title = '(click) ' + title;
+                            state.gameMap.treasureUnlock.numSwitchesUsed = 0;
+                        }
+                        break;
+                    }
+                }
+            }
+            setStatusMessage(state, title);
         } else {
             bumpFail(state, dx, dy);
             if (state.level === 0) {
