@@ -3429,7 +3429,17 @@ function playerStartPosition(level: number, adjacencies: Array<Adjacency>, gameM
     } else
     */
     {
-        return playerStartPositionFrontDoor(adjacencies, gameMap);
+        const pos = playerStartPositionFrontDoor(adjacencies, gameMap);
+        // Setup for initial movement trainer
+        if(level === 0) {
+            if(pos[1]>=4) {
+                pos[1] -= 4;
+            } else {
+                pos[0] -= 4 - pos[1];
+                pos[1] = 0;
+            }
+        }
+        return pos;
     }
 }
 
@@ -5137,6 +5147,20 @@ function placeGuards(
             guardLoot--;
         }
         map.guards.push(guard);
+    }
+    if(level===1) {
+        const gates = map.items.filter((item)=>item.type===ItemType.PortcullisEW)
+            .sort((a,b)=>{
+                if (a.pos[1]<b.pos[1]) {
+                    return -1
+                } else if(a.pos[1]===b.pos[1]) {
+                    return 0;
+                }
+                return 1;
+            })
+        if (gates.length >= 1) {
+            map.guards[0].pos = vec2.fromValues(gates[0].pos[0], gates[0].pos[1]+1);
+        }
     }
 
     console.assert(guardLoot===0);

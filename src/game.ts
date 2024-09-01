@@ -434,7 +434,7 @@ function advanceToMansionComplete(state: State) {
     }
 
     if (state.level < mansionCompleteTopStatusHint.length) {
-        state.topStatusMessage = '\xFF: ' + mansionCompleteTopStatusHint[state.level];
+        setStatusMessage(state, mansionCompleteTopStatusHint[state.level], true);
     } else {
         state.topStatusMessage = '';
     }
@@ -849,7 +849,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
             advanceTime(state);
             if (state.level === 0) {
-                setStatusMessage(state, 'Noise attracts people');
+                setStatusMessage(state, 'Noise attracts people', true);
             }
         } else {
             state.player.preNoisy = true;
@@ -857,7 +857,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
             if (state.level === 0) {
-                setStatusMessage(state, 'Make Noise (repeat): Shift+' + directionArrowCharacter(dx, dy));
+                setStatusMessage(state, 'Make Noise (repeat): Shift+' + directionArrowCharacter(dx, dy), true);
             }
         }
     } else {
@@ -917,7 +917,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         } else {
             bumpFail(state, dx, dy);
             if (state.level === 0) {
-                setStatusMessage(state, 'Make Noise: Shift+' + directionArrowCharacter(dx, dy));
+                setStatusMessage(state, 'Make Noise: Shift+' + directionArrowCharacter(dx, dy), true);
             }
         }
     }
@@ -982,7 +982,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
 
         if (!state.finishedLevel) {
-            setStatusMessage(state, 'Collect all loot before leaving');
+            setStatusMessage(state, 'Collect all loot before leaving', true);
             bumpFail(state, dx, dy);
         } else {
             preTurn(state);
@@ -1033,7 +1033,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        setStatusMessage(state, 'Window cannot be accessed from outside');
+        setStatusMessage(state, 'Window cannot be accessed from outside', true);
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
@@ -1669,10 +1669,7 @@ function postTurn(state: State) {
         state.finishedLevel = true;
     }
 
-    const hintMessage = statusBarMessage(state);
-    state.playerHintMessageIsNew = state.playerHintMessage!==hintMessage && hintMessage!=='';
-    state.playerHintMessage = hintMessage;
-    setStatusMessage(state, hintMessage!=''?'\xFF '+hintMessage:'');
+    setStatusMessage(state, statusBarMessage(state), true);
 }
 
 function statusBarMessage(state: State): string {
@@ -1707,18 +1704,21 @@ function statusBarMessage(state: State): string {
         } else if (item !== undefined && (item.type === ItemType.BedL || item.type === ItemType.BedR)) {
             return 'Hide under beds';
         } else if (state.numStepMoves < 4) {
-            return ((state.numStepMoves > 0) ? '\xfb' : '\x07') + ' Move: \x18\x19\x1b\x1a';
+            const counter = '\xfb'.repeat(state.numStepMoves) + '\x07'.repeat(4-state.numStepMoves)
+            return 'Move: \x18\x19\x1b\x1a ' + counter;
         } else if (state.numLeapMoves < 4) {
-            return ((state.numLeapMoves > 0) ? '\xfb' : '\x07') + ' Leap/Run: Shift+Direction';
+            const counter = '\xfb'.repeat(state.numLeapMoves) + '\x07'.repeat(4-state.numLeapMoves)
+            return 'Leap/Run: Shift+Direction ' + counter;
         } else {
             return 'Explore entire mansion';
         }
     } else if (state.level === 1) {
         if (state.turns < 10) {
             if (state.numWaitMoves < 4) {
-                return ((state.numWaitMoves > 0) ? '\xfb' : '\x07') + ' Wait: Z, Period, or Space';
+                const counter = '\xfb'.repeat(state.numWaitMoves) + '\x07'.repeat(4-state.numWaitMoves)
+                return 'Wait: Z, Period, or Space ' + counter;
             } else if (!state.hasOpenedMenu) {
-                return 'Esc or Slash: More help';
+                return 'Esc or Slash: Menu and more help';
             }
         }
     } else if (state.level === 3) {
@@ -1729,7 +1729,8 @@ function statusBarMessage(state: State): string {
                 return 'Move or leap from behind into loot-carrying guard';
             }
         } else if (state.numZoomMoves < 4 && state.turns < 10) {
-            return ((state.numZoomMoves > 0) ? '\xfb' : '\x07') + ' Zoom View: [ or ]';
+            const counter = '\xfb'.repeat(state.numWaitMoves) + '\x07'.repeat(4-state.numWaitMoves)
+            return 'Zoom View: [ or ] ' + counter;
         }
     }
 
@@ -1737,7 +1738,7 @@ function statusBarMessage(state: State): string {
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
-    setStatusMessage(state, 'Leap: Shift+' + directionArrowCharacter(dx, dy));
+    setStatusMessage(state, 'Leap: Shift+' + directionArrowCharacter(dx, dy), true);
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {
@@ -1767,7 +1768,15 @@ function adjacentToUnawareGuardWithLoot(state: State): boolean {
     });
 }
 
-export function setStatusMessage(state: State, msg: string) {
+export function setStatusMessage(state: State, msg: string, playerHint: boolean = false) {
+    if(playerHint && msg!='') {
+        state.playerHintMessageIsNew = state.playerHintMessage!==msg && msg!=='';
+        state.playerHintMessage = msg;
+        msg = '\xFF '+msg;
+    } else {
+        state.playerHintMessage = '';
+        state.playerHintMessageIsNew = false;
+    }
     state.topStatusMessage = msg;
 }
 
@@ -2156,7 +2165,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     const player = state.player;
     const bubble_right = renderer.tileSet.namedTiles['speechBubbleR'];
     const bubble_left = renderer.tileSet.namedTiles['speechBubbleL'];
-    if(state.playerHintMessageIsNew) {
+    if(state.playerHintMessageIsNew && !player.idle) {
         const a = state.player.animation;
         const offset = a && a instanceof SpriteAnimation ? a.offset : vec2.create();
         const [x,y] = player.pos.add(offset);
