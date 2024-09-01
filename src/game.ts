@@ -1732,7 +1732,7 @@ function statusBarMessage(state: State): string {
                 return 'Move or leap from behind into loot-carrying guard';
             }
         } else if (state.numZoomMoves < 4 && state.turns < 10) {
-            const counter = '\xfb'.repeat(state.numWaitMoves) + '\x07'.repeat(4-state.numWaitMoves)
+            const counter = '\xfb'.repeat(state.numZoomMoves) + '\x07'.repeat(4-state.numZoomMoves)
             return 'Zoom View: [ or ] ' + counter;
         }
     }
