@@ -47,6 +47,7 @@ export type TileSet = {
     stoveAnimation: Array<TileInfo>;
     candleAnimation: Array<TileInfo>;
     torchAnimation: Array<TileInfo>;
+    playerTorchAnimation: Array<TileInfo>;
     achievementIcons: {[key in keyof Achievements]: TileInfo};
     achievementIncompleteIcon: TileInfo;
 }
@@ -402,6 +403,12 @@ const tileSet31Color:TileSet = {
         {textureIndex: 0xde},
         {textureIndex: 0xdf}, //torch low
         {textureIndex: 0xdf}, //torch off
+    ],
+    playerTorchAnimation: [
+        {textureIndex: 0xd9}, //torch cycle
+        {textureIndex: 0xda}, 
+        {textureIndex: 0xdb}, //torch low
+        {textureIndex: 0xdb}, //torch low
     ],
     achievementIcons: {
         achievementVictory: {textureIndex: 0x4b},

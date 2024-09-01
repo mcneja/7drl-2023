@@ -1750,11 +1750,11 @@ function litVertices(x:number, y:number, cells:CellGrid):[number,number,number,n
     // which tiles at the boundary are lit
     const scale = (cells.at(x, y).lit ? 1 : 0.1) / 4;
 
-    const l   = cells.at(x,  y  ).litAnim;
     const lld = cells.at(x-1,y-1).litAnim;
     const ld  = cells.at(x,  y-1).litAnim;
     const lrd = cells.at(x+1,y-1).litAnim;
     const ll  = cells.at(x-1,y  ).litAnim;
+    const l   = cells.at(x,  y  ).litAnim;
     const lr  = cells.at(x+1,y  ).litAnim;
     const llu = cells.at(x-1,y+1).litAnim;
     const lu  = cells.at(x,  y+1).litAnim;
@@ -2006,6 +2006,12 @@ function renderPlayer(state: State, renderer: Renderer) {
     renderer.addGlyphLit(x, y, x+1, y+1, tileInfoTinted, lit);
     if(hidden && player.idle) {
         renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.playerTiles.litFace, 0.15);
+    }
+    if(player.lightActive) {
+        const torchTile = player.torchAnimation?
+        player.torchAnimation.currentTile():
+        renderer.tileSet.itemTiles[ItemType.TorchCarry];
+        renderer.addGlyphLit(x, y, x+1, y+1, torchTile, lit);    
     }
     for(let dr of frontRenders) {
         renderer.addGlyphLit(...dr);
@@ -2513,6 +2519,14 @@ function setLights(gameMap: GameMap, state: State) {
             }
         }    
     }
+    if(tileSet.playerTorchAnimation.length>=2) {
+        const torchSeq:[TileInfo, number][] = tileSet.playerTorchAnimation.slice(0,2).map((t)=>[t,0.5]);
+        const torchDim = tileSet.playerTorchAnimation.at(-2)!;
+        const torchOff = tileSet.playerTorchAnimation.at(-1)!;
+        const p = state.player;
+        p.torchAnimation = new LightSourceAnimation(LightState.idle, id, state.lightStates, null, torchSeq, torchDim, torchOff);
+        id++;
+    }
 }
 
 export function restartGame(state: State) {
@@ -2736,6 +2750,9 @@ function updateState(state: State, screenSize: vec2, dt: number) {
         if(state.player.animation.update(dt)) {
             state.player.animation = null;
         }
+    }
+    if(state.player.lightActive && state.player.torchAnimation?.update(dt)) {
+        state.player.torchAnimation = null;
     }
     if(state.player.idle && state.player.idleCursorAnimation) {
         state.player.idleCursorAnimation = state.player.idleCursorAnimation.filter((anim)=>!anim.update(dt));

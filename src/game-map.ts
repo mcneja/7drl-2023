@@ -21,7 +21,7 @@ export {
 
 import { Guard, GuardMode } from './guard';
 import { vec2 } from './my-matrix';
-import { Animator, RadialAnimation, SpriteAnimation } from './animation';
+import { Animator, LightSourceAnimation, RadialAnimation, SpriteAnimation } from './animation';
 import { RNG } from './random';
 import { Adjacency } from './create-map';
 
@@ -327,6 +327,7 @@ class Player {
     itemUsed: Item | null = null; // item player used last turn, if any
     turnsRemainingUnderwater: number;
     animation: SpriteAnimation|null = null;
+    torchAnimation: LightSourceAnimation|null = null;
     pickTarget: Guard|null = null;
     lightActive: boolean = false;
     idle: boolean = false;
