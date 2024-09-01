@@ -889,7 +889,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                             }
                         } else {
                             title = '(click) ' + title;
-                            state.gameMap.treasureUnlock.numSwitchesUsed = 0;
+                            state.gameMap.treasureUnlock.numSwitchesUsed = (i === 1) ? 1 : 0;
                         }
                         break;
                     }
