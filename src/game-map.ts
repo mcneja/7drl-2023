@@ -711,7 +711,7 @@ class GameMap {
 
         // Player's light source
         if (player !== null && player.lightActive) {
-            this.castLight(player.pos, 1, lightId, occupied);
+            this.castLight(player.pos, 0, lightId, occupied);
         }
         lightId++;
 
