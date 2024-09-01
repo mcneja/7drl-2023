@@ -1710,6 +1710,7 @@ function statusBarMessage(state: State): string {
             const counter = '\xfb'.repeat(state.numLeapMoves) + '\x07'.repeat(4-state.numLeapMoves)
             return 'Leap/Run: Shift+Direction ' + counter;
         } else if (state.numLeapMoves === 4) {
+            state.numLeapMoves++;
             return 'Leaping saves time, escapes pursuers';
         } else {
             return 'Explore entire mansion';
