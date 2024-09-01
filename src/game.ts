@@ -874,25 +874,27 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             title = '"' + title + '"';
             if (state.gameMap.treasureUnlock.numSwitchesUsed < state.gameMap.treasureUnlock.switches.length) {
                 for (let i = 0; i < state.gameMap.treasureUnlock.switches.length; ++i) {
-                    if (state.gameMap.treasureUnlock.switches[i][0] === x &&
-                        state.gameMap.treasureUnlock.switches[i][1] === y) {
-                        if (i === state.gameMap.treasureUnlock.numSwitchesUsed) {
-                            ++state.gameMap.treasureUnlock.numSwitchesUsed;
-                            if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
-                                title = '(rumble) ' + title;
-                                state.gameMap.items.push({
-                                    pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
-                                    type: ItemType.Treasure,
-                                });
-                            } else {
-                                title = '(click) ' + title;
-                            }
+                    if (state.gameMap.treasureUnlock.switches[i][0] !== x ||
+                        state.gameMap.treasureUnlock.switches[i][1] !== y) {
+                        continue;
+                    }
+                    if (i === state.gameMap.treasureUnlock.numSwitchesUsed) {
+                        ++state.gameMap.treasureUnlock.numSwitchesUsed;
+                        if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+                            title = '(rumble) ' + title;
+                            state.gameMap.items.push({
+                                pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
+                                type: ItemType.Treasure,
+                            });
                         } else {
                             title = '(click) ' + title;
-                            state.gameMap.treasureUnlock.numSwitchesUsed = (i === 1) ? 1 : 0;
                         }
-                        break;
+                    } else {
+                        title = '(click) ' + title;
+                        state.gameMap.treasureUnlock.numSwitchesUsed = (i === 0) ? 1 : 0;
                     }
+                    console.log('Number switches pressed: %d', state.gameMap.treasureUnlock.numSwitchesUsed);
+                    break;
                 }
             }
             setStatusMessage(state, title);

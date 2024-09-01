@@ -4818,7 +4818,7 @@ function placeTreasure(map: GameMap, rng: RNG) {
     }
 
     rng.shuffleArray(books);
-    books.length = Math.min(books.length, 2);
+    books.length = Math.min(books.length, 3);
 
     vec2.copy(map.treasureUnlock.posTreasure, treasureLockBox.pos);
 
@@ -4827,7 +4827,7 @@ function placeTreasure(map: GameMap, rng: RNG) {
         map.treasureUnlock.clue += map.bookTitle.get(book) + '\n';
         map.treasureUnlock.switches.push(vec2.clone(book.pos));
     }
-//    console.log(map.treasureUnlock.clue);
+    console.log(map.treasureUnlock.clue);
 }
 
 function placeHealth(level: number, map: GameMap, rooms: Array<Room>, rng: RNG) {
