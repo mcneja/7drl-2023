@@ -1709,6 +1709,8 @@ function statusBarMessage(state: State): string {
         } else if (state.numLeapMoves < 4) {
             const counter = '\xfb'.repeat(state.numLeapMoves) + '\x07'.repeat(4-state.numLeapMoves)
             return 'Leap/Run: Shift+Direction ' + counter;
+        } else if (state.numLeapMoves === 4) {
+            return 'Leaping saves time, escapes pursuers';
         } else {
             return 'Explore entire mansion';
         }
@@ -2082,9 +2084,9 @@ function renderPlayer(state: State, renderer: Renderer) {
         renderer.addGlyphLit(x, y, x+1, y+1, renderer.tileSet.playerTiles.litFace, 0.15);
     }
     if(player.lightActive) {
-        const torchTile = player.torchAnimation?
-        player.torchAnimation.currentTile():
-        renderer.tileSet.itemTiles[ItemType.TorchCarry];
+        const torchTile = player.torchAnimation!==null?
+            player.torchAnimation.currentTile():
+            renderer.tileSet.itemTiles[ItemType.TorchCarry];
         renderer.addGlyphLit(x, y, x+1, y+1, torchTile, lit);    
     }
     for(let dr of frontRenders) {
