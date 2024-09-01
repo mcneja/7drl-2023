@@ -36,6 +36,8 @@ enum RoomType {
     PublicLibrary,
     PrivateLibrary,
     Kitchen,
+    Treasure,
+    TreasureCourtyard,
 }
 
 enum DoorType {
@@ -1846,6 +1848,12 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
         }
     }
 
+    // Pick a room to be the treasure room
+
+    for (const room of chooseRooms(rooms, roomCanBeTreasure, 1, rng)) {
+        room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.TreasureCourtyard : RoomType.Treasure;
+    }
+
     // Pick rooms to be dining rooms
 
     for (const room of chooseRooms(rooms, roomCanBeDining, Math.ceil(rooms.length / 21), rng)) {
@@ -1908,6 +1916,39 @@ function roomHasExteriorDoor(room: Room): boolean {
         }
     }
     return false;
+}
+
+function roomCanBeTreasure(room: Room): boolean {
+    if (room.roomType !== RoomType.PublicRoom &&
+        room.roomType !== RoomType.PrivateRoom &&
+        room.roomType !== RoomType.PublicCourtyard &&
+        room.roomType !== RoomType.PrivateCourtyard) {
+        return false;
+    }
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    if ((sizeX & 1) === 0) {
+        return false;
+    }
+    if (sizeX < 3) {
+        return false;
+    }
+    if (sizeX > 7) {
+        return false;
+    }
+
+    const sizeY = room.posMax[1] - room.posMin[1];
+    if ((sizeY & 1) === 0) {
+        return false;
+    }
+    if (sizeY < 3) {
+        return false;
+    }
+    if (sizeY > 7) {
+        return false;
+    }
+
+    return true;
 }
 
 function roomCanBeDining(room: Room): boolean {
@@ -3736,11 +3777,13 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             case RoomType.PublicLibrary: cellType = TerrainType.GroundWood; break;
             case RoomType.PrivateLibrary: cellType = TerrainType.GroundMarble; break;
             case RoomType.Kitchen: cellType = TerrainType.GroundWood; break;
+            case RoomType.Treasure: cellType = TerrainType.GroundWood; break;
+            case RoomType.TreasureCourtyard: cellType = TerrainType.GroundGrass; break;
         }
 
         setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
 
-        if (isCourtyardRoomType(room.roomType)) {
+        if (room.roomType === RoomType.PublicCourtyard || room.roomType === RoomType.PrivateCourtyard) {
             renderRoomCourtyard(map, room, level, rng);
         } else if (room.roomType === RoomType.PublicRoom || room.roomType === RoomType.PrivateRoom) {
             renderRoomGeneric(map, room, level, rng);
@@ -3752,6 +3795,10 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             renderRoomDining(map, room, level, rng);
         } else if (room.roomType === RoomType.Kitchen) {
             renderRoomKitchen(map, room, level, rng);
+        } else if (room.roomType === RoomType.Treasure) {
+            renderRoomTreasure(map, room, level, rng);
+        } else if (room.roomType === RoomType.TreasureCourtyard) {
+            renderRoomTreasureCourtyard(map, room, level, rng);
         } else if (room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary) {
             renderRoomLibrary(map, room, level, rng);
         }
@@ -4240,6 +4287,48 @@ function renderRoomKitchen(map: GameMap, room: Room, level: number, rng: RNG) {
                 }
             }
         }
+    }
+}
+
+function renderRoomTreasure(map: GameMap, room: Room, level: number, rng: RNG) {
+    const dx = room.posMax[0] - room.posMin[0];
+    const dy = room.posMax[1] - room.posMin[1];
+
+    if (dx > 3 || dy > 3) {
+        setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundMarble);
+    }
+
+    const x = room.posMin[0] + Math.floor((dx - 1) / 2);
+    const y = room.posMin[1] + Math.floor((dy - 1) / 2);
+
+    placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLockBox);
+
+    if (dx >= 5 || dy >= 5) {
+        tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMin[1]), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMin[1]), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMax[1] - 1), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1), randomlyLitTorch(level, rng));
+    }
+}
+
+function renderRoomTreasureCourtyard(map: GameMap, room: Room, level: number, rng: RNG) {
+    const dx = room.posMax[0] - room.posMin[0];
+    const dy = room.posMax[1] - room.posMin[1];
+
+    if (dx > 3 && dy > 3) {
+        setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundNormal);
+    }
+
+    const x = room.posMin[0] + Math.floor((dx - 1) / 2);
+    const y = room.posMin[1] + Math.floor((dy - 1) / 2);
+
+    placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLockBox);
+
+    if (dx >= 5 || dy >= 5) {
+        tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMin[1]), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMin[1]), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMax[1] - 1), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 1, room.posMax[1] - 1), randomlyLitTorch(level, rng));
     }
 }
 
@@ -4969,6 +5058,7 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
     switch (roomType) {
         case RoomType.PublicCourtyard:
         case RoomType.PrivateCourtyard:
+        case RoomType.TreasureCourtyard:
             return true;
         case RoomType.Exterior:
         case RoomType.PublicRoom:
@@ -4979,6 +5069,7 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
         case RoomType.PublicLibrary:
         case RoomType.PrivateLibrary:
         case RoomType.Kitchen:
+        case RoomType.Treasure:
             return false;
     }
 }
@@ -5299,7 +5390,9 @@ function blocksPlayerMovement(itemType: ItemType): boolean {
     return itemType === ItemType.DrawersTall ||
            itemType === ItemType.Bookshelf ||
            itemType === ItemType.Shelf ||
-           itemType === ItemType.Stove;
+           itemType === ItemType.Stove ||
+           itemType === ItemType.TreasureLockBox ||
+           itemType === ItemType.Treasure;
 }
 
 function cacheCellInfo(map: GameMap) {

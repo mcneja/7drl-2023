@@ -267,6 +267,9 @@ enum ItemType {
     PurseCarry,
     Key,
     KeyCarry, 
+    Note,
+    TreasureLockBox,
+    Treasure,
 }
 
 type Item = {
@@ -301,6 +304,9 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.PurseCarry: return 0;
         case ItemType.Key: return 0;
         case ItemType.KeyCarry: return 0;
+        case ItemType.Note: return 0;
+        case ItemType.TreasureLockBox: return Infinity;
+        case ItemType.Treasure: return Infinity;
     }
 }
 
