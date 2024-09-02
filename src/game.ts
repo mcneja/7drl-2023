@@ -239,7 +239,7 @@ function updateControllerState(state:State) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
-            setStatusMessage(state, 'Guard speech ' + (state.guardMute ? 'disabled' : 'enabled'));
+            state.popups.setNotification('Guard speech ' + (state.guardMute ? 'disabled' : 'enabled'), state.player.pos);
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
@@ -254,20 +254,20 @@ function updateControllerState(state:State) {
             }
             state.player.idle = false;
             state.idleTimer = 2;
-            setStatusMessage(state, "Setting player idle cursor to "+state.player.idleCursorType);
+            state.popups.setNotification("Setting player idle cursor to "+state.player.idleCursorType, state.player.pos);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
-            setStatusMessage(state, 'Sound ' + (state.volumeMute ? 'disabled' : 'enabled'));
+            state.popups.setNotification('Sound ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player.pos);
         } else if (activated('volumeDown')) {
             const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
             setSoundVolume(state, soundVolume);
-            setStatusMessage(state, 'Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%');
+            state.popups.setNotification('Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
-            setStatusMessage(state, 'Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%');
+            state.popups.setNotification('Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
         } else if (activated('showSpeech')) {
-            state.popups.currentPopupTimeRemaining = (state.popups.currentPopupTimeRemaining > 0) ? 0 : 2;
+            state.popups.toggleShow(state.player.pos);
         }
     }
 }
@@ -849,7 +849,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
             advanceTime(state);
             if (state.level === 0) {
-                setStatusMessage(state, 'Noise attracts people', true);
+                state.popups.setNotification('Noise attracts people', state.player.pos);
             }
         } else {
             state.player.preNoisy = true;
@@ -857,7 +857,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
             if (state.level === 0) {
-                setStatusMessage(state, 'Make Noise (repeat): Shift+' + directionArrowCharacter(dx, dy), true);
+                state.popups.setNotification('Make Noise (repeat): Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
             }
         }
     } else {
@@ -913,11 +913,11 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                     break;
                 }
             }
-            setStatusMessage(state, title);
+            state.popups.setNotification(title, state.player.pos);
         } else {
             bumpFail(state, dx, dy);
             if (state.level === 0) {
-                setStatusMessage(state, 'Make Noise: Shift+' + directionArrowCharacter(dx, dy), true);
+                state.popups.setNotification('Make Noise: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
             }
         }
     }
@@ -982,7 +982,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
 
         if (!state.finishedLevel) {
-            setStatusMessage(state, 'Collect all loot before leaving', true);
+            state.popups.setNotification('Collect all loot\nbefore leaving', state.player.pos);
             bumpFail(state, dx, dy);
         } else {
             preTurn(state);
@@ -1033,7 +1033,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        setStatusMessage(state, 'Window cannot be accessed from outside', true);
+        state.popups.setNotification('Window cannot\nbe accessed\nfrom outside', state.player.pos);
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
@@ -1120,7 +1120,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         case ItemType.LockedDoorEW:
         case ItemType.LockedDoorNS:
             if (!player.hasVaultKey) {
-                setStatusMessage(state, 'Locked!');
+                state.popups.setNotification('Locked!', state.player.pos);
 
                 tryMakeBangNoise(state, dx, dy, stepType);
                 return;
@@ -1535,7 +1535,6 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     // Play sound for terrain type changes
 
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellMid);
-
 }
 
 function canLeapOntoItemType(itemType: ItemType): boolean {
@@ -1604,6 +1603,7 @@ function preTurn(state: State) {
     state.player.damagedLastTurn = false;
     state.player.itemUsed = null;
     state.player.lightActive = false;
+    state.popups.hideNotification();
 }
 
 function advanceTime(state: State) {
@@ -1665,6 +1665,7 @@ function postTurn(state: State) {
     if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
+            state.popups.setNotification('Loot collected!\nExit any map edge', state.player.pos);
         }
         state.finishedLevel = true;
     }
@@ -1741,7 +1742,7 @@ function statusBarMessage(state: State): string {
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
-    setStatusMessage(state, 'Leap: Shift+' + directionArrowCharacter(dx, dy), true);
+    state.popups.setNotification('Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {
@@ -2821,7 +2822,7 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 
     updateIdle(state, dt);
 
-    state.popups.currentPopupTimeRemaining = Math.max(0, state.popups.currentPopupTimeRemaining - dt);
+    state.popups.animate(dt);
 
     const popupBelow = state.popups.currentPopupWorldPos()[1] < state.player.pos[1];
     state.popups.currentPopupSlide = Math.max(0, Math.min(1, state.popups.currentPopupSlide + dt * (popupBelow ? -1 : 1) * 2));
@@ -2907,6 +2908,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
 
     if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
         renderTextBox(renderer, screenSize, state);
+        renderNotification(renderer, screenSize, state);
     }
 
     if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
@@ -3178,7 +3180,7 @@ export function statusBarZoom(screenSize: vec2): number {
 }
 
 function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
-    if (state.popups.currentPopupTimeRemaining <= 0)
+    if (!state.popups.isSpeechBubbleVisible())
         return;
 
     const message = state.popups.currentPopup;
@@ -3259,6 +3261,91 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     renderer.flush();
 }
 
+function renderNotification(renderer: Renderer, screenSize: vec2, state: State) {
+    if (!state.popups.isNotificationVisible())
+        return;
+
+    const message = state.popups.notification;
+    if (message.length === 0)
+        return;
+
+    const tileZoom = statusBarZoom(screenSize);
+
+    const pixelsPerCharX = tileZoom * statusBarCharPixelSizeX;
+    const pixelsPerCharY = tileZoom * statusBarCharPixelSizeY;
+
+    const worldToPixelScaleX = pixelsPerTileX * state.camera.scale;
+    const worldToPixelScaleY = pixelsPerTileY * state.camera.scale;
+
+    const viewportPixelSize = vec2.fromValues(screenSize[0], screenSize[1] - pixelsPerCharY);
+    const [viewWorldSizeX, viewWorldSizeY] = viewWorldSize(viewportPixelSize, state.camera.scale);
+
+    const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
+    const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
+
+    const posPopupWorld = state.popups.notificationWorldPos;
+    const popupPixelX = Math.floor(((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX);
+    const popupPixelY = Math.floor(((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
+
+    const lines = message.split('\n');
+
+    const numCharsX = lines.reduce((maxLen, line) => Math.max(maxLen, line.length), 0);
+    const numCharsY = lines.length;
+
+    const matScreenFromWorld = mat4.create();
+    mat4.ortho(
+        matScreenFromWorld,
+        0, screenSize[0],
+        0, screenSize[1],
+        1, -1
+    );
+
+    const marginX = tileZoom * 8;
+    const marginY = tileZoom * 4;
+
+    const rectSizeX = numCharsX * pixelsPerCharX + 2 * marginX;
+    const rectSizeY = numCharsY * pixelsPerCharY + 2 * marginY;
+
+    const ry = worldToPixelScaleY * 0.625;
+
+    let xMin = popupPixelX - rectSizeX / 2;
+
+    const u = 1;
+    let yMin = (rectSizeY + 2*ry) * (u / 2) + popupPixelY - rectSizeY / 2;
+
+    // Clamp to world view edges
+
+    const screenMargin = tileZoom * 8;
+
+    xMin = Math.max(xMin, screenMargin);
+    xMin = Math.min(xMin, screenSize[0] - (rectSizeX + screenMargin));
+
+    yMin = Math.max(yMin, pixelsPerCharY + screenMargin);
+    yMin = Math.min(yMin, screenSize[1] - (rectSizeY + screenMargin));
+
+    renderer.start(matScreenFromWorld, 0);
+
+    const colorBackground = 0xb0080808;
+    const colorForeground = 0xffffffff;
+
+    renderer.addGlyph(xMin, yMin, xMin + numCharsX * pixelsPerCharX + 2*marginX, yMin + numCharsY * pixelsPerCharY + 2*marginY, {textureIndex:219, color:colorBackground});
+
+    let y = yMin + (numCharsY - 1) * pixelsPerCharY + marginY;
+    for (const line of lines) {
+        let x = Math.floor(xMin + marginX + (numCharsX - line.length) * pixelsPerCharX / 2);
+
+        for (let i = 0; i < line.length; ++i) {
+            const glyphIndex = line.charCodeAt(i);
+            renderer.addGlyph(x, y, x + pixelsPerCharX, y + pixelsPerCharY, {textureIndex:glyphIndex, color:colorForeground});
+            x += pixelsPerCharX;
+        }
+    
+        y -= pixelsPerCharY;
+    }
+
+    renderer.flush();
+}
+
 function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State) {
     const message = state.topStatusMessage;
     if (message.length === 0) {
@@ -3269,7 +3356,6 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
     const borderY = 0.25;
 
     const tileZoom = statusBarZoom(screenSize);
-    const colorBackground = 0xb0000000;
 
     const screenSizeInTilesX = screenSize[0] / (tileZoom * statusBarCharPixelSizeX);
     const screenSizeInTilesY = screenSize[1] / (tileZoom * statusBarCharPixelSizeY);
@@ -3279,7 +3365,7 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
     const offsetTilesX = (screenSizeInTilesX - message.length) / -2;
 
     {
-        const offsetTilesY = borderY + -(3 + borderY);
+        const offsetTilesY = borderY + -(1.75 + borderY);
 
         mat4.ortho(
             matScreenFromText,
@@ -3298,7 +3384,7 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
     }
 
     {
-        const offsetTilesY = (3 + borderY) - (screenSizeInTilesY + borderY);
+        const offsetTilesY = (1.75 + borderY) - (screenSizeInTilesY + borderY);
 
         mat4.ortho(
             matScreenFromText,
