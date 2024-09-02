@@ -723,8 +723,8 @@ function guardActAll(state: State) {
         const subtitledSound = state.subtitledSounds[soundName].play(0.6);
 
         const speaker: Guard | Player = speech[0].speaker;
-        const below = speaker.pos[1] < player.pos[1];
-        state.popups.setCur(subtitledSound.subtitle, () => speaker.posAnimated(), below);
+        const slide = speaker.pos[1] < player.pos[1] ? 0 : 1;
+        state.popups.setCur(subtitledSound.subtitle, () => speaker.posAnimated(), slide);
         speaker.speaking = true;
     }
 

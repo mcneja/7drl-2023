@@ -2823,6 +2823,9 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 
     state.popups.currentPopupTimeRemaining = Math.max(0, state.popups.currentPopupTimeRemaining - dt);
 
+    const popupBelow = state.popups.currentPopupWorldPos()[1] < state.player.pos[1];
+    state.popups.currentPopupSlide = Math.max(0, Math.min(1, state.popups.currentPopupSlide + dt * (popupBelow ? -1 : 1) * 2));
+
     state.player.noisyAnim += 2.0 * dt;
     state.player.noisyAnim -= Math.floor(state.player.noisyAnim);
 
@@ -3220,17 +3223,20 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     const rectSizeX = numCharsX * pixelsPerCharX + 2 * (marginX + border);
     const rectSizeY = numCharsY * pixelsPerCharY + 2 * (marginY + border);
 
-    let yMin: number;
+    const ry = worldToPixelScaleY * 0.625;
 
-    const xMin = Math.floor(Math.max(0, Math.min(screenSize[0] - rectSizeX, popupPixelX - rectSizeX / 2)));
+    let xMin = popupPixelX - rectSizeX / 2;
 
-    if (state.popups.currentPopupBelow) {
-        yMin = Math.floor(popupPixelY + -0.5 * worldToPixelScaleY - rectSizeY);
-    } else {
-        yMin = Math.floor(popupPixelY + 1.0 * worldToPixelScaleY);
-    }
+    const u = state.popups.currentPopupSlide * 2 - 1;
+    let yMin = (rectSizeY + 2*ry) * (u / 2) + popupPixelY - rectSizeY / 2;
 
-    yMin = Math.max(pixelsPerCharY, Math.min(screenSize[1] - rectSizeY, yMin));
+    // Clamp to world view edges
+
+    xMin = Math.max(xMin, 0);
+    xMin = Math.min(xMin, screenSize[0] - rectSizeX);
+
+    yMin = Math.max(yMin, pixelsPerCharY);
+    yMin = Math.min(yMin, screenSize[1] - rectSizeY);
 
     renderer.start(matScreenFromWorld, 0);
 
