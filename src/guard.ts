@@ -1,6 +1,6 @@
 export { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode };
 
-import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType } from './game-map';
+import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType, maxPlayerHealth } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { PopupType } from './popups';
@@ -263,6 +263,7 @@ class Guard {
                         ],
                         []);
                     player.applyDamage(1);
+                    state.popups.setNotification('Health ' + player.health + '/' + maxPlayerHealth, player.pos);
                     joltCamera(state, player.pos[0] - this.pos[0], player.pos[1] - this.pos[1]);
                     ++levelStats.damageTaken;
                 }
