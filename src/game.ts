@@ -472,6 +472,10 @@ export function advanceToWin(state: State) {
     state.gameMode = GameMode.Win;
 }
 
+function canCollectLootAt(state: State, pos: vec2): boolean {
+    return state.gameMap.hasLootAt(pos);
+}
+
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
     const itemsCollected = state.gameMap.collectLootAt(pos);
     if (itemsCollected.length === 0) {
@@ -485,15 +489,24 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             ++state.player.loot;
             ++state.lootStolen;
             coinCollected = true;
+            if (state.gameMap.allSeen()) {
+                state.popups.setNotification('Loot ' + state.lootStolen + '/' + state.lootAvailable, posFlyToward);
+            } else {
+                state.popups.setNotification('Loot ' + state.lootStolen + '/?', posFlyToward);
+            }
         } else if (item.type === ItemType.Treasure) {
             coinCollected = true;
             ++state.treasureStolen;
             offset = 0.625;
+            state.popups.setNotification('Secret Loot!', posFlyToward);
         } else if (item.type === ItemType.Health) {
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
+                state.popups.setNotification('Points +5', posFlyToward);
+            } else {
+                ++state.player.health;
+                state.popups.setNotification('Health +1', posFlyToward);
             }
-            state.player.health = Math.min(maxPlayerHealth, state.player.health + 1);
             healthCollected = true;
         }
         const pt0 = vec2.create();
@@ -701,11 +714,17 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
         player.loot += 1;
         state.lootStolen += 1;
         pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Coin};
+        if (state.gameMap.allSeen()) {
+            state.popups.setNotification('Loot ' + state.lootStolen + '/' + state.lootAvailable, guard.pos);
+        } else {
+            state.popups.setNotification('Loot ' + state.lootStolen + '/?', guard.pos);
+        }
     }
     if (guard.hasVaultKey) {
         guard.hasVaultKey = false;
         player.hasVaultKey = true;
         pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key};
+        state.popups.setNotification('Key!', guard.pos);
     }
     if(pickedItem) {
         const pt0 = vec2.create();
@@ -1015,8 +1034,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     const cellNew = state.gameMap.cells.atVec(posNew);
     if (cellNew.blocksPlayerMove) {
-        if (collectLoot(state, posNew, player.pos)) {
+        if (canCollectLootAt(state, posNew)) {
             preTurn(state);
+            collectLoot(state, posNew, player.pos);
             player.pickTarget = null;
             bumpAnim(state, dx, dy);
             advanceTime(state);
@@ -1061,29 +1081,18 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(posNew))) {
         switch (item.type) {
         case ItemType.DrawersShort:
-            if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
-                setLeapStatusMessage(state, dx, dy);
-            }
-            if (collectLoot(state, posNew, player.pos)) {
+        case ItemType.TreasureLockBox:
+            if (canCollectLootAt(state, posNew)) {
                 preTurn(state);
+                collectLoot(state, posNew, player.pos);
                 player.pickTarget = null;
                 bumpAnim(state, dx, dy);
                 advanceTime(state);
             } else {
                 tryMakeBangNoise(state, dx, dy, stepType);
-            }
-            return;
-
-        case ItemType.TreasureLockBox:
-            preTurn(state);
-            if(collectLoot(state, posNew, player.pos)) {
-                player.pickTarget = null;
-                player.itemUsed = item;
-                bumpAnim(state, dx, dy);
-                advanceTime(state);    
-            } else {
-                bumpAnim(state, dx, dy);
-                setLeapStatusMessage(state, dx, dy);
+                if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
+                    setLeapStatusMessage(state, dx, dy);
+                }
             }
             return;
 
@@ -1133,14 +1142,17 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
     if (guard === undefined) {
+        preTurn(state);
         player.pickTarget = null;
     } else if (guard.mode === GuardMode.Unconscious) {
+        preTurn(state);
         player.pickTarget = null;
         pushOrSwapGuard(state, guard);
     } else if (guard.mode === GuardMode.ChaseVisibleTarget) {
         bumpFail(state, dx, dy);
         return;
     } else {
+        preTurn(state);
         let needGuardLootCollect = false;
         if (guard.hasPurse || guard.hasVaultKey) {
             // If we have already targeted this guard, pick their pocket; otherwise target them
@@ -1154,7 +1166,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         // If the guard is stationary, pass time in place
         if (!guard.allowsMoveOntoFrom(player.pos)) {
             if(needGuardLootCollect) collectGuardLoot(state, player, guard, posOld);
-            preTurn(state);
             advanceTime(state);
             return;
         }
@@ -1163,8 +1174,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     // Execute the move
     const fromHid = player.hidden(state.gameMap);
-
-    preTurn(state);
 
     vec2.copy(player.pos, posNew);
     ++state.numStepMoves;
@@ -1742,7 +1751,7 @@ function statusBarMessage(state: State): string {
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
-    state.popups.setNotification('Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+    state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {

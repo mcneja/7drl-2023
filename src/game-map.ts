@@ -479,6 +479,13 @@ class GameMap {
         }
     }
 
+    hasLootAt(pos: vec2): boolean {
+        return this.items.some(item =>
+            item.pos.equals(pos) &&
+            (item.type === ItemType.Coin || item.type === ItemType.Treasure || item.type === ItemType.Health)
+        );
+    }
+
     collectLootAt(pos:vec2): Array<Item> {
         let items:Array<Item> = [];
         this.items = this.items.filter((item) => {
@@ -527,12 +534,7 @@ class GameMap {
     }
 
     allSeen(): boolean {
-        for (const cell of this.cells.values) {
-            if (!cell.seen) {
-                return false;
-            }
-        }
-        return true;
+        return !this.cells.values.some(cell => !cell.seen);
     }
 
     numCells(): number {
