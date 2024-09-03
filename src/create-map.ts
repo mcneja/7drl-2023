@@ -5383,11 +5383,11 @@ function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookI
         const sortAxisPrimary = vec2.create();
         const sortAxisSecondary = vec2.create();
         if (room.posMax[0] - room.posMin[0] >= room.posMax[1] - room.posMin[1]) {
-            vec2.set(sortAxisPrimary, rng.random() < 0.5 ? 1 : -1, 0);
-            vec2.set(sortAxisSecondary, 0, rng.random() < 0.5 ? 1 : -1);
+            vec2.set(sortAxisPrimary, 1, 0);
+            vec2.set(sortAxisSecondary, 0, -1);
         } else {
-            vec2.set(sortAxisPrimary, 0, rng.random() < 0.5 ? 1 : -1);
-            vec2.set(sortAxisSecondary, rng.random() < 0.5 ? 1 : -1, 0);
+            vec2.set(sortAxisPrimary, 0, -1);
+            vec2.set(sortAxisSecondary, 1, 0);
         }
 
         books.sort((book0, book1) => {
