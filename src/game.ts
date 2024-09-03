@@ -3293,8 +3293,8 @@ function renderNotification(renderer: Renderer, screenSize: vec2, state: State) 
     const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
     const posPopupWorld = state.popups.notificationWorldPos;
-    const popupPixelX = Math.floor(((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX);
-    const popupPixelY = Math.floor(((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
+    const popupPixelX = ((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX;
+    const popupPixelY = ((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY + pixelsPerCharY;
 
     const lines = message.split('\n');
 
@@ -3315,7 +3315,7 @@ function renderNotification(renderer: Renderer, screenSize: vec2, state: State) 
     const rectSizeX = numCharsX * pixelsPerCharX + 2 * marginX;
     const rectSizeY = numCharsY * pixelsPerCharY + 2 * marginY;
 
-    const ry = worldToPixelScaleY * 0.625;
+    const ry = worldToPixelScaleY * 0.875;
 
     let xMin = popupPixelX - rectSizeX / 2;
 
@@ -3341,7 +3341,7 @@ function renderNotification(renderer: Renderer, screenSize: vec2, state: State) 
 
     let y = yMin + (numCharsY - 1) * pixelsPerCharY + marginY;
     for (const line of lines) {
-        let x = Math.floor(xMin + marginX + (numCharsX - line.length) * pixelsPerCharX / 2);
+        let x = xMin + marginX + (numCharsX - line.length) * pixelsPerCharX / 2;
 
         for (let i = 0; i < line.length; ++i) {
             const glyphIndex = line.charCodeAt(i);
