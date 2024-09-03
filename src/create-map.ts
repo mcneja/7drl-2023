@@ -4843,7 +4843,7 @@ function placeTreasure(map: GameMap, rng: RNG) {
     let clue = '';
     for (const book of books) {
         if (clue.length > 0) {
-            clue += ', ';
+            clue += '\n';
         }
         const title = map.bookTitle.get(book)!;
         const titleFirstWord = title.split(' ')[0];
