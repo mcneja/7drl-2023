@@ -886,8 +886,13 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         const item = state.gameMap.items.find(item =>
             item.pos[0] === x &&
             item.pos[1] === y &&
-            item.type === ItemType.Bookshelf);
-        if (item !== undefined) {
+            (item.type === ItemType.Bookshelf || item.type === ItemType.Note));
+        if (item === undefined) {
+            bumpFail(state, dx, dy);
+            if (state.level === 0) {
+                state.popups.setNotification('Make Noise: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+            }
+        } else {
             preTurn(state);
             const firstBump = state.player.pickTarget !== item;
             const secretSwitchIndex = state.gameMap.treasureUnlock.switches.findIndex(s => s.equals(item.pos));
@@ -902,7 +907,9 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                 if (title === undefined) {
                     title = 'Untitled';
                 }
-                title = '"' + title + '"';
+                if (item.type === ItemType.Bookshelf) {
+                    title = '"' + title + '"';
+                }
                 state.popups.setNotification(title, state.player.pos);
             } else if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
                 state.sounds.switchReset.play(0.5);
@@ -929,11 +936,6 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                 state.sounds.switchReset.play(0.5);
                 state.popups.setNotification('(clunk)', state.player.pos);
                 state.gameMap.treasureUnlock.numSwitchesUsed = 0;
-            }
-        } else {
-            bumpFail(state, dx, dy);
-            if (state.level === 0) {
-                state.popups.setNotification('Make Noise: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
             }
         }
     }

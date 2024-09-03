@@ -439,7 +439,6 @@ type DistPos = {
 }
 
 type TreasureUnlock = {
-    clue: string;
     switches: Array<vec2>;
     numSwitchesUsed: number;
     posTreasure: vec2;
@@ -472,7 +471,6 @@ class GameMap {
         this.backtrackingCoefficient = 1;
         this.bookTitle = new Map();
         this.treasureUnlock = {
-            clue: '',
             switches: [],
             numSwitchesUsed: 0,
             posTreasure: vec2.create(),

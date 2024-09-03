@@ -4840,12 +4840,40 @@ function placeTreasure(map: GameMap, rng: RNG) {
 
     vec2.copy(map.treasureUnlock.posTreasure, treasureLockBox.pos);
 
-    map.treasureUnlock.clue = '';
+    let clue = '';
     for (const book of books) {
-        map.treasureUnlock.clue += map.bookTitle.get(book) + '\n';
+        if (clue.length > 0) {
+            clue += ', ';
+        }
+        const title = map.bookTitle.get(book)!;
+        const titleFirstWord = title.split(' ')[0];
+        clue += titleFirstWord;
         map.treasureUnlock.switches.push(vec2.clone(book.pos));
     }
-    console.log(map.treasureUnlock.clue);
+
+    // Find a piece of furniture to put a clue note on
+
+    const lootPositions = new Set();
+    for (const item of map.items) {
+        if (item.type === ItemType.Coin || item.type === ItemType.Health) {
+            lootPositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
+        }
+    }
+
+    let furniture = map.items.filter(item =>
+        (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
+        !lootPositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
+    );
+
+    if (furniture.length > 0) {
+        const pos = furniture[rng.randomInRange(furniture.length)].pos;
+        const note = {
+            pos: vec2.clone(pos),
+            type: ItemType.Note,
+        };
+        map.items.push(note);
+        map.bookTitle.set(note, clue);
+    }
 }
 
 function placeHealth(level: number, map: GameMap, rooms: Array<Room>, rng: RNG) {
