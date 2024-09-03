@@ -329,7 +329,7 @@ class Player {
     turnsRemainingUnderwater: number;
     animation: SpriteAnimation|null = null;
     torchAnimation: LightSourceAnimation|null = null;
-    pickTarget: Guard|null = null;
+    pickTarget: Guard | Item | null = null;
     lightActive: boolean = false;
     idle: boolean = false;
     idleCursorAnimation: Animator[]|null = null;

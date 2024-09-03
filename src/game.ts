@@ -889,50 +889,47 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             item.type === ItemType.Bookshelf);
         if (item !== undefined) {
             preTurn(state);
-            state.player.pickTarget = null;
+            const firstBump = state.player.pickTarget !== item;
+            const secretSwitchIndex = state.gameMap.treasureUnlock.switches.findIndex(s => s.equals(item.pos));
+            state.player.pickTarget = (firstBump && secretSwitchIndex >= 0) ? item : null;
             if (!state.gameMap.cells.at(x, y).lit) {
                 state.player.lightActive = true;
             }
             bumpAnim(state, dx, dy);
             advanceTime(state);
-            let title = state.gameMap.bookTitle.get(item);
-            if (title === undefined) {
-                title = 'Untitled';
-            }
-            title = '"' + title + '"';
-            if (state.gameMap.treasureUnlock.numSwitchesUsed < state.gameMap.treasureUnlock.switches.length) {
-                for (let i = 0; i < state.gameMap.treasureUnlock.switches.length; ++i) {
-                    if (state.gameMap.treasureUnlock.switches[i][0] !== x ||
-                        state.gameMap.treasureUnlock.switches[i][1] !== y) {
-                        continue;
-                    }
-                    if (i === state.gameMap.treasureUnlock.numSwitchesUsed) {
-                        ++state.gameMap.treasureUnlock.numSwitchesUsed;
-                        if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
-                            state.sounds.switchSuccess.play(0.5);
-                            title = '(rumble) ' + title;
-                            joltCamera(state, dx, dy);
-                            state.gameMap.items.push({
-                                pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
-                                type: ItemType.Treasure,
-                            });
-                        } else {
-                            state.sounds.switchProgress.play(0.5);
-                            title = '(click) ' + title;
-                        }
-                    } else if (i === 0) {
-                        state.sounds.switchProgress.play(0.5);
-                        title = '(click) ' + title;
-                        state.gameMap.treasureUnlock.numSwitchesUsed = 1;
-                    } else {
-                        state.sounds.switchReset.play(0.5);
-                        title = '(clunk) ' + title;
-                        state.gameMap.treasureUnlock.numSwitchesUsed = 0;
-                    }
-                    break;
+            if (firstBump) {
+                let title = state.gameMap.bookTitle.get(item);
+                if (title === undefined) {
+                    title = 'Untitled';
                 }
+                title = '"' + title + '"';
+                state.popups.setNotification(title, state.player.pos);
+            } else if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+                state.sounds.switchReset.play(0.5);
+                state.popups.setNotification('(clunk)', state.player.pos);
+            } else if (secretSwitchIndex === state.gameMap.treasureUnlock.numSwitchesUsed) {
+                ++state.gameMap.treasureUnlock.numSwitchesUsed;
+                if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+                    state.sounds.switchSuccess.play(0.5);
+                    state.popups.setNotification('(rumble)', state.player.pos);
+                    joltCamera(state, dx, dy);
+                    state.gameMap.items.push({
+                        pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
+                        type: ItemType.Treasure,
+                    });
+                } else {
+                    state.sounds.switchProgress.play(0.5);
+                    state.popups.setNotification('(click)', state.player.pos);
+                }
+            } else if (secretSwitchIndex === 0) {
+                state.sounds.switchProgress.play(0.5);
+                state.popups.setNotification('(click)', state.player.pos);
+                state.gameMap.treasureUnlock.numSwitchesUsed = 1;
+            } else {
+                state.sounds.switchReset.play(0.5);
+                state.popups.setNotification('(clunk)', state.player.pos);
+                state.gameMap.treasureUnlock.numSwitchesUsed = 0;
             }
-            state.popups.setNotification(title, state.player.pos);
         } else {
             bumpFail(state, dx, dy);
             if (state.level === 0) {
@@ -1736,7 +1733,7 @@ function statusBarMessage(state: State): string {
         }
     } else if (state.level === 3) {
         if (allSeen && !allLooted && remainingLootIsOnGuard(state)) {
-            if (state.player.pickTarget !== null || adjacentToUnawareGuardWithLoot(state)) {
+            if ((state.player.pickTarget !== null && state.player.pickTarget instanceof Guard) || adjacentToUnawareGuardWithLoot(state)) {
                 return 'Step to pickpocket or leap to knock out';
             } else {
                 return 'Move or leap from behind into loot-carrying guard';
@@ -2215,6 +2212,13 @@ function renderIconOverlays(state: State, renderer: Renderer) {
             const gtile = tileSet.namedTiles['pickTarget'];
             renderer.addGlyph(x, y+0.625, x+1, y+1.625, gtile);
         } 
+    }
+
+    // Render an icon over a bookcase if it's got a secret switch
+    if (player.pickTarget !== null && !(player.pickTarget instanceof Guard) && 'pos' in player.pickTarget) {
+        const x = (player.pos[0] + player.pickTarget.pos[0]) / 2;
+        const y = (player.pos[1] + player.pickTarget.pos[1]) / 2;
+        renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['pickTarget']);
     }
 
     // Render an icon over the player if the player is being noisy

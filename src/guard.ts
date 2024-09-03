@@ -738,6 +738,7 @@ function guardActAll(state: State) {
     // Clear pickTarget if the guard sees the player or is no longer adjacent to the player
 
     if (player.pickTarget !== null &&
+        player.pickTarget instanceof Guard &&
         (player.pickTarget.mode === GuardMode.ChaseVisibleTarget || !player.pickTarget.cardinallyAdjacentTo(player.pos))) {
         player.pickTarget = null;
     }
