@@ -27,30 +27,30 @@ enum PopupType {
 const dTShow: number = 2.0;
 
 class Popups {
-    currentPopup: string;
-    currentPopupWorldPos: () => vec2;
-    currentPopupSlide: number;
-    currentPopupTimeRemaining: number;
+    currentSpeech: string;
+    currentSpeechWorldPos: () => vec2;
+    currentSpeechSlide: number;
+    currentSpeechTimeRemaining: number;
 
     notification: string;
     notificationWorldPos: vec2;
     notificationTimeRemaining: number;
 
     constructor() {
-        this.currentPopup = '';
-        this.currentPopupWorldPos = () => vec2.create();
-        this.currentPopupSlide = 0;
-        this.currentPopupTimeRemaining = 0;
+        this.currentSpeech = '';
+        this.currentSpeechWorldPos = () => vec2.create();
+        this.currentSpeechSlide = 0;
+        this.currentSpeechTimeRemaining = 0;
         this.notification = '';
         this.notificationWorldPos = vec2.create();
         this.notificationTimeRemaining = 0;
     }
 
-    setCur(text: string, posWorld: () => vec2, popupSlide: number) {
-        this.currentPopup = text;
-        this.currentPopupWorldPos = posWorld;
-        this.currentPopupSlide = popupSlide;
-        this.currentPopupTimeRemaining = dTShow;
+    setSpeech(text: string, posWorld: () => vec2, popupSlide: number) {
+        this.currentSpeech = text;
+        this.currentSpeechWorldPos = posWorld;
+        this.currentSpeechSlide = popupSlide;
+        this.currentSpeechTimeRemaining = dTShow;
     }
 
     setNotification(text: string, pos: vec2) {
@@ -64,7 +64,7 @@ class Popups {
     }
 
     isSpeechBubbleVisible(): boolean {
-        return this.currentPopupTimeRemaining > 0;
+        return this.currentSpeechTimeRemaining > 0;
     }
 
     isNotificationVisible(): boolean {
@@ -72,21 +72,21 @@ class Popups {
     }
 
     animate(dt: number) {
-        this.currentPopupTimeRemaining = Math.max(0, this.currentPopupTimeRemaining - dt);
+        this.currentSpeechTimeRemaining = Math.max(0, this.currentSpeechTimeRemaining - dt);
         this.notificationTimeRemaining = Math.max(0, this.notificationTimeRemaining - dt);
     }
 
     toggleShow(pos: vec2) {
         vec2.copy(this.notificationWorldPos, pos);
-        this.currentPopupTimeRemaining = (this.currentPopupTimeRemaining > 0) ? 0 : dTShow;
+        this.currentSpeechTimeRemaining = (this.currentSpeechTimeRemaining > 0) ? 0 : dTShow;
         this.notificationTimeRemaining = (this.notificationTimeRemaining > 0) ? 0 : dTShow;
     }
 
     reset() {
-        this.currentPopup = '';
-        this.currentPopupWorldPos = () => vec2.create();
-        this.currentPopupSlide = 0;
-        this.currentPopupTimeRemaining = 0;
+        this.currentSpeech = '';
+        this.currentSpeechWorldPos = () => vec2.create();
+        this.currentSpeechSlide = 0;
+        this.currentSpeechTimeRemaining = 0;
 
         this.notification = '';
         vec2.zero(this.notificationWorldPos);

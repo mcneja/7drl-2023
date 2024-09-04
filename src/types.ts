@@ -111,6 +111,12 @@ interface Particle {
     animation?: Animator;
 }
 
+type HealthBarState = {
+    size: number;
+    enlargeTimeRemaining: number;
+    heartFlashRemaining: Array<number>;
+}
+
 type State = {
     gameStats: GameStats;
     persistedStats: PersistedStats;
@@ -135,6 +141,7 @@ type State = {
     topStatusMessageSlide: number;
     playerHintMessage: string;
     playerHintMessageIsNew: boolean;
+    healthBarState: HealthBarState;
     numStepMoves: number;
     numLeapMoves: number;
     numWaitMoves: number;

@@ -6,7 +6,7 @@ import { randomInRange } from './random';
 import { PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
 import { LevelStats, State } from './types';
-import { joltCamera } from './game';
+import { enlargeHealthBar, flashHeart, joltCamera } from './game';
 
 const distSquaredSeeTorchMax: number = 64;
 
@@ -263,6 +263,8 @@ class Guard {
                         ],
                         []);
                     player.applyDamage(1);
+                    flashHeart(state, player.health);
+                    enlargeHealthBar(state);
                     joltCamera(state, player.pos[0] - this.pos[0], player.pos[1] - this.pos[1]);
                     ++levelStats.damageTaken;
                 }
@@ -724,7 +726,7 @@ function guardActAll(state: State) {
 
         const speaker: Guard | Player = speech[0].speaker;
         const slide = speaker.pos[1] < player.pos[1] ? 0 : 1;
-        state.popups.setCur(subtitledSound.subtitle, () => speaker.posAnimated(), slide);
+        state.popups.setSpeech(subtitledSound.subtitle, () => speaker.posAnimated(), slide);
         speaker.speaking = true;
     }
 

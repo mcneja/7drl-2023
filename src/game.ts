@@ -354,6 +354,7 @@ export function setupLevel(state: State, level: number) {
     setCellAnimations(state.gameMap, state);
     state.topStatusMessage = '';
     state.topStatusMessageSlide = 1;
+    resetHealthBar(state);
     state.finishedLevel = false;
 
     state.turns = 0;
@@ -494,9 +495,11 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             ++state.treasureStolen;
             offset = 0.625;
         } else if (item.type === ItemType.Health) {
+            enlargeHealthBar(state);
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
             } else {
+                flashHeart(state, state.player.health);
                 ++state.player.health;
             }
             healthCollected = true;
@@ -1778,6 +1781,39 @@ export function setStatusMessage(state: State, msg: string, playerHint: boolean 
     state.topStatusMessage = msg;
 }
 
+export function enlargeHealthBar(state: State) {
+    state.healthBarState.enlargeTimeRemaining = 1.5;
+    state.healthBarState.size = 2;
+}
+
+export function flashHeart(state: State, heartIndex: number) {
+    if (heartIndex < 0 || heartIndex >= state.healthBarState.heartFlashRemaining.length) {
+        return;
+    }
+    state.healthBarState.heartFlashRemaining[heartIndex] = 1;
+}
+
+function animateHealthBar(state: State, dt: number) {
+    const dtPulse = 0.25;
+    const dtShrink = 0.25;
+    state.healthBarState.enlargeTimeRemaining = Math.max(0, state.healthBarState.enlargeTimeRemaining - dt);
+    if (state.healthBarState.enlargeTimeRemaining <= 0) {
+        const u = dt / dtShrink;
+        state.healthBarState.size = Math.max(1, state.healthBarState.size - u);
+        for (let i = 0; i < state.healthBarState.heartFlashRemaining.length; ++i) {
+            state.healthBarState.heartFlashRemaining[i] = Math.max(0, state.healthBarState.heartFlashRemaining[i] - u);
+        }
+    } else {
+        state.healthBarState.size = Math.max(1.5, state.healthBarState.size - dt / dtPulse);
+    }
+}
+
+function resetHealthBar(state: State) {
+    state.healthBarState.enlargeTimeRemaining = 0;
+    state.healthBarState.size = 1;
+    state.healthBarState.heartFlashRemaining.fill(0);
+}
+
 function loadImage(src: string, img: HTMLImageElement): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         img.onload = () => resolve(img);
@@ -2181,7 +2217,7 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         const x = guard.pos[0] + offset[0];
         const y = guard.pos[1] + offset[1];
 
-        if (guard.speaking && state.popups.currentPopupTimeRemaining <= 0) {
+        if (guard.speaking && !state.popups.isSpeechBubbleVisible()) {
             const dir = guard.dir[0];
             if(dir>=0) {
                 renderer.addGlyph(x+1, y, x+2, y+1, bubble_right);
@@ -2477,6 +2513,11 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         leapToggleActive: false,
         playerHintMessage: '',
         playerHintMessageIsNew: false,
+        healthBarState: {
+            size: 1,
+            enlargeTimeRemaining: 0,
+            heartFlashRemaining: Array(maxPlayerHealth).fill(0),
+        },
         gameMode: GameMode.HomeScreen,
         textWindows: {
             [GameMode.HomeScreen]: new HomeScreen(),
@@ -2640,6 +2681,7 @@ export function restartGame(state: State) {
     setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.topStatusMessage = '';
+    resetHealthBar(state);
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
     state.numWaitMoves = 0;
@@ -2682,6 +2724,7 @@ function resetState(state: State) {
     updateAchievements(state, "gameStart");
 
     state.topStatusMessage = '';
+    resetHealthBar(state);
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
@@ -2823,10 +2866,12 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 
     updateIdle(state, dt);
 
+    animateHealthBar(state, dt);
+
     state.popups.animate(dt);
 
-    const popupBelow = state.popups.currentPopupWorldPos()[1] < state.player.pos[1];
-    state.popups.currentPopupSlide = Math.max(0, Math.min(1, state.popups.currentPopupSlide + dt * (popupBelow ? -1 : 1) * 2));
+    const popupBelow = state.popups.currentSpeechWorldPos()[1] < state.player.pos[1];
+    state.popups.currentSpeechSlide = Math.max(0, Math.min(1, state.popups.currentSpeechSlide + dt * (popupBelow ? -1 : 1) * 3));
 
     state.player.noisyAnim += 2.0 * dt;
     state.player.noisyAnim -= Math.floor(state.player.noisyAnim);
@@ -3184,7 +3229,7 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     if (!state.popups.isSpeechBubbleVisible())
         return;
 
-    const message = state.popups.currentPopup;
+    const message = state.popups.currentSpeech;
     if (message.length === 0)
         return;
 
@@ -3202,7 +3247,7 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
     const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
-    const posPopupWorld = state.popups.currentPopupWorldPos();
+    const posPopupWorld = state.popups.currentSpeechWorldPos();
     const popupPixelX = Math.floor(((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX);
     const popupPixelY = Math.floor(((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
 
@@ -3230,7 +3275,7 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
 
     let xMin = popupPixelX - rectSizeX / 2;
 
-    const u = state.popups.currentPopupSlide * 2 - 1;
+    const u = state.popups.currentSpeechSlide * 2 - 1;
     let yMin = (rectSizeY + 2*ry) * (u / 2) + popupPixelY - rectSizeY / 2;
 
     // Clamp to world view edges
@@ -3469,11 +3514,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     } else {
         // Health indicator
 
+        let s = state.healthBarState.size;
         const glyphHeart = fontTileSet.heart.textureIndex;
         for (let i = 0; i < maxPlayerHealth; ++i) {
-            const color = (i < state.player.health) ? colorPreset.darkRed : colorPreset.darkGray;
-            renderer.addGlyph(leftSideX, 0, leftSideX + 1, 1, {textureIndex:glyphHeart, color:color});
-            ++leftSideX;
+            const u = state.healthBarState.heartFlashRemaining[i];
+            const color = (i < state.player.health) ? colorLerp(colorPreset.darkRed, colorPreset.white, u) : colorLerp(colorPreset.darkGray, colorPreset.lightRed, u);
+            renderer.addGlyph(leftSideX, 0, leftSideX + s, s, {textureIndex:glyphHeart, color:color});
+            leftSideX += s;
         }
     }
 
@@ -3521,6 +3568,8 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     if (!ghosted) {
         msgTimer += '!';
     }
+
+    leftSideX = maxPlayerHealth + msgLeapToggle.length + 2;
 
     const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2;
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
