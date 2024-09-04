@@ -1782,7 +1782,7 @@ export function setStatusMessage(state: State, msg: string, playerHint: boolean 
 }
 
 export function enlargeHealthBar(state: State) {
-    state.healthBarState.enlargeTimeRemaining = 1.5;
+    state.healthBarState.enlargeTimeRemaining = 1.0;
     state.healthBarState.size = 2;
 }
 
@@ -1794,8 +1794,8 @@ export function flashHeart(state: State, heartIndex: number) {
 }
 
 function animateHealthBar(state: State, dt: number) {
-    const dtPulse = 0.25;
-    const dtShrink = 0.25;
+    const dtPulse = 0.5;
+    const dtShrink = 0.75;
     state.healthBarState.enlargeTimeRemaining = Math.max(0, state.healthBarState.enlargeTimeRemaining - dt);
     if (state.healthBarState.enlargeTimeRemaining <= 0) {
         const u = dt / dtShrink;
@@ -3515,6 +3515,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         // Health indicator
 
         let s = state.healthBarState.size;
+        if (s < 1.5) {
+            s -= 1.0;
+            s /= 0.5;
+            s = s * s * (3 - 2 * s);
+            s *= 0.5;
+            s += 1.0;
+        }
         const glyphHeart = fontTileSet.heart.textureIndex;
         for (let i = 0; i < maxPlayerHealth; ++i) {
             const u = state.healthBarState.heartFlashRemaining[i];
