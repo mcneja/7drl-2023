@@ -263,7 +263,6 @@ class Guard {
                         ],
                         []);
                     player.applyDamage(1);
-                    state.popups.setNotification('Health ' + player.health + '/' + maxPlayerHealth, player.pos);
                     joltCamera(state, player.pos[0] - this.pos[0], player.pos[1] - this.pos[1]);
                     ++levelStats.damageTaken;
                 }
