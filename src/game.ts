@@ -489,23 +489,15 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             ++state.player.loot;
             ++state.lootStolen;
             coinCollected = true;
-            if (state.gameMap.allSeen()) {
-                state.popups.setNotification('Loot ' + state.lootStolen + '/' + state.lootAvailable, posFlyToward);
-            } else {
-                state.popups.setNotification('Loot ' + state.lootStolen + '/?', posFlyToward);
-            }
         } else if (item.type === ItemType.Treasure) {
             coinCollected = true;
             ++state.treasureStolen;
             offset = 0.625;
-            state.popups.setNotification('Secret Loot!', posFlyToward);
         } else if (item.type === ItemType.Health) {
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
-                state.popups.setNotification('Points +5', posFlyToward);
             } else {
                 ++state.player.health;
-                state.popups.setNotification('Health +1', posFlyToward);
             }
             healthCollected = true;
         }
@@ -714,17 +706,11 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
         player.loot += 1;
         state.lootStolen += 1;
         pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Coin};
-        if (state.gameMap.allSeen()) {
-            state.popups.setNotification('Loot ' + state.lootStolen + '/' + state.lootAvailable, guard.pos);
-        } else {
-            state.popups.setNotification('Loot ' + state.lootStolen + '/?', guard.pos);
-        }
     }
     if (guard.hasVaultKey) {
         guard.hasVaultKey = false;
         player.hasVaultKey = true;
         pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key};
-        state.popups.setNotification('Key!', guard.pos);
     }
     if(pickedItem) {
         const pt0 = vec2.create();
