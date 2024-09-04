@@ -1867,7 +1867,14 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
 
     // Pick a room to be the treasure room
 
-    if (rooms.some(room => room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary)) {
+    let libraryArea = 0;
+    for (const room of rooms) {
+        if (room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary) {
+            libraryArea += (room.posMax[0] - room.posMin[0]) * (room.posMax[1] - room.posMin[1]);
+        }
+    }
+
+    if (libraryArea >= 60) {
         for (const room of chooseRooms(rooms, roomCanBeTreasure, 1, rng)) {
             room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.TreasureCourtyard : RoomType.Treasure;
         }
@@ -3432,12 +3439,8 @@ function playerStartPosition(level: number, adjacencies: Array<Adjacency>, gameM
         const pos = playerStartPositionFrontDoor(adjacencies, gameMap);
         // Setup for initial movement trainer
         if(level === 0) {
-            if(pos[1]>=4) {
-                pos[1] -= 4;
-            } else {
-                pos[0] -= 4 - pos[1];
-                pos[1] = 0;
-            }
+            pos[0] -= Math.max(0, 4 - pos[1]);
+            pos[1] = Math.max(0, pos[1] - 4);
         }
         return pos;
     }
