@@ -1720,6 +1720,8 @@ function statusBarMessage(state: State): string {
             }
         }
     } else if (state.level === 3) {
+        const allSeen = state.gameMap.allSeen();
+        const allLooted = state.lootStolen >= state.lootAvailable;
         if (allSeen && !allLooted && remainingLootIsOnGuard(state)) {
             if ((state.player.pickTarget !== null && state.player.pickTarget instanceof Guard) || adjacentToUnawareGuardWithLoot(state)) {
                 return 'Step to pickpocket or leap to knock out';
