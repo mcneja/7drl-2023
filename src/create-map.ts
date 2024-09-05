@@ -5498,6 +5498,7 @@ function cacheCellInfo(map: GameMap) {
             cell.blocksSight = isWall;
             cell.blocksSound = isWall;
             cell.hidesPlayer = false;
+            cell.isWindow = isWindow;
         }
     }
 

@@ -173,6 +173,7 @@ type Cell = {
     blocksSight: boolean;
     blocksSound: boolean;
     hidesPlayer: boolean;
+    isWindow: boolean;
     lit: number;
     litAnim: number;
     litSrc: Set<number>; //Array<number>; //TODO: this should be a set pointing to the item/guard
@@ -226,6 +227,7 @@ class CellGrid {
             blocksSight: false,
             blocksSound: false,
             hidesPlayer: false,
+            isWindow: false,
             lit: 0,
             litAnim:0,
             litSrc: new Set<number>(),

@@ -906,7 +906,8 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
 
     let error = ay - ax;
 
-    let n = ax + ay - 1;
+    const nStart = ax + ay - 1;
+    let n = nStart;
 
     ax *= 2;
     ay *= 2;
@@ -916,14 +917,24 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
             y += y_inc;
             error -= ax;
         } else {
-            if (error === 0 && map.cells.at(x, y + y_inc).blocksSight) {
-                return false;
+            if (error === 0) {
+                const cell = map.cells.at(x, y + y_inc);
+                if (cell.blocksSight) {
+                    return false;
+                }
+                if (cell.isWindow && n > 1 && n < nStart - 1) {
+                    return false;
+                }
             }
             x += x_inc;
             error += ay;
         }
 
-        if (map.cells.at(x, y).blocksSight) {
+        const cell = map.cells.at(x, y);
+        if (cell.blocksSight) {
+            return false;
+        }
+        if (cell.isWindow && n > 1 && n < nStart - 1) {
             return false;
         }
 
