@@ -17,6 +17,7 @@ enum GuardMode {
     Listen,
     ChaseVisibleTarget,
     MoveToLastSighting,
+    InvestigateLastSighting,
     MoveToLastSound,
     MoveToGuardShout,
     MoveToDownedGuard,
@@ -148,6 +149,7 @@ class Guard {
 
         case GuardMode.ChaseVisibleTarget:
         case GuardMode.MoveToLastSighting:
+        case GuardMode.InvestigateLastSighting:
         case GuardMode.MoveToGuardShout:
         case GuardMode.MoveToLastSound:
             this.goals = this.chooseMoveTowardPosition(this.goal, state.gameMap);
@@ -275,12 +277,38 @@ class Guard {
             break;
 
         case GuardMode.MoveToLastSighting:
+            this.makeBestAvailableMove(map, player);
+
+            if (this.pos.equals(this.goal)) {
+                this.mode = GuardMode.InvestigateLastSighting;
+                this.modeTimeout = 5;
+            } else if (this.pos.equals(posPrev)) {
+                this.modeTimeout -= 1;
+            }
+
+            if (this.modeTimeout <= 0) {
+                this.enterPatrolMode(map);
+            }
+            break;
+
+        case GuardMode.InvestigateLastSighting:
+            this.makeBestAvailableMove(map, player);
+
+            if (this.modeTimeout >= 3 && this.pos.equals(this.goal)) {
+                this.tryStepGoalForward(state);
+            }
+
+            this.modeTimeout -= 1;
+            if (this.modeTimeout <= 0) {
+                this.enterPatrolMode(map);
+            }
+            break;
+
         case GuardMode.MoveToLastSound:
         case GuardMode.MoveToGuardShout:
             this.makeBestAvailableMove(map, player);
 
             if (this.pos.equals(posPrev)) {
-                updateDir(this.dir, this.pos, this.goal);
                 this.modeTimeout -= 1;
             }
 
@@ -425,6 +453,7 @@ class Guard {
                 this.mode !== GuardMode.Look &&
                 this.mode !== GuardMode.ChaseVisibleTarget &&
                 this.mode !== GuardMode.MoveToLastSighting &&
+                this.mode !== GuardMode.InvestigateLastSighting &&
                 this.mode !== GuardMode.MoveToLastSound &&
                 this.mode !== GuardMode.MoveToDownedGuard &&
                 this.mode !== GuardMode.WakeGuard) {
@@ -509,6 +538,28 @@ class Guard {
         if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev !== GuardMode.ChaseVisibleTarget) {
             shouts.push({posShouter: vec2.clone(this.pos), target: player});
             ++levelStats.numSpottings;
+        }
+    }
+
+    tryStepGoalForward(state: State) {
+        // If we can step forward in our current direction, do that
+        const pos = vec2.create();
+        vec2.add(pos, this.pos, this.dir);
+        if (state.gameMap.guardMoveCost(this.pos, pos) === 0) {
+            vec2.copy(this.goal, pos);
+            return;
+        }
+
+        // If we can turn left or right (but not both), do that
+        const pos2 = vec2.create();
+        vec2.set(pos, this.pos[0] - this.dir[1], this.pos[1] + this.dir[0]);
+        vec2.set(pos2, this.pos[0] + this.dir[1], this.pos[1] - this.dir[0]);
+        if (state.gameMap.guardMoveCost(this.pos, pos) === 0) {
+            if (state.gameMap.guardMoveCost(this.pos, pos2) !== 0) {
+                vec2.copy(this.goal, pos);
+            }
+        } else if (state.gameMap.guardMoveCost(this.pos, pos2) === 0) {
+            vec2.copy(this.goal, pos2);
         }
     }
 
@@ -789,6 +840,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 case GuardMode.MoveToLastSound: return PopupType.GuardFinishInvestigating;
                 case GuardMode.MoveToGuardShout: return PopupType.GuardEndChase;
                 case GuardMode.MoveToLastSighting: return PopupType.GuardEndChase;
+                case GuardMode.InvestigateLastSighting: return PopupType.GuardEndChase;
                 case GuardMode.LightTorch: return inEarshot ? PopupType.GuardFinishLightingTorch : undefined;
                 case GuardMode.Unconscious: return PopupType.GuardAwakesWarning;
                 default: return undefined;
@@ -797,7 +849,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
         case GuardMode.LookAtTorch: return PopupType.GuardSeeTorchLit;
         case GuardMode.Listen: return PopupType.GuardHearThief;
         case GuardMode.ChaseVisibleTarget:
-            if (modePrev != GuardMode.MoveToLastSighting) {
+            if (modePrev != GuardMode.MoveToLastSighting && modePrev !== GuardMode.InvestigateLastSighting) {
                 return PopupType.GuardChase;
             } else {
                 return undefined;
@@ -809,6 +861,7 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 return undefined;
             }
         case GuardMode.MoveToLastSighting: return undefined;
+        case GuardMode.InvestigateLastSighting: return undefined;
         case GuardMode.MoveToLastSound: return PopupType.GuardInvestigate;
         case GuardMode.MoveToGuardShout: return PopupType.GuardHearGuard;
         case GuardMode.MoveToTorch:
