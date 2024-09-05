@@ -1667,25 +1667,22 @@ function postTurn(state: State) {
         state.finishedLevel = true;
     }
 
-    setStatusMessage(state, statusBarMessage(state), true);
+    if (state.player.health <= 0) {
+        setStatusMessage(state, 'You were killed. Press Escape/Menu to see score.');
+    } else if (allSeen) {
+        if (allLooted) {
+            setStatusMessage(state, 'Loot collected! Exit any map edge');
+        } else if (state.level < 3) {
+            setStatusMessage(state, 'Collect all loot', true);
+        } else {
+            setStatusMessage(state, statusBarMessage(state), true);
+        }
+    } else {
+        setStatusMessage(state, statusBarMessage(state), true);
+    }
 }
 
 function statusBarMessage(state: State): string {
-    if (state.player.health <= 0) {
-        return 'You were killed. Press Escape/Menu to see score.';
-    }
-
-    const allSeen = state.gameMap.allSeen();
-    const allLooted = state.lootStolen >= state.lootAvailable;
-
-    if (allSeen) {
-        if (allLooted) {
-            return 'Loot collected! Exit any map edge';
-        } else if (state.level < 3) {
-            return 'Collect all loot';
-        }
-    }
-
     if (state.level === 0) {
         const item = state.gameMap.items.find(item=>item.pos.equals(state.player.pos));
         const cell = state.gameMap.cells.atVec(state.player.pos);
