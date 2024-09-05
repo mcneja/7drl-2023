@@ -1783,7 +1783,6 @@ export function setStatusMessage(state: State, msg: string, playerHint: boolean 
 
 export function enlargeHealthBar(state: State) {
     state.healthBarState.enlargeTimeRemaining = 1.0;
-    state.healthBarState.size = 2;
 }
 
 export function flashHeart(state: State, heartIndex: number) {
@@ -1794,17 +1793,20 @@ export function flashHeart(state: State, heartIndex: number) {
 }
 
 function animateHealthBar(state: State, dt: number) {
-    const dtPulse = 0.5;
-    const dtShrink = 0.75;
-    state.healthBarState.enlargeTimeRemaining = Math.max(0, state.healthBarState.enlargeTimeRemaining - dt);
-    if (state.healthBarState.enlargeTimeRemaining <= 0) {
-        const u = dt / dtShrink;
-        state.healthBarState.size = Math.max(1, state.healthBarState.size - u);
-        for (let i = 0; i < state.healthBarState.heartFlashRemaining.length; ++i) {
-            state.healthBarState.heartFlashRemaining[i] = Math.max(0, state.healthBarState.heartFlashRemaining[i] - u);
-        }
+    state.healthBarState.enlargeTimeRemaining = Math.max(0, state.healthBarState.enlargeTimeRemaining - dt * 1.5);
+    let u = 1;
+    if (state.healthBarState.enlargeTimeRemaining > 0.5) {
+        u = 1 - (2 * state.healthBarState.enlargeTimeRemaining - 1)**2;
     } else {
-        state.healthBarState.size = Math.max(1.5, state.healthBarState.size - dt / dtPulse);
+        u = 2 * state.healthBarState.enlargeTimeRemaining;
+        u = u * u * (3 - 2 * u);
+    }
+    state.healthBarState.size = 1 + u/2;
+
+    const dtHeartFlash = 1.0;
+    u = dt / dtHeartFlash;
+    for (let i = 0; i < state.healthBarState.heartFlashRemaining.length; ++i) {
+        state.healthBarState.heartFlashRemaining[i] = Math.max(0, state.healthBarState.heartFlashRemaining[i] - u);
     }
 }
 
@@ -3515,13 +3517,6 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         // Health indicator
 
         let s = state.healthBarState.size;
-        if (s < 1.5) {
-            s -= 1.0;
-            s /= 0.5;
-            s = s * s * (3 - 2 * s);
-            s *= 0.5;
-            s += 1.0;
-        }
         const glyphHeart = fontTileSet.heart.textureIndex;
         for (let i = 0; i < maxPlayerHealth; ++i) {
             const u = state.healthBarState.heartFlashRemaining[i];
