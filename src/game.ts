@@ -957,6 +957,8 @@ function tryPlayerWait(state: State) {
     ++state.numWaitMoves;
 
     advanceTime(state);
+
+    showMoveTutorialNotifications(state, state.player.pos);
 }
 
 function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType) {
@@ -1163,7 +1165,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     }
 
     // Execute the move
-    const fromHid = player.hidden(state.gameMap);
+    const fromCrouch = player.hidden(state.gameMap) || state.gameMap.cells.atVec(player.pos).type === TerrainType.GroundWater;
 
     vec2.copy(player.pos, posNew);
     ++state.numStepMoves;
@@ -1177,7 +1179,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     const start = vec2.clone(posOld).subtract(posNew);
     const end = vec2.create();
     const mid = start.add(end).scale(0.5).add(vec2.fromValues(0,0.0625));
-    const hid = player.hidden(state.gameMap);
+    const crouch = player.hidden(state.gameMap) || cellNew.type === TerrainType.GroundWater;
 
     let tweenSeq: Array<TweenData>;
 
@@ -1192,18 +1194,18 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         tweenSeq = [
             {pt0:start, pt1:mid, duration:dtStep, fn:tween.easeInQuad},
             {pt0:mid, pt1:end, duration:dtStep, fn:tween.easeOutQuad},
-            {pt0:end, pt1:end, duration:(dy>0 && !hid)?0.5:0.1, fn:tween.easeOutQuad}
+            {pt0:end, pt1:end, duration:(dy>0 && !crouch)?0.5:0.1, fn:tween.easeOutQuad}
         ]
-        if(dy>0 && !hid) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
+        if(dy>0 && !crouch) tweenSeq.push({pt0:end, pt1:end, duration:0.1, fn:tween.easeOutQuad})
     }
 
     const baseTile =    dx<0? tileSet.playerTiles.left:
                         dx>0? tileSet.playerTiles.right:
                         dy>0? tileSet.playerTiles.up:
                         tileSet.playerTiles.down;
-    const tile1 = fromHid? tileSet.playerTiles.hidden:baseTile;
-    const tile2 = hid? tileSet.playerTiles.hidden:baseTile;
-    const tile3 = hid? tileSet.playerTiles.hidden:tileSet.playerTiles.left;
+    const tile1 = fromCrouch? tileSet.playerTiles.hidden:baseTile;
+    const tile2 = crouch? tileSet.playerTiles.hidden:baseTile;
+    const tile3 = crouch? tileSet.playerTiles.hidden:tileSet.playerTiles.left;
     player.animation = new SpriteAnimation(tweenSeq, [tile1, tile2, tile2, tile3]);
 
     // Collect loot
@@ -1223,6 +1225,37 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Play sound for terrain type changes
 
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellNew);
+
+    // Hints
+
+    showMoveTutorialNotifications(state, posOld);
+}
+
+function showMoveTutorialNotifications(state: State, posPrev: vec2) {
+    if (state.level !== 0) {
+        return;
+    }
+
+    if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
+        if (state.gameMap.cells.atVec(posPrev).type !== TerrainType.GroundWater) {
+            state.popups.setNotification('Hide underwater', state.player.pos);
+        } else if (state.player.turnsRemainingUnderwater === 1) {
+            state.popups.setNotification('Out of breath;\nsurfacing', state.player.pos);
+        }
+        return;
+    }
+
+    if (!state.player.pos.equals(posPrev)) {
+        const itemsAtPlayer = state.gameMap.items.filter(item => item.pos.equals(state.player.pos));
+
+        if (itemsAtPlayer.some(item => item.type === ItemType.Bush)) {
+            state.popups.setNotification('Hide in bushes', state.player.pos);
+        } else if (itemsAtPlayer.some(item => item.type === ItemType.Table)) {
+            state.popups.setNotification('Hide under tables', state.player.pos);
+        } else if (itemsAtPlayer.some(item => item.type === ItemType.BedL || item.type === ItemType.BedR)) {
+            state.popups.setNotification('Hide under beds', state.player.pos);
+        }
+    }
 }
 
 function tryPlayerLeap(state: State, dx: number, dy: number) {
@@ -1462,6 +1495,10 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     if (cellMid.type === TerrainType.PortcullisNS || cellMid.type === TerrainType.PortcullisEW) {
         state.sounds['gate'].play(0.3);
     }
+
+    // Hints
+
+    showMoveTutorialNotifications(state, posOld);
 }
 
 function executeLeapAttack(state: State, player:Player, target:Guard, dx:number, dy:number, posOld:vec2, posMid:vec2, posNew:vec2) {
@@ -1534,6 +1571,10 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     // Play sound for terrain type changes
 
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellMid);
+
+    // Hints
+
+    showMoveTutorialNotifications(state, posOld);
 }
 
 function canLeapOntoItemType(itemType: ItemType): boolean {
@@ -1686,21 +1727,7 @@ function postTurn(state: State) {
 
 function statusBarMessage(state: State): string {
     if (state.level === 0) {
-        const item = state.gameMap.items.find(item=>item.pos.equals(state.player.pos));
-        const cell = state.gameMap.cells.atVec(state.player.pos);
-        if (cell.type == TerrainType.GroundWater) {
-            if (state.player.turnsRemainingUnderwater > 0) {
-                return 'Hold breath and hide underwater';
-            } else {
-                return 'Exit water regain your breath';
-            }
-        } else if (item !== undefined && item.type === ItemType.Bush) {
-            return 'Hide in bushes';
-        } else if (item !== undefined && item.type === ItemType.Table) {
-            return 'Hide under tables';
-        } else if (item !== undefined && (item.type === ItemType.BedL || item.type === ItemType.BedR)) {
-            return 'Hide under beds';
-        } else if (state.numStepMoves < 4) {
+        if (state.numStepMoves < 4) {
             const counter = '\xfb'.repeat(state.numStepMoves) + '\x07'.repeat(4-state.numStepMoves)
             return 'Move: \x18\x19\x1b\x1a ' + counter;
         } else if (state.numLeapMoves < 4) {
@@ -2077,7 +2104,7 @@ function renderPlayer(state: State, renderer: Renderer) {
         const p = renderer.tileSet.playerTiles;
         tileInfo =
             dead ? p.dead :
-            hidden ? p.hidden :
+            (hidden || cell.type === TerrainType.GroundWater) ? p.hidden :
             p.normal;
     }
 
