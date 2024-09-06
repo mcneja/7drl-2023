@@ -507,13 +507,14 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         const pt0 = vec2.create();
         const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]+offset));
         const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5+offset/2));
+        const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, tileSet);
         const animation = new SpriteAnimation([
                 {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
                 {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
             ], 
             [
-                tileSet.itemTiles[item.type], 
-                tileSet.itemTiles[item.type]
+                itemTiles[item.type], 
+                itemTiles[item.type]
             ]
         );
         animation.removeOnFinish = true;
@@ -715,6 +716,7 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
         player.hasVaultKey = true;
         pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key};
     }
+    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, tileSet);
     if(pickedItem) {
         const pt0 = vec2.create();
         const pt2 = posNew.subtract(pickedItem.pos);
@@ -726,9 +728,9 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
                     {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
                 ],
                 [
-                    tileSet.itemTiles[pickedItem.type], 
-                    tileSet.itemTiles[pickedItem.type], 
-                    tileSet.itemTiles[pickedItem.type]
+                    itemTiles[pickedItem.type], 
+                    itemTiles[pickedItem.type], 
+                    itemTiles[pickedItem.type]
                 ]
             ):
             new SpriteAnimation([
@@ -736,8 +738,8 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
                     {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
                 ],
                 [
-                    tileSet.itemTiles[pickedItem.type], 
-                    tileSet.itemTiles[pickedItem.type]
+                    itemTiles[pickedItem.type], 
+                    itemTiles[pickedItem.type]
                 ]
             );
         animation.removeOnFinish = true;
