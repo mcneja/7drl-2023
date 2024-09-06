@@ -148,6 +148,8 @@ type State = {
     numZoomMoves: number;
     hasOpenedMenu: boolean;
     hasClosedMenu: boolean;
+    hasEnteredMansion: boolean;
+    leapHintGiven: boolean;
     hasStartedGame: boolean;
     finishedLevel: boolean;
     zoomLevel: number;
