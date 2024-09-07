@@ -3369,8 +3369,9 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
 
     let xMin = popupPixelX - rectSizeX / 2;
 
-    const u = state.popups.currentSpeechSlide * 2 - 1;
-    let yMin = (rectSizeY + 2*ry) * (u / 2) + popupPixelY - rectSizeY / 2;
+    let u = state.popups.currentSpeechSlide;
+    u = (3 - 2 * u) * u * u - 0.5;
+    let yMin = (rectSizeY + 2*ry) * u + popupPixelY - rectSizeY / 2;
 
     // Clamp to world view edges
 
