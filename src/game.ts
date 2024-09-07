@@ -865,7 +865,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
             advanceTime(state);
             if (state.level === 0) {
-                state.popups.setNotification('Noise attracts people', state.player.pos);
+                state.popups.setNotification('Noise\nattracts people', state.player.pos);
             }
         } else {
             state.player.preNoisy = true;
@@ -873,7 +873,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
             if (state.level === 0) {
-                state.popups.setNotification('Make Noise (repeat): Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+                state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy) + ' again', state.player.pos);
             }
         }
     } else {
@@ -887,7 +887,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         if (item === undefined) {
             bumpFail(state, dx, dy);
             if (state.level === 0 && !state.experiencedPlayer && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
-                state.popups.setNotification('Make Noise: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+                state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy), state.player.pos);
             }
         } else {
             preTurn(state);
