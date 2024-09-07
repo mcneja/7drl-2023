@@ -364,7 +364,7 @@ export function setupLevel(state: State, level: number) {
 
     clearLevelStats(state.levelStats);
 
-    state.player.pos = state.gameMap.playerStartPos;
+    vec2.copy(state.player.pos, state.gameMap.playerStartPos);
     state.player.dir = vec2.fromValues(0, -1);
     state.player.noisy = false;
     state.player.preNoisy = false;
@@ -2631,7 +2631,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.CreditsScreen]: new CreditsScreen(),
         },
         player: new Player(gameMap.playerStartPos),
-        oldPlayerPos: gameMap.playerStartPos,
+        oldPlayerPos: vec2.clone(gameMap.playerStartPos),
         topStatusMessage: '',
         topStatusMessageSlide: 1,
         numStepMoves: 0,

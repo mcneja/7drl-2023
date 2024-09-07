@@ -4981,7 +4981,7 @@ function placeExteriorBushes(map: GameMap, outerPerimeter: Array<vec2>, rng: RNG
     const visited = new BooleanGrid(map.cells.sizeX, map.cells.sizeY, false);
     const grass: Array<vec2> = [];
 
-    const toVisit: Array<vec2> = [map.playerStartPos];
+    const toVisit: Array<vec2> = [vec2.clone(map.playerStartPos)];
     for (let iToVisit = 0; iToVisit < toVisit.length; ++iToVisit) {
         const p = toVisit[iToVisit];
         if (visited.get(p[0], p[1])) {
