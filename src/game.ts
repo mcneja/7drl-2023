@@ -962,9 +962,9 @@ function tryPlayerWait(state: State) {
 
     ++state.numWaitMoves;
 
-    showMoveTutorialNotifications(state, state.player.pos);
-
     advanceTime(state);
+
+    showMoveTutorialNotifications(state, state.player.pos);
 }
 
 function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType) {
@@ -1225,13 +1225,13 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
     }
 
-    // Hints
-
-    showMoveTutorialNotifications(state, posOld);
-
     // Let guards take a turn
 
     advanceTime(state);
+
+    // Hints
+
+    showMoveTutorialNotifications(state, posOld);
 
     // Play sound for terrain type changes
 
@@ -1239,18 +1239,37 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 }
 
 function showMoveTutorialNotifications(state: State, posPrev: vec2) {
-    if (state.level > 1) {
-        return;
-    }
-
     if (state.experiencedPlayer) {
         return;
     }
 
-    if (state.level === 1) {
-        if (!state.hasEnteredMansion && state.numWaitMoves < 4) {
-            state.popups.setNotificationHold('Wait: Z\nor Period/Space', state.player.pos);
+    if (state.popups.isNotificationVisible()) {
+        return;
+    }
+
+    if (state.level === 3 && state.numZoomMoves === 0 && !state.hasEnteredMansion) {
+        state.popups.setNotificationHold('Zoom View: [ or ]', state.player.pos);
+        return;
+    }
+
+    if (state.level === 1 && !state.hasEnteredMansion) {
+        let sqdistGuardNearest = Infinity;
+        let guardNearest: Guard | undefined = undefined;
+        for (const guard of state.gameMap.guards) {
+            const sqdistGuard = vec2.squaredDistance(guard.pos, state.player.pos);
+            if (sqdistGuard < sqdistGuardNearest) {
+                sqdistGuardNearest = sqdistGuard;
+                guardNearest = guard;
+            }
         }
+
+        if (guardNearest !== undefined && sqdistGuardNearest < 16) {
+            state.popups.setNotificationHold('Wait: Z\nor Period/Space', guardNearest.pos);
+        }
+        return;
+    }
+
+    if (state.level !== 0) {
         return;
     }
 
@@ -1554,7 +1573,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const jumpedGate = cellMid.type === TerrainType.PortcullisNS || cellMid.type === TerrainType.PortcullisEW;
     if (jumpedGate) {
         state.hasEnteredMansion = true;
-    } else if (!state.hasEnteredMansion) {
+    } else if (state.level === 0 && !state.hasEnteredMansion) {
         state.experiencedPlayer = true;
     }
 
@@ -1575,13 +1594,13 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         makeNoise(state.gameMap, player, NoiseType.Splash, 0, 0, state.sounds);
     }
 
-    // Hints
-
-    showMoveTutorialNotifications(state, posOld);
-
     // Let guards take a turn
 
     advanceTime(state);
+
+    // Hints
+
+    showMoveTutorialNotifications(state, posOld);
 
     // Play sound for terrain type changes
 
