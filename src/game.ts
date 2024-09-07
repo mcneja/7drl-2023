@@ -196,7 +196,6 @@ function updateControllerState(state:State) {
         } else if (activated('menu')) {
             if(state.player.health>0) {
                 state.gameMode = GameMode.HomeScreen;
-                state.hasOpenedMenu = true;
             } else {
                 state.gameMode = GameMode.Dead;
             }
@@ -1250,7 +1249,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
 
     if (state.level === 1) {
         if (!state.hasEnteredMansion && state.numWaitMoves < 4) {
-            state.popups.setNotification('Wait: Z\nor Period/Space', state.player.pos);
+            state.popups.setNotificationHold('Wait: Z\nor Period/Space', state.player.pos);
         }
         return;
     }
@@ -1314,7 +1313,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         if (adjacentDoor !== undefined) {
             const dx = adjacentDoor.pos[0] - state.player.pos[0];
             const dy = adjacentDoor.pos[1] - state.player.pos[1];
-            state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+            state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
             return;
         }
 
@@ -1328,7 +1327,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
             }
         }
         if (frontDoor !== undefined) {
-            state.popups.setNotification('Move: \x18\x19\x1b\x1a', frontDoor.pos);
+            state.popups.setNotificationHold('Move: \x18\x19\x1b\x1a', frontDoor.pos);
             return;
         }
     }
@@ -1336,7 +1335,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     if (!(allSeen && allLooted) && state.numLeapMoves <= 1) {
         const posMid = vec2.fromValues(Math.floor((state.player.pos[0] + posPrev[0]) / 2), Math.floor((state.player.pos[1] + posPrev[1]) / 2));
         if (state.gameMap.items.some(item => item.pos.equals(posMid) && item.type === ItemType.PortcullisEW)) {
-            state.popups.setNotification('Try leaping\nelsewhere', state.player.pos);
+            state.popups.setNotificationHold('Try leaping\nelsewhere', state.player.pos);
             return;
         }
     }
@@ -1801,11 +1800,7 @@ function postTurn(state: State) {
 }
 
 function statusBarMessage(state: State): string {
-    if (state.level === 1) {
-        if (!state.hasOpenedMenu && !state.hasEnteredMansion && state.numWaitMoves >= 4) {
-            return 'Esc or Slash: Menu and more help';
-        }
-    } else if (state.level === 3) {
+    if (state.level === 3) {
         const allSeen = state.gameMap.allSeen();
         const allLooted = state.lootStolen >= state.lootAvailable;
         if (allSeen && !allLooted && remainingLootIsOnGuard(state)) {
@@ -2627,8 +2622,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         numLeapMoves: 0,
         numWaitMoves: 0,
         numZoomMoves: 0,
-        hasOpenedMenu: false,
-        hasClosedMenu: false,
         hasEnteredMansion: false,
         experiencedPlayer: false,
         finishedLevel: false,
@@ -2776,8 +2769,6 @@ export function restartGame(state: State) {
     state.numLeapMoves = 0;
     state.numWaitMoves = 0;
     state.numZoomMoves = 0;
-    state.hasOpenedMenu = false;
-    state.hasClosedMenu = false;
     state.hasEnteredMansion = false;
     state.experiencedPlayer = false;
     state.finishedLevel = false;

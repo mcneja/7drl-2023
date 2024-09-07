@@ -59,6 +59,12 @@ class Popups {
         this.notificationTimeRemaining = dTShow;
     }
 
+    setNotificationHold(text: string, pos: vec2) {
+        this.notification = text;
+        vec2.copy(this.notificationWorldPos, pos);
+        this.notificationTimeRemaining = Infinity;
+    }
+
     hideNotification() {
         this.notificationTimeRemaining = 0;
     }
