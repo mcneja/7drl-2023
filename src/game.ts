@@ -54,6 +54,7 @@ const zoomPower: number = 1.1892;
 const initZoomLevel: number = 4;
 const minZoomLevel: number = -4;
 const maxZoomLevel: number = 16;
+const deadNotification: string = 'New Game: Ctrl+R\nMenu: Esc/Slash';
 
 function loadResourcesThenRun() {
     Promise.all([
@@ -377,9 +378,11 @@ export function setupLevel(state: State, level: number) {
     state.camera = createCamera(state.gameMap.playerStartPos, state.zoomLevel);
     state.camera.zoomed = (level !== 0);
     state.gameMode = GameMode.Mansion;
+    state.hasEnteredMansion = false;
 
     chooseGuardMoves(state);
     postTurn(state);
+    showMoveTutorialNotifications(state, state.player.pos);
 
 //    analyzeLevel(state);
 }
@@ -940,6 +943,7 @@ function tryPlayerWait(state: State) {
 
     // Can't move if you're dead.
     if (player.health <= 0) {
+        state.popups.setNotification(deadNotification, state.player.pos);
         return;
     }
 
@@ -970,6 +974,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     const player = state.player;
     if (player.health <= 0) {
+        state.popups.setNotification(deadNotification, state.player.pos);
         return;
     }
 
@@ -1235,7 +1240,14 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 }
 
 function showMoveTutorialNotifications(state: State, posPrev: vec2) {
-    if (state.level !== 0) {
+    if (state.level > 1) {
+        return;
+    }
+
+    if (state.level === 1) {
+        if (!state.hasEnteredMansion && state.numWaitMoves < 4) {
+            state.popups.setNotification('Wait: Z/Period/Space', state.player.pos);
+        }
         return;
     }
 
@@ -1287,6 +1299,35 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
             return;
         }
     }
+
+    if (state.numLeapMoves === 0 && !state.hasEnteredMansion) {
+        let frontDoor: Item | undefined = undefined;
+        for (const item of state.gameMap.items) {
+            if (item.type !== ItemType.PortcullisEW) {
+                continue;
+            }
+            if (frontDoor === undefined || frontDoor.pos[1] > item.pos[1]) {
+                frontDoor = item;
+            }
+        }
+        if (frontDoor !== undefined) {
+            if (state.player.pos[0] === frontDoor.pos[0] && state.player.pos[1] === frontDoor.pos[1] - 1) {
+                state.popups.setNotification('Leap: Shift+\x18', state.player.pos);
+                return;
+            }
+
+            state.popups.setNotification('Move: \x18\x19\x1b\x1a', frontDoor.pos);
+            return;
+        }
+    }
+
+    if (!(allSeen && allLooted) && state.numLeapMoves <= 1) {
+        const posMid = vec2.fromValues(Math.floor((state.player.pos[0] + posPrev[0]) / 2), Math.floor((state.player.pos[1] + posPrev[1]) / 2));
+        if (state.gameMap.items.some(item => item.pos.equals(posMid) && item.type === ItemType.PortcullisEW)) {
+            state.popups.setNotification('Try leaping\nelsewhere', state.player.pos);
+            return;
+        }
+    }
 }
 
 function tryPlayerLeap(state: State, dx: number, dy: number) {
@@ -1295,6 +1336,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const player = state.player;
     if (player.health <= 0) {
+        state.popups.setNotification(deadNotification, state.player.pos);
         return;
     }
 
@@ -1745,29 +1787,9 @@ function postTurn(state: State) {
 }
 
 function statusBarMessage(state: State): string {
-    if (state.player.health <= 0) {
-        setStatusMessage(state, 'You were killed. Press Escape/Menu to see score.');
-    }
-
-    if (state.level === 0) {
-        if (state.numStepMoves < 4 && !state.hasEnteredMansion) {
-            const counter = '\xfb'.repeat(state.numStepMoves) + '\x07'.repeat(4-state.numStepMoves);
-            return 'Move: \x18\x19\x1b\x1a ' + counter;
-        } else if (state.numLeapMoves < 4) {
-            const counter = '\xfb'.repeat(state.numLeapMoves) + '\x07'.repeat(4-state.numLeapMoves);
-            return 'Leap/Run: Shift+Direction ' + counter;
-        } else if (!state.leapHintGiven) {
-            state.leapHintGiven = true;
-            return 'Leaping saves time, escapes pursuers';
-        }
-    } else if (state.level === 1) {
-        if (!state.hasEnteredMansion) {
-            if (state.numWaitMoves < 4) {
-                const counter = '\xfb'.repeat(state.numWaitMoves) + '\x07'.repeat(4-state.numWaitMoves);
-                return 'Wait: Z, Period, or Space ' + counter;
-            } else if (!state.hasOpenedMenu) {
-                return 'Esc or Slash: Menu and more help';
-            }
+    if (state.level === 1) {
+        if (!state.hasEnteredMansion && state.numWaitMoves >= 4) {
+            return 'Esc or Slash: Menu and more help';
         }
     } else if (state.level === 3) {
         const allSeen = state.gameMap.allSeen();
@@ -2594,7 +2616,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         hasOpenedMenu: false,
         hasClosedMenu: false,
         hasEnteredMansion: false,
-        leapHintGiven: false,
         finishedLevel: false,
         hasStartedGame: false,
         zoomLevel: initZoomLevel,
@@ -2630,6 +2651,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     setCellAnimations(gameMap, state);
     chooseGuardMoves(state);
     postTurn(state);
+    showMoveTutorialNotifications(state, state.player.pos);
 
     return state;
 }
@@ -2742,7 +2764,6 @@ export function restartGame(state: State) {
     state.hasOpenedMenu = false;
     state.hasClosedMenu = false;
     state.hasEnteredMansion = false;
-    state.leapHintGiven = false;
     state.finishedLevel = false;
     state.turns = 0;
     state.totalTurns = 0;
@@ -2759,6 +2780,7 @@ export function restartGame(state: State) {
 
     chooseGuardMoves(state);
     postTurn(state);
+    showMoveTutorialNotifications(state, state.player.pos);
 
 //    analyzeLevel(state);
 
@@ -2789,6 +2811,7 @@ function resetState(state: State) {
 
     chooseGuardMoves(state);
     postTurn(state);
+    showMoveTutorialNotifications(state, state.player.pos);
 
     Howler.stop();
 }
