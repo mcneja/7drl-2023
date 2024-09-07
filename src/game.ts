@@ -1305,9 +1305,22 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     }
 
     if (state.numLeapMoves === 0 && !state.hasEnteredMansion) {
+        const adjacentDoor = state.gameMap.items.find(item => {
+            if (item.type !== ItemType.PortcullisEW && item.type !== ItemType.PortcullisNS) {
+                return false;
+            }
+            return vec2.squaredDistance(state.player.pos, item.pos) < 2;
+        });
+        if (adjacentDoor !== undefined) {
+            const dx = adjacentDoor.pos[0] - state.player.pos[0];
+            const dy = adjacentDoor.pos[1] - state.player.pos[1];
+            state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+            return;
+        }
+
         let frontDoor: Item | undefined = undefined;
         for (const item of state.gameMap.items) {
-            if (item.type !== ItemType.PortcullisEW) {
+            if (item.type !== ItemType.PortcullisEW && item.type !== ItemType.PortcullisNS) {
                 continue;
             }
             if (frontDoor === undefined || frontDoor.pos[1] > item.pos[1]) {
@@ -1315,11 +1328,6 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
             }
         }
         if (frontDoor !== undefined) {
-            if (state.player.pos[0] === frontDoor.pos[0] && state.player.pos[1] === frontDoor.pos[1] - 1) {
-                state.popups.setNotification('Leap: Shift+\x18', state.player.pos);
-                return;
-            }
-
             state.popups.setNotification('Move: \x18\x19\x1b\x1a', frontDoor.pos);
             return;
         }
