@@ -1247,8 +1247,8 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
-    if (state.level === 3 && state.numZoomMoves === 0 && !state.hasEnteredMansion) {
-        state.popups.setNotificationHold('Zoom View: [ or ]', state.player.pos);
+    if (state.level === 2 && !state.hasEnteredMansion && state.player.pos.equals(state.gameMap.playerStartPos)) {
+        state.popups.setNotificationHold('Zoom view: [ or ]', state.player.pos);
         return;
     }
 
@@ -1828,9 +1828,6 @@ function statusBarMessage(state: State): string {
             } else {
                 return 'Move or leap from behind into loot-carrying guard';
             }
-        } else if (state.numZoomMoves < 4 && !state.hasEnteredMansion) {
-            const counter = '\xfb'.repeat(state.numZoomMoves) + '\x07'.repeat(4-state.numZoomMoves)
-            return 'Zoom View: [ or ] ' + counter;
         }
     }
 
