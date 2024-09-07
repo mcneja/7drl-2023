@@ -1053,7 +1053,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        state.popups.setNotification('Window impassable\nfrom this side', state.player.pos);
+        state.popups.setNotification('Window is\nimpassable\nfrom here', state.player.pos);
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
@@ -1250,7 +1250,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
 
     if (state.level === 1) {
         if (!state.hasEnteredMansion && state.numWaitMoves < 4) {
-            state.popups.setNotification('Wait: Z/Period/Space', state.player.pos);
+            state.popups.setNotification('Wait: Z\nor Period/Space', state.player.pos);
         }
         return;
     }
