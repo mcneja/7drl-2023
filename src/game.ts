@@ -1053,7 +1053,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        state.popups.setNotification('Window cannot\nbe accessed\nfrom outside', state.player.pos);
+        state.popups.setNotification('Window impassable\nfrom this side', state.player.pos);
 
         if (state.level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
