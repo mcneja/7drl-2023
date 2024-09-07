@@ -149,6 +149,7 @@ type State = {
     hasOpenedMenu: boolean;
     hasClosedMenu: boolean;
     hasEnteredMansion: boolean;
+    experiencedPlayer: boolean;
     hasStartedGame: boolean;
     finishedLevel: boolean;
     zoomLevel: number;

@@ -527,7 +527,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
 
     if (coinCollected) {
         state.sounds.coin.play(1.0);
-        if (state.level === 0) {
+        if (state.level === 0 && !state.experiencedPlayer) {
             state.popups.setNotification('Loot collected!', posFlyToward);
         }
     }
@@ -886,7 +886,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             (item.type === ItemType.Bookshelf || item.type === ItemType.Note));
         if (item === undefined) {
             bumpFail(state, dx, dy);
-            if (state.level === 0 && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
+            if (state.level === 0 && !state.experiencedPlayer && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
                 state.popups.setNotification('Make Noise: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
             }
         } else {
@@ -1244,6 +1244,10 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
+    if (state.experiencedPlayer) {
+        return;
+    }
+
     if (state.level === 1) {
         if (!state.hasEnteredMansion && state.numWaitMoves < 4) {
             state.popups.setNotification('Wait: Z/Period/Space', state.player.pos);
@@ -1543,6 +1547,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const jumpedGate = cellMid.type === TerrainType.PortcullisNS || cellMid.type === TerrainType.PortcullisEW;
     if (jumpedGate) {
         state.hasEnteredMansion = true;
+    } else if (!state.hasEnteredMansion) {
+        state.experiencedPlayer = true;
     }
 
     // Collect any loot from posNew
@@ -1788,7 +1794,7 @@ function postTurn(state: State) {
 
 function statusBarMessage(state: State): string {
     if (state.level === 1) {
-        if (!state.hasEnteredMansion && state.numWaitMoves >= 4) {
+        if (!state.hasOpenedMenu && !state.hasEnteredMansion && state.numWaitMoves >= 4) {
             return 'Esc or Slash: Menu and more help';
         }
     } else if (state.level === 3) {
@@ -2616,6 +2622,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         hasOpenedMenu: false,
         hasClosedMenu: false,
         hasEnteredMansion: false,
+        experiencedPlayer: false,
         finishedLevel: false,
         hasStartedGame: false,
         zoomLevel: initZoomLevel,
@@ -2764,6 +2771,7 @@ export function restartGame(state: State) {
     state.hasOpenedMenu = false;
     state.hasClosedMenu = false;
     state.hasEnteredMansion = false;
+    state.experiencedPlayer = false;
     state.finishedLevel = false;
     state.turns = 0;
     state.totalTurns = 0;
