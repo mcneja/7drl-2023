@@ -3048,8 +3048,6 @@ function updateState(state: State, screenSize: vec2, dt: number) {
         }
     }
 
-    state.popups.currentSpeechSlide = Math.max(0, Math.min(1, state.popups.currentSpeechSlide + dt * (state.popups.currentSpeechAbove ? 1 : -1) * 3));
-
     state.player.noisyAnim += 2.0 * dt;
     state.player.noisyAnim -= Math.floor(state.player.noisyAnim);
 
@@ -3454,9 +3452,8 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
 
     let xMin = popupPixelX - rectSizeX / 2;
 
-    let u = state.popups.currentSpeechSlide;
-    u = (3 - 2 * u) * u * u - 0.5;
-    let yMin = (rectSizeY + 2*ry) * u + popupPixelY - rectSizeY / 2;
+    let side = state.popups.currentSpeechAbove ? 1 : -1;
+    let yMin = (rectSizeY / 2 + ry) * side + popupPixelY - rectSizeY / 2;
 
     // Clamp to world view edges
 

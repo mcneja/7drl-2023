@@ -31,7 +31,6 @@ class Popups {
     currentSpeech: string;
     currentSpeaker: Guard | undefined;
     currentSpeechAbove: boolean;
-    currentSpeechSlide: number;
     currentSpeechTimeRemaining: number;
 
     notification: string;
@@ -42,7 +41,6 @@ class Popups {
         this.currentSpeech = '';
         this.currentSpeaker = undefined;
         this.currentSpeechAbove = false;
-        this.currentSpeechSlide = 0;
         this.currentSpeechTimeRemaining = 0;
         this.notification = '';
         this.notificationWorldPos = vec2.create();
@@ -53,7 +51,6 @@ class Popups {
         this.currentSpeech = text;
         this.currentSpeaker = speaker;
         this.currentSpeechAbove = aboveSpeaker;
-        this.currentSpeechSlide = aboveSpeaker ? 1 : 0;
         this.currentSpeechTimeRemaining = dTShow;
     }
 
@@ -95,7 +92,6 @@ class Popups {
         } else if (this.currentSpeaker !== undefined && this.currentSpeech !== '') {
             this.currentSpeechTimeRemaining = dTShow;
             this.currentSpeechAbove = this.currentSpeaker.pos[1] >= posPlayer[1];
-            this.currentSpeechSlide = this.currentSpeechAbove ? 1 : 0;
         }
     }
 
@@ -103,7 +99,6 @@ class Popups {
         this.currentSpeech = '';
         this.currentSpeaker = undefined;
         this.currentSpeechAbove = false;
-        this.currentSpeechSlide = 0;
         this.currentSpeechTimeRemaining = 0;
 
         this.notification = '';
