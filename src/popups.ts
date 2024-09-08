@@ -1,6 +1,7 @@
 export { Popups, PopupType };
 
 import { vec2 } from './my-matrix';
+import { Guard } from './guard';
 
 enum PopupType {
     Damage,
@@ -28,7 +29,8 @@ const dTShow: number = 2.0;
 
 class Popups {
     currentSpeech: string;
-    currentSpeechWorldPos: () => vec2;
+    currentSpeaker: Guard | undefined;
+    currentSpeechAbove: boolean;
     currentSpeechSlide: number;
     currentSpeechTimeRemaining: number;
 
@@ -38,7 +40,8 @@ class Popups {
 
     constructor() {
         this.currentSpeech = '';
-        this.currentSpeechWorldPos = () => vec2.create();
+        this.currentSpeaker = undefined;
+        this.currentSpeechAbove = false;
         this.currentSpeechSlide = 0;
         this.currentSpeechTimeRemaining = 0;
         this.notification = '';
@@ -46,10 +49,11 @@ class Popups {
         this.notificationTimeRemaining = 0;
     }
 
-    setSpeech(text: string, posWorld: () => vec2, popupSlide: number) {
+    setSpeech(text: string, speaker: Guard, aboveSpeaker: boolean) {
         this.currentSpeech = text;
-        this.currentSpeechWorldPos = posWorld;
-        this.currentSpeechSlide = popupSlide;
+        this.currentSpeaker = speaker;
+        this.currentSpeechAbove = aboveSpeaker;
+        this.currentSpeechSlide = aboveSpeaker ? 1 : 0;
         this.currentSpeechTimeRemaining = dTShow;
     }
 
@@ -65,7 +69,8 @@ class Popups {
         this.notificationTimeRemaining = Infinity;
     }
 
-    hideNotification() {
+    clearNotification() {
+        this.notification = '';
         this.notificationTimeRemaining = 0;
     }
 
@@ -82,15 +87,22 @@ class Popups {
         this.notificationTimeRemaining = Math.max(0, this.notificationTimeRemaining - dt);
     }
 
-    toggleShow(pos: vec2) {
-        vec2.copy(this.notificationWorldPos, pos);
-        this.currentSpeechTimeRemaining = (this.currentSpeechTimeRemaining > 0) ? 0 : dTShow;
+    toggleShow(posPlayer: vec2) {
         this.notificationTimeRemaining = (this.notificationTimeRemaining > 0) ? 0 : dTShow;
+
+        if (this.currentSpeechTimeRemaining > 0) {
+            this.currentSpeechTimeRemaining = 0;
+        } else if (this.currentSpeaker !== undefined && this.currentSpeech !== '') {
+            this.currentSpeechTimeRemaining = dTShow;
+            this.currentSpeechAbove = this.currentSpeaker.pos[1] >= posPlayer[1];
+            this.currentSpeechSlide = this.currentSpeechAbove ? 1 : 0;
+        }
     }
 
     reset() {
         this.currentSpeech = '';
-        this.currentSpeechWorldPos = () => vec2.create();
+        this.currentSpeaker = undefined;
+        this.currentSpeechAbove = false;
         this.currentSpeechSlide = 0;
         this.currentSpeechTimeRemaining = 0;
 

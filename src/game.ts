@@ -1748,7 +1748,7 @@ function preTurn(state: State) {
     state.player.damagedLastTurn = false;
     state.player.itemUsed = null;
     state.player.lightActive = false;
-    state.popups.hideNotification();
+    state.popups.clearNotification();
 }
 
 function advanceTime(state: State) {
@@ -2971,8 +2971,19 @@ function updateState(state: State, screenSize: vec2, dt: number) {
 
     state.popups.animate(dt);
 
-    const popupBelow = state.popups.currentSpeechWorldPos()[1] < state.player.pos[1];
-    state.popups.currentSpeechSlide = Math.max(0, Math.min(1, state.popups.currentSpeechSlide + dt * (popupBelow ? -1 : 1) * 3));
+    if (state.popups.currentSpeaker !== undefined) {
+        if (state.popups.currentSpeechAbove) {
+            if (state.player.pos[1] > state.popups.currentSpeaker.pos[1]) {
+                state.popups.currentSpeechAbove = false;
+            }
+        } else {
+            if (state.player.pos[1] < state.popups.currentSpeaker.pos[1]) {
+                state.popups.currentSpeechAbove = true;
+            }
+        }
+    }
+
+    state.popups.currentSpeechSlide = Math.max(0, Math.min(1, state.popups.currentSpeechSlide + dt * (state.popups.currentSpeechAbove ? 1 : -1) * 3));
 
     state.player.noisyAnim += 2.0 * dt;
     state.player.noisyAnim -= Math.floor(state.player.noisyAnim);
@@ -3330,6 +3341,10 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     if (!state.popups.isSpeechBubbleVisible())
         return;
 
+    if (state.popups.currentSpeaker === undefined) {
+        return;
+    }
+
     const message = state.popups.currentSpeech;
     if (message.length === 0)
         return;
@@ -3348,7 +3363,7 @@ function renderTextBox(renderer: Renderer, screenSize: vec2, state: State) {
     const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
     const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
-    const posPopupWorld = state.popups.currentSpeechWorldPos();
+    const posPopupWorld = state.popups.currentSpeaker.posAnimated();
     const popupPixelX = Math.floor(((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX);
     const popupPixelY = Math.floor(((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY) + pixelsPerCharY;
 

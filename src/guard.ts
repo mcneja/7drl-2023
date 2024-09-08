@@ -775,9 +775,9 @@ function guardActAll(state: State) {
         const soundName = soundNameForPopupType(speechBest.speechType);
         const subtitledSound = state.subtitledSounds[soundName].play(0.6);
 
-        const speaker: Guard | Player = speech[0].speaker;
-        const slide = speaker.pos[1] < player.pos[1] ? 0 : 1;
-        state.popups.setSpeech(subtitledSound.subtitle, () => speaker.posAnimated(), slide);
+        const speaker: Guard = speech[0].speaker;
+        const speechAboveSpeaker = speaker.pos[1] >= player.pos[1];
+        state.popups.setSpeech(subtitledSound.subtitle, speaker, speechAboveSpeaker);
         speaker.speaking = true;
     }
 
