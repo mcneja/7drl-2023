@@ -1153,6 +1153,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         if (!guard.allowsMoveOntoFrom(player.pos)) {
             if(needGuardLootCollect) collectGuardLoot(state, player, guard, posOld);
             advanceTime(state);
+            showMoveTutorialNotifications(state, posOld);
             return;
         }
         if(needGuardLootCollect) collectGuardLoot(state, player, guard, posNew);
@@ -1423,12 +1424,17 @@ function runPickpocketTutorial(state: State) {
         return;
     }
 
-    if (!state.gameMap.allSeen()) {
-        return;
-    }
+    const allSeen = state.gameMap.allSeen();
+    const remainingLootOnGuard = remainingLootIsOnGuard(state);
 
-    if (!remainingLootIsOnGuard(state)) {
-        return;
+    if (state.experiencedPlayer) {
+        if (!allSeen) {
+            return;
+        }
+
+        if (!remainingLootOnGuard) {
+            return;
+        }
     }
 
     // Wait for everyone to be unaware of player
@@ -1470,7 +1476,9 @@ function runPickpocketTutorial(state: State) {
 
     // Show a prompt on the guard (using a speech bubble because it moves nicely with the guard)
 
-    if (!state.popups.isSpeechBubbleVisible() || state.popups.currentSpeech === 'Loot') {
+    if (allSeen &&
+        remainingLootOnGuard &&
+        (!state.popups.isSpeechBubbleVisible() || state.popups.currentSpeech === 'Loot')) {
         state.popups.setSpeech('Loot', guard, guard.pos[1] >= state.player.pos[1]);
     }
 }
