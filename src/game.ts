@@ -526,9 +526,6 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
 
     if (coinCollected) {
         state.sounds.coin.play(1.0);
-        if (state.level === 0 && !state.experiencedPlayer) {
-            state.popups.setNotification('Loot collected!', posFlyToward);
-        }
     }
     if (healthCollected) {
         // TODO: Play health pickup sound
@@ -1238,6 +1235,12 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellNew);
 }
 
+function adjacentPositions(pos0: vec2, pos1: vec2): boolean {
+    const dx = pos1[0] - pos0[0];
+    const dy = pos1[1] - pos0[1];
+    return Math.abs(dx) + Math.abs(dy) === 1;
+}
+
 function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     if (state.experiencedPlayer) {
         return;
@@ -1273,6 +1276,39 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
+    const adjacentLoot = state.gameMap.items.find(item => item.type === ItemType.Coin && adjacentPositions(item.pos, state.player.pos));
+    if (adjacentLoot !== undefined) {
+        state.popups.setNotificationHold('Loot: ' + directionArrowCharacter(adjacentLoot.pos[0] - state.player.pos[0], adjacentLoot.pos[1] - state.player.pos[1]), adjacentLoot.pos);
+        return;
+    }
+
+    const allSeen = state.gameMap.allSeen();
+    const allLooted = state.lootStolen >= state.lootAvailable;
+    if (allSeen && allLooted) {
+        if (state.player.pos[0] === 0 && posPrev[0] !== 0) {
+            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(-1, 0), state.player.pos);
+            return;
+        }
+        if (state.player.pos[0] === state.gameMap.cells.sizeX - 1 && posPrev[0] !== state.gameMap.cells.sizeX - 1) {
+            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(1, 0), state.player.pos);
+            return;
+        }
+        if (state.player.pos[1] === 0 && posPrev[1] !== 0) {
+            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(0, -1), state.player.pos);
+            return;
+        }
+        if (state.player.pos[1] === state.gameMap.cells.sizeY - 1 && posPrev[1] !== state.gameMap.cells.sizeY - 1) {
+            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(0, 1), state.player.pos);
+            return;
+        }
+        for (const [dx, dy, terrainType] of [[1, 0, TerrainType.OneWayWindowE], [-1, 0, TerrainType.OneWayWindowW], [0, 1, TerrainType.OneWayWindowN], [0, -1, TerrainType.OneWayWindowS]]) {
+            if (state.gameMap.cells.at(state.player.pos[0] + dx, state.player.pos[1] + dy).type === terrainType) {
+                state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+                return;
+            }
+        }
+    }
+
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
         if (state.gameMap.cells.atVec(posPrev).type !== TerrainType.GroundWater) {
             state.popups.setNotification('Hide underwater', state.player.pos);
@@ -1297,27 +1333,6 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         }
         if (itemsAtPlayer.some(item => item.type === ItemType.BedL || item.type === ItemType.BedR)) {
             state.popups.setNotification('Hide under beds', state.player.pos);
-            return;
-        }
-    }
-
-    const allSeen = state.gameMap.allSeen();
-    const allLooted = state.lootStolen >= state.lootAvailable;
-    if (allSeen && allLooted) {
-        if (state.player.pos[0] === 0 && posPrev[0] !== 0) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(-1, 0), state.player.pos);
-            return;
-        }
-        if (state.player.pos[0] === state.gameMap.cells.sizeX - 1 && posPrev[0] !== state.gameMap.cells.sizeX - 1) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(1, 0), state.player.pos);
-            return;
-        }
-        if (state.player.pos[1] === 0 && posPrev[1] !== 0) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(0, -1), state.player.pos);
-            return;
-        }
-        if (state.player.pos[1] === state.gameMap.cells.sizeY - 1 && posPrev[1] !== state.gameMap.cells.sizeY - 1) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(0, 1), state.player.pos);
             return;
         }
     }
