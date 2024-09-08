@@ -5423,6 +5423,7 @@ const lawBookTitles: Array<string> = [
     'Attractive Nuisances',
     'Damages',
     'Statutory Law',
+    'Consideration',
 ];
 
 function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookItems: Array<Item>, rng: RNG) {
