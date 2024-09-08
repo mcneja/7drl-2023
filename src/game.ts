@@ -1085,10 +1085,10 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
                 bumpAnim(state, dx, dy);
                 advanceTime(state);
             } else {
-                tryMakeBangNoise(state, dx, dy, stepType);
                 if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
                     setLeapStatusMessage(state, dx, dy);
                 }
+                tryMakeBangNoise(state, dx, dy, stepType);
             }
             return;
 
@@ -1303,7 +1303,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         }
         for (const [dx, dy, terrainType] of [[1, 0, TerrainType.OneWayWindowE], [-1, 0, TerrainType.OneWayWindowW], [0, 1, TerrainType.OneWayWindowN], [0, -1, TerrainType.OneWayWindowS]]) {
             if (state.gameMap.cells.at(state.player.pos[0] + dx, state.player.pos[1] + dy).type === terrainType) {
-                state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+                setLeapStatusMessage(state, dx, dy);
                 return;
             }
         }
@@ -1347,7 +1347,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         if (adjacentDoor !== undefined) {
             const dx = adjacentDoor.pos[0] - state.player.pos[0];
             const dy = adjacentDoor.pos[1] - state.player.pos[1];
-            state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+            setLeapStatusMessage(state, dx, dy);
             return;
         }
 
