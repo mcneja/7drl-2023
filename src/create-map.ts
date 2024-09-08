@@ -5424,6 +5424,8 @@ const lawBookTitles: Array<string> = [
     'Damages',
     'Statutory Law',
     'Consideration',
+    'Homicide',
+    'Embezzlement',
 ];
 
 function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookItems: Array<Item>, rng: RNG) {
