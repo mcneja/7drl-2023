@@ -550,16 +550,17 @@ class Guard {
             return;
         }
 
-        // If we can turn left or right (but not both), do that
-        const pos2 = vec2.create();
-        vec2.set(pos, this.pos[0] - this.dir[1], this.pos[1] + this.dir[0]);
-        vec2.set(pos2, this.pos[0] + this.dir[1], this.pos[1] - this.dir[0]);
-        if (state.gameMap.guardMoveCost(this.pos, pos) === 0) {
-            if (state.gameMap.guardMoveCost(this.pos, pos2) !== 0) {
-                vec2.copy(this.goal, pos);
-            }
-        } else if (state.gameMap.guardMoveCost(this.pos, pos2) === 0) {
-            vec2.copy(this.goal, pos2);
+        // If we can turn left or right, do that
+        let posSides: Array<vec2> = [
+            vec2.fromValues(this.pos[0] - this.dir[1], this.pos[1] + this.dir[0]),
+            vec2.fromValues(this.pos[0] + this.dir[1], this.pos[1] - this.dir[0]),
+        ];
+
+        posSides = posSides.filter(pos => state.gameMap.guardMoveCost(this.pos, pos) === 0);
+
+        if (posSides.length > 0) {
+            const i = state.rng.randomInRange(posSides.length);
+            vec2.copy(this.goal, posSides[i]);
         }
     }
 
