@@ -352,8 +352,7 @@ export function setupLevel(state: State, level: number) {
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
-    state.topStatusMessage = '';
-    state.topStatusMessageSlide = 1;
+    state.hintMessage = '';
     resetHealthBar(state);
     state.finishedLevel = false;
 
@@ -437,9 +436,9 @@ function advanceToMansionComplete(state: State) {
     }
 
     if (state.level < mansionCompleteTopStatusHint.length) {
-        setStatusMessage(state, mansionCompleteTopStatusHint[state.level], true);
+        state.hintMessage = 'Hint: ' + mansionCompleteTopStatusHint[state.level];
     } else {
-        state.topStatusMessage = '';
+        state.hintMessage = '';
     }
 
     state.gameMode = GameMode.MansionComplete;
@@ -580,7 +579,7 @@ function canStepToPos(state: State, pos: vec2): boolean {
     return true;
 }
 
-function canLeapToPosDisregardingGuard(state: State, pos: vec2): boolean {
+function canLeapToPos(state: State, pos: vec2): boolean {
     // Cannot leap off map if level is unfinished
 
     if (pos[0] < 0 || pos[0] >= state.gameMap.cells.sizeX ||
@@ -606,28 +605,19 @@ function canLeapToPosDisregardingGuard(state: State, pos: vec2): boolean {
     }
 
     if ((cellNew.type === TerrainType.DoorNS || cellNew.type === TerrainType.DoorEW) &&
-        state.gameMap.items.find((item)=>item.pos.equals(pos) && isDoorItemType(item.type))) {
+        state.gameMap.items.some((item)=>item.pos.equals(pos) && isDoorItemType(item.type))) {
         return false;
     }
 
     // Cannot leap onto a blocking item
 
-    if (state.gameMap.items.find((item)=>item.pos.equals(pos) && !canLeapOntoItemType(item.type))) {
-        return false;
-    }
-
-    return true;
-}
-
-function canLeapToPos(state: State, pos: vec2): boolean {
-
-    if (!canLeapToPosDisregardingGuard(state, pos)) {
+    if (state.gameMap.items.some((item)=>item.pos.equals(pos) && !canLeapOntoItemType(item.type))) {
         return false;
     }
 
     // Cannot leap onto a stationary guard
 
-    if (state.gameMap.guards.find((guard)=>guard.pos.equals(pos) && !guard.allowsMoveOntoFrom(state.player.pos))) {
+    if (state.gameMap.guards.some((guard)=>guard.pos.equals(pos) && !guard.allowsMoveOntoFrom(state.player.pos))) {
         return false;
     }
 
@@ -1242,11 +1232,16 @@ function adjacentPositions(pos0: vec2, pos1: vec2): boolean {
 }
 
 function showMoveTutorialNotifications(state: State, posPrev: vec2) {
-    if (state.experiencedPlayer) {
+    if (state.popups.isNotificationVisible()) {
         return;
     }
 
-    if (state.popups.isNotificationVisible()) {
+    if (state.level === 3) {
+        runPickpocketTutorial(state);
+        return;
+    }
+
+    if (state.experiencedPlayer) {
         return;
     }
 
@@ -1347,7 +1342,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         if (adjacentDoor !== undefined) {
             const dx = adjacentDoor.pos[0] - state.player.pos[0];
             const dy = adjacentDoor.pos[1] - state.player.pos[1];
-            setLeapStatusMessage(state, dx, dy);
+            setLeapStatusMessageHold(state, dx, dy);
             return;
         }
 
@@ -1372,6 +1367,111 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
             state.popups.setNotificationHold('Try leaping\nelsewhere', state.player.pos);
             return;
         }
+    }
+}
+
+function isAnyoneAwareOfPlayer(state: State): boolean {
+    return state.gameMap.guards.some(guard => !isRelaxedGuardMode(guard.mode) && guard.mode !== GuardMode.Unconscious);
+}
+
+function remainingLootIsOnGuard(state: State): boolean {
+    const lootOnGround = state.gameMap.items.reduce((count, item)=>count + (item.type === ItemType.Coin ? 1 : 0), 0);
+    const lootOnGuards = state.gameMap.guards.reduce((count, guard)=>count + (guard.hasPurse ? 1 : 0), 0);
+    return lootOnGround === 0 && lootOnGuards > 0;
+}
+
+function canLeapToGuard(state: State, guard: Guard): boolean {
+    const dx = guard.pos[0] - state.player.pos[0];
+    const dy = guard.pos[1] - state.player.pos[1];
+    if (!((Math.abs(dx) === 2 && dy === 0) || (dx === 0 && Math.abs(dy) === 2))) {
+        return false;
+    }
+
+    if (state.gameMap.cells.atVec(state.player.pos).type === TerrainType.GroundWater) {
+        return false;
+    }
+
+    const posMid = vec2.fromValues(state.player.pos[0] + dx / 2, state.player.pos[1] + dy / 2);
+    const cellMid = state.gameMap.cells.atVec(posMid);
+    if (cellMid.blocksPlayerMove) {
+        return false;
+    }
+
+    if ((cellMid.type === TerrainType.DoorNS || cellMid.type === TerrainType.DoorEW) &&
+        state.gameMap.items.some((item)=>item.pos.equals(posMid) && isDoorItemType(item.type))) {
+        return false;
+    }
+
+    // If the midpoint is a one-way window but is the wrong way, downgrade to a step
+
+    if ((cellMid.type == TerrainType.OneWayWindowE && dx <= 0) ||
+        (cellMid.type == TerrainType.OneWayWindowW && dx >= 0) ||
+        (cellMid.type == TerrainType.OneWayWindowN && dy <= 0) ||
+        (cellMid.type == TerrainType.OneWayWindowS && dy >= 0)) {
+        return false;
+    }
+
+    if (!canLeapToPos(state, guard.pos)) {
+        return false;
+    }
+
+    return true;
+}
+
+function runPickpocketTutorial(state: State) {
+    if (state.lootStolen >= state.lootAvailable) {
+        return;
+    }
+
+    if (!state.gameMap.allSeen()) {
+        return;
+    }
+
+    if (!remainingLootIsOnGuard(state)) {
+        return;
+    }
+
+    // Wait for everyone to be unaware of player
+
+    if (isAnyoneAwareOfPlayer(state)) {
+        return;
+    }
+
+    // Find closest guard carrying loot
+
+    const guardsWithLoot = state.gameMap.guards.filter(guard => guard.hasPurse);
+    if (guardsWithLoot.length === 0) {
+        return;
+    }
+
+    guardsWithLoot.sort((a, b) => vec2.squaredDistance(state.player.pos, a.pos) - vec2.squaredDistance(state.player.pos, b.pos));
+
+    const guard = guardsWithLoot[0];
+
+    // If guard is adjacent, display a prompt to step into them
+
+    if (isRelaxedGuardMode(guard.mode) && adjacentPositions(state.player.pos, guard.pos)) {
+        const dx = guard.pos[0] - state.player.pos[0];
+        const dy = guard.pos[1] - state.player.pos[1];
+        const pos = vec2.fromValues(guard.pos[0], Math.max(guard.pos[1], state.player.pos[1]));
+        state.popups.setNotificationHold('Loot: ' + directionArrowCharacter(dx, dy), pos);
+        return;
+    }
+
+    // If guard is in leaping distance, show a prompt to leap onto them
+
+    if (canLeapToGuard(state, guard)) {
+        const dx = guard.pos[0] - state.player.pos[0];
+        const dy = guard.pos[1] - state.player.pos[1];
+        const pos = vec2.fromValues(guard.pos[0], Math.max(guard.pos[1], state.player.pos[1]));
+        state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), pos);
+        return;
+    }
+
+    // Show a prompt on the guard (using a speech bubble because it moves nicely with the guard)
+
+    if (!state.popups.isSpeechBubbleVisible() || state.popups.currentSpeech === 'Loot') {
+        state.popups.setSpeech('Loot', guard, guard.pos[1] >= state.player.pos[1]);
     }
 }
 
@@ -1829,28 +1929,14 @@ function postTurn(state: State) {
         }
         state.finishedLevel = true;
     }
-
-    setStatusMessage(state, statusBarMessage(state), true);
-}
-
-function statusBarMessage(state: State): string {
-    if (state.level === 3) {
-        const allSeen = state.gameMap.allSeen();
-        const allLooted = state.lootStolen >= state.lootAvailable;
-        if (allSeen && !allLooted && remainingLootIsOnGuard(state)) {
-            if ((state.player.pickTarget !== null && state.player.pickTarget instanceof Guard) || adjacentToUnawareGuardWithLoot(state)) {
-                return 'Step to pickpocket or leap to knock out';
-            } else {
-                return 'Move or leap from behind into loot-carrying guard';
-            }
-        }
-    }
-
-    return '';
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
     state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+}
+
+function setLeapStatusMessageHold(state: State, dx: number, dy: number) {
+    state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {
@@ -1864,32 +1950,6 @@ function directionArrowCharacter(dx: number, dy: number): string {
         return '\x19';
     }
     return '\x07';
-}
-
-function remainingLootIsOnGuard(state: State): boolean {
-    const lootOnGround = state.gameMap.items.reduce((count, item)=>count + (item.type === ItemType.Coin ? 1 : 0), 0);
-    const lootOnGuards = state.gameMap.guards.reduce((count, guard)=>count + (guard.hasPurse ? 1 : 0), 0);
-    return lootOnGround === 0 && lootOnGuards > 0;
-}
-
-function adjacentToUnawareGuardWithLoot(state: State): boolean {
-    return state.gameMap.guards.some((guard)=>{
-        const dx = Math.abs(guard.pos[0]-state.player.pos[0]);
-        const dy = Math.abs(guard.pos[1]-state.player.pos[1]);
-        return ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) && isRelaxedGuardMode(guard.mode) && guard.hasPurse;
-    });
-}
-
-export function setStatusMessage(state: State, msg: string, playerHint: boolean = false) {
-    if(playerHint && msg!='') {
-        state.playerHintMessageIsNew = state.playerHintMessage!==msg && msg!=='';
-        state.playerHintMessage = msg;
-        msg = '\xFF '+msg;
-    } else {
-        state.playerHintMessage = '';
-        state.playerHintMessageIsNew = false;
-    }
-    state.topStatusMessage = msg;
 }
 
 export function enlargeHealthBar(state: State) {
@@ -2312,13 +2372,6 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     const player = state.player;
     const bubble_right = renderer.tileSet.namedTiles['speechBubbleR'];
     const bubble_left = renderer.tileSet.namedTiles['speechBubbleL'];
-    if(state.playerHintMessageIsNew && !player.idle) {
-        const a = state.player.animation;
-        const offset = a && a instanceof SpriteAnimation ? a.offset : vec2.create();
-        const [x,y] = player.pos.add(offset);
-        const ptile = renderer.tileSet.namedTiles['playerHint'];
-        renderer.addGlyph(x, y+0.625, x+1, y+1.625, ptile);
-    }
     for (const guard of state.gameMap.guards) {
         const cell = state.gameMap.cells.atVec(guard.pos);
         const visible = state.seeAll || cell.seen || guard.speaking;
@@ -2624,8 +2677,6 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         rng: rng,
         dailyRun: null,
         leapToggleActive: false,
-        playerHintMessage: '',
-        playerHintMessageIsNew: false,
         healthBarState: {
             size: 1,
             enlargeTimeRemaining: 0,
@@ -2647,8 +2698,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         },
         player: new Player(gameMap.playerStartPos),
         oldPlayerPos: vec2.clone(gameMap.playerStartPos),
-        topStatusMessage: '',
-        topStatusMessageSlide: 1,
+        hintMessage: '',
         numStepMoves: 0,
         numLeapMoves: 0,
         numWaitMoves: 0,
@@ -2794,7 +2844,7 @@ export function restartGame(state: State) {
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
-    state.topStatusMessage = '';
+    state.hintMessage = '';
     resetHealthBar(state);
     state.numStepMoves = 0;
     state.numLeapMoves = 0;
@@ -2838,7 +2888,7 @@ function resetState(state: State) {
     clearLevelStats(state.levelStats);
     updateAchievements(state, "gameStart");
 
-    state.topStatusMessage = '';
+    state.hintMessage = '';
     resetHealthBar(state);
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
@@ -2939,14 +2989,6 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     state.oldPlayerPos = vec2.clone(state.player.pos);
 
     updateControllerState(state);
-
-    const topStatusMessageTargetUpper = state.player.pos[1] >= state.gameMap.cells.sizeY / 2;
-    const slideRate = 4.0 * dt;
-    if (topStatusMessageTargetUpper) {
-        state.topStatusMessageSlide = Math.min(1, state.topStatusMessageSlide + slideRate);
-    } else {
-        state.topStatusMessageSlide = Math.max(0, state.topStatusMessageSlide - slideRate);
-    }
 
     if (!state.camera.zoomed) {
         state.camera.zoomed = true;
@@ -3267,8 +3309,6 @@ function snapCamera(state: State, screenSize: vec2) {
     vec2.zero(state.camera.velocity);
     vec2.zero(state.camera.joltOffset);
     vec2.zero(state.camera.joltVelocity);
-
-    state.topStatusMessageSlide = (state.player.pos[1] >= state.gameMap.cells.sizeY / 2) ? 1 : 0
 }
 
 function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
@@ -3525,7 +3565,7 @@ function renderNotification(renderer: Renderer, screenSize: vec2, state: State) 
 }
 
 function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State) {
-    const message = state.topStatusMessage;
+    const message = state.hintMessage;
     if (message.length === 0) {
         return;
     }
@@ -3541,45 +3581,21 @@ function renderStatusOverlay(renderer: Renderer, screenSize: vec2, state: State)
     const matScreenFromText = mat4.create();
 
     const offsetTilesX = (screenSizeInTilesX - message.length) / -2;
+    const offsetTilesY = borderY + -(1.75 + borderY);
 
-    {
-        const offsetTilesY = borderY + -(1.75 + borderY);
+    mat4.ortho(
+        matScreenFromText,
+        offsetTilesX, screenSizeInTilesX + offsetTilesX,
+        offsetTilesY, screenSizeInTilesY + offsetTilesY,
+        1, -1
+    );
 
-        mat4.ortho(
-            matScreenFromText,
-            offsetTilesX, screenSizeInTilesX + offsetTilesX,
-            offsetTilesY, screenSizeInTilesY + offsetTilesY,
-            1, -1
-        );
-
-        const u = state.topStatusMessageSlide;
-        const colorBackgroundFade = colorLerp(0x00080808, 0xb0080808, u);
-        const colorForegroundFade = colorLerp(0x00ffffff, 0xffffffff, u);
-        renderer.start(matScreenFromText, 0);
-        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackgroundFade, unlitColor: colorBackgroundFade});
-        putString(renderer, 0, message, colorForegroundFade);
-        renderer.flush();
-    }
-
-    {
-        const offsetTilesY = (1.75 + borderY) - (screenSizeInTilesY + borderY);
-
-        mat4.ortho(
-            matScreenFromText,
-            offsetTilesX, screenSizeInTilesX + offsetTilesX,
-            offsetTilesY, screenSizeInTilesY + offsetTilesY,
-            1, -1
-        );
-
-        const u = 1 - state.topStatusMessageSlide;
-        const colorBackgroundFade = colorLerp(0x00080808, 0xb0080808, u);
-        const colorForegroundFade = colorLerp(0x00ffffff, 0xffffffff, u);
-
-        renderer.start(matScreenFromText, 0);
-        renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackgroundFade, unlitColor: colorBackgroundFade});
-        putString(renderer, 0, message, colorForegroundFade);
-        renderer.flush();
-    }
+    const colorBackground = 0xb0080808;
+    const colorForeground = 0xffffffff;
+    renderer.start(matScreenFromText, 0);
+    renderer.addGlyph(-borderX, -borderY, message.length + borderX, 1 + borderY, {textureIndex: fontTileSet.background.textureIndex, color: colorBackground, unlitColor: colorBackground});
+    putString(renderer, 0, message, colorForeground);
+    renderer.flush();
 }
 
 function colorLerp(color0: number, color1: number, u: number): number {
