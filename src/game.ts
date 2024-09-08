@@ -2412,13 +2412,6 @@ function renderIconOverlays(state: State, renderer: Renderer) {
         } 
     }
 
-    // Render an icon over a bookcase if it's got a secret switch
-    if (player.pickTarget !== null && !(player.pickTarget instanceof Guard) && 'pos' in player.pickTarget) {
-        const x = (player.pos[0] + player.pickTarget.pos[0]) / 2;
-        const y = (player.pos[1] + player.pickTarget.pos[1]) / 2;
-        renderer.addGlyph(x, y, x+1, y+1, tileSet.namedTiles['pickTarget']);
-    }
-
     // Render an icon over the player if the player is being noisy
     if (player.preNoisy || player.noisy) {
         const a = player.animation;
