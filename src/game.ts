@@ -3682,24 +3682,24 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     let rightSideX = screenSizeInTilesX;
 
     const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
-    if (state.lootStolen >= state.lootAvailable && state.gameMode === GameMode.Mansion) {
-        // Leave map
+    if (percentRevealed < 100) {
+        // Mapping percentage
 
-        let msg = 'Exit area!';
-        rightSideX -= msg.length + 1;
-        putString(renderer, rightSideX, msg, colorPreset.lightYellow);
-    } else if (percentRevealed >= 100) {
+        let msgSeen = 'Map ' + percentRevealed + '%';
+        rightSideX -= msgSeen.length + 1;
+        putString(renderer, rightSideX, msgSeen, colorPreset.white);
+    } else if (state.lootStolen < state.lootAvailable || state.gameMode !== GameMode.Mansion) {
         // Total loot
 
         let msgLoot = 'Loot ' + state.lootStolen + '/' + state.lootAvailable;
         rightSideX -= msgLoot.length + 1;
         putString(renderer, rightSideX, msgLoot, colorPreset.lightYellow);
     } else {
-        // Mapping percentage
+        // Leave map
 
-        let msgSeen = 'Map ' + percentRevealed + '%';
-        rightSideX -= msgSeen.length + 1;
-        putString(renderer, rightSideX, msgSeen, colorPreset.white);
+        let msg = 'Exit area!';
+        rightSideX -= msg.length + 1;
+        putString(renderer, rightSideX, msg, colorPreset.lightYellow);
     }
 
     // Key possession
