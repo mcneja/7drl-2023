@@ -1460,7 +1460,7 @@ function runPickpocketTutorial(state: State) {
         const dx = guard.pos[0] - state.player.pos[0];
         const dy = guard.pos[1] - state.player.pos[1];
         const pos = vec2.fromValues(guard.pos[0], Math.max(guard.pos[1], state.player.pos[1]));
-        state.popups.setNotificationHold('Loot: ' + directionArrowCharacter(dx, dy), pos);
+        state.popups.setNotificationHold('Loot: ' + directionArrowCharacter(dx, dy) + '\nKnockout: Shift+' + directionArrowCharacter(dx, dy), pos);
         return;
     }
 
