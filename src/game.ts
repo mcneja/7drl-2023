@@ -2955,6 +2955,7 @@ export function restartGame(state: State) {
         timeEnded: 0,
     };
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    state.player = new Player(gameMap.playerStartPos);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -2975,7 +2976,6 @@ export function restartGame(state: State) {
     state.treasureStolen = 0;
     clearLevelStats(state.levelStats);
     updateAchievements(state, "gameStart");
-    state.player = new Player(gameMap.playerStartPos);
     state.ambience = AmbienceType.Outdoor;
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
@@ -2988,13 +2988,13 @@ export function restartGame(state: State) {
     showMoveTutorialNotifications(state, state.player.pos);
 
 //    analyzeLevel(state);
-
     Howler.stop();
     playAmbience(state);
 }
 
 function resetState(state: State) {
     const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    state.player = new Player(gameMap.playerStartPos);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -3009,7 +3009,6 @@ function resetState(state: State) {
     state.hintMessage = '';
     resetHealthBar(state);
     state.finishedLevel = false;
-    state.player = new Player(gameMap.playerStartPos);
     state.ambience = AmbienceType.Outdoor;
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
@@ -3023,6 +3022,10 @@ function resetState(state: State) {
 
     Howler.stop();
     playAmbience(state);
+
+    if(state.player.torchAnimation===null) {
+        console.log("WARNING: No player torch added")
+    }
 }
 
 
