@@ -8,7 +8,7 @@ import { TouchController, GamepadManager, KeyboardController } from './controlle
 import { TextWindow } from './ui';
 import { Animator } from './animation';
 
-export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, Achievements, ScoreEntry}
+export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, Achievements, ScoreEntry, AmbienceType}
 
 type Camera = {
     position: vec2;
@@ -37,6 +37,14 @@ enum GameMode {
     Win,
     DailyHub,
     CreditsScreen,
+}
+
+enum AmbienceType {
+    Indoor,
+    Outdoor,
+    OutdoorWater,
+    Water,
+    Kitchen,
 }
 
 type ScoreEntry = {
@@ -141,6 +149,8 @@ type State = {
     topStatusMessageSlide: number;
     playerHintMessage: string;
     playerHintMessageIsNew: boolean;
+    ambience: AmbienceType;
+    ambientSoundPool: ActiveHowlPool;
     healthBarState: HealthBarState;
     numStepMoves: number;
     numLeapMoves: number;

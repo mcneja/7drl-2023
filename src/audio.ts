@@ -95,6 +95,54 @@ const splashSet = [
     require('url:./audio/splash2.mp3'),
 ]
 
+const waterAmbientSet = [
+    require('url:./audio/water-flow.mp3'),
+]
+
+const kitchenAmbientSet = [
+    require('url:./audio/fire.mp3'),
+    require('url:./audio/fire-and-boil.mp3'),
+]
+
+const outdoorAmbientSet = [
+    require('url:./audio/outdoor-ambient.mp3'),
+    require('url:./audio/outdoor-ambient-2.mp3'),
+    require('url:./audio/outdoor-ambient-3.mp3'),
+    require('url:./audio/outdoor-ambient-4.mp3'),
+]
+
+const doorOpenSet = [
+    require('url:./audio/door-open.mp3'),
+]
+
+const doorCloseSet = [
+    require('url:./audio/door-close.mp3'),
+]
+
+const doorOpenLockedSet = [
+    require('url:./audio/door-unlock-and-open.mp3'),
+]
+
+const doorCloseLockedSet = [
+    require('url:./audio/door-close-and-lock.mp3'),
+]
+
+const playerDoorOpenSet = [
+    require('url:./audio/player-door-open.mp3'),
+]
+
+const playerDoorCloseSet = [
+    require('url:./audio/player-door-close.mp3'),
+]
+
+const playerDoorOpenLockedSet = [
+    require('url:./audio/player-door-unlock-and-open.mp3'),
+]
+
+const playerDoorCloseLockedSet = [
+    require('url:./audio/player-door-close-and-lock.mp3'),
+]
+
 const waterEnterSet = [
     require('url:./audio/water-submerge.mp3'),
 ]
@@ -438,7 +486,7 @@ export class ActiveHowlPool {
     }
     fade(howl:Howl, id:number) {
         if(this.fadeTime>0) {
-            howl.fade(1,0,this.fadeTime, id);
+            howl.fade(1,0, this.fadeTime, id);
             setTimeout(()=>howl.stop(id), this.fadeTime);
         } else {
             howl.stop(id);
@@ -475,8 +523,9 @@ export class HowlGroup {
         this.soundPool = soundPool;
         shuffleArray(this.howls);
     }
-    play(volume:number):number {
+    play(volume:number, loop:boolean=false):number {
         const howl = this.next();
+        howl.loop(loop);
         howl.volume(volume);
         try {
             const id = howl.play();
@@ -546,7 +595,7 @@ function makeSubtitledSound(fileAndSub: [string, string]): SubtitledSound {
     return { sound: new Howl({src: [fileAndSub[0]]}), subtitle: fileAndSub[1] };
 }
 
-export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPool: ActiveHowlPool) {
+export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPool: ActiveHowlPool, ambientHowlPool: ActiveHowlPool) {
     sounds.footstepWood = new HowlGroup([footstepWood]);
     sounds.footstepTile = new HowlGroup([footstepTile]);
     sounds.footstepWater = new HowlGroup([footstepWater]);
@@ -563,6 +612,16 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
 
+    sounds.doorOpen = new HowlGroup(doorOpenSet);
+    sounds.doorClose = new HowlGroup(doorCloseSet);
+    sounds.doorOpenLocked = new HowlGroup(doorOpenLockedSet);
+    sounds.doorCloseLocked = new HowlGroup(doorCloseLockedSet);
+
+    sounds.playerDoorOpen = new HowlGroup(playerDoorOpenSet);
+    sounds.playerDoorClose = new HowlGroup(playerDoorCloseSet);
+    sounds.playerDoorOpenLocked = new HowlGroup(playerDoorOpenLockedSet);
+    sounds.playerDoorCloseLocked = new HowlGroup(playerDoorCloseLockedSet);
+
     sounds.grunt = new HowlGroup(gruntSet);
     sounds.douse = new HowlGroup(douseSet);
     sounds.ignite = new HowlGroup(igniteSet);
@@ -577,6 +636,10 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.switchProgress = new HowlGroup(switchProgressSet);
     sounds.switchReset = new HowlGroup(switchResetSet);
     sounds.switchSuccess = new HowlGroup(switchSuccessSet);
+
+    sounds.ambienceWater = new HowlGroup(waterAmbientSet, ambientHowlPool);
+    sounds.ambienceKitchen = new HowlGroup(kitchenAmbientSet, ambientHowlPool);
+    sounds.ambienceOutdoor = new HowlGroup(outdoorAmbientSet, ambientHowlPool);
 
     subtitledSounds.guardInvestigate = new SubtitledHowlGroup(guardInvestigateSet, howlPool);
     subtitledSounds.guardFinishInvestigating = new SubtitledHowlGroup(guardFinishInvestigatingSet, howlPool);

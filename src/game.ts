@@ -10,7 +10,7 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './au
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen } from './ui'
-import {Achievements, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
+import {Achievements, AmbienceType, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
 import { getAchievements } from './achievements';
@@ -74,12 +74,13 @@ function main(images: Array<HTMLImageElement>) {
     const sounds:Howls = {};
     const subtitledSounds:SubtitledHowls = {};
     const activeSoundPool:ActiveHowlPool = new ActiveHowlPool();
+    const ambientSoundPool:ActiveHowlPool = new ActiveHowlPool();
     const touchController = new TouchController(canvas);
-    const state = initState(sounds, subtitledSounds, activeSoundPool, touchController);
+    const state = initState(sounds, subtitledSounds, activeSoundPool, ambientSoundPool, touchController);
 
     function ensureInitSound() {
         if (Object.keys(state.sounds).length==0) {
-            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool);
+            setupSounds(state.sounds, state.subtitledSounds, state.activeSoundPool, state.ambientSoundPool);
 
             // Set Howler volume and mutes from game state
 
@@ -348,6 +349,7 @@ export function setupLevel(state: State, level: number) {
     }
 
     state.activeSoundPool.empty();
+    state.ambientSoundPool.empty();
     state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
@@ -382,6 +384,7 @@ export function setupLevel(state: State, level: number) {
     chooseGuardMoves(state);
     postTurn(state);
     showMoveTutorialNotifications(state, state.player.pos);
+    playAmbience(state);
 
 //    analyzeLevel(state);
 }
@@ -430,6 +433,7 @@ function advanceToMansionComplete(state: State) {
     scoreCompletedLevel(state);
     updateAchievements(state, "levelEnd");
     state.activeSoundPool.empty();
+    state.ambientSoundPool.empty();
     state.sounds['levelCompleteJingle'].play(0.35);
     if(state.levelStats.numSpottings === 0) {
         state.persistedStats.totalGhosts++;
@@ -634,6 +638,76 @@ function canLeapToPos(state: State, pos: vec2): boolean {
     return true;
 }
 
+export function playAmbience(state: State) {
+    state.ambientSoundPool.empty();
+    switch (state.ambience) {
+    case AmbienceType.Indoor:
+        break;
+    case AmbienceType.Outdoor:
+        state.sounds['ambienceOutdoor'].play(1.0, true);
+        break;
+    case AmbienceType.Kitchen:
+        state.sounds['ambienceKitchen'].play(1.0, true);
+        break;
+    case AmbienceType.Water:
+        state.sounds['ambienceWater'].play(0.5, true);
+        break;
+    case AmbienceType.OutdoorWater:
+        state.sounds['ambienceWater'].play(0.5, true);
+        state.sounds['ambienceOutdoor'].play(1.0, true);
+        break;
+    }
+}
+
+function updateAmbience(state: State, cellOld: Cell, cellNew: Cell) {
+
+    let closestGrass:number = Infinity;
+    let closestWater:number = Infinity;
+    let closestStove:number = Infinity;
+    const stoves = state.gameMap.items.filter((item)=>item.type===ItemType.Stove);
+    const maxRange = 10;
+    function soundSeeker(cells:CellGrid, checkedCells:Set<number>, pos:vec2, remainingRange:number) {
+        const newPositionsToRecurse:vec2[] = [];
+        for(let delta of [[1,0],[0,1],[-1,0],[0,-1]]) {
+            const p = pos.add(vec2.fromValues(delta[0],delta[1]));
+            if (checkedCells.has(p[1]*cells.sizeX+p[0])) continue;
+            const c = cells.atVec(p);
+            if (c.type<=TerrainType.Wall0000) {
+                newPositionsToRecurse.push(p);
+                checkedCells.add(p[1]*cells.sizeX+p[0]);
+                if (c.type === TerrainType.GroundGrass && closestGrass===Infinity) {
+                    closestGrass = maxRange - remainingRange;
+                }
+                if (c.type === TerrainType.GroundWater && closestWater===Infinity) {
+                    closestWater = maxRange - remainingRange;
+                }
+                if (closestStove===Infinity) {
+                    const stove = stoves.find((item)=>item.pos.equals(p));
+                    if(stove) closestStove = maxRange - remainingRange;
+                }
+            }
+        }
+        if (remainingRange>0 && closestGrass===Infinity && closestStove===Infinity && closestWater===Infinity) {
+            for (let p of newPositionsToRecurse) {
+                soundSeeker(cells, checkedCells, p, remainingRange-1);
+            }    
+        }
+    }
+    soundSeeker(state.gameMap.cells, new Set(), state.player.pos, maxRange);
+    const closestAmbience = Math.min(closestGrass, closestStove, closestWater);
+    const newAmbience = closestAmbience===Infinity? AmbienceType.Indoor :
+                        closestWater<Infinity? AmbienceType.Water :
+                        closestStove<Infinity? AmbienceType.Kitchen :
+                        closestAmbience===closestGrass? AmbienceType.Outdoor :
+                        AmbienceType.Indoor;
+
+
+    if (newAmbience === state.ambience) return;
+    state.ambience = newAmbience;
+
+    playAmbience(state);
+}
+
 function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
     // Hide sound effect
 
@@ -654,6 +728,30 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
         } else if (cellNew.type === TerrainType.GroundWater) {
             state.sounds['waterEnter'].play(0.5*volScale);
             return;
+        }
+    }
+
+    //Door entry
+    if (cellNew.type===TerrainType.DoorEW || cellNew.type===TerrainType.DoorNS) {
+        const door = state.gameMap.items.find((item)=>item.pos.equals(state.player.pos));
+        if(door) {
+            if (door.type===ItemType.DoorEW || door.type===ItemType.DoorNS) {
+                state.sounds['playerDoorOpen'].play(volScale);
+            } else if (door.type===ItemType.LockedDoorEW || door.type===ItemType.LockedDoorNS) {
+                state.sounds['playerDoorOpenLocked'].play(volScale);
+            }
+        }
+    }
+
+    //Door exit
+    if (cellOld.type===TerrainType.DoorEW || cellOld.type===TerrainType.DoorNS) {
+        const door = state.gameMap.items.find((item)=>item.pos.equals(state.oldPlayerPos));
+        if(door) {
+            if (door.type===ItemType.DoorEW || door.type===ItemType.DoorNS) {
+                state.sounds['playerDoorClose'].play(volScale);
+            } else if (door.type===ItemType.LockedDoorEW || door.type===ItemType.LockedDoorNS) {
+                state.sounds['playerDoorCloseLocked'].play(volScale);
+            }
         }
     }
 
@@ -685,6 +783,20 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
         if (changedTile || Math.random() > 0.8) state.sounds["footstepTile"].play(0.02*volScale);
         break;
     }    
+
+    let cellMid = cellOld;
+    if(state.player.pos.distance(state.oldPlayerPos)>1) {
+        const midPos = state.oldPlayerPos.add(state.player.pos).scale(0.5);
+        cellMid = state.gameMap.cells.atVec(midPos);    
+    }
+
+    //Ambience when moving to a new room/area
+    if (cellOld.type===TerrainType.DoorEW || cellOld.type===TerrainType.DoorNS 
+        || cellMid.type===TerrainType.PortcullisEW || cellMid.type===TerrainType.PortcullisNS 
+        || cellMid.type===TerrainType.OneWayWindowE || cellMid.type===TerrainType.OneWayWindowW
+        || cellMid.type===TerrainType.OneWayWindowN || cellMid.type===TerrainType.OneWayWindowS) {
+        updateAmbience(state, cellOld, cellNew);
+    }
 }
 
 function bumpAnim(state: State, dx: number, dy: number) {
@@ -2578,7 +2690,7 @@ export function saveStats(persistedStats: PersistedStats) {
     setStat('achievementHurty', persistedStats.achievementHurty);
 }
 
-function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, touchController:TouchController): State {
+function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, ambientSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const rng = new RNG();  
     const initialLevel = debugInitialLevel;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
@@ -2646,6 +2758,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.CreditsScreen]: new CreditsScreen(),
         },
         player: new Player(gameMap.playerStartPos),
+        ambience: AmbienceType.Outdoor,
+        ambientSoundPool: ambientSoundPool,
         oldPlayerPos: vec2.clone(gameMap.playerStartPos),
         topStatusMessage: '',
         topStatusMessageSlide: 1,
@@ -2811,9 +2925,11 @@ export function restartGame(state: State) {
     clearLevelStats(state.levelStats);
     updateAchievements(state, "gameStart");
     state.player = new Player(gameMap.playerStartPos);
+    state.ambience = AmbienceType.Outdoor;
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
     state.activeSoundPool.empty();
+    state.ambientSoundPool.empty();
     state.popups.reset();
 
     chooseGuardMoves(state);
@@ -2823,6 +2939,7 @@ export function restartGame(state: State) {
 //    analyzeLevel(state);
 
     Howler.stop();
+    playAmbience(state);
 }
 
 function resetState(state: State) {
@@ -2842,16 +2959,19 @@ function resetState(state: State) {
     resetHealthBar(state);
     state.finishedLevel = false;
     state.player = new Player(gameMap.playerStartPos);
+    state.ambience = AmbienceType.Outdoor;
     state.camera = createCamera(gameMap.playerStartPos, state.zoomLevel);
     state.gameMap = gameMap;
     state.popups.reset();
     state.activeSoundPool.empty();
+    state.ambientSoundPool.empty();
 
     chooseGuardMoves(state);
     postTurn(state);
     showMoveTutorialNotifications(state, state.player.pos);
 
     Howler.stop();
+    playAmbience(state);
 }
 
 

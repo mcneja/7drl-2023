@@ -687,9 +687,24 @@ type Shout = {
     target: Player|Guard;
 }
 
-function guardOnGate(guard: Guard, map: GameMap):boolean {
-    const gate = map.items.find((item)=>[ItemType.PortcullisEW, ItemType.PortcullisNS].includes(item.type));
-    return gate!==undefined && guard.pos.equals(gate.pos);
+function guardInteracting(playerPos: vec2, gpos: vec2, oldGpos:vec2, map: GameMap):'gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked'|undefined {
+    const maxDist = 10;
+    const gate = map.items.find((item)=>(item.type===ItemType.PortcullisEW || item.type===ItemType.PortcullisNS) && 
+                                        gpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
+    if (gate!==undefined) return 'gate';
+    const doorCloseLocked = map.items.find((item)=>(item.type===ItemType.LockedDoorEW || item.type===ItemType.LockedDoorNS) && 
+                                        oldGpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
+    if (doorCloseLocked!==undefined) return 'doorCloseLocked';
+    const doorClose = map.items.find((item)=>(item.type===ItemType.DoorEW || item.type===ItemType.DoorNS) && 
+                                        oldGpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
+    if (doorClose!==undefined) return 'doorClose';
+    const doorOpenLocked = map.items.find((item)=>(item.type===ItemType.LockedDoorEW || item.type===ItemType.LockedDoorNS) && 
+                                        gpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
+    if (doorOpenLocked!==undefined) return 'doorOpenLocked';
+    const doorOpen = map.items.find((item)=>(item.type===ItemType.DoorEW || item.type===ItemType.DoorNS) && 
+                                        gpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
+    if (doorOpen!==undefined) return 'doorOpen';
+    return undefined;
 }
 
 function chooseGuardMoves(state: State) {
@@ -733,13 +748,22 @@ function guardActAll(state: State) {
 
     const speech: Array<Speech> = [];
     const shouts: Array<Shout> = [];
-    let ontoGate = false;
+    let interact:ReturnType<typeof guardInteracting> = undefined;
+    const interactions:ReturnType<typeof guardInteracting>[] = ['gate','doorOpenLocked','doorCloseLocked','doorOpen','doorClose'];
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
         guard.act(state, speech, shouts);
         guard.hasMoved = true;
-        ontoGate = ontoGate || (guardOnGate(guard, map) && !oldPos.equals(guard.pos));
+        const newInteract = guardInteracting(state.player.pos, guard.pos,oldPos, state.gameMap);
+
+        for(let c of interactions) {
+            if (interact===c ) break;
+            if(newInteract===c) {
+                interact = c;
+                break;
+            }
+        }
     }
 
     // Update lighting to account for guards moving with torches, or opening/closing doors
@@ -795,8 +819,8 @@ function guardActAll(state: State) {
         player.pickTarget = null;
     }
 
-    if (ontoGate) {
-        state.sounds['gate'].play(0.2);
+    if (interact) {
+        state.sounds[interact].play(0.25);
     }
 }
 

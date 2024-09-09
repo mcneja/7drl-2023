@@ -310,6 +310,7 @@ $playRestartOrResume$
         if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
             state.gameMode = GameMode.Mansion;
             state.hasStartedGame = true;
+            game.playAmbience(state);
         } else if (activated('homeRestart') || actionSelected=='homeRestart') {
             state.rng = new RNG();
             state.dailyRun = null;
