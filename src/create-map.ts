@@ -5382,14 +5382,56 @@ const bookTitleSecondWord: Array<string> = [
     "War",
 ];
 
-function randomBookTitle(rng: RNG): string {
+function randomFantasyBookTitle(rng: RNG): string {
     const firstWord = bookTitleFirstWord[rng.randomInRange(bookTitleFirstWord.length)];
     const secondWord = bookTitleSecondWord[rng.randomInRange(bookTitleSecondWord.length)];
     const title = firstWord + ' of ' + secondWord;
     return title;
 }
 
+const lawBookTitles: Array<string> = [
+    'Corporate Finance',
+    'Economics',
+    'Comparative Legal Traditions',
+    'International Transactions',
+    'Contract Law',
+    'Securities Regulation',
+    'Bankruptcy',
+    'Corporate Taxation',
+    'Security Interests',
+    'Income Taxation',
+    'Civil Procedure',
+    'Property',
+    'Torts',
+    'Administrative Law',
+    'Regulatory Policy',
+    'Criminal Law',
+    'Estate Planning',
+    'Wills, Trusts, and Estates',
+    'Intestate Succession',
+    'Probate',
+    'Community Property',
+    'Estoppel',
+    'Arbitrage',
+    'Intangible Property',
+    'Cross-Examination',
+    'Attorney-Client Privilege',
+    'Trial Procedure',
+    'Discovery',
+    'Quid Pro Quo',
+    'Reckless Disregard',
+    'Attractive Nuisances',
+    'Damages',
+    'Statutory Law',
+    'Consideration',
+    'Homicide',
+    'Embezzlement',
+];
+
 function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookItems: Array<Item>, rng: RNG) {
+    rng.shuffleArray(lawBookTitles);
+    let lawBookTitleIndex = 0;
+
     // Divide books into sets by room
     const booksInRoom: Map<Room, Array<Item>> = new Map();
 
@@ -5435,7 +5477,15 @@ function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookI
 
         const bookTitles: Array<string> = [];
         for (let i = 0; i < books.length; ++i) {
-            bookTitles.push(randomBookTitle(rng));
+            let bookTitle: string;
+            if (room.privateRoom) {
+                bookTitle = randomFantasyBookTitle(rng);
+            } else {
+                bookTitle = lawBookTitles[lawBookTitleIndex];
+                lawBookTitleIndex = (lawBookTitleIndex + 1) % lawBookTitles.length;
+            }
+
+            bookTitles.push(bookTitle);
         }
 
         bookTitles.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));

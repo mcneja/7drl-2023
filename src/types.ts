@@ -145,12 +145,9 @@ type State = {
     particles: Array<Particle>;
     player: Player;
     oldPlayerPos: vec2,
-    topStatusMessage: string;
-    topStatusMessageSlide: number;
-    playerHintMessage: string;
-    playerHintMessageIsNew: boolean;
     ambience: AmbienceType;
     ambientSoundPool: ActiveHowlPool;
+    hintMessage: string;
     healthBarState: HealthBarState;
     numStepMoves: number;
     numLeapMoves: number;
