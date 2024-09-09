@@ -698,7 +698,7 @@ Cumulative:  $totalScore$
         const numTurnsPar = game.numTurnsParForCurrentMap(state);
         const timeBonus = Math.max(0, numTurnsPar - state.turns);
         const lootScore = state.lootStolen * 10;
-        const treasureScore = state.treasureStolen * 40;
+        const treasureScore = state.treasureStolen * lootScore;
         const foodScore = state.levelStats.extraFoodCollected * 5;
         const ghosted = state.levelStats.numSpottings === 0;
         const ghostBonus = ghosted ? lootScore : 0;

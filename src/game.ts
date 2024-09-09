@@ -283,7 +283,7 @@ function scoreCompletedLevel(state: State) {
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
     const lootScore = state.lootStolen * 10;
-    const treasureScore = state.treasureStolen * 40;
+    const treasureScore = state.treasureStolen * lootScore;
     const foodScore = state.levelStats.extraFoodCollected * 5;
     const ghostBonus = ghosted ? lootScore : 0;
     const score = lootScore + treasureScore + foodScore + timeBonus + ghostBonus;
@@ -649,7 +649,7 @@ export function playAmbience(state: State) {
     }
 }
 
-function updateAmbience(state: State, cellOld: Cell, cellNew: Cell) {
+function updateAmbience(state: State) {
 
     let closestGrass:number = Infinity;
     let closestWater:number = Infinity;
@@ -691,7 +691,6 @@ function updateAmbience(state: State, cellOld: Cell, cellNew: Cell) {
                         closestAmbience===closestGrass? AmbienceType.Outdoor :
                         AmbienceType.Indoor;
 
-
     if (newAmbience === state.ambience) return;
     state.ambience = newAmbience;
 
@@ -699,6 +698,22 @@ function updateAmbience(state: State, cellOld: Cell, cellNew: Cell) {
 }
 
 function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
+
+    // Ambience when moving to a new room/area
+
+    let cellMid = cellOld;
+    if(state.player.pos.distance(state.oldPlayerPos)>1) {
+        const midPos = state.oldPlayerPos.add(state.player.pos).scale(0.5);
+        cellMid = state.gameMap.cells.atVec(midPos);    
+    }
+
+    if (cellOld.type===TerrainType.DoorEW || cellOld.type===TerrainType.DoorNS
+        || cellMid.type===TerrainType.PortcullisEW || cellMid.type===TerrainType.PortcullisNS 
+        || cellMid.type===TerrainType.OneWayWindowE || cellMid.type===TerrainType.OneWayWindowW
+        || cellMid.type===TerrainType.OneWayWindowN || cellMid.type===TerrainType.OneWayWindowS) {
+        updateAmbience(state);
+    }
+
     // Hide sound effect
 
     if (cellNew.hidesPlayer) {
@@ -773,20 +788,6 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
         if (changedTile || Math.random() > 0.8) state.sounds["footstepTile"].play(0.02*volScale);
         break;
     }    
-
-    let cellMid = cellOld;
-    if(state.player.pos.distance(state.oldPlayerPos)>1) {
-        const midPos = state.oldPlayerPos.add(state.player.pos).scale(0.5);
-        cellMid = state.gameMap.cells.atVec(midPos);    
-    }
-
-    //Ambience when moving to a new room/area
-    if (cellOld.type===TerrainType.DoorEW || cellOld.type===TerrainType.DoorNS 
-        || cellMid.type===TerrainType.PortcullisEW || cellMid.type===TerrainType.PortcullisNS 
-        || cellMid.type===TerrainType.OneWayWindowE || cellMid.type===TerrainType.OneWayWindowW
-        || cellMid.type===TerrainType.OneWayWindowN || cellMid.type===TerrainType.OneWayWindowS) {
-        updateAmbience(state, cellOld, cellNew);
-    }
 }
 
 function bumpAnim(state: State, dx: number, dy: number) {

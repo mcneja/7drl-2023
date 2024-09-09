@@ -689,22 +689,41 @@ type Shout = {
 }
 
 function guardInteracting(playerPos: vec2, gpos: vec2, oldGpos:vec2, map: GameMap):'gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked'|undefined {
-    const maxDist = 10;
-    const gate = map.items.find((item)=>(item.type===ItemType.PortcullisEW || item.type===ItemType.PortcullisNS) && 
-                                        gpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
-    if (gate!==undefined) return 'gate';
-    const doorCloseLocked = map.items.find((item)=>(item.type===ItemType.LockedDoorEW || item.type===ItemType.LockedDoorNS) && 
-                                        oldGpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
-    if (doorCloseLocked!==undefined) return 'doorCloseLocked';
-    const doorClose = map.items.find((item)=>(item.type===ItemType.DoorEW || item.type===ItemType.DoorNS) && 
-                                        oldGpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
-    if (doorClose!==undefined) return 'doorClose';
-    const doorOpenLocked = map.items.find((item)=>(item.type===ItemType.LockedDoorEW || item.type===ItemType.LockedDoorNS) && 
-                                        gpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
-    if (doorOpenLocked!==undefined) return 'doorOpenLocked';
-    const doorOpen = map.items.find((item)=>(item.type===ItemType.DoorEW || item.type===ItemType.DoorNS) && 
-                                        gpos.equals(item.pos) && item.pos.distance(playerPos)<=maxDist);
-    if (doorOpen!==undefined) return 'doorOpen';
+    const maxDistSquared = 100;
+    for (const item of map.items) {
+        if (item.pos.squaredDistance(playerPos) > maxDistSquared) {
+            continue;
+        }
+
+        if (gpos.equals(item.pos)) {
+            switch (item.type) {
+                case ItemType.PortcullisEW:
+                case ItemType.PortcullisNS:
+                    return 'gate';
+                /*
+                case ItemType.LockedDoorEW:
+                case ItemType.LockedDoorNS:
+                    return 'doorOpenLocked';
+                case ItemType.DoorEW:
+                case ItemType.DoorNS:
+                    return 'doorOpen';
+                */
+            }
+        }
+
+        /*
+        if (oldGpos.equals(item.pos)) {
+            switch (item.type) {
+                case ItemType.LockedDoorEW:
+                case ItemType.LockedDoorNS:
+                    return 'doorCloseLocked';
+                case ItemType.DoorEW:
+                case ItemType.DoorNS:
+                    return 'doorClose';
+            }
+        }
+        */
+    }
     return undefined;
 }
 
