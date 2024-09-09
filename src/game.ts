@@ -283,7 +283,7 @@ function scoreCompletedLevel(state: State) {
     const numTurnsPar = numTurnsParForCurrentMap(state);
     const timeBonus = Math.max(0, numTurnsPar - state.turns);
     const lootScore = state.lootStolen * 10;
-    const treasureScore = state.treasureStolen * 40;
+    const treasureScore = state.treasureStolen * lootScore;
     const foodScore = state.levelStats.extraFoodCollected * 5;
     const ghostBonus = ghosted ? lootScore : 0;
     const score = lootScore + treasureScore + foodScore + timeBonus + ghostBonus;
