@@ -4849,7 +4849,10 @@ function placeTreasure(map: GameMap, rng: RNG) {
             clue += '\n';
         }
         const title = map.bookTitle.get(book)!;
-        const titleFirstWord = title.split(' ')[0];
+        let titleFirstWord = title.split(' ')[0];
+        if (titleFirstWord.endsWith(',')) {
+            titleFirstWord = titleFirstWord.substring(0, titleFirstWord.length - 1);
+        }
         clue += titleFirstWord;
         map.treasureUnlock.switches.push(vec2.clone(book.pos));
     }
@@ -5390,43 +5393,43 @@ function randomFantasyBookTitle(rng: RNG): string {
 }
 
 const lawBookTitles: Array<string> = [
-    'Corporate Finance',
-    'Economics',
-    'Comparative Legal Traditions',
-    'International Transactions',
-    'Contract Law',
-    'Securities Regulation',
-    'Bankruptcy',
-    'Corporate Taxation',
-    'Security Interests',
-    'Income Taxation',
-    'Civil Procedure',
-    'Property',
-    'Torts',
     'Administrative Law',
-    'Regulatory Policy',
+    'Arbitrage',
+    'Attorney-Client Privilege',
+    'Attractive Nuisances',
+    'Bankruptcy',
+    'Civil Procedure',
+    'Community Property',
+    'Comparative Legal Traditions',
+    'Contract Law',
+    'Consideration',
+    'Corporate Finance',
+    'Corporate Taxation',
     'Criminal Law',
+    'Cross-Examination',
+    'Damages',
+    'Discovery',
+    'Economics',
+    'Embezzlement',
     'Estate Planning',
-    'Wills, Trusts, and Estates',
+    'Estoppel',
+    'Homicide',
+    'Income Taxation',
+    'Intangible Property',
+    'International Transactions',
     'Intestate Succession',
     'Probate',
-    'Community Property',
-    'Estoppel',
-    'Arbitrage',
-    'Intangible Property',
-    'Cross-Examination',
-    'Attorney-Client Privilege',
-    'Trial Procedure',
-    'Discovery',
+    'Promissory Estoppel',
+    'Property',
     'Quid Pro Quo',
     'Reckless Disregard',
-    'Attractive Nuisances',
-    'Damages',
+    'Regulatory Policy',
+    'Securities Regulation',
+    'Security Interests',
     'Statutory Law',
-    'Consideration',
-    'Homicide',
-    'Embezzlement',
-    'Promissory Estoppel',
+    'Torts',
+    'Trial Procedure',
+    'Wills, Trusts, and Estates',
 ];
 
 function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookItems: Array<Item>, rng: RNG) {
