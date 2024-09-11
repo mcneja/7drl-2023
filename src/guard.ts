@@ -188,7 +188,7 @@ class Guard {
         return [this.pos, bumpedPlayer];
     }
 
-    act(state: State, speech: Array<Speech>, shouts: Array<Shout>) {
+    act(state: State, speech: Array<Speech>) {
         const posPrev = vec2.clone(this.pos);
         const map = state.gameMap;
         const player = state.player;
@@ -399,19 +399,6 @@ class Guard {
                 }
             }
             break;
-
-        case GuardMode.Unconscious:
-            // this.modeTimeout -= 1;
-            if (this.modeTimeout === 5) {
-                speech.push({ speaker: this, speechType: PopupType.GuardStirring });
-            } else if (this.modeTimeout <= 0) {
-                this.enterPatrolMode(map);
-                this.modeTimeout = 0;
-                this.angry = true;
-                shouts.push({posShouter: vec2.clone(this.pos), target: this});
-                speech.push({ speaker: this, speechType: PopupType.GuardAwakesWarning });
-            }
-            break;
         }
     }
 
@@ -485,7 +472,7 @@ class Guard {
                     this.mode = GuardMode.MoveToDownedGuard;
                     this.angry = true;
                     this.modeTimeout = 3;
-                    shouts.push({posShouter: vec2.clone(this.pos), target: guard});
+                    shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(guard.pos), angry: true});
                     break;
                 }
             }
@@ -536,7 +523,7 @@ class Guard {
         }
 
         if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev !== GuardMode.ChaseVisibleTarget) {
-            shouts.push({posShouter: vec2.clone(this.pos), target: player});
+            shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(player.pos), angry: false});
             ++levelStats.numSpottings;
         }
     }
@@ -684,8 +671,9 @@ function isRelaxedGuardMode(guardMode: GuardMode): boolean {
 }
 
 type Shout = {
-    posShouter: vec2; // where is the person shouting?
-    target: Player|Guard;
+    posShouter: vec2; // where is the shout coming from?
+    posGoal: vec2; // where should hearers move to?
+    angry: boolean; // should hearers become angry?
 }
 
 function guardInteracting(playerPos: vec2, gpos: vec2, oldGpos:vec2, map: GameMap):'gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked'|undefined {
@@ -767,13 +755,12 @@ function guardActAll(state: State) {
     // Update each guard for this turn.
 
     const speech: Array<Speech> = [];
-    const shouts: Array<Shout> = [];
     let interact:ReturnType<typeof guardInteracting> = undefined;
     const interactions:ReturnType<typeof guardInteracting>[] = ['gate','doorOpenLocked','doorCloseLocked','doorOpen','doorClose'];
 
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
-        guard.act(state, speech, shouts);
+        guard.act(state, speech);
         guard.hasMoved = true;
         const newInteract = guardInteracting(state.player.pos, guard.pos,oldPos, state.gameMap);
 
@@ -792,6 +779,7 @@ function guardActAll(state: State) {
 
     // Update guard states based on their senses
 
+    const shouts: Array<Shout> = [];
     for (const guard of map.guards) {
         guard.postActSense(map, player, state.levelStats, speech, shouts);
     }
@@ -929,10 +917,10 @@ function alertNearbyGuards(map: GameMap, shout: Shout) {
             continue;
         }
         guard.hearingGuard = true;
-        if (shout.target instanceof Guard) {
+        if (shout.angry) {
             guard.angry = true;
         }
-        vec2.copy(guard.heardGuardPos, shout.posShouter);
+        vec2.copy(guard.heardGuardPos, shout.posGoal);
     }
 }
 
