@@ -508,6 +508,14 @@ class Guard {
                     speech.push({ speaker: this, speechType: PopupType.GuardSeeTorchDoused });
                 }
             }
+
+            // If we're moving to a shout but we see a guard at our goal position, finish in place.
+
+            if (this.mode === GuardMode.MoveToGuardShout &&
+                lineOfSight(map, this.pos, this.goal) &&
+                map.guards.some(guard => guard.pos.equals(this.goal))) {
+                vec2.copy(this.goal, this.pos);
+            }
         }
 
         // Clear sense flags
