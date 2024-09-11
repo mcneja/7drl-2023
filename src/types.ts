@@ -120,6 +120,8 @@ interface Particle {
 }
 
 type HealthBarState = {
+    damageDisplayTimer: number;
+    healing: boolean;
     size: number;
     enlargeTimeRemaining: number;
     heartFlashRemaining: Array<number>;

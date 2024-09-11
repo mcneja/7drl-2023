@@ -54,6 +54,7 @@ const zoomPower: number = 1.1892;
 const initZoomLevel: number = 4;
 const minZoomLevel: number = -4;
 const maxZoomLevel: number = 16;
+const damageDisplayDuration = 0.5;
 const deadNotification: string = 'New Game: Ctrl+R\nMenu: Esc/Slash';
 
 function loadResourcesThenRun() {
@@ -504,8 +505,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             if (state.player.health >= maxPlayerHealth) {
                 ++state.levelStats.extraFoodCollected;
             } else {
-                flashHeart(state, state.player.health);
                 ++state.player.health;
+                flashHeart(state, state.player.health - 1);
             }
             healthCollected = true;
         }
@@ -2082,9 +2083,14 @@ export function flashHeart(state: State, heartIndex: number) {
         return;
     }
     state.healthBarState.heartFlashRemaining[heartIndex] = 1;
+
+    state.healthBarState.damageDisplayTimer = damageDisplayDuration;
+    state.healthBarState.healing = heartIndex < state.player.health;
 }
 
 function animateHealthBar(state: State, dt: number) {
+    state.healthBarState.damageDisplayTimer = Math.max(0, state.healthBarState.damageDisplayTimer - dt);
+
     state.healthBarState.enlargeTimeRemaining = Math.max(0, state.healthBarState.enlargeTimeRemaining - dt * 1.5);
     let u = 1;
     if (state.healthBarState.enlargeTimeRemaining > 0.5) {
@@ -2103,6 +2109,8 @@ function animateHealthBar(state: State, dt: number) {
 }
 
 function resetHealthBar(state: State) {
+    state.healthBarState.damageDisplayTimer = 0;
+    state.healthBarState.healing = false;
     state.healthBarState.enlargeTimeRemaining = 0;
     state.healthBarState.size = 1;
     state.healthBarState.heartFlashRemaining.fill(0);
@@ -2792,6 +2800,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         dailyRun: null,
         leapToggleActive: false,
         healthBarState: {
+            damageDisplayTimer: 0,
+            healing: false,
             size: 1,
             enlargeTimeRemaining: 0,
             heartFlashRemaining: Array(maxPlayerHealth).fill(0),
@@ -3244,6 +3254,8 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderWorldBorder(state, renderer);
     renderer.flush();
 
+    renderDamageVignette(state.player.health, state.healthBarState.healing, state.healthBarState.damageDisplayTimer, renderer, screenSize);
+
     if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
         renderTextBox(renderer, screenSize, state);
         renderNotification(renderer, screenSize, state);
@@ -3276,6 +3288,39 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderTouchButtons(renderer, state.touchController);
         renderer.flush();
     }
+}
+
+function renderDamageVignette(hitPoints: number, healing: boolean, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
+    const u = Math.max(1, (maxPlayerHealth - hitPoints)) * Math.max(0, damageDisplayTimer) / damageDisplayDuration;
+    if (u <= 0)
+        return;
+
+    const r = healing ? 0 : 1;
+    const g = healing ? 1 : 0;
+    const b = healing ? 1 : 0;
+
+    const colorInner = [r, g, b, Math.min(1.0, u * 0.05)];
+    const colorOuter = [r, g, b, Math.min(1.0, u * 0.5)];
+
+    const radiusInner = 0.8;
+    const radiusOuter = 1.5;
+
+    const matDiscFromScreen = mat4.create();
+    if (screenSize[0] < screenSize[1]) {
+        matDiscFromScreen[0] = screenSize[0] / screenSize[1];
+        matDiscFromScreen[5] = 1;
+    } else {
+        matDiscFromScreen[0] = 1;
+        matDiscFromScreen[5] = screenSize[1] / screenSize[0];
+    }
+
+    matDiscFromScreen[0] /= radiusOuter;
+    matDiscFromScreen[5] /= radiusOuter;
+
+    matDiscFromScreen[10] = 1;
+    matDiscFromScreen[15] = 1;
+
+    renderer.renderVignette(matDiscFromScreen, radiusInner / radiusOuter, colorInner, colorOuter);
 }
 
 function updateTouchButtons(touchController:TouchController, renderer:Renderer, screenSize:vec2, state: State) {

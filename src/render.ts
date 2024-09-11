@@ -2,6 +2,13 @@ export { Renderer };
 import { TileSet, FontTileSet, TileInfo } from './tilesets';
 import { vec2, mat4 } from './my-matrix';
 
+type VignetteRenderer = (
+    matDiscFromScreen: mat4,
+    radiusInner: number,
+    colorInner: [number, number, number, number],
+    colorOuter: [number, number, number, number]
+) => void;
+
 // #####################
 // Web-GL Renderer
 // #####################
@@ -13,14 +20,17 @@ class Renderer {
     addGlyphLit(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:number) {}
     addGlyphLit4(x0: number, y0: number, x1: number, y1: number, tileInfo:TileInfo, lit:[number,number,number,number]) {}
     flush() {}
+    renderVignette: VignetteRenderer;
     fontTileSet: FontTileSet;
     tileSet: TileSet;
 
     constructor(canvas: HTMLCanvasElement, tileSet:TileSet, fontTileSet:FontTileSet) {
-        this.tileSet = tileSet;
-        this.fontTileSet = fontTileSet;
         const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
         const textures = [fontTileSet.image, tileSet.image].map((image) => createTextureFromImage(gl, image));
+
+        this.renderVignette = createVignetteRenderer(gl);
+        this.tileSet = tileSet;
+        this.fontTileSet = fontTileSet;
         
         const vsSource = `#version 300 es
             in vec2 vPosition;
@@ -364,4 +374,87 @@ function initShaderProgram(gl: WebGL2RenderingContext, vsSource: string, fsSourc
     }
 
     return program;
+}
+
+function createVignetteRenderer(gl: WebGL2RenderingContext): (matDiscFromScreen: mat4, radiusInner: number, colorInner: [number, number, number, number], colorOuter: [number, number, number, number]) => void {
+    const vsSource = `#version 300 es
+        in vec2 vPositionScreen;
+
+        uniform mat4 uMatDiscFromScreen;
+
+        out highp vec2 fPositionDisc;
+
+        void main() {
+            highp vec4 posScreen = vec4(vPositionScreen.xy, 0, 1);
+            fPositionDisc = (uMatDiscFromScreen * posScreen).xy;
+            gl_Position = posScreen;
+        }
+    `;
+
+    const fsSource = `#version 300 es
+        in highp vec2 fPositionDisc;
+
+        uniform highp vec4 uColorInner;
+        uniform highp vec4 uColorOuter;
+        uniform highp float uRadiusInner;
+
+        out lowp vec4 fragColor;
+
+        void main() {
+            highp float r = length(fPositionDisc);
+            highp float u = smoothstep(uRadiusInner, 1.0, r);
+            fragColor = mix(uColorInner, uColorOuter, u);
+        }
+    `;
+
+    const attribs = {
+        vPositionScreen: 0,
+    };
+
+    const program = initShaderProgram(gl, vsSource, fsSource, attribs);
+
+    const uLocMatDiscFromScreen = gl.getUniformLocation(program, 'uMatDiscFromScreen');
+    const uLocColorInner = gl.getUniformLocation(program, 'uColorInner');
+    const uLocColorOuter = gl.getUniformLocation(program, 'uColorOuter');
+    const uLocRadiusInner = gl.getUniformLocation(program, 'uRadiusInner');
+
+    const vertexData = new Float32Array(6 * 2);
+    {
+        let i = 0;
+
+        function makeVert(x, y) {
+            vertexData[i++] = x;
+            vertexData[i++] = y;
+        }
+
+        makeVert(-1, -1);
+        makeVert( 1, -1);
+        makeVert( 1,  1);
+        makeVert( 1,  1);
+        makeVert(-1,  1);
+        makeVert(-1, -1);
+    }
+
+    const vertexBuffer = gl.createBuffer();
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.enableVertexAttribArray(attribs.vPositionScreen);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(attribs.vPositionScreen, 2, gl.FLOAT, false, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+
+    return (matDiscFromScreen, radiusInner, colorInner, colorOuter) => {
+        gl.useProgram(program);
+
+        gl.uniformMatrix4fv(uLocMatDiscFromScreen, false, matDiscFromScreen);
+        gl.uniform1f(uLocRadiusInner, radiusInner);
+        gl.uniform4fv(uLocColorInner, colorInner);
+        gl.uniform4fv(uLocColorOuter, colorOuter);
+
+        gl.bindVertexArray(vao);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.bindVertexArray(null);
+    };
 }
