@@ -2093,10 +2093,11 @@ function animateHealthBar(state: State, dt: number) {
 
     state.healthBarState.enlargeTimeRemaining = Math.max(0, state.healthBarState.enlargeTimeRemaining - dt * 1.5);
     let u = 1;
-    if (state.healthBarState.enlargeTimeRemaining > 0.5) {
-        u = 1 - (2 * state.healthBarState.enlargeTimeRemaining - 1)**2;
+    const expandStop = 0.85;
+    if (state.healthBarState.enlargeTimeRemaining > expandStop) {
+        u = 1 - ((state.healthBarState.enlargeTimeRemaining - expandStop) / (1 - expandStop))**2;
     } else {
-        u = 2 * state.healthBarState.enlargeTimeRemaining;
+        u = state.healthBarState.enlargeTimeRemaining / expandStop;
         u = u * u * (3 - 2 * u);
     }
     state.healthBarState.size = 1 + u/2;
