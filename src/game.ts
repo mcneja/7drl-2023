@@ -3299,8 +3299,8 @@ function renderDamageVignette(hitPoints: number, healing: boolean, damageDisplay
     const g = healing ? 1 : 0;
     const b = healing ? 1 : 0;
 
-    const colorInner = [r, g, b, Math.min(1.0, u * 0.05)];
-    const colorOuter = [r, g, b, Math.min(1.0, u * 0.5)];
+    const colorInner: [number, number, number, number] = [r, g, b, Math.min(1.0, u * 0.05)];
+    const colorOuter: [number, number, number, number] = [r, g, b, Math.min(1.0, u * 0.5)];
 
     const radiusInner = 0.8;
     const radiusOuter = 1.5;
