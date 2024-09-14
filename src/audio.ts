@@ -96,7 +96,8 @@ const splashSet = [
 ]
 
 const waterAmbientSet = [
-    require('url:./audio/water-flow.mp3'),
+    require('url:./audio/water-ambient.mp3'),
+    require('url:./audio/water-ambient-2.mp3'),
 ]
 
 const kitchenAmbientSet = [
