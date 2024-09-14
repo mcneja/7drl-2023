@@ -1,6 +1,6 @@
 export { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode };
 
-import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType, maxPlayerHealth } from './game-map';
+import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType, TerrainType } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { PopupType } from './popups';
@@ -684,43 +684,55 @@ type Shout = {
     angry: boolean; // should hearers become angry?
 }
 
-function guardInteracting(playerPos: vec2, gpos: vec2, oldGpos:vec2, map: GameMap):'gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked'|undefined {
-    const maxDistSquared = 100;
-    for (const item of map.items) {
-        if (item.pos.squaredDistance(playerPos) > maxDistSquared) {
-            continue;
-        }
-
-        if (gpos.equals(item.pos)) {
-            switch (item.type) {
-                case ItemType.PortcullisEW:
-                case ItemType.PortcullisNS:
-                    return 'gate';
-                /*
-                case ItemType.LockedDoorEW:
-                case ItemType.LockedDoorNS:
-                    return 'doorOpenLocked';
-                case ItemType.DoorEW:
-                case ItemType.DoorNS:
-                    return 'doorOpen';
-                */
+function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2, vec2][], map: GameMap):'gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked'|undefined {
+    // If a guard in the same room interacts with something noise making (currenlty just doors or gates) we will return the interaction
+    const maxRange = 20;
+    const cells = map.cells;
+    const doors = map.items.filter((item)=>item.type>=ItemType.DoorNS && item.type<=ItemType.PortcullisEW);
+    let interact:ReturnType<typeof nearbyGuardInteracting> = undefined;
+    function interactionSeeker(checkedCells:Set<number>, pos:vec2, remainingRange:number, propagateThroughOpenings:boolean) {
+        const newPositionsToRecurse:vec2[] = [];
+        for(let delta of [[1,0],[0,1],[-1,0],[0,-1]]) {
+            const p = pos.add(vec2.fromValues(delta[0],delta[1]));
+            if (checkedCells.has(p[1]*cells.sizeX+p[0])) continue;
+            checkedCells.add(p[1]*cells.sizeX+p[0]);
+            const c = cells.atVec(p);
+            if (c.type===TerrainType.DoorEW || c.type===TerrainType.DoorNS ||
+                c.type===TerrainType.PortcullisEW || c.type===TerrainType.PortcullisNS
+            ) {
+                const door = doors.find((door)=>door.pos.equals(p));
+                const guardInDoor = movingGuardPositionPairs.find(pairs=>pairs[0].equals(p));
+                const guardLeftDoor = movingGuardPositionPairs.find(pairs=>pairs[1].equals(p));
+                if (door!==undefined && (guardInDoor || guardLeftDoor)) {
+                    switch(door.type) {
+                        case ItemType.DoorEW:
+                        case ItemType.DoorNS:
+                            interact = guardInDoor? 'doorOpen' : 'doorClose';
+                            break;
+                        case ItemType.LockedDoorEW:
+                        case ItemType.LockedDoorNS:
+                            interact = guardInDoor? 'doorOpenLocked' : 'doorCloseLocked';
+                            break;
+                        case ItemType.PortcullisEW:
+                        case ItemType.PortcullisNS:
+                            interact = 'gate';
+                            break;
+                    }
+                }
+                if(interact!==undefined) return;
+            }
+            if (c.type<TerrainType.Wall0000 || propagateThroughOpenings && c.type>TerrainType.Wall1111) {
+                newPositionsToRecurse.push(p);
             }
         }
-
-        /*
-        if (oldGpos.equals(item.pos)) {
-            switch (item.type) {
-                case ItemType.LockedDoorEW:
-                case ItemType.LockedDoorNS:
-                    return 'doorCloseLocked';
-                case ItemType.DoorEW:
-                case ItemType.DoorNS:
-                    return 'doorClose';
-            }
+        if (remainingRange>0 && interact===undefined) {
+            for (let p of newPositionsToRecurse) {
+                interactionSeeker(checkedCells, p, remainingRange-1, false);
+            }    
         }
-        */
     }
-    return undefined;
+    interactionSeeker(new Set(), playerPos, maxRange, true);
+    return interact;
 }
 
 function chooseGuardMoves(state: State) {
@@ -763,22 +775,12 @@ function guardActAll(state: State) {
     // Update each guard for this turn.
 
     const speech: Array<Speech> = [];
-    let interact:ReturnType<typeof guardInteracting> = undefined;
-    const interactions:ReturnType<typeof guardInteracting>[] = ['gate','doorOpenLocked','doorCloseLocked','doorOpen','doorClose'];
-
+    const movingGuardPositionPairs:Array<[vec2, vec2]> = [];
     for (const guard of map.guards) {
         const oldPos = vec2.clone(guard.pos);
         guard.act(state, speech);
         guard.hasMoved = true;
-        const newInteract = guardInteracting(state.player.pos, guard.pos,oldPos, state.gameMap);
-
-        for(let c of interactions) {
-            if (interact===c ) break;
-            if(newInteract===c) {
-                interact = c;
-                break;
-            }
-        }
+        if(!oldPos.equals(guard.pos)) movingGuardPositionPairs.push([guard.pos, oldPos]);
     }
 
     // Update lighting to account for guards moving with torches, or opening/closing doors
@@ -835,8 +837,9 @@ function guardActAll(state: State) {
         player.pickTarget = null;
     }
 
+    const interact = nearbyGuardInteracting(state.player.pos, movingGuardPositionPairs, state.gameMap);
     if (interact) {
-        state.sounds[interact].play(0.25);
+        state.sounds[interact].play(0.5);
     }
 }
 
