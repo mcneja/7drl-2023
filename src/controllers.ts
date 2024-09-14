@@ -44,6 +44,7 @@ const controlStates0: ControlStates = {
     'fullscreen': false,
     'showSpeech': false,
     'idleCursorToggle': false,
+    'showFPS':false,
 };
 
 var lastController:Controller|null = null;
@@ -59,6 +60,7 @@ const defaultKeyMap:KeyMap = {
     'Alt+KeyS': ['markSeen'],
     'Alt+KeyV': ['guardSight'],
     'Alt+Period': ['nextLevel'],
+    'Alt+KeyF': ['showFPS'],
     'ArrowDown': ['down'],
     'ArrowLeft': ['left'],
     'ArrowRight': ['right'],

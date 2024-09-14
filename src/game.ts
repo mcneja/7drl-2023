@@ -226,6 +226,8 @@ function updateControllerState(state:State) {
                 scoreCompletedLevel(state);
                 setupLevel(state, state.level-1);
             }
+        } else if (activated('showFPS')) {
+            state.fpsInfo.enabled = !state.fpsInfo.enabled;
         } else if (activated('guardSight')) {
             state.seeGuardSight = !state.seeGuardSight;
         } else if (activated('guardPatrols')) {
@@ -2799,6 +2801,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         dt: 0,
         idleTimer: 5,
         rng: rng,
+        fpsInfo: {enabled: false, msgFPS: 'FPS: --', frames:0, cumulativeTime:0, worstFrame:0},
         dailyRun: null,
         leapToggleActive: false,
         healthBarState: {
@@ -3119,6 +3122,20 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
     const dt = (state.tLast === undefined) ? 0 : Math.min(1/30, t - state.tLast);
     state.dt = dt;
     state.tLast = t;
+
+    if(state.fpsInfo.enabled) {
+        state.fpsInfo.frames++;
+        state.fpsInfo.cumulativeTime+=dt;
+        if (state.fpsInfo.worstFrame<dt) {
+            state.fpsInfo.worstFrame = dt;
+        }
+        if(state.fpsInfo.cumulativeTime>1) {
+            state.fpsInfo.msgFPS = `FPS: ${Math.round(state.fpsInfo.frames / state.fpsInfo.cumulativeTime*10)/10} (worst: ${Math.round(state.fpsInfo.worstFrame*1000)}ms)`;
+            state.fpsInfo.cumulativeTime = 0;
+            state.fpsInfo.frames = 0;
+            state.fpsInfo.worstFrame = 0;
+        }    
+    }
 
     canvas.width = canvasSizeX;
     canvas.height = canvasSizeY;
@@ -3882,6 +3899,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     }
 
     // Level number, turn count, and speed bonus
+    const msgFPS = state.fpsInfo.enabled ? state.fpsInfo.msgFPS : '';
 
     const msgLevel = (state.dailyRun ? 'Daily Lvl ' : 'Lvl ') + (state.level + 1);
 
@@ -3894,9 +3912,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     leftSideX = maxPlayerHealth + msgLeapToggle.length + 2;
 
-    const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + 1)) / 2;
+    const pad = state.fpsInfo.enabled ? 2 : 1
+    const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + msgFPS.length + pad)) / 2;
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
     putString(renderer, centeredX + msgLevel.length + 1, msgTimer, colorPreset.darkGray);
+    if(msgFPS!=='') {
+        putString(renderer, centeredX + msgLevel.length + msgTimer.length + 2, msgFPS, colorPreset.lightGray);
+    }
 
     renderer.flush();
 }

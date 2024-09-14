@@ -127,12 +127,21 @@ type HealthBarState = {
     heartFlashRemaining: Array<number>;
 }
 
+type FPSInfo = {
+    enabled: boolean;
+    frames: number;
+    cumulativeTime: number;
+    worstFrame: number;
+    msgFPS: string;
+}
+
 type State = {
     gameStats: GameStats;
     persistedStats: PersistedStats;
     levelStats: LevelStats;
     achievements: Achievements;
     rng: RNG;
+    fpsInfo: FPSInfo;
     dailyRun: string|null;
     tLast: number | undefined;
     lightStates: Array<number>;
