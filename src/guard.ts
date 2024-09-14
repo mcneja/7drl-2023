@@ -399,6 +399,14 @@ class Guard {
                 }
             }
             break;
+
+        case GuardMode.Unconscious:
+            if (this.modeTimeout <= 0) {
+                this.modeTimeout = 0;
+                this.angry = true;
+                this.enterPatrolMode(map);
+            }
+            break;
         }
     }
 
