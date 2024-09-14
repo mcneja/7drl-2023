@@ -10,6 +10,7 @@ export {
     GameMapRoughPlan,
     LevelType,
     Player,
+    Rect,
     TerrainType,
     GuardStates,
     guardMoveCostForItemType,
@@ -942,7 +943,7 @@ class GameMap {
     }
     
     patrolPathIndexForResume(patrolPositions: Array<vec2>, patrolIndexCur: number, pos: vec2): number {
-        const distanceToPos = this.computeDistancesToPosition(pos);
+        const distanceToPos = this.computeDistancesToPosition(pos, undefined);
 
         let patrolIndexBest = patrolIndexCur;
 
@@ -966,13 +967,13 @@ class GameMap {
         return patrolIndexBest;
     }
 
-    computeDistancesToPosition(posGoal: vec2): Float64Grid {
+    computeDistancesToPosition(posGoal: vec2, queryRect: Rect | undefined): Float64Grid {
         console.assert(posGoal[0] >= 0);
         console.assert(posGoal[1] >= 0);
         console.assert(posGoal[0] < this.cells.sizeX);
         console.assert(posGoal[1] < this.cells.sizeY);
     
-        return this.computeDistanceField([{ priority: 0, pos: vec2.clone(posGoal) }]);
+        return this.computeDistanceField([{ priority: 0, pos: vec2.clone(posGoal) }], queryRect);
     }
 
     computeDistancesToPositionSubrect(posGoal: vec2, xMin: number, yMin: number, xMax: number, yMax: number): Float64Grid {
@@ -984,7 +985,7 @@ class GameMap {
         return this.computeDistanceFieldSubrect([{ priority: 0, pos: vec2.clone(posGoal) }], xMin, yMin, xMax, yMax);
     }
 
-    computeDistancesToAdjacentToPosition(posGoal: vec2): Float64Grid {
+    computeDistancesToAdjacentToPosition(posGoal: vec2, queryRect: Rect): Float64Grid {
         const goal: Array<DistPos> = [];
         for (const dir of cardinalDirections) {
             const pos = vec2.clone(posGoal).add(dir);
@@ -996,10 +997,10 @@ class GameMap {
                 goal.push({ priority: cell.moveCost, pos: pos });
             }
         }
-        return this.computeDistanceField(goal);
+        return this.computeDistanceField(goal, queryRect);
     }
 
-    computeDistanceField(initialDistances: Array<DistPos>): Float64Grid {
+    computeDistanceField(initialDistances: Array<DistPos>, queryRect: Rect | undefined): Float64Grid {
         let sizeX = this.cells.sizeX;
         let sizeY = this.cells.sizeY;
 
@@ -1010,14 +1011,24 @@ class GameMap {
             priorityQueuePush(toVisit, distPos);
         }
     
-        while (toVisit.length > 0) {
+        let numQuerySquaresToVisit = (queryRect === undefined) ? 1 : this.numNavigableSquaresInRect(queryRect);
+
+        while (toVisit.length > 0 && numQuerySquaresToVisit > 0) {
             const distPos = priorityQueuePop(toVisit);
             if (distPos.priority >= distField.get(distPos.pos[0], distPos.pos[1])) {
                 continue;
             }
     
             distField.set(distPos.pos[0], distPos.pos[1], distPos.priority);
-    
+
+            if (queryRect !== undefined &&
+                distPos.pos[0] >= queryRect.posMin[0] &&
+                distPos.pos[1] >= queryRect.posMin[1] &&
+                distPos.pos[0] < queryRect.posMax[0] &&
+                distPos.pos[1] < queryRect.posMax[1]) {
+                --numQuerySquaresToVisit;
+            }
+
             for (const adjacentMove of adjacentMoves) {
                 const posNew = vec2.fromValues(distPos.pos[0] + adjacentMove.dx, distPos.pos[1] + adjacentMove.dy);
                 if (posNew[0] < 0 || posNew[1] < 0 || posNew[0] >= sizeX || posNew[1] >= sizeY) {
@@ -1036,8 +1047,20 @@ class GameMap {
                 }
             }
         }
-    
+
         return distField;
+    }
+
+    numNavigableSquaresInRect(rect: Rect): number {
+        let n = 0;
+        for (let x = rect.posMin[0]; x < rect.posMax[0]; ++x) {
+            for (let y = rect.posMin[1]; y < rect.posMax[1]; ++y) {
+                if (this.cells.at(x, y).moveCost !== Infinity) {
+                    ++n;
+                }
+            }
+        }
+        return n;
     }
 
     computeDistanceFieldSubrect(initialDistances: Array<DistPos>, xMin: number, yMin: number, xMax: number, yMax: number): Float64Grid {

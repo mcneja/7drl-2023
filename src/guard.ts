@@ -1,6 +1,6 @@
 export { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxedGuardMode };
 
-import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType, TerrainType } from './game-map';
+import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType, Rect, TerrainType } from './game-map';
 import { vec2 } from './my-matrix';
 import { randomInRange } from './random';
 import { PopupType } from './popups';
@@ -662,12 +662,20 @@ class Guard {
     }
 
     chooseMoveTowardPosition(posGoal: vec2, map: GameMap): Array<vec2> {
-        const distanceField = map.computeDistancesToPosition(posGoal);
+        const queryRect: Rect = {
+            posMin: vec2.fromValues(Math.max(0, this.pos[0] - 1), Math.max(0, this.pos[1] - 1)),
+            posMax: vec2.fromValues(Math.min(map.cells.sizeX, this.pos[0] + 2), Math.min(map.cells.sizeY, this.pos[1] + 2))
+        };
+        const distanceField = map.computeDistancesToPosition(posGoal, queryRect);
         return map.nextPositions(distanceField, this.pos);
     }
 
     chooseMoveTowardAdjacentToPosition(posGoal: vec2, map: GameMap): Array<vec2> {
-        const distanceField = map.computeDistancesToAdjacentToPosition(posGoal);
+        const queryRect: Rect = {
+            posMin: vec2.fromValues(Math.max(0, this.pos[0] - 1), Math.max(0, this.pos[1] - 1)),
+            posMax: vec2.fromValues(Math.min(map.cells.sizeX, this.pos[0] + 2), Math.min(map.cells.sizeY, this.pos[1] + 2))
+        };
+        const distanceField = map.computeDistancesToAdjacentToPosition(posGoal, queryRect);
         return map.nextPositions(distanceField, this.pos);
     }
 }
