@@ -334,11 +334,12 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 //        patrolRoutes = placePatrolRoutesLong(level, map, rooms, outsidePatrolRoute, rng);
 //        patrolRoutes = placePatrolRouteLargeLoop(level, map, rooms, outsidePatrolRoute, rng);
     }
-    addStationaryPatrols(level, map, rooms, adjacencies, patrolRoutes, rng);
+
+    const needKey = map.items.find((item) => item.type === ItemType.LockedDoorNS || item.type === ItemType.LockedDoorEW) !== undefined;
+    addStationaryPatrols(level, map, rooms, needKey, patrolRoutes, rng);
 
     // Place loot
 
-    const needKey = map.items.find((item) => item.type === ItemType.LockedDoorNS || item.type === ItemType.LockedDoorEW) !== undefined;
     const guardsAvailableForLoot = patrolRoutes.length - (needKey ? 1 : 0);
     const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
 
@@ -490,8 +491,16 @@ function makeMansionRoomGrid(inside: BooleanGrid, rng: RNG) {
     }
 }
 
-function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adjacencies:Array<Adjacency>, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
-    if (level<8) return;
+function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, needKey: boolean, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
+    if (level < 8) {
+        if (level < 2) {
+            return;
+        }
+
+        addSeatedGuard(map, rooms, needKey, patrolRoutes, rng);
+        return;
+    }
+
     const ttypes = [TerrainType.GroundGrass, TerrainType.GroundMarble, TerrainType.GroundWood];
     const room = rooms.find((r)=>r.roomType===RoomType.Vault);
     if (room===undefined) return;
@@ -525,6 +534,98 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, adja
         }
     }
     return;
+}
+
+function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, patrolRoutes: Array<PatrolRoute>, rng: RNG) {
+
+    // Avoid any activity stations already used by a patrol route
+
+    const patrolled: BooleanGrid = new BooleanGrid(gameMap.cells.sizeX, gameMap.cells.sizeY, false);
+    for (const patrolRoute of patrolRoutes) {
+        for (const pos of patrolRoute.path) {
+            patrolled.set(pos[0], pos[1], true);
+        }
+    }
+
+    // Look for a chair facing a table
+
+    const positions: Array<vec2> = [];
+
+    for (const item of gameMap.items) {
+        if (item.type !== ItemType.Chair) {
+            continue;
+        }
+        if (patrolled.get(item.pos[0], item.pos[1])) {
+            continue;
+        }
+
+        let tableAdjacent = false;
+        for (const itemOther of gameMap.items) {
+            if (itemOther.type !== ItemType.Table) {
+                continue;
+            }
+            const dx = itemOther.pos[0] - item.pos[0];
+            const dy = itemOther.pos[1] - item.pos[1];
+            if (Math.abs(dx) + Math.abs(dy) !== 1) {
+                continue;
+            }
+            tableAdjacent = true;
+            break;
+        }
+        if (!tableAdjacent) {
+            continue;
+        }
+        positions.push(item.pos);
+    }
+
+    // Look for a window to stand in front of
+
+    for (const room of rooms) {
+        for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+            if (room.posMin[1] > 0) {
+                const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
+                if (terrainType == TerrainType.OneWayWindowS && gameMap.cells.at(x, room.posMin[1]).moveCost === 0 && !patrolled.get(x, room.posMin[1])) {
+                    positions.push(vec2.fromValues(x, room.posMin[1]));
+                }
+            }
+            if (room.posMax[1] < gameMap.cells.sizeY) {
+                const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
+                if (terrainType == TerrainType.OneWayWindowN && gameMap.cells.at(x, room.posMax[1] - 1).moveCost === 0 && !patrolled.get(x, room.posMax[1] - 1)) {
+                    positions.push(vec2.fromValues(x, room.posMax[1] - 1));
+                }
+            }
+        }
+        for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+            if (room.posMin[0] > 0) {
+                const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
+                if (terrainType == TerrainType.OneWayWindowW && gameMap.cells.at(room.posMin[0], y).moveCost === 0 && !patrolled.get(room.posMin[0], y)) {
+                    positions.push(vec2.fromValues(room.posMin[0], y));
+                }
+            }
+            if (room.posMax[0] < gameMap.cells.sizeX) {
+                const terrainType = gameMap.cells.at(room.posMax[0], y).type;
+                if (terrainType == TerrainType.OneWayWindowE && gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0 && !patrolled.get(room.posMax[0] - 1, y)) {
+                    positions.push(vec2.fromValues(room.posMax[0] - 1, y));
+                }
+            }
+        }
+    }
+
+    // Pick a random position and generate a patrol route there
+
+    if (positions.length > 0) {
+        const pos = positions[rng.randomInRange(positions.length)];
+        for (const room of rooms) {
+            if (pos[0] >= room.posMin[0] &&
+                pos[1] >= room.posMin[1] &&
+                pos[0] < room.posMax[0] &&
+                pos[1] < room.posMax[1]) {
+                const i = Math.min(patrolRoutes.length, needKey ? 1 : 0);
+                patrolRoutes.splice(i, 0, {rooms: [room], path: [vec2.clone(pos)]});
+                return;
+            }
+        }
+    }
 }
 
 function offsetWalls(
