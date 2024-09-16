@@ -4015,7 +4015,15 @@ function renderRoomGeneric(map: GameMap, room: Room, level: number, rng: RNG) {
         rng.shuffleArray(itemTypes);
         tryPlaceItem(map, vec2.fromValues(x, room.posMin[1] + 1), itemTypes[0]);
         tryPlaceItem(map, vec2.fromValues(x, room.posMax[1] - 2), itemTypes[1]);
-    } else if (dx > 3 && dy > 3) {
+    } else if (dx >= 5 && dy === 3) {
+        let y = Math.floor(room.posMin[1] + dy / 2);
+        tryPlaceItem(map, vec2.fromValues(room.posMin[0] + 1, y), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(room.posMax[0] - 2, y), randomlyLitTorch(level, rng));
+    } else if (dy >= 5 && dx === 3) {
+        let x = Math.floor(room.posMin[0] + dx / 2);
+        tryPlaceItem(map, vec2.fromValues(x, room.posMin[1] + 1), randomlyLitTorch(level, rng));
+        tryPlaceItem(map, vec2.fromValues(x, room.posMax[1] - 2), randomlyLitTorch(level, rng));
+    } else if (dx >= 3 && dy >= 3) {
         const furnitureType = (room.roomType == RoomType.PublicRoom) ? ItemType.Table : ItemType.Chair;
         const torchType = randomlyLitTorch(level, rng);
         const itemTypes = [torchType, furnitureType, furnitureType, furnitureType];
@@ -4566,19 +4574,71 @@ function renderRoomLibrary(map: GameMap, room: Room, level: number, rng: RNG) {
     const ry = room.posMax[1] - room.posMin[1];
 
     if (rx >= ry) {
-        const cx = Math.floor((rx - 1) / 2);
-        for (let x = 1; x < cx; x += 2) {
-            for (let y = 1; y < ry - 1; ++y) {
-                placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
-                placeItem(map, vec2.fromValues(x0 + rx - (x + 1), y0 + y), ItemType.Bookshelf);
+        if ((rx & 1) === 1) {
+            for (let x = 1; x < rx; x += 2) {
+                for (let y = 1; y < ry - 1; ++y) {
+                    placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
+                }
+            }
+        } else {
+            const cx = rx / 2 - 1;
+            for (let x = 1; x < cx; x += 2) {
+                for (let y = 1; y < ry - 1; ++y) {
+                    placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
+                    placeItem(map, vec2.fromValues(x0 + rx - (x + 1), y0 + y), ItemType.Bookshelf);
+                }
+            }
+
+            if ((cx & 1) === 1) {
+                for (let y = y0 + 1; y < y0 + ry - 1; ++y) {
+                    let items: [ItemType | undefined, ItemType | undefined] = [undefined, undefined];
+                    if (y > y0 + 1 && (y < y0 + ry - 2 || ry === 4)) {
+                        items = [ItemType.Table, ItemType.Chair];
+                    } else {
+                        items = [randomlyLitTorch(level, rng), undefined];
+                    }
+                    rng.shuffleArray(items);
+                    if (items[0] !== undefined) {
+                        placeItem(map, vec2.fromValues(x0 + cx, y), items[0]);
+                    }
+                    if (items[1] !== undefined) {
+                        placeItem(map, vec2.fromValues(x0 + cx + 1, y), items[1]);
+                    }
+                }
             }
         }
     } else {
-        const cy = Math.floor((ry - 1) / 2);
-        for (let y = 1; y < cy; y += 2) {
-            for (let x = 1; x < rx - 1; ++x) {
-                placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
-                placeItem(map, vec2.fromValues(x0 + x, y0 + ry - (y + 1)), ItemType.Bookshelf);
+        if ((ry & 1) === 1) {
+            for (let y = 1; y < ry; y += 2) {
+                for (let x = 1; x < rx - 1; ++x) {
+                    placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
+                }
+            }
+        } else {
+            const cy = ry / 2 - 1;
+            for (let y = 1; y < cy; y += 2) {
+                for (let x = 1; x < rx - 1; ++x) {
+                    placeItem(map, vec2.fromValues(x0 + x, y0 + y), ItemType.Bookshelf);
+                    placeItem(map, vec2.fromValues(x0 + x, y0 + ry - (y + 1)), ItemType.Bookshelf);
+                }
+            }
+
+            if ((cy & 1) === 1) {
+                for (let x = x0 + 1; x < x0 + rx - 1; ++x) {
+                    let items: [ItemType | undefined, ItemType | undefined] = [undefined, undefined];
+                    if (x > x0 + 1 && (x < x0 + rx - 2 || rx === 4)) {
+                        items = [ItemType.Table, ItemType.Chair];
+                    } else {
+                        items = [randomlyLitTorch(level, rng), undefined];
+                    }
+                    rng.shuffleArray(items);
+                    if (items[0] !== undefined) {
+                        placeItem(map, vec2.fromValues(x, y0 + cy), items[0]);
+                    }
+                    if (items[1] !== undefined) {
+                        placeItem(map, vec2.fromValues(x, y0 + cy + 1), items[1]);
+                    }
+                }
             }
         }
     }
