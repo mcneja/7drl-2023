@@ -1363,7 +1363,10 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     }
 
     if (state.level === 2 && !state.hasEnteredMansion && state.player.pos.equals(state.gameMap.playerStartPos)) {
-        state.popups.setNotificationHold('Zoom view: [ or ]', state.player.pos);
+        const pos = vec2.create();
+        vec2.copy(pos, state.player.pos);
+        pos[1] += 1;
+        state.popups.setNotificationHold('Zoom view: [ or ]', pos);
         return;
     }
 
