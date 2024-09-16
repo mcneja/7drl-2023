@@ -584,13 +584,19 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
         for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
             if (room.posMin[1] > 0) {
                 const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
-                if (terrainType == TerrainType.OneWayWindowS && gameMap.cells.at(x, room.posMin[1]).moveCost === 0 && !patrolled.get(x, room.posMin[1])) {
+                if (terrainType == TerrainType.OneWayWindowS &&
+                    gameMap.cells.at(x, room.posMin[1]).moveCost === 0 &&
+                    !patrolled.get(x, room.posMin[1]) &&
+                    !gameMap.cells.at(x, room.posMin[1] + 1).blocksPlayerMove) {
                     positions.push(vec2.fromValues(x, room.posMin[1]));
                 }
             }
             if (room.posMax[1] < gameMap.cells.sizeY) {
                 const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
-                if (terrainType == TerrainType.OneWayWindowN && gameMap.cells.at(x, room.posMax[1] - 1).moveCost === 0 && !patrolled.get(x, room.posMax[1] - 1)) {
+                if (terrainType == TerrainType.OneWayWindowN &&
+                    gameMap.cells.at(x, room.posMax[1] - 1).moveCost === 0 &&
+                    !patrolled.get(x, room.posMax[1] - 1) &&
+                    !gameMap.cells.at(x, room.posMax[1] - 2).blocksPlayerMove) {
                     positions.push(vec2.fromValues(x, room.posMax[1] - 1));
                 }
             }
@@ -598,13 +604,19 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
         for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
             if (room.posMin[0] > 0) {
                 const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
-                if (terrainType == TerrainType.OneWayWindowW && gameMap.cells.at(room.posMin[0], y).moveCost === 0 && !patrolled.get(room.posMin[0], y)) {
+                if (terrainType == TerrainType.OneWayWindowW &&
+                    gameMap.cells.at(room.posMin[0], y).moveCost === 0 &&
+                    !patrolled.get(room.posMin[0], y) &&
+                    !gameMap.cells.at(room.posMin[0] + 1, y).blocksPlayerMove) {
                     positions.push(vec2.fromValues(room.posMin[0], y));
                 }
             }
             if (room.posMax[0] < gameMap.cells.sizeX) {
                 const terrainType = gameMap.cells.at(room.posMax[0], y).type;
-                if (terrainType == TerrainType.OneWayWindowE && gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0 && !patrolled.get(room.posMax[0] - 1, y)) {
+                if (terrainType == TerrainType.OneWayWindowE &&
+                    gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0 &&
+                    !patrolled.get(room.posMax[0] - 1, y) &&
+                    !gameMap.cells.at(room.posMax[0] - 2, y).blocksPlayerMove) {
                     positions.push(vec2.fromValues(room.posMax[0] - 1, y));
                 }
             }
