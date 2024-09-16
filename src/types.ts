@@ -132,6 +132,7 @@ type FPSInfo = {
     frames: number;
     cumulativeTime: number;
     worstFrame: number;
+    drops: number;
     msgFPS: string;
 }
 

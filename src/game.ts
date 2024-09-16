@@ -2804,7 +2804,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         dt: 0,
         idleTimer: 5,
         rng: rng,
-        fpsInfo: {enabled: false, msgFPS: 'FPS: --', frames:0, cumulativeTime:0, worstFrame:0},
+        fpsInfo: {enabled: false, msgFPS: 'FPS: --', frames:0, cumulativeTime:0, worstFrame:0, drops:0},
         dailyRun: null,
         leapToggleActive: false,
         healthBarState: {
@@ -3132,11 +3132,17 @@ function updateAndRender(now: number, renderer: Renderer, state: State) {
         if (state.fpsInfo.worstFrame<dt) {
             state.fpsInfo.worstFrame = dt;
         }
+        if(dt>0.017) {
+            state.fpsInfo.drops++;
+        }
         if(state.fpsInfo.cumulativeTime>1) {
-            state.fpsInfo.msgFPS = `FPS: ${Math.round(state.fpsInfo.frames / state.fpsInfo.cumulativeTime*10)/10} (worst: ${Math.round(state.fpsInfo.worstFrame*1000)}ms)`;
+            state.fpsInfo.msgFPS = `FPS: ${Math.round(state.fpsInfo.frames / state.fpsInfo.cumulativeTime*10)/10}`
+                + ` (worst: ${Math.round(state.fpsInfo.worstFrame*1000)}ms,`
+                + ` # drops: ${state.fpsInfo.drops})`;
             state.fpsInfo.cumulativeTime = 0;
             state.fpsInfo.frames = 0;
             state.fpsInfo.worstFrame = 0;
+            state.fpsInfo.drops = 0;
         }    
     }
 
