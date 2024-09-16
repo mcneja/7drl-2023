@@ -3879,7 +3879,7 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                 placeItem(map, p, orientNS ? ItemType.LockedDoorNS : ItemType.LockedDoorEW);
             } else if (isCourtyardRoomType(roomTypeLeft) && isCourtyardRoomType(roomTypeRight)) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.GardenDoorNS : TerrainType.GardenDoorEW;
-            } else if (!a.roomLeft.privateRoom || !a.roomRight.privateRoom || installMasterSuiteDoor) {
+            } else if (isCourtyardRoomType(roomTypeLeft) || isCourtyardRoomType(roomTypeRight) || !a.roomLeft.privateRoom || !a.roomRight.privateRoom || installMasterSuiteDoor) {
                 map.cells.atVec(p).type = orientNS ? TerrainType.DoorNS : TerrainType.DoorEW;
                 placeItem(map, p, orientNS ? ItemType.DoorNS : ItemType.DoorEW);
             } else {
