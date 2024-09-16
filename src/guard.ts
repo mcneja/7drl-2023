@@ -437,7 +437,7 @@ class Guard {
                     this.modeTimeout = 2 + randomInRange(4);
                 } else if (this.mode !== GuardMode.MoveToDownedGuard) {
                     this.mode = GuardMode.MoveToLastSound;
-                    this.modeTimeout = 2 + randomInRange(4);
+                    this.modeTimeout = 4 + randomInRange(2);
                     vec2.copy(this.goal, player.pos);
                 }
             }
