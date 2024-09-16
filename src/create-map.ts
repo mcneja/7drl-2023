@@ -586,8 +586,8 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
                 const terrainType = gameMap.cells.at(x, room.posMin[1] - 1).type;
                 if (terrainType == TerrainType.OneWayWindowS &&
                     gameMap.cells.at(x, room.posMin[1]).moveCost === 0 &&
-                    !patrolled.get(x, room.posMin[1]) &&
-                    !gameMap.cells.at(x, room.posMin[1] + 1).blocksPlayerMove) {
+                    gameMap.cells.at(x, room.posMin[1] + 1).moveCost !== Infinity &&
+                    !patrolled.get(x, room.posMin[1])) {
                     positions.push(vec2.fromValues(x, room.posMin[1]));
                 }
             }
@@ -595,8 +595,8 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
                 const terrainType = gameMap.cells.at(x, room.posMax[1]).type;
                 if (terrainType == TerrainType.OneWayWindowN &&
                     gameMap.cells.at(x, room.posMax[1] - 1).moveCost === 0 &&
-                    !patrolled.get(x, room.posMax[1] - 1) &&
-                    !gameMap.cells.at(x, room.posMax[1] - 2).blocksPlayerMove) {
+                    gameMap.cells.at(x, room.posMax[1] - 2).moveCost !== Infinity &&
+                    !patrolled.get(x, room.posMax[1] - 1)) {
                     positions.push(vec2.fromValues(x, room.posMax[1] - 1));
                 }
             }
@@ -606,8 +606,8 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
                 const terrainType = gameMap.cells.at(room.posMin[0] - 1, y).type;
                 if (terrainType == TerrainType.OneWayWindowW &&
                     gameMap.cells.at(room.posMin[0], y).moveCost === 0 &&
-                    !patrolled.get(room.posMin[0], y) &&
-                    !gameMap.cells.at(room.posMin[0] + 1, y).blocksPlayerMove) {
+                    gameMap.cells.at(room.posMin[0] + 1, y).moveCost !== Infinity &&
+                    !patrolled.get(room.posMin[0], y)) {
                     positions.push(vec2.fromValues(room.posMin[0], y));
                 }
             }
@@ -615,8 +615,8 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
                 const terrainType = gameMap.cells.at(room.posMax[0], y).type;
                 if (terrainType == TerrainType.OneWayWindowE &&
                     gameMap.cells.at(room.posMax[0] - 1, y).moveCost === 0 &&
-                    !patrolled.get(room.posMax[0] - 1, y) &&
-                    !gameMap.cells.at(room.posMax[0] - 2, y).blocksPlayerMove) {
+                    gameMap.cells.at(room.posMax[0] - 2, y).moveCost !== Infinity &&
+                    !patrolled.get(room.posMax[0] - 1, y)) {
                     positions.push(vec2.fromValues(room.posMax[0] - 1, y));
                 }
             }
@@ -2075,7 +2075,7 @@ function roomCanBeTreasure(room: Room): boolean {
 }
 
 function roomCanBeDining(room: Room): boolean {
-    if (room.roomType !== RoomType.PublicRoom) {
+    if (room.roomType !== RoomType.PublicRoom && room.roomType !== RoomType.PrivateRoom) {
         return false;
     }
 
@@ -3902,11 +3902,11 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             case RoomType.PrivateRoom: cellType = TerrainType.GroundMarble; break;
             case RoomType.Vault: cellType = TerrainType.GroundVault; break;
             case RoomType.Bedroom: cellType = TerrainType.GroundMarble; break;
-            case RoomType.Dining: cellType = TerrainType.GroundWood; break;
+            case RoomType.Dining: cellType = room.privateRoom ? TerrainType.GroundMarble : TerrainType.GroundWood; break;
             case RoomType.PublicLibrary: cellType = TerrainType.GroundWood; break;
             case RoomType.PrivateLibrary: cellType = TerrainType.GroundMarble; break;
             case RoomType.Kitchen: cellType = TerrainType.GroundWood; break;
-            case RoomType.Treasure: cellType = TerrainType.GroundWood; break;
+            case RoomType.Treasure: cellType = room.privateRoom ? TerrainType.GroundMarble : TerrainType.GroundWood; break;
             case RoomType.TreasureCourtyard: cellType = TerrainType.GroundGrass; break;
         }
 
@@ -3973,14 +3973,56 @@ function renderRoomGeneric(map: GameMap, room: Room, level: number, rng: RNG) {
     const dx = room.posMax[0] - room.posMin[0];
     const dy = room.posMax[1] - room.posMin[1];
     if (dx >= 5 && dy >= 5) {
-        if (room.roomType == RoomType.PrivateRoom) {
-            setRectTerrainType(map, room.posMin[0] + 2, room.posMin[1] + 2, room.posMax[0] - 2, room.posMax[1] - 2, TerrainType.GroundWater);
+        if (room.roomType === RoomType.PrivateRoom) {
+            if (dx > dy) {
+                if (dx > 7) {
+                    setRectTerrainType(map, room.posMin[0] + 3, room.posMin[1] + 1, room.posMax[0] - 3, room.posMax[1] - 1, TerrainType.GroundWater);
+                }
+            } else if (dy > dx) {
+                if (dy > 7) {
+                    setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 3, room.posMax[0] - 1, room.posMax[1] - 3, TerrainType.GroundWater);
+                }
+            } else if (dx >= 7) {
+                setRectTerrainType(map, room.posMin[0] + 3, room.posMin[1] + 1, room.posMax[0] - 3, room.posMax[1] - 1, TerrainType.GroundWater);
+                setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 3, room.posMax[0] - 1, room.posMax[1] - 3, TerrainType.GroundWater);
+            } else {
+                setRectTerrainType(map, room.posMin[0] + 1, room.posMin[1] + 1, room.posMax[0] - 1, room.posMax[1] - 1, TerrainType.GroundWater);
+            }
+        } else {
+            if (dx > dy) {
+                for (let x = room.posMin[0] + 3; x < room.posMax[0] - 3; ++x) {
+                    placeItem(map, vec2.fromValues(x, room.posMin[1] + 1), ItemType.Chair);
+                    placeItem(map, vec2.fromValues(x, room.posMax[1] - 2), ItemType.Chair);
+                }
+            } else if (dy > dx) {
+                for (let y = room.posMin[1] + 3; y < room.posMax[1] - 3; ++y) {
+                    placeItem(map, vec2.fromValues(room.posMin[0] + 1, y), ItemType.Chair);
+                    placeItem(map, vec2.fromValues(room.posMax[0] - 2, y), ItemType.Chair);
+                }
+            } else if (dx === 5 && dy === 5) {
+                placeItem(map, vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + 1), ItemType.Table);
+                placeItem(map, vec2.fromValues(room.posMin[0] + 2, room.posMin[1] + 1), ItemType.Chair);
+                placeItem(map, vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + 2), ItemType.Chair);
+                placeItem(map, vec2.fromValues(room.posMax[0] - 2, room.posMax[1] - 2), randomlyLitTorch(level, rng));
+            }
         }
 
-        map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
-        map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
-        map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
-        map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
+        if (dx > 5 || dy > 5) {
+            map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
+            map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
+            map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
+            map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
+
+            if (dx > dy) {
+                const dyLamp = Math.floor(dy / 2);
+                placeItem(map, vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + dyLamp), randomlyLitTorch(level, rng));
+                placeItem(map, vec2.fromValues(room.posMax[0] - 2, room.posMax[1] - (dyLamp + 1)), randomlyLitTorch(level, rng));
+            } else if (dy > dx) {
+                const dxLamp = Math.floor(dx / 2);
+                placeItem(map, vec2.fromValues(room.posMin[0] + dxLamp, room.posMin[1] + 1), randomlyLitTorch(level, rng));
+                placeItem(map, vec2.fromValues(room.posMax[0] - (dxLamp + 1), room.posMax[1] - 2), randomlyLitTorch(level, rng));
+            }
+        }
     } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || rng.random() < 0.33333)) {
         const itemTypes = new Array(dy - 2).fill(ItemType.Table);
         itemTypes.push(randomlyLitTorch(level, rng));
