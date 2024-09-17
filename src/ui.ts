@@ -25,7 +25,7 @@ function scoreToClipboard(stats:GameStats) {
         '\uD83D\uDC80 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
 
     navigator.clipboard.writeText(
-        `\uD83C\uDFDB\uFE0F Lurk, Leap, Loot \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
+        `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
         `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
         `Ghosted:     ${numGhostedLevels}\n`+
         `Total score: ${totalScore}\n`
@@ -284,7 +284,7 @@ class TextWindow {
 
 class HomeScreen extends TextWindow {
     pages = [
-`Lurk, Leap, Loot
+`LLLOOOT!
 
 $playRestartOrResume$
 [H|helpControls]: Controls help
