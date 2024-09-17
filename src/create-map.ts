@@ -492,18 +492,23 @@ function makeMansionRoomGrid(inside: BooleanGrid, rng: RNG) {
 }
 
 function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, needKey: boolean, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
-    if (level < 8) {
-        if (level < 2) {
-            return;
-        }
+    if (level < 2) {
+        return;
+    }
 
+    if (level < 8) {
+        addSeatedGuard(map, rooms, needKey, patrolRoutes, rng);
+        return;
+    }
+
+    const room = rooms.find((r)=>r.roomType===RoomType.Vault);
+    if (room===undefined) {
         addSeatedGuard(map, rooms, needKey, patrolRoutes, rng);
         return;
     }
 
     const ttypes = [TerrainType.GroundGrass, TerrainType.GroundMarble, TerrainType.GroundWood];
-    const room = rooms.find((r)=>r.roomType===RoomType.Vault);
-    if (room===undefined) return;
+
     for(let adj of room.edges) {
         if (adj.doorType===DoorType.Locked) {
             let pos = adj.origin;
@@ -533,7 +538,6 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, need
             }
         }
     }
-    return;
 }
 
 function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, patrolRoutes: Array<PatrolRoute>, rng: RNG) {
