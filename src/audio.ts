@@ -471,6 +471,12 @@ const guardSeeTorchDousedSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/ahh.mp3'), 'Why did that\nhappen?'],
 ];
 
+const guardSeeStolenTreasureSet: Array<SubtitledSoundDesc> = [
+    [require('url:./audio/guards/thief.mp3'), 'Someone stole the Treasure!'],
+    [require('url:./audio/guards/thief-2.mp3'), 'Someone stole the Treasure!'],
+    [require('url:./audio/guards/thief-3.mp3'), 'Someone stole the Treasure!'],
+];
+
 
 export class ActiveHowlPool {
     activeHowls: Array<[Howl, number]>;
@@ -662,4 +668,5 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     subtitledSounds.guardRest =  new SubtitledHowlGroup(guardRestSet, howlPool);
     subtitledSounds.guardSeeTorchLit = new SubtitledHowlGroup(guardSeeTorchLitSet, howlPool);
     subtitledSounds.guardSeeTorchDoused = new SubtitledHowlGroup(guardSeeTorchDousedSet, howlPool);
+    subtitledSounds.guardSeeStolenTreasure = new SubtitledHowlGroup(guardSeeStolenTreasureSet, howlPool);
 }

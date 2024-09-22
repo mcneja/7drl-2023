@@ -38,6 +38,8 @@ enum RoomType {
     Kitchen,
     Treasure,
     TreasureCourtyard,
+    LockedTreasure,
+    LockedTreasureCourtyard,
 }
 
 enum DoorType {
@@ -1991,11 +1993,15 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
         }
     }
 
-    if (libraryArea >= 60) {
-        for (const room of chooseRooms(rooms, roomCanBeTreasure, 1, rng)) {
+    if (libraryArea >= 60) { //Mansions with big libraries will have locked treasure(s)
+        for (const room of chooseRooms(rooms, roomCanBeTreasure, level === 9 ? 2 : 1, rng)) {
+            room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.LockedTreasureCourtyard : RoomType.LockedTreasure;
+        }
+    } else if (libraryArea >= 30 || level === 9) { //Unlocked treasures don't use the library but we use as a proxy of wealth :)
+        for (const room of chooseRooms(rooms, roomCanBeTreasure, level === 9 ? 2 : 1, rng)) {
             room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.TreasureCourtyard : RoomType.Treasure;
         }
-    }
+    } 
 }
 
 function roomArea(room: Room): number {
@@ -3914,6 +3920,8 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             case RoomType.Kitchen: cellType = TerrainType.GroundWood; break;
             case RoomType.Treasure: cellType = room.privateRoom ? TerrainType.GroundMarble : TerrainType.GroundWood; break;
             case RoomType.TreasureCourtyard: cellType = TerrainType.GroundGrass; break;
+            case RoomType.LockedTreasure: cellType = room.privateRoom ? TerrainType.GroundMarble : TerrainType.GroundWood; break;
+            case RoomType.LockedTreasureCourtyard: cellType = TerrainType.GroundGrass; break;
         }
 
         setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
@@ -3933,6 +3941,10 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
         } else if (room.roomType === RoomType.Treasure) {
             renderRoomTreasure(map, room, level, rng);
         } else if (room.roomType === RoomType.TreasureCourtyard) {
+            renderRoomTreasureCourtyard(map, room, level, rng);
+        } else if (room.roomType === RoomType.LockedTreasure) {
+            renderRoomTreasure(map, room, level, rng);
+        } else if (room.roomType === RoomType.LockedTreasureCourtyard) {
             renderRoomTreasureCourtyard(map, room, level, rng);
         } else if (room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary) {
             renderRoomLibrary(map, room, level, rng);
@@ -4484,7 +4496,10 @@ function renderRoomTreasure(map: GameMap, room: Room, level: number, rng: RNG) {
 
     setRectTerrainType(map, x, y, x + 1, y + 1, TerrainType.GroundTreasure);
 
-    placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLockBox);
+    placeItem(map, vec2.fromValues(x, y), ItemType.TreasurePlinth);
+    if (room.roomType===RoomType.LockedTreasure) {
+        placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLock);
+    }
 
     if (dx >= 5 || dy >= 5) {
         tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMin[1]), randomlyLitTorch(level, rng));
@@ -4513,7 +4528,10 @@ function renderRoomTreasureCourtyard(map: GameMap, room: Room, level: number, rn
         setRectTerrainType(map, x, y, x + 1, y + 1, TerrainType.GroundTreasure);
     }
 
-    placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLockBox);
+    placeItem(map, vec2.fromValues(x, y), ItemType.TreasurePlinth);
+    if (room.roomType===RoomType.LockedTreasureCourtyard) {
+        placeItem(map, vec2.fromValues(x, y), ItemType.TreasureLock);
+    }
 
     if (dx >= 5 || dy >= 5) {
         tryPlaceItem(map, vec2.fromValues(room.posMin[0], room.posMin[1]), randomlyLitTorch(level, rng));
@@ -4861,8 +4879,8 @@ function isWallOrWindowTerrainType(terrainType: TerrainType): boolean {
     return terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.OneWayWindowS;
 }
 
-function placeItem(map: GameMap, pos: vec2, type: ItemType) {
-    map.items.push({
+function placeItem(map: GameMap, pos: vec2, type: ItemType, insertPos:number=-1) {
+    map.items.splice(insertPos, 0, {
         pos: vec2.clone(pos),
         type: type,
     });
@@ -5049,57 +5067,60 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 }
 
 function placeTreasure(map: GameMap, rng: RNG) {
-    const treasureLockBox = map.items.find(item => item.type === ItemType.TreasureLockBox);
-    if (treasureLockBox === undefined) {
-        return;
+    for (let plinth of map.items.filter(item => item.type === ItemType.TreasurePlinth)) 
+    {
+        const plinthIndex = map.items.findIndex((item)=>item===plinth);
+        placeItem(map, plinth.pos, ItemType.Treasure, plinthIndex+1);
     }
 
-    const books = map.items.filter(item => item.type === ItemType.Bookshelf);
-    if (books.length === 0) {
-        return;
-    }
-
-    rng.shuffleArray(books);
-    books.length = Math.min(books.length, 3);
-
-    vec2.copy(map.treasureUnlock.posTreasure, treasureLockBox.pos);
-
-    let clue = '';
-    for (const book of books) {
-        if (clue.length > 0) {
-            clue += '\n';
+    for (let plinth of map.items.filter(item => item.type === ItemType.TreasureLock)) {
+        const books = map.items.filter(item => item.type === ItemType.Bookshelf);
+        if (books.length === 0) {
+            continue;
         }
-        const title = map.bookTitle.get(book)!;
-        let titleFirstWord = title.split(' ')[0];
-        if (titleFirstWord.endsWith(',')) {
-            titleFirstWord = titleFirstWord.substring(0, titleFirstWord.length - 1);
+    
+        rng.shuffleArray(books);
+        books.length = Math.min(books.length, 3);
+    
+        map.treasureInfo.posTreasures.push(vec2.clone(plinth.pos));
+    
+        let clue = '';
+        for (const book of books) {
+            if (clue.length > 0) {
+                clue += '\n';
+            }
+            const title = map.bookTitle.get(book)!;
+            let titleFirstWord = title.split(' ')[0];
+            if (titleFirstWord.endsWith(',')) {
+                titleFirstWord = titleFirstWord.substring(0, titleFirstWord.length - 1);
+            }
+            clue += titleFirstWord;
+            map.treasureInfo.switches.push(vec2.clone(book.pos));
         }
-        clue += titleFirstWord;
-        map.treasureUnlock.switches.push(vec2.clone(book.pos));
-    }
-
-    // Find a piece of furniture to put a clue note on
-
-    const lootPositions = new Set();
-    for (const item of map.items) {
-        if (item.type === ItemType.Coin || item.type === ItemType.Health) {
-            lootPositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
+    
+        // Find a piece of furniture to put a clue note on
+    
+        const lootPositions = new Set();
+        for (const item of map.items) {
+            if (item.type === ItemType.Coin || item.type === ItemType.Health) {
+                lootPositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
+            }
         }
-    }
-
-    let furniture = map.items.filter(item =>
-        (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
-        !lootPositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
-    );
-
-    if (furniture.length > 0) {
-        const pos = furniture[rng.randomInRange(furniture.length)].pos;
-        const note = {
-            pos: vec2.clone(pos),
-            type: ItemType.Note,
-        };
-        map.items.push(note);
-        map.bookTitle.set(note, clue);
+    
+        let furniture = map.items.filter(item =>
+            (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
+            !lootPositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
+        );
+    
+        if (furniture.length > 0) {
+            const pos = furniture[rng.randomInRange(furniture.length)].pos;
+            const note = {
+                pos: vec2.clone(pos),
+                type: ItemType.Note,
+            };
+            map.items.push(note);
+            map.bookTitle.set(note, clue);
+        }   
     }
 }
 
@@ -5357,7 +5378,8 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
         case RoomType.PublicCourtyard:
         case RoomType.PrivateCourtyard:
         case RoomType.TreasureCourtyard:
-            return true;
+        case RoomType.LockedTreasureCourtyard:
+                return true;
         case RoomType.Exterior:
         case RoomType.PublicRoom:
         case RoomType.PrivateRoom:
@@ -5368,7 +5390,8 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
         case RoomType.PrivateLibrary:
         case RoomType.Kitchen:
         case RoomType.Treasure:
-            return false;
+        case RoomType.LockedTreasure:
+                return false;
     }
 }
 

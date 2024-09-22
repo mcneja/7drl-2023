@@ -485,6 +485,23 @@ class Guard {
                 }
             }
 
+            // If we see a stolen treasure, get angry and shoot to alert other guards
+
+            if (map.treasureInfo.posStolen.length>0) {
+                for(let pos of map.treasureInfo.posStolen) {
+                    if (!this.angry &&
+                        isRelaxedGuardMode(this.mode) &&
+                        vec2.squaredDistance(this.pos, pos) <= distSquaredSeeTorchMax &&
+                        lineOfSightToPosition(map, this.pos, pos)) {
+                            this.mode = GuardMode.MoveToLastSighting;
+                            this.angry = true;
+                            this.modeTimeout = 3;
+                            speech.push({ speaker: this, speechType: PopupType.GuardSeeStolenTreasure });
+                            shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(pos), angry: true});
+                        }
+                }
+            }
+
             // If we see an extinguished torch, move to light it.
 
             if (this.hasTorch && this.mode === GuardMode.Patrol) {
@@ -507,7 +524,7 @@ class Guard {
                 isRelaxedGuardMode(this.mode) &&
                 player.itemUsed !== null &&
                 vec2.squaredDistance(this.pos, player.itemUsed.pos) <= distSquaredSeeTorchMax &&
-                lineOfSightToTorch(map, this.pos, player.itemUsed.pos)) {
+                lineOfSightToPosition(map, this.pos, player.itemUsed.pos)) {
                 if (player.itemUsed.type === ItemType.TorchLit) {
                     vec2.copy(this.goal, player.itemUsed.pos);
                     this.mode = GuardMode.LookAtTorch;
@@ -880,6 +897,7 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardFinishLookingAtLitTorch: return 'guardFinishLookingAtLitTorch';
         case PopupType.GuardStirring: return 'guardStirring';
         case PopupType.GuardSeeTorchDoused: return 'guardSeeTorchDoused';
+        case PopupType.GuardSeeStolenTreasure: return 'guardSeeStolenTreasure';
     }
 }
 
@@ -985,7 +1003,7 @@ function torchNeedingRelighting(map: GameMap, posViewer: vec2): Item | undefined
             if (distSquared >= bestDistSquared) {
                 continue;
             }
-            if (!lineOfSightToTorch(map, posViewer, item.pos)) {
+            if (!lineOfSightToPosition(map, posViewer, item.pos)) {
                 continue;
             }
             bestDistSquared = distSquared;
@@ -1056,7 +1074,7 @@ function lineOfSight(map: GameMap, from: vec2, to: vec2): boolean {
     return true;
 }
 
-function blocksLineOfSightToTorch(cell: Cell): boolean {
+function blocksLineOfSightToCell(cell: Cell): boolean {
     if (cell.blocksSight) {
         return true;
     }
@@ -1068,7 +1086,7 @@ function blocksLineOfSightToTorch(cell: Cell): boolean {
     return false;
 }
 
-function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
+function lineOfSightToPosition(map: GameMap, from: vec2, to: vec2): boolean {
     let x = from[0];
     let y = from[1];
 
@@ -1093,7 +1111,7 @@ function lineOfSightToTorch(map: GameMap, from: vec2, to: vec2): boolean {
             y += y_inc;
             error -= ax;
         } else {
-            if (error === 0 && blocksLineOfSightToTorch(map.cells.at(x, y + y_inc))) {
+            if (error === 0 && blocksLineOfSightToCell(map.cells.at(x, y + y_inc))) {
                 return false;
             }
             x += x_inc;

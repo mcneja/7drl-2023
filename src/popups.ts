@@ -23,6 +23,7 @@ enum PopupType {
     GuardFinishLookingAtLitTorch,
     GuardStirring,
     GuardSeeTorchDoused,
+    GuardSeeStolenTreasure,
 }
 
 const dTShow: number = 2.0;

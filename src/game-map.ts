@@ -272,7 +272,8 @@ enum ItemType {
     Key,
     KeyCarry, 
     Note,
-    TreasureLockBox,
+    TreasureLock,
+    TreasurePlinth,
     Treasure,
 }
 
@@ -309,7 +310,8 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.Key: return 0;
         case ItemType.KeyCarry: return 0;
         case ItemType.Note: return 0;
-        case ItemType.TreasureLockBox: return Infinity;
+        case ItemType.TreasureLock: return Infinity;
+        case ItemType.TreasurePlinth: return Infinity;
         case ItemType.Treasure: return Infinity;
     }
 }
@@ -441,10 +443,11 @@ type DistPos = {
     pos: vec2;
 }
 
-type TreasureUnlock = {
+type TreasureInfo = {
     switches: Array<vec2>;
     numSwitchesUsed: number;
-    posTreasure: vec2;
+    posTreasures: vec2[];
+    posStolen: vec2[];
 }
 
 class GameMap {
@@ -459,7 +462,7 @@ class GameMap {
     adjacencies: Array<Adjacency>;
     backtrackingCoefficient: number;
     bookTitle: Map<Item, string>;
-    treasureUnlock: TreasureUnlock;
+    treasureInfo: TreasureInfo;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -473,10 +476,11 @@ class GameMap {
         this.adjacencies = [];
         this.backtrackingCoefficient = 1;
         this.bookTitle = new Map();
-        this.treasureUnlock = {
+        this.treasureInfo = {
             switches: [],
             numSwitchesUsed: 0,
-            posTreasure: vec2.create(),
+            posTreasures: [],
+            posStolen: [],
         }
     }
 
@@ -498,7 +502,7 @@ class GameMap {
             } else {
                 return true;
             }
-        })
+        });
         return items;
     }
 

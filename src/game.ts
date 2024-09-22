@@ -482,7 +482,8 @@ export function advanceToWin(state: State) {
 }
 
 function canCollectLootAt(state: State, pos: vec2): boolean {
-    return state.gameMap.hasLootAt(pos);
+    return state.gameMap.hasLootAt(pos) && 
+        !state.gameMap.items.find((item)=>item.type === ItemType.TreasureLock && item.pos.equals(pos));
 }
 
 function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
@@ -501,7 +502,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         } else if (item.type === ItemType.Treasure) {
             coinCollected = true;
             ++state.treasureStolen;
-            offset = 0.625;
+            state.gameMap.treasureInfo.posStolen.push(vec2.clone(pos));
+            offset = 0.5;
         } else if (item.type === ItemType.Health) {
             enlargeHealthBar(state);
             if (state.player.health >= maxPlayerHealth) {
@@ -571,7 +573,8 @@ function canStepToPos(state: State, pos: vec2): boolean {
         case ItemType.TorchLit:
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
-        case ItemType.TreasureLockBox:
+        case ItemType.TreasureLock:
+        case ItemType.TreasurePlinth:
         case ItemType.Treasure:
             return false;
         }
@@ -994,7 +997,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
         } else {
             preTurn(state);
             const firstBump = state.player.pickTarget !== item;
-            const secretSwitchIndex = state.gameMap.treasureUnlock.switches.findIndex(s => s.equals(item.pos));
+            const secretSwitchIndex = state.gameMap.treasureInfo.switches.findIndex(s => s.equals(item.pos));
             state.player.pickTarget = (firstBump && secretSwitchIndex >= 0) ? item : null;
             if (!state.gameMap.cells.at(x, y).lit) {
                 state.player.lightActive = true;
@@ -1010,19 +1013,17 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                     title = '"' + title + '"';
                 }
                 state.popups.setNotification(title, state.player.pos);
-            } else if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+            } else if (state.gameMap.treasureInfo.numSwitchesUsed >= state.gameMap.treasureInfo.switches.length) {
                 state.sounds.switchReset.play(0.5);
                 state.popups.setNotification('(clunk)', state.player.pos);
-            } else if (secretSwitchIndex === state.gameMap.treasureUnlock.numSwitchesUsed) {
-                ++state.gameMap.treasureUnlock.numSwitchesUsed;
-                if (state.gameMap.treasureUnlock.numSwitchesUsed >= state.gameMap.treasureUnlock.switches.length) {
+            } else if (secretSwitchIndex === state.gameMap.treasureInfo.numSwitchesUsed) {
+                ++state.gameMap.treasureInfo.numSwitchesUsed;
+                if (state.gameMap.treasureInfo.numSwitchesUsed >= state.gameMap.treasureInfo.switches.length) {
                     state.sounds.switchSuccess.play(0.5);
                     state.popups.setNotification('(rumble)', state.player.pos);
                     joltCamera(state, dx, dy);
-                    state.gameMap.items.push({
-                        pos: vec2.clone(state.gameMap.treasureUnlock.posTreasure),
-                        type: ItemType.Treasure,
-                    });
+                    state.gameMap.items.filter((item)=>item.type===ItemType.TreasureLock);
+                    //TODO: We should add an animation show the gate come down
                 } else {
                     state.sounds.switchProgress.play(0.5);
                     state.popups.setNotification('(click)', state.player.pos);
@@ -1030,11 +1031,11 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             } else if (secretSwitchIndex === 0) {
                 state.sounds.switchProgress.play(0.5);
                 state.popups.setNotification('(click)', state.player.pos);
-                state.gameMap.treasureUnlock.numSwitchesUsed = 1;
+                state.gameMap.treasureInfo.numSwitchesUsed = 1;
             } else {
                 state.sounds.switchReset.play(0.5);
                 state.popups.setNotification('(clunk)', state.player.pos);
-                state.gameMap.treasureUnlock.numSwitchesUsed = 0;
+                state.gameMap.treasureInfo.numSwitchesUsed = 0;
             }
         }
     }
@@ -1183,7 +1184,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(posNew))) {
         switch (item.type) {
         case ItemType.DrawersShort:
-        case ItemType.TreasureLockBox:
+        case ItemType.TreasurePlinth:
             if (canCollectLootAt(state, posNew)) {
                 preTurn(state);
                 collectLoot(state, posNew, player.pos);
@@ -1930,7 +1931,8 @@ function canLeapOntoItemType(itemType: ItemType): boolean {
         case ItemType.DrawersShort:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
-        case ItemType.TreasureLockBox:
+        case ItemType.TreasureLock:
+        case ItemType.TreasurePlinth:
         case ItemType.Treasure:
             return false;
         default:
@@ -2302,7 +2304,7 @@ function renderWorld(state: State, renderer: Renderer) {
             const ti = item.animation ?
                 item.animation.currentTile() :
                 itemTiles[item.type];
-            renderer.addGlyphLit4(x, y+0.625, x + 1, y + 1.625, ti, lv);
+            renderer.addGlyphLit4(x, y+0.5, x + 1, y + 1.5, ti, lv);
         } else {
             const ti = item.animation ?
                 item.animation.currentTile() :
