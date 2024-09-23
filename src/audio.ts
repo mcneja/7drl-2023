@@ -472,9 +472,9 @@ const guardSeeTorchDousedSet: Array<SubtitledSoundDesc> = [
 ];
 
 const guardSeeStolenTreasureSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/thief.mp3'), 'Someone stole the Treasure!'],
-    [require('url:./audio/guards/thief-2.mp3'), 'Someone stole the Treasure!'],
-    [require('url:./audio/guards/thief-3.mp3'), 'Someone stole the Treasure!'],
+    [require('url:./audio/guards/thief.mp3'), 'Someone stole\nthe Treasure!'],
+    [require('url:./audio/guards/thief-2.mp3'), 'It\'s missing!'],
+    [require('url:./audio/guards/thief-3.mp3'), 'Who took that?'],
 ];
 
 
