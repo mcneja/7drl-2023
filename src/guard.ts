@@ -485,20 +485,22 @@ class Guard {
                 }
             }
 
-            // If we see a stolen treasure, get angry and shoot to alert other guards
+            // If we see a stolen treasure, get angry and shout to alert other guards
 
-            if (map.treasureInfo.posStolen.length>0) {
-                for(let pos of map.treasureInfo.posStolen) {
-                    if (!this.angry &&
-                        isRelaxedGuardMode(this.mode) &&
-                        vec2.squaredDistance(this.pos, pos) <= distSquaredSeeTorchMax &&
-                        lineOfSightToPosition(map, this.pos, pos)) {
-                            this.mode = GuardMode.MoveToLastSighting;
-                            this.angry = true;
-                            this.modeTimeout = 3;
-                            speech.push({ speaker: this, speechType: PopupType.GuardSeeStolenTreasure });
-                            shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(pos), angry: true});
-                        }
+            if (map.treasureInfo.posStolen.length>0 &&
+                !this.angry &&
+                isRelaxedGuardMode(this.mode)) {
+                const pos = map.treasureInfo.posStolen.find(pos =>
+                    vec2.squaredDistance(this.pos, pos) <= distSquaredSeeTorchMax &&
+                    lineOfSightToPosition(map, this.pos, pos));
+
+                if (pos !== undefined) {
+                    this.mode = GuardMode.MoveToLastSighting;
+                    vec2.copy(this.goal, pos);
+                    this.angry = true;
+                    this.modeTimeout = 3;
+                    speech.push({ speaker: this, speechType: PopupType.GuardSeeStolenTreasure });
+                    shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(pos), angry: true});
                 }
             }
 
