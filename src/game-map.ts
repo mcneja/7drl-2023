@@ -493,10 +493,14 @@ class GameMap {
 
     collectLootAt(pos:vec2): Array<Item> {
         let items:Array<Item> = [];
+        const lockedTreasure = this.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(pos));
         this.items = this.items.filter((item) => {
             if (!item.pos.equals(pos)) {
                 return true;
-            } else if (item.type === ItemType.Coin || item.type === ItemType.Treasure || item.type === ItemType.Health) {
+            } else if (item.type === ItemType.Coin || item.type === ItemType.Health) {
+                items.push(item);
+                return false;
+            } else if (item.type === ItemType.Treasure && !lockedTreasure) {
                 items.push(item);
                 return false;
             } else {

@@ -1022,7 +1022,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                     state.sounds.switchSuccess.play(0.5);
                     state.popups.setNotification('(rumble)', state.player.pos);
                     joltCamera(state, dx, dy);
-                    state.gameMap.items.filter((item)=>item.type===ItemType.TreasureLock);
+                    state.gameMap.items = state.gameMap.items.filter((item)=>item.type!==ItemType.TreasureLock);
                     //TODO: We should add an animation show the gate come down
                 } else {
                     state.sounds.switchProgress.play(0.5);
@@ -1185,7 +1185,10 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         switch (item.type) {
         case ItemType.DrawersShort:
         case ItemType.TreasurePlinth:
-            if (canCollectLootAt(state, posNew)) {
+            if (state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
+                state.popups.setNotification('Locked!', state.player.pos);
+                tryMakeBangNoise(state, dx, dy, stepType);
+            } else if (canCollectLootAt(state, posNew)) {
                 preTurn(state);
                 collectLoot(state, posNew, player.pos);
                 player.pickTarget = null;

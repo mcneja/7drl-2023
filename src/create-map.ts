@@ -4879,8 +4879,8 @@ function isWallOrWindowTerrainType(terrainType: TerrainType): boolean {
     return terrainType >= TerrainType.Wall0000 && terrainType <= TerrainType.OneWayWindowS;
 }
 
-function placeItem(map: GameMap, pos: vec2, type: ItemType, insertPos:number=-1) {
-    map.items.splice(insertPos, 0, {
+function placeItem(map: GameMap, pos: vec2, type: ItemType) {
+    map.items.push({
         pos: vec2.clone(pos),
         type: type,
     });
@@ -5069,8 +5069,7 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 function placeTreasure(map: GameMap, rng: RNG) {
     for (let plinth of map.items.filter(item => item.type === ItemType.TreasurePlinth)) 
     {
-        const plinthIndex = map.items.findIndex((item)=>item===plinth);
-        placeItem(map, plinth.pos, ItemType.Treasure, plinthIndex+1);
+        placeItem(map, plinth.pos, ItemType.Treasure);
     }
 
     for (let plinth of map.items.filter(item => item.type === ItemType.TreasureLock)) {
@@ -5122,6 +5121,18 @@ function placeTreasure(map: GameMap, rng: RNG) {
             map.bookTitle.set(note, clue);
         }   
     }
+
+    // Sort the treasure locks to the end of the item list so they will render after the treasures
+
+    map.items.sort((item0, item1) => {
+        if (item0.type === ItemType.TreasureLock && item1.type !== ItemType.TreasureLock) {
+            return 1;
+        }
+        if (item0.type !== ItemType.TreasureLock && item1.type === ItemType.TreasureLock) {
+            return -1;
+        }
+        return 0;
+    });
 }
 
 function placeHealth(level: number, map: GameMap, rooms: Array<Room>, rng: RNG) {
