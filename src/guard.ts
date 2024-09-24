@@ -21,6 +21,8 @@ enum GuardMode {
     MoveToLastSound,
     MoveToGuardShout,
     MoveToDownedGuard,
+    MoveToMissingTreasure,
+    LookAtMissingTreasure,
     WakeGuard,
     MoveToTorch,
     LightTorch,
@@ -156,6 +158,8 @@ class Guard {
             break;
 
         case GuardMode.MoveToDownedGuard:
+        case GuardMode.MoveToMissingTreasure:
+        case GuardMode.LookAtMissingTreasure:
         case GuardMode.WakeGuard:
         case GuardMode.MoveToTorch:
         case GuardMode.LightTorch:
@@ -336,6 +340,32 @@ class Guard {
             }
             break;
 
+        case GuardMode.MoveToMissingTreasure:
+            this.makeBestAvailableMove(map, player);
+            if (this.cardinallyAdjacentTo(this.goal)) {
+                this.mode = GuardMode.LookAtMissingTreasure;
+                this.modeTimeout = 4;
+            } else if (this.pos.equals(posPrev)) {
+                this.modeTimeout -= 1;
+                if (this.modeTimeout <= 0) {
+                    this.enterPatrolMode(map);
+                }
+            } else {
+                this.modeTimeout = 3;
+            }
+            break;
+
+        case GuardMode.LookAtMissingTreasure:
+            this.makeBestAvailableMove(map, player);
+            if (this.pos.equals(posPrev) && this.cardinallyAdjacentTo(this.goal)) {
+                updateDir(this.dir, this.pos, this.goal);
+            }
+            this.modeTimeout -= 1;
+            if (this.modeTimeout <= 0) {
+                this.enterPatrolMode(map);
+            }
+            break;
+
         case GuardMode.WakeGuard:
             this.makeBestAvailableMove(map, player);
 
@@ -490,17 +520,12 @@ class Guard {
             if (map.treasureInfo.posStolen.length>0 &&
                 !this.angry &&
                 isRelaxedGuardMode(this.mode)) {
-                const pos = map.treasureInfo.posStolen.find(pos =>
-                    vec2.squaredDistance(this.pos, pos) <= distSquaredSeeTorchMax &&
-                    lineOfSightToPosition(map, this.pos, pos));
-
+                const pos = map.treasureInfo.posStolen.find(pos => this.seesPosition(map, pos));
                 if (pos !== undefined) {
-                    this.mode = GuardMode.MoveToLastSighting;
+                    this.mode = GuardMode.MoveToMissingTreasure;
                     vec2.copy(this.goal, pos);
                     this.angry = true;
                     this.modeTimeout = 3;
-                    speech.push({ speaker: this, speechType: PopupType.GuardSeeStolenTreasure });
-                    shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(pos), angry: true});
                 }
             }
 
@@ -561,6 +586,10 @@ class Guard {
             shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(player.pos), angry: false});
             ++levelStats.numSpottings;
         }
+
+        if (this.mode === GuardMode.LookAtMissingTreasure && this.modePrev !== GuardMode.LookAtMissingTreasure) {
+            shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(this.goal), angry: true});
+        }
     }
 
     tryStepGoalForward(state: State) {
@@ -598,34 +627,48 @@ class Guard {
         return Math.abs(dx) < 2 && Math.abs(dy) < 2;
     }
 
-    seesActor(map: GameMap, person: Player|Guard, offset: number = 0): boolean {
+    seesActor(map: GameMap, actor: Player|Guard, offset: number = 0): boolean {
+        return this.seesPositionInternal(map, actor.pos, actor.hidden(map), lineOfSight, offset);
+    }
+
+    seesPosition(map: GameMap, pos: vec2): boolean {
+        return this.seesPositionInternal(map, pos, false, lineOfSightToPosition, 0);
+    }
+
+    seesPositionInternal(
+        map: GameMap,
+        pos: vec2,
+        targetIsHidden: boolean,
+        lineOfSightFunc: (map: GameMap, posFrom: vec2, posTo: vec2) => boolean,
+        offset: number): boolean {
+
         const d = vec2.create();
-        vec2.subtract(d, person.pos, this.pos);
+        vec2.subtract(d, pos, this.pos);
 
         // Check view frustum except when in GuardMode.ChaseVisibleTarget
         if (this.mode !== GuardMode.ChaseVisibleTarget && vec2.dot(this.dir, d) < offset) {
             return false;
         }
 
-        const personIsLit = map.cells.atVec(person.pos).lit>0;
+        const positionIsLit = map.cells.atVec(pos).lit>0;
 
         const d2 = vec2.squaredLen(d);
-        if (d2 >= this.sightCutoff(personIsLit) && !(d[0] === this.dir[0] * 2 && d[1] === this.dir[1] * 2)) {
+        if (d2 >= this.sightCutoff(positionIsLit) && !(d[0] === this.dir[0] * 2 && d[1] === this.dir[1] * 2)) {
             return false;
         }
 
         if ((isRelaxedGuardMode(this.mode) && !this.angry) || Math.abs(d[0]) >= 2 || Math.abs(d[1]) >= 2) {
-            // Enemy is relaxed and/or player is distant. Normal line-of-sight applies.
-            if (person.hidden(map) || !lineOfSight(map, this.pos, person.pos)) {
+            // Enemy is relaxed and/or position is distant. Normal line-of-sight applies.
+            if (targetIsHidden || !lineOfSightFunc(map, this.pos, pos)) {
                 return false;
             }
         } else {
-            // Enemy is searching and player is adjacent. If diagonally adjacent, line of
+            // Enemy is searching and position is adjacent. If diagonally adjacent, line of
             // sight can be blocked by a sight-blocker in either mutually-adjacent square.
-            if (this.pos[0] !== person.pos[0] &&
-                this.pos[1] !== person.pos[1] &&
-                (map.cells.at(this.pos[0], person.pos[1]).blocksSight ||
-                 map.cells.at(person.pos[0], this.pos[1]).blocksSight)) {
+            if (this.pos[0] !== pos[0] &&
+                this.pos[1] !== pos[1] &&
+                (map.cells.at(this.pos[0], pos[1]).blocksSight ||
+                 map.cells.at(pos[0], this.pos[1]).blocksSight)) {
                 return false;
             }
         }
@@ -922,6 +965,8 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 case GuardMode.InvestigateLastSighting: return PopupType.GuardEndChase;
                 case GuardMode.LightTorch: return inEarshot ? PopupType.GuardFinishLightingTorch : undefined;
                 case GuardMode.Unconscious: return PopupType.GuardAwakesWarning;
+                case GuardMode.MoveToMissingTreasure: return undefined;
+                case GuardMode.LookAtMissingTreasure: return undefined;
                 default: return undefined;
             }
         case GuardMode.Look: return PopupType.GuardSeeThief;
@@ -950,6 +995,8 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 return undefined;
             }
         case GuardMode.MoveToDownedGuard: return PopupType.GuardDownWarning;
+        case GuardMode.MoveToMissingTreasure: return undefined;
+        case GuardMode.LookAtMissingTreasure: return PopupType.GuardSeeStolenTreasure;
     }
 
     return undefined;
