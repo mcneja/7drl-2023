@@ -11,6 +11,7 @@ enum PopupType {
     GuardHearThief,
     GuardDownWarning,
     GuardAwakesWarning,
+    GuardExamineStolenTreasure,
     GuardWarningResponse,
     GuardHearGuard,
     GuardSeeTorchLit,
@@ -22,8 +23,8 @@ enum PopupType {
     GuardFinishLightingTorch,
     GuardFinishLookingAtLitTorch,
     GuardStirring,
+    GuardSpotStolenTreasure,
     GuardSeeTorchDoused,
-    GuardSeeStolenTreasure,
 }
 
 const dTShow: number = 2.0;

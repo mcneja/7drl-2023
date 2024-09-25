@@ -942,7 +942,8 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardFinishLookingAtLitTorch: return 'guardFinishLookingAtLitTorch';
         case PopupType.GuardStirring: return 'guardStirring';
         case PopupType.GuardSeeTorchDoused: return 'guardSeeTorchDoused';
-        case PopupType.GuardSeeStolenTreasure: return 'guardSeeStolenTreasure';
+        case PopupType.GuardSpotStolenTreasure: return 'guardSpotStolenTreasure';
+        case PopupType.GuardExamineStolenTreasure: return 'guardExamineStolenTreasure';
     }
 }
 
@@ -995,8 +996,8 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
                 return undefined;
             }
         case GuardMode.MoveToDownedGuard: return PopupType.GuardDownWarning;
-        case GuardMode.MoveToMissingTreasure: return undefined;
-        case GuardMode.LookAtMissingTreasure: return PopupType.GuardSeeStolenTreasure;
+        case GuardMode.MoveToMissingTreasure: return PopupType.GuardSpotStolenTreasure;
+        case GuardMode.LookAtMissingTreasure: return PopupType.GuardExamineStolenTreasure;
     }
 
     return undefined;
