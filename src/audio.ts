@@ -113,7 +113,7 @@ const outdoorAmbientSet = [
 ]
 
 const doorOpenSet = [
-    require('url:./audio/door-open.mp3'),
+    require('url:./audio/guard-door.mp3'),
 ]
 
 const doorCloseSet = [

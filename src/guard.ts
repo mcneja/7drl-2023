@@ -776,8 +776,7 @@ function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2,
             checkedCells.add(p[1]*cells.sizeX+p[0]);
             const c = cells.atVec(p);
             if (c.type===TerrainType.DoorEW || c.type===TerrainType.DoorNS ||
-                c.type===TerrainType.PortcullisEW || c.type===TerrainType.PortcullisNS
-            ) {
+                c.type===TerrainType.PortcullisEW || c.type===TerrainType.PortcullisNS) {
                 const door = doors.find((door)=>door.pos.equals(p));
                 const guardInDoor = movingGuardPositionPairs.find(pairs=>pairs[0].equals(p));
                 const guardLeftDoor = movingGuardPositionPairs.find(pairs=>pairs[1].equals(p));
@@ -785,7 +784,7 @@ function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2,
                     switch(door.type) {
                         case ItemType.DoorEW:
                         case ItemType.DoorNS:
-                            interact = guardInDoor? 'doorOpen' : 'doorClose';
+                            interact = guardInDoor? 'doorOpen' : undefined;//'doorClose';
                             break;
                         case ItemType.LockedDoorEW:
                         case ItemType.LockedDoorNS:
