@@ -538,10 +538,11 @@ export class HowlGroup {
         this.soundPool = soundPool;
         shuffleArray(this.howls);
     }
-    play(volume:number, loop:boolean=false):number {
+    play(volume:number, pan:number=0, loop:boolean=false):number {
         const howl = this.next();
         howl.loop(loop);
         howl.volume(volume);
+        howl.stereo(pan);
         try {
             const id = howl.play();
             if(this.soundPool!==null) this.soundPool.queue(howl, id);
@@ -581,10 +582,11 @@ export class SubtitledHowlGroup {
         this.mute = false;
         shuffleArray(this.sounds);
     }
-    play(volume:number): SubtitledSound {
+    play(volume:number, pan:number=0): SubtitledSound {
         const subSound = this.next();
         if (!this.mute) {
             subSound.sound.volume(volume);
+            subSound.sound.stereo(pan);
             const id = subSound.sound.play();
             if (this.soundPool !== null) {
                 this.soundPool.queue(subSound.sound, id);

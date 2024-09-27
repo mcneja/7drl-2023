@@ -762,7 +762,7 @@ type Shout = {
     angry: boolean; // should hearers become angry?
 }
 
-function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2, vec2][], map: GameMap):'gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked'|undefined {
+function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2, vec2][], map: GameMap):['gate'|'doorOpen'|'doorClose'|'doorOpenLocked'|'doorCloseLocked', vec2]|undefined {
     // If a guard in the same room interacts with something noise making (currenlty just doors or gates) we will return the interaction
     const maxRange = 20;
     const cells = map.cells;
@@ -784,15 +784,15 @@ function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2,
                     switch(door.type) {
                         case ItemType.DoorEW:
                         case ItemType.DoorNS:
-                            interact = guardInDoor? 'doorOpen' : undefined;//'doorClose';
+                            interact = guardInDoor? ['doorOpen', p] : undefined;//'doorClose';
                             break;
                         case ItemType.LockedDoorEW:
                         case ItemType.LockedDoorNS:
-                            interact = guardInDoor? 'doorOpenLocked' : 'doorCloseLocked';
+                            interact = guardInDoor? ['doorOpenLocked',p] : ['doorCloseLocked',p];
                             break;
                         case ItemType.PortcullisEW:
                         case ItemType.PortcullisNS:
-                            interact = 'gate';
+                            interact = ['gate', p];
                             break;
                     }
                 }
@@ -872,7 +872,6 @@ function guardActAll(state: State) {
     }
 
     // Of all the guards trying to talk, pick the one that seems most important and create a speech bubble for them
-
     if (speech.length > 0) {
         speech.sort((a, b) => {
             if (a.speechType < b.speechType)
@@ -892,7 +891,9 @@ function guardActAll(state: State) {
 
         const speechBest = speech[0];
         const soundName = soundNameForPopupType(speechBest.speechType);
-        const subtitledSound = state.subtitledSounds[soundName].play(0.6);
+        let panning = Math.max(Math.min((speechBest.speaker.pos[0] - player.pos[0])/12,1),0);
+        let closeness = Math.max(1 - speechBest.speaker.pos.distance(player.pos)/12, 0);
+        const subtitledSound = state.subtitledSounds[soundName].play(0.3+0.3*closeness, panning);
 
         const speaker: Guard = speech[0].speaker;
         const speechAboveSpeaker = speaker.pos[1] >= player.pos[1];
@@ -916,7 +917,10 @@ function guardActAll(state: State) {
 
     const interact = nearbyGuardInteracting(state.player.pos, movingGuardPositionPairs, state.gameMap);
     if (interact) {
-        state.sounds[interact].play(0.5);
+        const [action, position] = interact;
+        let panning = Math.max(Math.min((position[0] - player.pos[0])/12,1),0);
+        let closeness = Math.max(1 - position.distance(player.pos)/12, 0);
+        state.sounds[action].play(0.2+0.3*closeness, panning);
     }
 }
 

@@ -640,17 +640,17 @@ export function playAmbience(state: State) {
     case AmbienceType.Indoor:
         break;
     case AmbienceType.Outdoor:
-        state.sounds['ambienceOutdoor'].play(1.0, true);
+        state.sounds['ambienceOutdoor'].play(1.0, 0, true);
         break;
     case AmbienceType.Kitchen:
-        state.sounds['ambienceKitchen'].play(1.0, true);
+        state.sounds['ambienceKitchen'].play(1.0, 0, true);
         break;
     case AmbienceType.Water:
-        state.sounds['ambienceWater'].play(0.5, true);
+        state.sounds['ambienceWater'].play(0.5, 0, true);
         break;
     case AmbienceType.OutdoorWater:
-        state.sounds['ambienceWater'].play(0.5, true);
-        state.sounds['ambienceOutdoor'].play(1.0, true);
+        state.sounds['ambienceWater'].play(0.5, 0, true);
+        state.sounds['ambienceOutdoor'].play(1.0, 0, true);
         break;
     }
 }
