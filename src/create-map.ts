@@ -2062,7 +2062,8 @@ function roomCanBeTreasure(room: Room): boolean {
     if (room.roomType !== RoomType.PublicRoom &&
         room.roomType !== RoomType.PrivateRoom &&
         room.roomType !== RoomType.PublicCourtyard &&
-        room.roomType !== RoomType.PrivateCourtyard) {
+        room.roomType !== RoomType.PrivateCourtyard &&
+        room.roomType !== RoomType.Bedroom) {
         return false;
     }
 
@@ -5074,18 +5075,14 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
 }
 
 function placeTreasure(map: GameMap, rng: RNG) {
-    for (let plinth of map.items.filter(item => item.type === ItemType.TreasurePlinth)) 
-    {
-        placeItem(map, plinth.pos, ItemType.Treasure);
-    }
-
     const books = map.items.filter(item => item.type === ItemType.Bookshelf);
     rng.shuffleArray(books);
 
-    for (const plinth of map.items.filter(item => item.type === ItemType.TreasureLock)) {
-        if (books.length === 0) {
-            break;
-        }
+    for (const plinth of map.items.filter(item => item.type === ItemType.TreasurePlinth)) {
+
+        // Place treasure on the plinth.
+
+        placeItem(map, plinth.pos, ItemType.Treasure);
 
         const treasure: TreasureInfo = {
             switches: [],
@@ -5093,6 +5090,14 @@ function placeTreasure(map: GameMap, rng: RNG) {
             posTreasure: vec2.clone(plinth.pos),
             stolen: false
         };
+
+        map.treasures.push(treasure);
+
+        // If the treasure is supposed to be locked, generate switches for opening it.
+
+        if (!map.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(plinth.pos))) {
+            continue;
+        }
 
         let clue = '';
         for (let numBooks = Math.min(books.length, 3); numBooks > 0; --numBooks) {
@@ -5109,7 +5114,12 @@ function placeTreasure(map: GameMap, rng: RNG) {
             treasure.switches.push(vec2.clone(book.pos));
         }
 
-        map.treasures.push(treasure);
+        // If the treasure is supposed to be locked but we couldn't find any books to use for switches, remove the lock.
+
+        if (treasure.switches.length === 0) {
+            map.items = map.items.filter(item => item.type !== ItemType.TreasureLock || !item.pos.equals(plinth.pos));
+            continue;
+        }
 
         // Find a piece of furniture to put a clue note on
 
