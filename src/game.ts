@@ -502,7 +502,11 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         } else if (item.type === ItemType.Treasure) {
             coinCollected = true;
             ++state.treasureStolen;
-            state.gameMap.treasureInfo.posStolen.push(vec2.clone(pos));
+            for (const treasureInfo of state.gameMap.treasures) {
+                if (treasureInfo.posTreasure.equals(item.pos)) {
+                    treasureInfo.stolen = true;
+                }
+            }
             offset = 0.5;
         } else if (item.type === ItemType.Health) {
             enlargeHealthBar(state);
@@ -996,14 +1000,17 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             }
         } else {
             preTurn(state);
+
             const firstBump = state.player.pickTarget !== item;
-            const secretSwitchIndex = state.gameMap.treasureInfo.switches.findIndex(s => s.equals(item.pos));
-            state.player.pickTarget = (firstBump && secretSwitchIndex >= 0) ? item : null;
+            state.player.pickTarget = firstBump && state.gameMap.treasures.some(treasure => treasure.switches.some(s => s.equals(item.pos))) ? item : null;
+
             if (!state.gameMap.cells.at(x, y).lit) {
                 state.player.lightActive = true;
             }
+
             bumpAnim(state, dx, dy);
             advanceTime(state);
+
             if (firstBump) {
                 let title = state.gameMap.bookTitle.get(item);
                 if (title === undefined) {
@@ -1013,29 +1020,62 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                     title = '"' + title + '"';
                 }
                 state.popups.setNotification(title, state.player.pos);
-            } else if (state.gameMap.treasureInfo.numSwitchesUsed >= state.gameMap.treasureInfo.switches.length) {
-                state.sounds.switchReset.play(0.5);
-                state.popups.setNotification('(clunk)', state.player.pos);
-            } else if (secretSwitchIndex === state.gameMap.treasureInfo.numSwitchesUsed) {
-                ++state.gameMap.treasureInfo.numSwitchesUsed;
-                if (state.gameMap.treasureInfo.numSwitchesUsed >= state.gameMap.treasureInfo.switches.length) {
-                    state.sounds.switchSuccess.play(0.5);
-                    state.popups.setNotification('(rumble)', state.player.pos);
-                    joltCamera(state, dx, dy);
-                    state.gameMap.items = state.gameMap.items.filter((item)=>item.type!==ItemType.TreasureLock);
-                    //TODO: We should add an animation show the gate come down
-                } else {
-                    state.sounds.switchProgress.play(0.5);
-                    state.popups.setNotification('(click)', state.player.pos);
-                }
-            } else if (secretSwitchIndex === 0) {
-                state.sounds.switchProgress.play(0.5);
-                state.popups.setNotification('(click)', state.player.pos);
-                state.gameMap.treasureInfo.numSwitchesUsed = 1;
             } else {
-                state.sounds.switchReset.play(0.5);
-                state.popups.setNotification('(clunk)', state.player.pos);
-                state.gameMap.treasureInfo.numSwitchesUsed = 0;
+                enum SwitchResult {
+                    None,
+                    Completed,
+                    Reset,
+                    Advance,
+                    Complete,
+                };
+
+                let switchResult: SwitchResult = SwitchResult.None;
+
+                for (const treasure of state.gameMap.treasures) {
+                    const secretSwitchIndex = treasure.switches.findIndex(s => s.equals(item.pos));
+
+                    if (secretSwitchIndex < 0) {
+                        continue;
+                    }
+
+                    if (treasure.numSwitchesUsed >= treasure.switches.length) {
+                        switchResult = Math.max(switchResult, SwitchResult.Completed);
+                    } else if (secretSwitchIndex === treasure.numSwitchesUsed) {
+                        ++treasure.numSwitchesUsed;
+                        if (treasure.numSwitchesUsed >= treasure.switches.length) {
+                            state.gameMap.items = state.gameMap.items.filter(itemLock=>!(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
+                            //TODO: We should add an animation show the gate come down
+                            switchResult = Math.max(switchResult, SwitchResult.Complete);
+                        } else {
+                            switchResult = Math.max(switchResult, SwitchResult.Advance);
+                        }
+                    } else if (secretSwitchIndex === 0) {
+                        treasure.numSwitchesUsed = 1;
+                        switchResult = Math.max(switchResult, SwitchResult.Advance);
+                    } else {
+                        treasure.numSwitchesUsed = 0;
+                        switchResult = Math.max(switchResult, SwitchResult.Reset);
+                    }
+                }
+
+                switch (switchResult) {
+                    case SwitchResult.None:
+                        break;
+                    case SwitchResult.Completed:
+                    case SwitchResult.Reset:
+                        state.sounds.switchReset.play(0.5);
+                        state.popups.setNotification('(clunk)', state.player.pos);
+                        break;
+                    case SwitchResult.Advance:
+                        state.sounds.switchProgress.play(0.5);
+                        state.popups.setNotification('(click)', state.player.pos);
+                        break;
+                    case SwitchResult.Complete:
+                        state.sounds.switchSuccess.play(0.5);
+                        state.popups.setNotification('(rumble)', state.player.pos);
+                        joltCamera(state, dx, dy);
+                        break;
+                }
             }
         }
     }

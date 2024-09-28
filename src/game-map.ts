@@ -12,6 +12,7 @@ export {
     Player,
     Rect,
     TerrainType,
+    TreasureInfo,
     GuardStates,
     guardMoveCostForItemType,
     isWindowTerrainType,
@@ -446,8 +447,8 @@ type DistPos = {
 type TreasureInfo = {
     switches: Array<vec2>;
     numSwitchesUsed: number;
-    posTreasures: vec2[];
-    posStolen: vec2[];
+    posTreasure: vec2;
+    stolen: boolean;
 }
 
 class GameMap {
@@ -462,7 +463,7 @@ class GameMap {
     adjacencies: Array<Adjacency>;
     backtrackingCoefficient: number;
     bookTitle: Map<Item, string>;
-    treasureInfo: TreasureInfo;
+    treasures: Array<TreasureInfo>;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -476,12 +477,7 @@ class GameMap {
         this.adjacencies = [];
         this.backtrackingCoefficient = 1;
         this.bookTitle = new Map();
-        this.treasureInfo = {
-            switches: [],
-            numSwitchesUsed: 0,
-            posTreasures: [],
-            posStolen: [],
-        }
+        this.treasures = [];
     }
 
     hasLootAt(pos: vec2): boolean {

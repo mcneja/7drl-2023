@@ -1,6 +1,6 @@
 export { createGameMap, createGameMapRoughPlans, Adjacency };
 
-import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, LevelType, TerrainType, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, LevelType, TerrainType, TreasureInfo, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { RNG } from './random';
@@ -1986,7 +1986,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
         room.roomType = RoomType.PrivateLibrary;
     }
 
-    // Pick a room to be the treasure room
+    // Pick rooms to be treasure rooms
 
     let libraryArea = 0;
     for (const room of rooms) {
@@ -1995,15 +1995,20 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
         }
     }
 
-    if (libraryArea >= 60) { //Mansions with big libraries will have locked treasure(s)
-        for (const room of chooseRooms(rooms, roomCanBeTreasure, level === 9 ? 2 : 1, rng)) {
-            room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.LockedTreasureCourtyard : RoomType.LockedTreasure;
+    if (libraryArea >= 30 || level === 9) {
+        // Mansions with big libraries will have locked treasure(s)
+        // Unlocked treasures don't use the library but we use as a proxy of wealth :)
+        const lockedTreasures = libraryArea >= 60;
+
+        const maxTreasureRooms = (level === 9) ? 2 : 1;
+        for (const room of chooseRooms(rooms, roomCanBeTreasure, maxTreasureRooms, rng)) {
+            if (isCourtyardRoomType(room.roomType)) {
+                room.roomType = lockedTreasures ? RoomType.LockedTreasureCourtyard : RoomType.TreasureCourtyard;
+            } else {
+                room.roomType = lockedTreasures ? RoomType.LockedTreasure : RoomType.Treasure;
+            }
         }
-    } else if (libraryArea >= 30 || level === 9) { //Unlocked treasures don't use the library but we use as a proxy of wealth :)
-        for (const room of chooseRooms(rooms, roomCanBeTreasure, level === 9 ? 2 : 1, rng)) {
-            room.roomType = isCourtyardRoomType(room.roomType) ? RoomType.TreasureCourtyard : RoomType.Treasure;
-        }
-    } 
+    }
 }
 
 function roomArea(room: Room): number {
@@ -5074,19 +5079,24 @@ function placeTreasure(map: GameMap, rng: RNG) {
         placeItem(map, plinth.pos, ItemType.Treasure);
     }
 
-    for (let plinth of map.items.filter(item => item.type === ItemType.TreasureLock)) {
-        const books = map.items.filter(item => item.type === ItemType.Bookshelf);
+    const books = map.items.filter(item => item.type === ItemType.Bookshelf);
+    rng.shuffleArray(books);
+
+    for (const plinth of map.items.filter(item => item.type === ItemType.TreasureLock)) {
         if (books.length === 0) {
-            continue;
+            break;
         }
-    
-        rng.shuffleArray(books);
-        books.length = Math.min(books.length, 3);
-    
-        map.treasureInfo.posTreasures.push(vec2.clone(plinth.pos));
-    
+
+        const treasure: TreasureInfo = {
+            switches: [],
+            numSwitchesUsed: 0,
+            posTreasure: vec2.clone(plinth.pos),
+            stolen: false
+        };
+
         let clue = '';
-        for (const book of books) {
+        for (let numBooks = Math.min(books.length, 3); numBooks > 0; --numBooks) {
+            const book = books.pop()!;
             if (clue.length > 0) {
                 clue += '\n';
             }
@@ -5096,23 +5106,25 @@ function placeTreasure(map: GameMap, rng: RNG) {
                 titleFirstWord = titleFirstWord.substring(0, titleFirstWord.length - 1);
             }
             clue += titleFirstWord;
-            map.treasureInfo.switches.push(vec2.clone(book.pos));
+            treasure.switches.push(vec2.clone(book.pos));
         }
-    
+
+        map.treasures.push(treasure);
+
         // Find a piece of furniture to put a clue note on
-    
+
         const lootPositions = new Set();
         for (const item of map.items) {
             if (item.type === ItemType.Coin || item.type === ItemType.Health) {
                 lootPositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
             }
         }
-    
+
         let furniture = map.items.filter(item =>
             (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
             !lootPositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
         );
-    
+
         if (furniture.length > 0) {
             const pos = furniture[rng.randomInRange(furniture.length)].pos;
             const note = {

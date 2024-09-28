@@ -517,13 +517,11 @@ class Guard {
 
             // If we see a stolen treasure, get angry and shout to alert other guards
 
-            if (map.treasureInfo.posStolen.length>0 &&
-                !this.angry &&
-                isRelaxedGuardMode(this.mode)) {
-                const pos = map.treasureInfo.posStolen.find(pos => this.seesPosition(map, pos));
-                if (pos !== undefined) {
+            if (!this.angry && isRelaxedGuardMode(this.mode)) {
+                const treasure = map.treasures.find(treasureInfo => treasureInfo.stolen && this.seesPosition(map, treasureInfo.posTreasure));
+                if (treasure !== undefined) {
                     this.mode = GuardMode.MoveToMissingTreasure;
-                    vec2.copy(this.goal, pos);
+                    vec2.copy(this.goal, treasure.posTreasure);
                     this.angry = true;
                     this.modeTimeout = 3;
                 }
