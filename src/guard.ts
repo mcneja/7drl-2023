@@ -768,7 +768,7 @@ function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2,
     const cells = map.cells;
     const doors = map.items.filter((item)=>item.type>=ItemType.DoorNS && item.type<=ItemType.PortcullisEW);
     let interact:ReturnType<typeof nearbyGuardInteracting> = undefined;
-    function interactionSeeker(checkedCells:Set<number>, pos:vec2, remainingRange:number, propagateThroughOpenings:boolean) {
+    function interactionSeeker(checkedCells:Set<number>, pos:vec2, remainingRange:number, propagateThroughBlockedOpenings:boolean) {
         const newPositionsToRecurse:vec2[] = [];
         for(let delta of [[1,0],[0,1],[-1,0],[0,-1]]) {
             const p = pos.add(vec2.fromValues(delta[0],delta[1]));
@@ -779,26 +779,31 @@ function nearbyGuardInteracting(playerPos: vec2, movingGuardPositionPairs:[vec2,
                 c.type===TerrainType.PortcullisEW || c.type===TerrainType.PortcullisNS) {
                 const door = doors.find((door)=>door.pos.equals(p));
                 const guardInDoor = movingGuardPositionPairs.find(pairs=>pairs[0].equals(p));
-                const guardLeftDoor = movingGuardPositionPairs.find(pairs=>pairs[1].equals(p));
-                if (door!==undefined && (guardInDoor || guardLeftDoor)) {
-                    switch(door.type) {
-                        case ItemType.DoorEW:
-                        case ItemType.DoorNS:
-                            interact = guardInDoor? ['doorOpen', p] : undefined;//'doorClose';
-                            break;
-                        case ItemType.LockedDoorEW:
-                        case ItemType.LockedDoorNS:
-                            interact = guardInDoor? ['doorOpenLocked',p] : ['doorCloseLocked',p];
-                            break;
-                        case ItemType.PortcullisEW:
-                        case ItemType.PortcullisNS:
-                            interact = ['gate', p];
-                            break;
+                // const guardLeftDoor = movingGuardPositionPairs.find(pairs=>pairs[1].equals(p));
+                if (door!==undefined && guardInDoor) {
+                    const guardPriorPos = guardInDoor[1];
+                    const cellLoc = guardPriorPos[1]*cells.sizeX + guardPriorPos[0];
+                    if (!checkedCells.has(cellLoc)) { //Only make door noise for guards moving toward player 
+                        switch(door.type) {
+                            case ItemType.DoorEW:
+                            case ItemType.DoorNS:
+                                interact = ['doorOpen', p];
+                                break;
+                            case ItemType.LockedDoorEW:
+                            case ItemType.LockedDoorNS:
+                                interact = ['doorOpenLocked',p];
+                                break;
+                            case ItemType.PortcullisEW:
+                            case ItemType.PortcullisNS:
+                                interact = ['gate', p];
+                                break;
+                        }
                     }
                 }
-                if(interact!==undefined) return;
+                if (interact!==undefined) return;
+                if (door && !propagateThroughBlockedOpenings) return;
             }
-            if (c.type<TerrainType.Wall0000 || propagateThroughOpenings && c.type>TerrainType.Wall1111) {
+            if (c.type<TerrainType.Wall0000 || c.type>TerrainType.Wall1111) {
                 newPositionsToRecurse.push(p);
             }
         }
