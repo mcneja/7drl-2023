@@ -499,13 +499,13 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, need
     }
 
     if (level < 8) {
-        addSeatedGuard(map, rooms, needKey, patrolRoutes, rng);
+        addSeatedGuard(level, map, rooms, needKey, patrolRoutes, rng);
         return;
     }
 
     const room = rooms.find((r)=>r.roomType===RoomType.Vault);
     if (room===undefined) {
-        addSeatedGuard(map, rooms, needKey, patrolRoutes, rng);
+        addSeatedGuard(level, map, rooms, needKey, patrolRoutes, rng);
         return;
     }
 
@@ -542,7 +542,7 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, need
     }
 }
 
-function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, patrolRoutes: Array<PatrolRoute>, rng: RNG) {
+function addSeatedGuard(level: number, gameMap: GameMap, rooms: Array<Room>, needKey: boolean, patrolRoutes: Array<PatrolRoute>, rng: RNG) {
 
     // Avoid any activity stations already used by a patrol route
 
@@ -557,31 +557,33 @@ function addSeatedGuard(gameMap: GameMap, rooms: Array<Room>, needKey: boolean, 
 
     const positions: Array<vec2> = [];
 
-    for (const item of gameMap.items) {
-        if (item.type !== ItemType.Chair) {
-            continue;
-        }
-        if (patrolled.get(item.pos[0], item.pos[1])) {
-            continue;
-        }
+    if (level >= 4) {
+        for (const item of gameMap.items) {
+            if (item.type !== ItemType.Chair) {
+                continue;
+            }
+            if (patrolled.get(item.pos[0], item.pos[1])) {
+                continue;
+            }
 
-        let tableAdjacent = false;
-        for (const itemOther of gameMap.items) {
-            if (itemOther.type !== ItemType.Table) {
+            let tableAdjacent = false;
+            for (const itemOther of gameMap.items) {
+                if (itemOther.type !== ItemType.Table) {
+                    continue;
+                }
+                const dx = itemOther.pos[0] - item.pos[0];
+                const dy = itemOther.pos[1] - item.pos[1];
+                if (Math.abs(dx) + Math.abs(dy) !== 1) {
+                    continue;
+                }
+                tableAdjacent = true;
+                break;
+            }
+            if (!tableAdjacent) {
                 continue;
             }
-            const dx = itemOther.pos[0] - item.pos[0];
-            const dy = itemOther.pos[1] - item.pos[1];
-            if (Math.abs(dx) + Math.abs(dy) !== 1) {
-                continue;
-            }
-            tableAdjacent = true;
-            break;
+            positions.push(item.pos);
         }
-        if (!tableAdjacent) {
-            continue;
-        }
-        positions.push(item.pos);
     }
 
     // Look for a window to stand in front of
