@@ -731,7 +731,7 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
 
     // Hide sound effect
 
-    if (cellNew.hidesPlayer) {
+    if (cellNew.hidesPlayer && !cellOld.hidesPlayer) {
         state.sounds['hide'].play(0.2);
         return;
     }
