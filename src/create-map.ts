@@ -347,7 +347,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     placeLoot(plan.totalLoot - guardLoot, rooms, map, levelType, rng);
     giveBooksTitles(map.bookTitle, rooms, map.items.filter(item=>item.type === ItemType.Bookshelf), rng);
-    placeTreasure(map, rng);
+    placeTreasure(map, rooms, rng);
 
     placeHealth(level, map, rooms, rng);
 
@@ -5074,9 +5074,27 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
     return true;
 }
 
-function placeTreasure(map: GameMap, rng: RNG) {
-    const books = map.items.filter(item => item.type === ItemType.Bookshelf);
-    rng.shuffleArray(books);
+function placeTreasure(map: GameMap, rooms: Array<Room>, rng: RNG) {
+
+    const allBooks = map.items.filter(item=>item.type === ItemType.Bookshelf);
+    rng.shuffleArray(allBooks);
+
+    // Divide books into sets by room
+    const booksInRoom: Map<Room, Array<Item>> = new Map();
+    for (const room of rooms) {
+        const books: Array<Item> = [];
+        for (const item of allBooks) {
+            if (item.pos[0] >= room.posMin[0] &&
+                item.pos[1] >= room.posMin[1] &&
+                item.pos[0] < room.posMax[0] &&
+                item.pos[1] < room.posMax[1]) {
+                books.push(item);
+            }
+        }
+        if (books.length > 0) {
+            booksInRoom.set(room, books);
+        }
+    }
 
     for (const plinth of map.items.filter(item => item.type === ItemType.TreasurePlinth)) {
 
@@ -5099,9 +5117,31 @@ function placeTreasure(map: GameMap, rng: RNG) {
             continue;
         }
 
+        // Pick a room with books remaining in it to use
+
+        const availableBookSets: Array<Array<Item>> = [];
+        for (let numBooks = 3; numBooks > 0 && availableBookSets.length === 0; --numBooks) {
+            for (const room of rooms) {
+                const roomBooks = booksInRoom.get(room);
+                if (roomBooks !== undefined && roomBooks.length >= numBooks) {
+                    availableBookSets.push(roomBooks);
+                }
+            }
+        }
+
+        // If the treasure is supposed to be locked but we couldn't find any books to use for switches, remove the lock.
+
+        if (availableBookSets.length === 0) {
+            map.items = map.items.filter(item => !(item.type === ItemType.TreasureLock && item.pos.equals(plinth.pos)));
+            map.cells.atVec(plinth.pos).blocksPlayerMove = false;
+            continue;
+        }
+
+        const bookSet = availableBookSets[rng.randomInRange(availableBookSets.length)];
+
         let clue = '';
-        for (let numBooks = Math.min(books.length, 3); numBooks > 0; --numBooks) {
-            const book = books.pop()!;
+        for (let numBooks = Math.min(bookSet.length, 3); numBooks > 0; --numBooks) {
+            const book = bookSet.pop()!;
             if (clue.length > 0) {
                 clue += '\n';
             }
@@ -5114,25 +5154,18 @@ function placeTreasure(map: GameMap, rng: RNG) {
             treasure.switches.push(vec2.clone(book.pos));
         }
 
-        // If the treasure is supposed to be locked but we couldn't find any books to use for switches, remove the lock.
-
-        if (treasure.switches.length === 0) {
-            map.items = map.items.filter(item => item.type !== ItemType.TreasureLock || !item.pos.equals(plinth.pos));
-            continue;
-        }
-
         // Find a piece of furniture to put a clue note on
 
-        const lootPositions = new Set();
+        const unusablePositions = new Set();
         for (const item of map.items) {
-            if (item.type === ItemType.Coin || item.type === ItemType.Health) {
-                lootPositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
+            if (item.type === ItemType.Coin || item.type === ItemType.Health || item.type === ItemType.Note) {
+                unusablePositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
             }
         }
 
         let furniture = map.items.filter(item =>
             (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
-            !lootPositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
+            !unusablePositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
         );
 
         if (furniture.length > 0) {
