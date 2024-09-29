@@ -1191,7 +1191,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             bumpAnim(state, dx, dy);
             advanceTime(state);
         } else {
-            if (state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
+            if (stepType === StepType.Normal && state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
                 state.popups.setNotification('Locked!', state.player.pos);
             }
             tryMakeBangNoise(state, dx, dy, stepType);
