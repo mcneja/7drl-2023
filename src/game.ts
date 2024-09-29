@@ -420,6 +420,11 @@ export function numTurnsParForCurrentMap(state: State): number {
     return par;
 }
 
+export function bonusTreasureScoreForCurrentMap(state: State): number {
+    const levelLootScore = state.lootStolen * 10;
+    return state.gameMap.treasures.reduce((total, treasure) => total + (treasure.stolen ? ((treasure.switches.length > 0) ? levelLootScore : 20) : 0), 0);
+}
+
 const mansionCompleteTopStatusHint: Array<string> = [
     'Use darkness or hiding places to avoid guards',
     'Escape out windows with Shift+Dir',
