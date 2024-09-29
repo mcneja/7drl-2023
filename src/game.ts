@@ -980,7 +980,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
             advanceTime(state);
             if (state.level === 0) {
-                state.popups.setNotification('Noise\nattracts people', state.player.pos);
+                state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
             }
         } else {
             state.player.preNoisy = true;
@@ -988,7 +988,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
             if (state.level === 0) {
-                state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy) + ' again', state.player.pos);
+                state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy) + '\nagain', state.player.pos);
             }
         }
     } else {
