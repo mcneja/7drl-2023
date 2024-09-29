@@ -546,6 +546,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
     }
     if (healthCollected) {
         // TODO: Play health pickup sound
+        state.sounds.coin.play(1.0);
     }
 
     return true;
