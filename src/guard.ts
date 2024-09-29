@@ -510,7 +510,6 @@ class Guard {
                     this.mode = GuardMode.MoveToDownedGuard;
                     this.angry = true;
                     this.modeTimeout = 3;
-                    shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(guard.pos), angry: true});
                     break;
                 }
             }
@@ -580,13 +579,19 @@ class Guard {
             speech.push({ speaker: this, speechType: popupType });
         }
 
-        if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev !== GuardMode.ChaseVisibleTarget) {
-            shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(player.pos), angry: false});
-            ++levelStats.numSpottings;
-        }
+        // Shout on entry to some states to attract nearby guards
 
-        if (this.mode === GuardMode.LookAtMissingTreasure && this.modePrev !== GuardMode.LookAtMissingTreasure) {
-            shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(this.goal), angry: true});
+        if (this.mode !== this.modePrev) {
+            switch (this.mode) {
+                case GuardMode.ChaseVisibleTarget:
+                    shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(player.pos), angry: false});
+                    ++levelStats.numSpottings;
+                    break;
+                case GuardMode.WakeGuard:
+                case GuardMode.LookAtMissingTreasure:
+                    shouts.push({posShouter: vec2.clone(this.pos), posGoal: vec2.clone(this.goal), angry: true});
+                    break;
+            }
         }
     }
 
@@ -934,6 +939,7 @@ function soundNameForPopupType(popupType: PopupType): string {
         case PopupType.GuardSeeThief: return 'guardSeeThief';
         case PopupType.GuardHearThief: return 'guardHearThief';
         case PopupType.GuardHearGuard: return 'guardHearGuard';
+        case PopupType.GuardSpotDownedGuard: return 'guardSpotDownedGuard';
         case PopupType.GuardSeeTorchLit: return 'guardSeeTorchLit';
         case PopupType.GuardSeeUnlitTorch: return 'guardSeeUnlitTorch';
         case PopupType.GuardDownWarning: return 'guardDownWarning';
@@ -1001,7 +1007,8 @@ function popupTypeForStateChange(modePrev: GuardMode, modeNext: GuardMode, squar
             } else {
                 return undefined;
             }
-        case GuardMode.MoveToDownedGuard: return PopupType.GuardDownWarning;
+        case GuardMode.MoveToDownedGuard: return PopupType.GuardSpotDownedGuard;
+        case GuardMode.WakeGuard: return PopupType.GuardDownWarning;
         case GuardMode.MoveToMissingTreasure: return PopupType.GuardSpotStolenTreasure;
         case GuardMode.LookAtMissingTreasure: return PopupType.GuardExamineStolenTreasure;
     }

@@ -14,6 +14,7 @@ enum PopupType {
     GuardExamineStolenTreasure,
     GuardWarningResponse,
     GuardHearGuard,
+    GuardSpotDownedGuard,
     GuardSeeTorchLit,
     GuardSeeUnlitTorch,
     GuardEndChase,
