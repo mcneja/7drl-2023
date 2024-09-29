@@ -5810,7 +5810,8 @@ function blocksPlayerMovement(itemType: ItemType): boolean {
     return itemType === ItemType.DrawersTall ||
            itemType === ItemType.Bookshelf ||
            itemType === ItemType.Shelf ||
-           itemType === ItemType.Stove;
+           itemType === ItemType.Stove ||
+           itemType === ItemType.TreasureLock;
 }
 
 function cacheCellInfo(map: GameMap) {

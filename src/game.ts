@@ -1050,6 +1050,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                         ++treasure.numSwitchesUsed;
                         if (treasure.numSwitchesUsed >= treasure.switches.length) {
                             state.gameMap.items = state.gameMap.items.filter(itemLock=>!(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
+                            state.gameMap.cells.atVec(treasure.posTreasure).blocksPlayerMove = false;
                             //TODO: We should add an animation show the gate come down
                             switchResult = Math.max(switchResult, SwitchResult.Complete);
                         } else {
@@ -1190,6 +1191,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             bumpAnim(state, dx, dy);
             advanceTime(state);
         } else {
+            if (state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
+                state.popups.setNotification('Locked!', state.player.pos);
+            }
             tryMakeBangNoise(state, dx, dy, stepType);
         }
         return;
