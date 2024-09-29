@@ -1235,10 +1235,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         switch (item.type) {
         case ItemType.DrawersShort:
         case ItemType.TreasurePlinth:
-            if (state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
-                state.popups.setNotification('Locked!', state.player.pos);
-                tryMakeBangNoise(state, dx, dy, stepType);
-            } else if (canCollectLootAt(state, posNew)) {
+            if (canCollectLootAt(state, posNew)) {
                 preTurn(state);
                 collectLoot(state, posNew, player.pos);
                 player.pickTarget = null;
@@ -1285,8 +1282,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         case ItemType.LockedDoorEW:
         case ItemType.LockedDoorNS:
             if (!player.hasVaultKey) {
-                state.popups.setNotification('Locked!', state.player.pos);
-
+                if (stepType === StepType.Normal) {
+                    state.popups.setNotification('Locked!', state.player.pos);
+                }
                 tryMakeBangNoise(state, dx, dy, stepType);
                 return;
             }
