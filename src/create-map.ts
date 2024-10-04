@@ -1297,85 +1297,127 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
         joinGroups(rooms, group0, group1);
     }
 
-    // Connect all the interior rooms with doors.
+    if (levelType === LevelType.Fortress) {
+        // Connect all the rooms with doors.
 
-    for (const edgeSet of edgeSets) {
+        for (const edgeSet of edgeSets) {
 
-        // This is pretty bad; I just want to grab one adjacency from the set to decide
-        // whether to put doors in all of them, since they all should have the same
-        // situation.
+            // This is pretty bad; I just want to grab one adjacency from the set to decide
+            // whether to put doors in all of them, since they all should have the same
+            // situation.
 
-        let addDoor = false;
+            let addDoor = false;
 
-        for (const adj of edgeSet) {
-            if (adj.roomLeft.roomType !== RoomType.PublicRoom) {
-                break;
-            }
-            if (adj.roomRight.roomType !== RoomType.PublicRoom) {
-                break;
-            }
-
-            if (adj.roomLeft.group !== adj.roomRight.group) {
-                addDoor = true;
-            } else if (levelType !== LevelType.Fortress && rng.random() < 0.4) {
-                addDoor = true;
-            }
-
-            break;
-        }
-
-        if (addDoor) {
             for (const adj of edgeSet) {
-                const room0 = adj.roomLeft;
-                const room1 = adj.roomRight;
+                if (adj.roomLeft.roomType === RoomType.Exterior) {
+                    break;
+                }
+                if (adj.roomRight.roomType === RoomType.Exterior) {
+                    break;
+                }
 
-                const group0 = room0.group;
-                const group1 = room1.group;
+                if (adj.roomLeft.group !== adj.roomRight.group) {
+                    addDoor = true;
+                }
 
-                adj.door = true;
-                adj.doorType = DoorType.Standard;
-                joinGroups(rooms, group0, group1);
+                break;
+            }
+
+            if (addDoor) {
+                for (const adj of edgeSet) {
+                    const room0 = adj.roomLeft;
+                    const room1 = adj.roomRight;
+
+                    const group0 = room0.group;
+                    const group1 = room1.group;
+
+                    adj.door = true;
+                    adj.doorType = DoorType.Standard;
+                    joinGroups(rooms, group0, group1);
+                }
             }
         }
-    }
+    } else {
+        // Connect all the interior rooms with doors.
 
-    // Create doors between the interiors and the courtyard areas.
+        for (const edgeSet of edgeSets) {
 
-    for (const edgeSet of edgeSets) {
+            // This is pretty bad; I just want to grab one adjacency from the set to decide
+            // whether to put doors in all of them, since they all should have the same
+            // situation.
 
-        let addDoor = false;
+            let addDoor = false;
 
-        for (const adj of edgeSet) {
-            if (adj.roomLeft.roomType === adj.roomRight.roomType) {
-                break;
-            }
-            if (adj.roomLeft.roomType === RoomType.Exterior) {
-                break;
-            }
-            if (adj.roomRight.roomType === RoomType.Exterior) {
-                break;
-            }
-
-            if (adj.roomLeft.group !== adj.roomRight.group) {
-                addDoor = true;
-            } else if (levelType !== LevelType.Fortress && rng.random() < 0.4) {
-                addDoor = true;
-            }
-
-            break;
-        }
-
-        if (addDoor) {
             for (const adj of edgeSet) {
-                const room0 = adj.roomLeft;
-                const room1 = adj.roomRight;
+                if (adj.roomLeft.roomType !== RoomType.PublicRoom) {
+                    break;
+                }
+                if (adj.roomRight.roomType !== RoomType.PublicRoom) {
+                    break;
+                }
 
-                const group0 = room0.group;
-                const group1 = room1.group;
+                if (adj.roomLeft.group !== adj.roomRight.group) {
+                    addDoor = true;
+                } else if (rng.random() < 0.4) {
+                    addDoor = true;
+                }
 
-                adj.door = true;
-                adj.doorType = DoorType.Standard;
-                joinGroups(rooms, group0, group1);
+                break;
+            }
+
+            if (addDoor) {
+                for (const adj of edgeSet) {
+                    const room0 = adj.roomLeft;
+                    const room1 = adj.roomRight;
+
+                    const group0 = room0.group;
+                    const group1 = room1.group;
+
+                    adj.door = true;
+                    adj.doorType = DoorType.Standard;
+                    joinGroups(rooms, group0, group1);
+                }
+            }
+        }
+
+        // Create doors between the interiors and the courtyard areas.
+
+        for (const edgeSet of edgeSets) {
+
+            let addDoor = false;
+
+            for (const adj of edgeSet) {
+                if (adj.roomLeft.roomType === adj.roomRight.roomType) {
+                    break;
+                }
+                if (adj.roomLeft.roomType === RoomType.Exterior) {
+                    break;
+                }
+                if (adj.roomRight.roomType === RoomType.Exterior) {
+                    break;
+                }
+
+                if (adj.roomLeft.group !== adj.roomRight.group) {
+                    addDoor = true;
+                } else if (rng.random() < 0.4) {
+                    addDoor = true;
+                }
+
+                break;
+            }
+
+            if (addDoor) {
+                for (const adj of edgeSet) {
+                    const room0 = adj.roomLeft;
+                    const room1 = adj.roomRight;
+
+                    const group0 = room0.group;
+                    const group1 = room1.group;
+
+                    adj.door = true;
+                    adj.doorType = DoorType.Standard;
+                    joinGroups(rooms, group0, group1);
+                }
             }
         }
     }
@@ -1571,10 +1613,10 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
         const room0 = adj.roomLeft;
         const room1 = adj.roomRight;
 
-        if (room0.roomType !== RoomType.PublicRoom) {
+        if (room0.roomType === RoomType.Exterior || room0.roomType === RoomType.Vault) {
             continue;
         }
-        if (room1.roomType !== RoomType.PublicRoom) {
+        if (room1.roomType === RoomType.Exterior || room1.roomType === RoomType.Vault) {
             continue;
         }
 
@@ -1583,7 +1625,7 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
         }
 
         adj.door = true;
-        adj.doorType = DoorType.Locked;
+        adj.doorType = (isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType)) ? DoorType.Standard : DoorType.Locked;
     }
 }
 
@@ -3766,18 +3808,20 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
 
 function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
-    // Plot walls around all the rooms, except between courtyard rooms.
+    // Plot walls around all the rooms, except between connected courtyard or exterior rooms.
 
     for (const adj of adjacencies) {
         const type0 = adj.roomLeft.roomType;
         const type1 = adj.roomRight.roomType;
 
-        if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
-            continue;
-        }
+        if (adj.door) {
+            if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
+                continue;
+            }
 
-        if (type0 === RoomType.Exterior && type1 === RoomType.Exterior) {
-            continue;
+            if (type0 === RoomType.Exterior && type1 === RoomType.Exterior) {
+                continue;
+            }
         }
 
         for (let i = 0; i < adj.length + 1; ++i) {
