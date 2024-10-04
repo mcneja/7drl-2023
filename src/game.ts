@@ -1053,7 +1053,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                             state.gameMap.items = state.gameMap.items.filter(itemLock=>!(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
                             state.gameMap.cells.atVec(treasure.posTreasure).blocksPlayerMove = false;
                             for (let gate of gates) {
-                                const animation = new FrameAnimator(tileSet.treasureGateAnimation, 0.2, 0, 1);
+                                const animation = new FrameAnimator(tileSet.treasureGateAnimation, 0.3, 0, 1);
                                 animation.removeOnFinish = true;
                                 gate.animation = animation;
                                 state.particles.push(gate);                        
@@ -3312,8 +3312,8 @@ function updateState(state: State, screenSize: vec2, dt: number) {
     });
     state.particles = state.particles.filter( (p) => {
         const done = p.animation?.update(dt);
-        if(p.animation instanceof SpriteAnimation  || p.animation instanceof FrameAnimator) {
-            return !(p.animation.removeOnFinish && done);
+        if((p.animation instanceof SpriteAnimation  || p.animation instanceof FrameAnimator) && p.animation.removeOnFinish) {
+            return done !== true;
         }
         return true;
     });
