@@ -1049,9 +1049,15 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
                     } else if (secretSwitchIndex === treasure.numSwitchesUsed) {
                         ++treasure.numSwitchesUsed;
                         if (treasure.numSwitchesUsed >= treasure.switches.length) {
+                            const gates = state.gameMap.items.filter(itemLock=>(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
                             state.gameMap.items = state.gameMap.items.filter(itemLock=>!(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
                             state.gameMap.cells.atVec(treasure.posTreasure).blocksPlayerMove = false;
-                            //TODO: We should add an animation show the gate come down
+                            for (let gate of gates) {
+                                const animation = new FrameAnimator(tileSet.treasureGateAnimation, 0.3, 0, 1);
+                                animation.removeOnFinish = true;
+                                gate.animation = animation;
+                                state.particles.push(gate);                        
+                            }
                             switchResult = Math.max(switchResult, SwitchResult.Complete);
                         } else {
                             switchResult = Math.max(switchResult, SwitchResult.Advance);
@@ -2281,7 +2287,7 @@ function renderWorld(state: State, renderer: Renderer) {
     const terrTiles = terrainTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.tileSet);
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
-        for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped 3/4 view tiles
+        for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped tiles
             const cell = state.gameMap.cells.at(x, y);
             if (!cell.seen && !state.seeAll) {
                 continue;
@@ -3306,8 +3312,8 @@ function updateState(state: State, screenSize: vec2, dt: number) {
     });
     state.particles = state.particles.filter( (p) => {
         const done = p.animation?.update(dt);
-        if(p.animation instanceof SpriteAnimation) {
-            return !(p.animation.removeOnFinish && done);
+        if((p.animation instanceof SpriteAnimation  || p.animation instanceof FrameAnimator) && p.animation.removeOnFinish) {
+            return done !== true;
         }
         return true;
     });

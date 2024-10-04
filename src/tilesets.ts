@@ -47,6 +47,7 @@ export type TileSet = {
     stoveAnimation: Array<TileInfo>;
     candleAnimation: Array<TileInfo>;
     torchAnimation: Array<TileInfo>;
+    treasureGateAnimation: Array<TileInfo>;
     playerTorchAnimation: Array<TileInfo>;
     achievementIcons: {[key in keyof Achievements]: TileInfo};
     achievementIncompleteIcon: TileInfo;
@@ -409,6 +410,13 @@ const tileSet31Color:TileSet = {
         {textureIndex: 0xde},
         {textureIndex: 0xdf}, //torch low
         {textureIndex: 0xdf}, //torch off
+    ],
+    treasureGateAnimation: [
+        {textureIndex: 0xd8}, //gate up
+        {textureIndex: 0xc8},
+        {textureIndex: 0xc9},
+        {textureIndex: 0xca}, //
+        {textureIndex: 0xcb}, //gate low
     ],
     playerTorchAnimation: [
         {textureIndex: 0xd9}, //torch cycle
