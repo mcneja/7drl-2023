@@ -1625,7 +1625,16 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
         }
 
         adj.door = true;
-        adj.doorType = (isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType)) ? DoorType.Standard : DoorType.Locked;
+
+        const depthDifference = Math.abs(room0.depth - room1.depth);
+
+        if (isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType)) {
+            adj.doorType = DoorType.Standard;
+        } else if (depthDifference < 2) {
+            adj.doorType = DoorType.Standard;
+        } else {
+            adj.doorType = DoorType.Locked;
+        }
     }
 }
 
