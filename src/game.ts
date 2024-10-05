@@ -1459,19 +1459,19 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     const allLooted = state.lootStolen >= state.lootAvailable;
     if (allSeen && allLooted) {
         if (state.player.pos[0] === 0 && posPrev[0] !== 0) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(-1, 0), state.player.pos);
+            state.popups.setNotificationHold('Exit: ' + directionArrowCharacter(-1, 0), state.player.pos);
             return;
         }
         if (state.player.pos[0] === state.gameMap.cells.sizeX - 1 && posPrev[0] !== state.gameMap.cells.sizeX - 1) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(1, 0), state.player.pos);
+            state.popups.setNotificationHold('Exit: ' + directionArrowCharacter(1, 0), state.player.pos);
             return;
         }
         if (state.player.pos[1] === 0 && posPrev[1] !== 0) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(0, -1), state.player.pos);
+            state.popups.setNotificationHold('Exit: ' + directionArrowCharacter(0, -1), state.player.pos);
             return;
         }
         if (state.player.pos[1] === state.gameMap.cells.sizeY - 1 && posPrev[1] !== state.gameMap.cells.sizeY - 1) {
-            state.popups.setNotificationHold('Leave: ' + directionArrowCharacter(0, 1), state.player.pos);
+            state.popups.setNotificationHold('Exit: ' + directionArrowCharacter(0, 1), state.player.pos);
             return;
         }
         for (const [dx, dy, terrainType] of [[1, 0, TerrainType.OneWayWindowE], [-1, 0, TerrainType.OneWayWindowW], [0, 1, TerrainType.OneWayWindowN], [0, -1, TerrainType.OneWayWindowS]]) {
