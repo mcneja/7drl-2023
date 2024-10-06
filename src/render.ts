@@ -1,6 +1,7 @@
 export { Renderer };
-import { TileSet, FontTileSet, TileInfo } from './tilesets';
+import { TerrainTileSet, EntityTileSet, FontTileSet, TileInfo, TextureType } from './tilesets';
 import { vec2, mat4 } from './my-matrix';
+import { text } from 'stream/consumers';
 
 type VignetteRenderer = (
     matDiscFromScreen: mat4,
@@ -22,14 +23,16 @@ class Renderer {
     flush() {}
     renderVignette: VignetteRenderer;
     fontTileSet: FontTileSet;
-    tileSet: TileSet;
+    terrainTileSet: TerrainTileSet;
+    entityTileSet: EntityTileSet;
 
-    constructor(canvas: HTMLCanvasElement, tileSet:TileSet, fontTileSet:FontTileSet) {
+    constructor(canvas: HTMLCanvasElement, terrainTileSet:TerrainTileSet, entityTileSet:EntityTileSet, fontTileSet:FontTileSet) {
         const gl = canvas.getContext("webgl2", { alpha: false, depth: false }) as WebGL2RenderingContext;
-        const textures = [fontTileSet.image, tileSet.image].map((image) => createTextureFromImage(gl, image));
+        const textures = [fontTileSet.image, terrainTileSet.image, entityTileSet.image].map((image) => createTextureFromImage(gl, image));
 
         this.renderVignette = createVignetteRenderer(gl);
-        this.tileSet = tileSet;
+        this.terrainTileSet = terrainTileSet;
+        this.entityTileSet = entityTileSet;
         this.fontTileSet = fontTileSet;
         
         const vsSource = `#version 300 es
@@ -87,8 +90,6 @@ class Renderer {
             return r + (g << 8) + (b << 16) + (a << 24);
         }
 
-        const tileRatios = [tileSet.tileSize[0]/tileSet.cellSize[0], tileSet.tileSize[1]/tileSet.cellSize[1]]
-
         const program = initShaderProgram(gl, vsSource, fsSource, attribs);
 
         const uProjectionMatrixLoc = gl.getUniformLocation(program, 'uMatScreenFromWorld');
@@ -103,6 +104,7 @@ class Renderer {
         const vertexDataAsFloat32 = new Float32Array(vertexData);
         const vertexDataAsUint32 = new Uint32Array(vertexData);
 
+        const tileRatios = [1,1];
         const vertexBuffer = gl.createBuffer();
 
         let numQuads = 0;
@@ -122,9 +124,8 @@ class Renderer {
         const indexBuffer = createGlyphIndexBuffer(gl, maxQuads);
         gl.bindVertexArray(null);
 
-        this.start = (matScreenFromWorld: mat4, textureIndex: number) => {
+        this.start = (matScreenFromWorld: mat4, textureIndex: TextureType) => {
             mat4.copy(matScreenFromWorldCached, matScreenFromWorld);
-
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, textures[textureIndex]);
         }
@@ -422,7 +423,7 @@ function createVignetteRenderer(gl: WebGL2RenderingContext): (matDiscFromScreen:
     {
         let i = 0;
 
-        function makeVert(x, y) {
+        function makeVert(x:number, y:number) {
             vertexData[i++] = x;
             vertexData[i++] = y;
         }
