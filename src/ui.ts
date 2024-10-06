@@ -395,23 +395,53 @@ class OptionsScreen extends TextWindow {
 
 class HelpControls extends TextWindow {
     pages = [
-        `Help: Controls
+        `Help: Keyboard Controls
 
   Move: Arrows / WASD / HJKL
   Wait: Space / Z / Period / Numpad5
   Leap/Run: Shift + move (unlimited!)
   Leap/Run (Toggle): F / Numpad+
   Zoom View: [ / ]
+  Scroll View: Control + move
+  Recenter View: Control + wait
   Volume: (Mute/Down/Up) 0 / - / =
   Guard Mute (Toggle): 9
   Show last speech: Tab
 
 Disable NumLock if using numpad
-Touch devices and gamepad also supported
+Touch and gamepad also supported
 
 [Esc|menu] Back to menu`,
-    ];
+        `Help: Touch Controls
+
+  Move: #016# / #017# / #018# / #019#
+  Wait: #020#
+  Leap/Run: #21# + move (unlimited!)
+  Zoom View: #22# / #23#
+  Scroll View: Touch and drag
+  Menu: #27#
+  Navigate menu: #018# / #019# / #20#
+
+Keyboard and gamepad also supported
+
+[Esc|menu] Back to menu`,
+        `Help: Gamepad Controls
+
+  Move: Left Stick/Pad
+  Wait: Button2
+  Leap/Run: Button1 + move
+  Zoom View: Left / Right trigger
+  Scroll View: Right stick
+  Recenter View: Right bumper
+  Show last speech: Left bumper
+
+Keyboard and touch also supported
+
+[Esc|menu] Back to menu`,
+];
     update(state: State): void {
+        this.activePage = lastController === state.keyboardController? 0:
+                          lastController === state.touchController? 1 : 2;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);

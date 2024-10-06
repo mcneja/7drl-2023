@@ -99,6 +99,7 @@ const defaultKeyMap:KeyMap = {
     'Numpad4': ['left','menu'],
     'Numpad6': ['right','menuAccept'],
     'Numpad8': ['up'],
+    'Numpad5': ['wait'],
     'NumpadAdd': ['jumpToggle'],
     'NumpadEnter': ['menuAccept'],
     'Tab': ['showSpeech'],
@@ -120,6 +121,8 @@ const defaultKeyMap:KeyMap = {
     'Control+Numpad4': ['panLeft'],
     'Control+Numpad6': ['panRight'],
     'Control+Numpad8': ['panUp'],
+    'Control+Z': ['snapToPlayer'],
+    'Control+Numpad5': ['snapToPlayer'],
     'Control+Period': ['snapToPlayer'],
     'Control+Space': ['snapToPlayer'],
 }
@@ -326,6 +329,8 @@ class GamepadManager {
             c.setPressed("panRight", g.axes[2]>c.thresh);
             c.setPressed("panUp", g.axes[3]<-c.thresh);
             c.setPressed("panDown", g.axes[3]>c.thresh);
+            c.setPressed("snapToPlayer", buttonPressed(g,5));
+            c.setPressed("showSpeech", buttonPressed(g,4));
         }
     }
 }
