@@ -1286,10 +1286,6 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             continue;
         }
 
-        if (adj.length < 2) {
-            continue;
-        }
-
         adj.door = true;
         adj.doorType = DoorType.Standard;
         const group0 = room0.group;
@@ -1606,12 +1602,14 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
             continue;
         }
 
-        if (adj.length < 2) {
-            continue;
-        }
-
         const room0 = adj.roomLeft;
         const room1 = adj.roomRight;
+
+        const wallBetweenCourtyards = isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType);
+
+        if (adj.length < 2 && !wallBetweenCourtyards) {
+            continue;
+        }
 
         if (room0.roomType === RoomType.Exterior || room0.roomType === RoomType.Vault) {
             continue;
@@ -1624,13 +1622,11 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
             continue;
         }
 
-        adj.door = true;
-
         const depthDifference = Math.abs(room0.depth - room1.depth);
 
-        if (isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType)) {
-            adj.doorType = DoorType.Standard;
-        } else if (depthDifference < 2) {
+        adj.door = true;
+
+        if (wallBetweenCourtyards || depthDifference < 2) {
             adj.doorType = DoorType.Standard;
         } else {
             adj.doorType = DoorType.Locked;
@@ -3924,6 +3920,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
 
         for (const a of walls) {
             if (!a.door) {
+                continue;
+            }
+
+            if (a.length < 2) {
                 continue;
             }
 
