@@ -3883,12 +3883,12 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                 }
             } else if (isCourtyardRoomType(roomTypeL) !== isCourtyardRoomType(roomTypeR)) {
                 if (isCourtyardRoomType(roomTypeR)) {
-                    if (levelType === LevelType.Fortress && a.roomLeft.depth < a.roomRight.depth) {
+                    if (levelType === LevelType.Fortress && a.roomLeft.depth + 1 < a.roomRight.depth) {
                         continue;
                     }
                     vec2.negate(dir, dir);
                 } else {
-                    if (levelType === LevelType.Fortress && a.roomRight.depth < a.roomLeft.depth) {
+                    if (levelType === LevelType.Fortress && a.roomRight.depth + 1 < a.roomLeft.depth) {
                         continue;
                     }
                 }
@@ -3898,7 +3898,7 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
 
             const windowType = oneWayWindowTerrainTypeFromDir(dir);
 
-            if (levelType === LevelType.Fortress) {
+            if (levelType === LevelType.Fortress && (roomTypeL === RoomType.Exterior || roomTypeR === RoomType.Exterior)) {
                 if (a.length > 2 && (a.length & 1) === 0) {
                     const p = vec2.clone(a.origin).scaleAndAdd(a.dir, a.length / 2);
                     map.cells.atVec(p).type = windowType;
