@@ -5,7 +5,7 @@ import { GameMode, GameStats, State } from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
-import { getFontTileSet, getTileSet } from './tilesets';
+import { getFontTileSet, getEntityTileSet, getTerrainTileSet, TextureType } from './tilesets';
 import { ItemType, TerrainType } from './game-map';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
@@ -200,7 +200,7 @@ class TextWindow {
     
         // Draw a stretched box to make a darkened background for the text.
         const solidChar = getFontTileSet().background.textureIndex;
-        renderer.start(matScreenFromTextArea, 0);
+        renderer.start(matScreenFromTextArea, TextureType.Font);
         renderer.addGlyph(-1.5, -0.75, maxLineLength + 1.5, lines.length + 0.75, {textureIndex: solidChar, color: colorBorder});
         renderer.addGlyph(-1,   -0.5,  maxLineLength + 1,   lines.length + 0.5,  {textureIndex: solidChar, color: colorBackground});
         renderer.flush();
@@ -213,7 +213,7 @@ class TextWindow {
             0, this.screenSize[0],
             0, this.screenSize[1],
             1, -1);
-        renderer.start(matScreenFromPixel, 0);
+        renderer.start(matScreenFromPixel, TextureType.Font);
         for (let a in this.touchTargets) {
             if(lastController?.controlStates[a]) {
                 this.highlightedAction = this.actionSequence.indexOf(a);
@@ -231,7 +231,7 @@ class TextWindow {
         renderer.flush();
 
         // Draw glyphs
-        renderer.start(matScreenFromTextArea, 1);
+        renderer.start(matScreenFromTextArea, TextureType.Entity);
         for(const g of this.glyphs) {
             const r = g[1];
             renderer.addGlyph(r[0], r[1], r[2]+r[0], r[3]+r[1], {textureIndex: g[0], color: colorPreset.white});
@@ -239,7 +239,7 @@ class TextWindow {
         renderer.flush();
 
         // Draw text
-        renderer.start(matScreenFromTextArea, 0);
+        renderer.start(matScreenFromTextArea, TextureType.Font);
         for (let i = 0; i < lines.length; ++i) {
             const row = lines.length - (1 + i);
             for (let j = 0; j < lines[i].length; ++j) {
@@ -455,15 +455,15 @@ class HelpKey extends TextWindow {
     pages = [
         `Map Key
 
-#${getTileSet().playerTiles.normal.textureIndex}# Thief: You!
-#${getTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
-#${getTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Steal it!
-#${getTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
-#${getTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
-#${getTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Guards sit here
-#${getTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards light them
-#${getTileSet().terrainTiles[TerrainType.OneWayWindowN].textureIndex}# Window: One-way escape route
-#${getTileSet().terrainTiles[TerrainType.GroundWoodCreaky].textureIndex}# Creaky floor: Alerts guards
+#${getEntityTileSet().playerTiles.normal.textureIndex}# Thief: You!
+#${getEntityTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
+#${getEntityTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Steal it!
+#${getEntityTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
+#${getEntityTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
+#${getEntityTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Guards sit here
+#${getEntityTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Guards light them
+#${getEntityTileSet().namedTiles["uiWindowTile"].textureIndex}# Window: One-way escape route
+#${getEntityTileSet().namedTiles["uiCreakyTile"].textureIndex}# Creaky floor: Alerts guards
 
 [Esc|menu] Back to menu`,
     ];
@@ -585,7 +585,7 @@ $copyState$
             } else if(state.persistedStats.currentDailyWinFirstTry===0) {
                 this.state.set('dailyStatus', state.persistedStats.currentDailyGameId+' game won');
             } else {
-                const tile = getTileSet().itemTiles[ItemType.TorchLit].textureIndex;
+                const tile = getEntityTileSet().itemTiles[ItemType.TorchLit].textureIndex;
                 this.state.set('dailyStatus', state.persistedStats.currentDailyGameId+` game won first try #${tile}#`);
             }
             this.state.set('timeLeft', "Time to next game: "+this.timeToMidnightUTC());
@@ -688,10 +688,10 @@ when you complete a game.
 
 [Esc|menu] Back to menu`];
     update(state:State) {
-        const ts = getTileSet().achievementIcons
-        const inc = getTileSet().achievementIncompleteIcon.textureIndex;
+        const ts = getEntityTileSet().achievementIcons
+        const inc = getEntityTileSet().achievementIncompleteIcon.textureIndex;
         this.state.set('victoryAchieved', state.persistedStats.achievementVictory>0?`#${ts.achievementVictory.textureIndex}#`:`#${inc}#`);
-        this.state.set('ghostyAchieved', state.persistedStats.achievementGhosty>0?`#${ts.achievementGhosty.textureIndex}#`:`#${inc}#`);
+        this.state.set('ghostyAchieved', state.persistedStats.achievementGhosty>0?  `#${ts.achievementGhosty.textureIndex}#`:`#${inc}#`);
         this.state.set('zippyAchieved', state.persistedStats.achievementZippy>0?    `#${ts.achievementZippy.textureIndex}#`:`#${inc}#`);
         this.state.set('hungryAchieved', state.persistedStats.achievementHungry>0?  `#${ts.achievementHungry.textureIndex}#`:`#${inc}#`);
         this.state.set('thumpyAchieved', state.persistedStats.achievementThumpy>0?  `#${ts.achievementThumpy.textureIndex}#`:`#${inc}#`);
