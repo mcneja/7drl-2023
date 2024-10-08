@@ -2465,6 +2465,9 @@ function generatePatrolRouteSingle(rooms: Array<Room>, rng: RNG): Array<PatrolNo
             if (!adj.door) {
                 continue;
             }
+            if (adj.length < 2) {
+                continue;
+            }
             const roomNext = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
             if (roomVisited.has(roomNext)) {
                 continue;
@@ -2592,6 +2595,9 @@ function placePatrolRouteLargeLoop(level: number, gameMap: GameMap, rooms: Array
             if (!adj.door) {
                 continue;
             }
+            if (adj.length < 2) {
+                continue;
+            }
             const roomNext = (adj.roomLeft === visit.room) ? adj.roomRight : adj.roomLeft;
             if (!roomsValid.has(roomNext)) {
                 continue;
@@ -2657,6 +2663,7 @@ function placePatrolRoutesDense(
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
+        adj.length >= 2 &&
         isPatrolledRoom(adj.roomLeft) &&
         isPatrolledRoom(adj.roomRight));
 
@@ -3111,6 +3118,7 @@ function placePatrolRoutes(
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
+        adj.length >= 2 &&
         adj.roomLeft.roomType !== RoomType.Exterior &&
         adj.roomRight.roomType !== RoomType.Exterior &&
         adj.roomLeft.roomType !== RoomType.Vault &&
