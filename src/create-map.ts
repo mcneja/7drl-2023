@@ -246,7 +246,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     // Compute a list of room adjacencies.
 
-    const mirrorAdjacencies = levelType !== LevelType.Fortress && rng.randomInRange(24) >= level;
+    const mirrorAdjacencies = rng.randomInRange(24) >= level;
     const mirrorAdjacenciesX = mirrorRoomsX && mirrorAdjacencies;
     const mirrorAdjacenciesY = mirrorRoomsY && mirrorAdjacencies;
 
