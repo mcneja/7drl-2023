@@ -1279,7 +1279,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
-            setLeapStatusMessage(state, dx, dy);
+            if (stepType !== StepType.AttemptedLeap) {
+                setLeapStatusMessage(state, dx, dy);
+            }
             state.sounds['gate'].play(0.3);
             if (state.level === 0) {
                 setTimeout(()=>state.sounds['jump'].play(0.3), 1000);
