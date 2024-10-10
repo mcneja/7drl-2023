@@ -1266,10 +1266,6 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             continue;
         }
 
-        if (adj.length < 2) {
-            continue;
-        }
-
         adj.door = true;
         adj.doorType = DoorType.Standard;
         const group0 = room0.group;
