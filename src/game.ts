@@ -1691,7 +1691,6 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const cellMid = state.gameMap.cells.atVec(posMid);
     const cellNew = state.gameMap.cells.atVec(posNew);
 
-
     // If an unaware guard is adjacent in the leap direction, knock them unconscious
 
     const guardMid = state.gameMap.guards.find((guard) =>
@@ -1700,9 +1699,10 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     if (guardMid) {
         if (cellMid.type===TerrainType.PortcullisEW ||
-            cellMid.type===TerrainType.PortcullisNS) {
+            cellMid.type===TerrainType.PortcullisNS ||
+            (!player.hasVaultKey && isLockedDoorAtPos(state.gameMap, posMid))) {
             //Can't attack or leap over a guard on a portcullis
-            tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);             
+            tryPlayerStep(state, dx, dy, StepType.AttemptedLeap);
             return;
         } else if (guardMid.mode === GuardMode.ChaseVisibleTarget) {
             // Swap places with the guard
@@ -1779,7 +1779,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
             if (guard !== undefined && 
                 guard.overheadIcon() === GuardStates.Alerted &&
                 cellNew.type !== TerrainType.PortcullisEW &&
-                cellNew.type !== TerrainType.PortcullisNS) {
+                cellNew.type !== TerrainType.PortcullisNS &&
+                (player.hasVaultKey || !isLockedDoorAtPos(state.gameMap, posNew))) {
                 // Leaping attack: An alert guard at posNew will be KO'd and looted with player landing at posMid
                 executeLeapAttack(state, player, guard, dx, dy, posOld, posMid, posNew);
             } else {
@@ -1983,6 +1984,10 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     // Play sound for terrain type changes
 
     playMoveSound(state, state.gameMap.cells.atVec(posOld), cellMid);
+}
+
+function isLockedDoorAtPos(gameMap: GameMap, pos: vec2): boolean {
+    return gameMap.items.some(item => item.pos.equals(pos) && (item.type === ItemType.LockedDoorEW || item.type === ItemType.LockedDoorNS));
 }
 
 function canLeapOntoItemType(itemType: ItemType): boolean {
