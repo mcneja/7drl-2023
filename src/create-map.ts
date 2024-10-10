@@ -5566,7 +5566,11 @@ function placeGuards(
                 return 1;
             })
         if (gates.length >= 1) {
-            map.guards[0].pos = vec2.fromValues(gates[0].pos[0], gates[0].pos[1]+1);
+            const posGate = gates[0].pos;
+            const guard = map.guards[0];
+            vec2.set(guard.pos, posGate[0], posGate[1]+1);
+            vec2.set(guard.dir, 0, -1);
+            guard.enterPatrolMode(map);
         }
     }
 
