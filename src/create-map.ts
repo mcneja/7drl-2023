@@ -1445,11 +1445,11 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Occasionally create a back door to the exterior.
 
-    if (levelType !== LevelType.Fortress && rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
+    if (rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
         const adjDoor = backDoorAdjacency(edgeSets, rooms[0]);
         if (adjDoor !== undefined) {
             adjDoor.door = true;
-            adjDoor.doorType = (level < 3 || rng.random() < 0.75) ? DoorType.GateBack : DoorType.Locked;
+            adjDoor.doorType = (levelType !== LevelType.Fortress && (level < 3 || rng.random() < 0.75)) ? DoorType.GateBack : DoorType.Locked;
 
             // Break symmetry if the door is off center.
 
@@ -1463,10 +1463,10 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Also create side doors sometimes.
 
-    if (levelType !== LevelType.Fortress && rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
+    if (rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
         const adjDoor = sideDoorAdjacency(edgeSets, rooms[0]);
         if (adjDoor !== undefined) {
-            const doorType = (level < 3) ? DoorType.GateBack : DoorType.Locked;
+            const doorType = (levelType !== LevelType.Fortress && level < 3) ? DoorType.GateBack : DoorType.Locked;
             adjDoor.door = true;
             adjDoor.doorType = doorType;
 
