@@ -261,18 +261,18 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     makeDoubleRooms(rooms, adjacencies, rng);
 
-    // Compute room distances from entrance.
-
-    computeRoomDepths(rooms);
-
     // In fortresses, connectRooms added only the bare minimum of doors necessary to connect the level.
     //  Add additional doors now, but lock them.
 
     if (levelType === LevelType.Fortress) {
+        computeRoomDepths(rooms);
         assignVaultRoom(rooms, levelType, rng);
         addAdditionalFortressDoors(adjacencies, rng);
-        computeRoomDepths(rooms);
     }
+
+    // Compute room distances from entrance.
+
+    computeRoomDepths(rooms);
 
     // Compute a measure of how much each room is on paths between other rooms.
 
@@ -1592,7 +1592,14 @@ function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room):
     return adjs[Math.floor(adjs.length / 2)];
 }
 
+function numDoorsForRoom(room: Room): number {
+    return room.edges.reduce((c, adj) => c + (adj.door ? 1 : 0), 0);
+}
+
 function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
+    // Note: should be honoring edge sets here to preserve symmetry.
+    // Currently the additional fortress doors are not symmetric.
+
     for (const adj of adjacencies) {
         if (adj.door) {
             continue;
@@ -1611,6 +1618,10 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
             continue;
         }
         if (room1.roomType === RoomType.Exterior || room1.roomType === RoomType.Vault) {
+            continue;
+        }
+
+        if (numDoorsForRoom(room0) > 1 && numDoorsForRoom(room1) > 1) {
             continue;
         }
 
