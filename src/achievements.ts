@@ -1,7 +1,7 @@
 import { numTurnsParForCurrentMap } from './game';
 import { ItemType } from './game-map';
-import { Guard, GuardMode } from './guard';
-import { State, Achievements } from './types';
+import { GuardMode } from './guard';
+import { State } from './types';
 
 export function getAchievements(): Achievements {
     return {
@@ -18,162 +18,146 @@ export function getAchievements(): Achievements {
     }
 }
 
-export class Achievement {
-    complete: boolean = false;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') { }
+export type Achievements = {
+    achievementGhosty: Achievement;
+    achievementZippy: Achievement;
+    achievementHungry: Achievement;
+    achievementThumpy: Achievement;
+    achievementSofty: Achievement;
+    achievementNoisy: Achievement;
+    achievementLeapy: Achievement;
+    achievementSteppy: Achievement;
+    achievementHurty: Achievement;
+    achievementVictory: Achievement;
 }
 
-class VictoryAchievement extends Achievement {
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
+export class Achievement {
+    failed: boolean = false;
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         if (type === 'gameStart') {
-            this.complete = false;
-        } else if (type === 'gameEnd') {
-            this.complete = true;
+            this.failed = false;
         }
     }
 }
 
+class VictoryAchievement extends Achievement {
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+    }
+}
+
 class GhostyAchievement extends Achievement {
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
-        if (type === 'gameStart') {
-            this.complete = false;
-        } else if (type === 'gameEnd') {
-            this.complete = state.gameStats.numGhostedLevels === state.gameMapRoughPlans.length;
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'turnEnd') {
+            if (state.levelStats.numSpottings > 0) {
+                this.failed = true;
+            }
         }
     }
 }
 
 class ZippyAchievement extends Achievement {
-    parRuns: number = 0;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
-        if (type === 'levelEnd') {
-            if (state.turns <= numTurnsParForCurrentMap(state)) this.parRuns++;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.parRuns = 0;
-        } else if (type === 'gameEnd') {
-            this.complete = this.parRuns === state.gameMapRoughPlans.length;
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'turnEnd') {
+            if (state.turns > numTurnsParForCurrentMap(state)) {
+                this.failed = true;
+            }
         }
     }
 }
 
 class LeapyAchievement extends Achievement {
-    leapMoves: number = 0;
-    leapLevels: number = 0;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
         if (type === 'turnEnd') {
-            if (state.player.pos.distance(state.oldPlayerPos) >= 2) this.leapMoves++;
-        } else if (type === 'levelEnd') {
-            if (this.leapMoves >= 0.8 * state.turns) this.leapLevels++;
-            this.leapMoves = 0;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.leapMoves = 0;
-            this.leapLevels = 0;
-        } else if (type === 'gameEnd') {
-            this.complete = this.leapLevels === state.gameMapRoughPlans.length;
+            this.failed = state.numLeapMoves < 0.8 * state.totalTurns;
         }
     }
 }
 
 class SteppyAchievement extends Achievement {
-    leapMoves: number = 0;
-    leapLevels: number = 0;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
         if (type === 'turnEnd') {
-            if (state.player.pos.distance(state.oldPlayerPos) >= 2) this.leapMoves++;
-        } else if (type === 'levelEnd') {
-            if (this.leapMoves <= 20) this.leapLevels++;
-            this.leapMoves = 0;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.leapMoves = 0;
-            this.leapLevels = 0;
-        } else if (type === 'gameEnd') {
-            this.complete = this.leapLevels === state.gameMapRoughPlans.length;
+            if (state.numLeapMoves > 20) {
+                this.failed = true;
+            }
         }
     }
 }
 
 class NoisyAchievement extends Achievement {
-    noisesHeard: number = 0;
-    levelsWithNoisesHeard: number = 0;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
-        if (type === 'turnEnd') {
-            if (state.gameMap.guards.some(g => g.mode === GuardMode.Listen || g.mode === GuardMode.MoveToLastSound)) this.noisesHeard++;
+    noiseHeardOnCurrentLevel: boolean = false;
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'gameStart') {
+            this.noiseHeardOnCurrentLevel = false;
+        } else if (type === 'turnEnd') {
+            if (state.gameMap.guards.some(g => g.mode === GuardMode.Listen || g.mode === GuardMode.MoveToLastSound)) {
+                this.noiseHeardOnCurrentLevel = true;
+            }
         } else if (type === 'levelEnd') {
-            if (this.noisesHeard > 0) this.levelsWithNoisesHeard++;
-            this.noisesHeard = 0;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.noisesHeard = 0;
-            this.levelsWithNoisesHeard = 0;
-        } else if (type === 'gameEnd') {
-            this.complete = this.levelsWithNoisesHeard === state.gameMapRoughPlans.length - 1;
+            if (!this.noiseHeardOnCurrentLevel && state.gameMap.guards.length > 0) {
+                this.failed = true;
+            }
+            this.noiseHeardOnCurrentLevel = false;
         }
     }
 }
 
 class ThumpyAchievement extends Achievement {
-    failed: boolean = false;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
         if (type === 'levelEnd') {
-            if (state.gameMap.guards.some((g) => (g.mode !== GuardMode.Unconscious))) this.failed = true;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.failed = false;
-        } else if (type === 'gameEnd') {
-            this.complete = !this.failed;
+            if (state.gameMap.guards.some((g) => (g.mode !== GuardMode.Unconscious))) {
+                this.failed = true;
+            }
         }
     }
 }
 
 class SoftyAchievement extends Achievement {
-    failed: boolean = false;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
         if (type === 'levelEnd') {
-            if (state.levelStats.numKnockouts > 0) this.failed = true;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.failed = false;
-        } else if (type === 'gameEnd') {
-            this.complete = !this.failed;
+            if (state.levelStats.numKnockouts > 0) {
+                this.failed = true;
+            }
         }
     }
 }
 
 class HungryAchievement extends Achievement {
-    failed: boolean = false;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
         if (type === 'levelEnd') {
-            if (state.gameMap.items.some((item) => item.type === ItemType.Health)) this.failed = true;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.failed = false;
-        } else if (type === 'gameEnd') {
-            this.complete = !this.failed;
+            if (state.gameMap.items.some((item) => item.type === ItemType.Health)) {
+                this.failed = true;
+            }
         }
     }
 }
 
-export class HurtyAchievement extends Achievement {
-    damageTaken: number = 0;
-    damageLevels: number = 0;
+class HurtyAchievement extends Achievement {
+    damageTakenThisLevel: boolean = false;
     priorTurnHealth: number = 0;
-    update(state: State, type: 'turnEnd' | 'levelEnd' | 'gameEnd' | 'gameStart') {
-        if (type === 'turnEnd') {
-            if (state.player.health < this.priorTurnHealth) this.damageTaken++;
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'gameStart') {
+            this.damageTakenThisLevel = false;
+            this.priorTurnHealth = state.player.health;
+        } else if (type === 'turnEnd') {
+            if (state.player.health < this.priorTurnHealth) {
+                this.damageTakenThisLevel = true;
+            }
             this.priorTurnHealth = state.player.health;
         } else if (type === 'levelEnd') {
-            if (this.damageTaken > 0) this.damageLevels++;
-            this.damageTaken = 0;
-        } else if (type === 'gameStart') {
-            this.complete = false;
-            this.damageTaken = 0;
-            this.damageLevels = 0;
-            this.priorTurnHealth = state.player.health;
-        } else if (type === 'gameEnd') {
-            this.complete = this.damageLevels === state.gameMapRoughPlans.length;
+            if (!this.damageTakenThisLevel && state.gameMap.guards.length > 0) {
+                this.failed = true;
+            }
+            this.damageTakenThisLevel = false;
         }
     }
 }

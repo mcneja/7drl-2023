@@ -10,10 +10,10 @@ import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './au
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen } from './ui'
-import {Achievements, AmbienceType, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
+import { AmbienceType, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
-import { getAchievements } from './achievements';
+import { Achievements, getAchievements } from './achievements';
 
 export const gameConfig = {
     numGameMaps: 10,
@@ -325,9 +325,8 @@ function clearLevelStats(levelStats: LevelStats) {
     levelStats.extraFoodCollected = 0;
 }
 
-function updateAchievements(state: State, type:'turnEnd'|'levelEnd'|'gameEnd'|'gameStart') {
-    let key:keyof Achievements;
-    for(key in state.achievements) {
+function updateAchievements(state: State, type:'gameStart'|'turnEnd'|'levelEnd'|'gameEnd') {
+    for(const key in state.achievements) {
         state.achievements[key].update(state, type);
     }
 }
@@ -338,7 +337,7 @@ function persistAchievements(state: State) {
     for(key in state.achievements) {
         if(key in state.persistedStats) {
             pKey = key;
-            if(state.achievements[key].complete) {
+            if(!state.achievements[key].failed) {
                 state.persistedStats[pKey]++;
                 setStat(pKey, state.persistedStats[pKey]);
             }

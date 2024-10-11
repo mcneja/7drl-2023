@@ -1,6 +1,5 @@
 import * as colorPreset from './color-preset';
-import { TerrainType } from './game-map';
-import { Achievements } from './types';
+import { Achievements } from './achievements';
 
 const entityImageTileset31Color = require('url:./entitytiles31color.png');
 const terrainImageTileset31Color = require('url:./terraintiles31color.png');
@@ -72,6 +71,7 @@ export type EntityTileSet = {
     playerTorchAnimation: Array<TileInfo>;
     achievementIcons: {[key in keyof Achievements]: TileInfo};
     achievementIncompleteIcon: TileInfo;
+    achievementFailedIcon: TileInfo;
 }
 
 export type FontTileSet = {
@@ -543,4 +543,5 @@ const entityTileSet31Color:EntityTileSet = {
         achievementHurty: {textureIndex: 0x5f},
     },
     achievementIncompleteIcon: {textureIndex: 0x3f},
+    achievementFailedIcon: {textureIndex: 0},
 }

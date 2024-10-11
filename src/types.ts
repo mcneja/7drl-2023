@@ -1,14 +1,14 @@
 import { vec2 } from './my-matrix';
 import { GameMap, GameMapRoughPlan, Player } from './game-map';
-import { Achievement } from './achievements';
 import { RNG } from './random';
 import { Howls, SubtitledHowls, ActiveHowlPool } from './audio';
 import { Popups } from './popups';
 import { TouchController, GamepadManager, KeyboardController } from './controllers';
 import { TextWindow } from './ui';
 import { Animator } from './animation';
+import { Achievements } from './achievements';
 
-export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, Achievements, ScoreEntry, AmbienceType}
+export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, ScoreEntry, AmbienceType}
 
 type Camera = {
     position: vec2;
@@ -59,19 +59,6 @@ type LevelStats = {
     numSpottings: number;
     damageTaken: number;
     extraFoodCollected: number;
-}
-
-type Achievements = {
-    achievementGhosty: Achievement;
-    achievementZippy: Achievement;
-    achievementHungry: Achievement;
-    achievementThumpy: Achievement;
-    achievementSofty: Achievement;
-    achievementNoisy: Achievement;
-    achievementLeapy: Achievement;
-    achievementSteppy: Achievement;
-    achievementHurty: Achievement;
-    achievementVictory: Achievement;
 }
 
 type GameStats = {
