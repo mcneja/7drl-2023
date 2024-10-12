@@ -33,6 +33,7 @@ export type Achievements = {
 
 export class Achievement {
     failed: boolean = false;
+    unicodeBadge: string = '';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         if (type === 'gameStart') {
             this.failed = false;
@@ -41,12 +42,14 @@ export class Achievement {
 }
 
 class VictoryAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F451}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
     }
 }
 
 class GhostyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F47B}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -58,6 +61,7 @@ class GhostyAchievement extends Achievement {
 }
 
 class ZippyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F3C3}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -69,6 +73,7 @@ class ZippyAchievement extends Achievement {
 }
 
 class LeapyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F998}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -78,6 +83,7 @@ class LeapyAchievement extends Achievement {
 }
 
 class SteppyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F6B6}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -89,6 +95,7 @@ class SteppyAchievement extends Achievement {
 }
 
 class NoisyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F941}';
     noiseHeardOnCurrentLevel: boolean = false;
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
@@ -108,6 +115,7 @@ class NoisyAchievement extends Achievement {
 }
 
 class ThumpyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F44A}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -119,6 +127,7 @@ class ThumpyAchievement extends Achievement {
 }
 
 class SoftyAchievement extends Achievement {
+    unicodeBadge: string = '\u{262E}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -130,6 +139,7 @@ class SoftyAchievement extends Achievement {
 }
 
 class HungryAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F96A}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -141,6 +151,7 @@ class HungryAchievement extends Achievement {
 }
 
 class HurtyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F915}';
     damageTakenThisLevel: boolean = false;
     priorTurnHealth: number = 0;
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {

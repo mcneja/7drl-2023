@@ -7,11 +7,11 @@ import * as game from './game';
 import { RNG } from './random';
 import { getFontTileSet, getEntityTileSet, TextureType, TileInfo } from './tilesets';
 import { ItemType } from './game-map';
-import { Achievement } from './achievements';
+import { Achievement, Achievements } from './achievements';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
 
-function scoreToClipboard(stats:GameStats) {
+function scoreToClipboard(stats:GameStats, achievements:Achievements) {
     const numGhostedLevels = stats.numGhostedLevels;
     const totalScore = stats.totalScore;
     const turns = stats.turns;
@@ -24,12 +24,25 @@ function scoreToClipboard(stats:GameStats) {
         '\uD83C\uDFB2 Random game';
     const endText = win? 'Completed mission in '+turns+' turns.':
         '\uD83D\uDC80 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
+    let badges = '';
+    if (win) {
+        let a:keyof Achievements;
+        for(a in achievements) {
+            if (!achievements[a].failed) {
+                badges += achievements[a].unicodeBadge;
+            }
+        }    
+        if (badges.length>0) {
+            badges = 'Achievements: '+badges+'\n';
+        }
+    }
 
     navigator.clipboard.writeText(
         `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
         `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
         `Ghosted:     ${numGhostedLevels}\n`+
-        `Total score: ${totalScore}\n`
+        `Total score: ${totalScore}\n`+
+        `${badges}`
     )
 }
 
@@ -309,9 +322,7 @@ $playRestartOrResume$
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
         if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
-            state.gameMode = GameMode.Mansion;
-            state.hasStartedGame = true;
-            game.playAmbience(state);
+            game.startResumeConfiguredGame(state);
         } else if (activated('homeRestart') || actionSelected=='homeRestart') {
             state.rng = new RNG();
             state.dailyRun = null;
@@ -630,7 +641,7 @@ $copyState$
                 timeStarted: Date.now(),
                 timeEnded: 0,
             };
-            scoreToClipboard(stats);
+            scoreToClipboard(stats, state.achievements);
             this.stateCopied = true;
         }
     };        
@@ -687,7 +698,8 @@ when you complete a game.
  $steppyAchieved$ Steppy: leap no more than 20 turns
  $hurtyAchieved$ Hurty: took a wound on levels 2-10
 
-[Esc|menu] Back to menu`];
+[Esc|menu] Back to menu`,
+];
     update(state:State) {
         const ts = getEntityTileSet().achievementIcons;
         const incomplete = `#${getEntityTileSet().achievementIncompleteIcon.textureIndex}#`;
@@ -813,7 +825,7 @@ $copyState$
             state.gameMode = GameMode.HomeScreen;
             state.hasStartedGame = false;
         } else if(activated('copyScore') || action=='copyScore') {
-            scoreToClipboard(state.gameStats);
+            scoreToClipboard(state.gameStats, state.achievements);
             this.stateCopied = true;
         }
     }   
@@ -825,7 +837,7 @@ class WinScreen extends TextWindow {
 
 Statistics
 Ghosted:       $numGhostedLevels$ of $numLevels$
-Total Score:   $totalScore$
+Total Score:   $totalScore$$achievements$
 
 [N|homeRestart]:   New game
 [C|copyScore]:   Copy score to clipboard
@@ -833,11 +845,31 @@ $copyState$
 [Esc|menu]: Exit to home screen`
     ];
     stateCopied: boolean = false;
+    achievementsLine: string|undefined = undefined;
     update(state:State) {
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
         this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
+        const incomplete = `#${getEntityTileSet().achievementIncompleteIcon.textureIndex}#`;
+        const failed = `#${getEntityTileSet().achievementFailedIcon.textureIndex}#`;
+        function setIcon(window: TextWindow, key: string, completionCount: number, achievement: Achievement, tileInfo: TileInfo) {
+            const str: string = completionCount>0 ? `#${tileInfo.textureIndex}#` : achievement.failed ? failed : incomplete;
+            window.state.set(key, str);
+        }
+        if (this.achievementsLine===undefined) {
+            this.achievementsLine = '';
+            let a:keyof Achievements;
+            for (a in state.achievements) {
+                if (!state.achievements[a].failed) {
+                    this.achievementsLine += `#${getEntityTileSet().achievementIcons[a].textureIndex}#`
+                }
+            }
+            if (this.achievementsLine.length>0) {
+                this.achievementsLine = '\nAchievements:  '+this.achievementsLine+'\n';
+                this.state.set('achievements', this.achievementsLine);
+            }
+        }
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
@@ -854,7 +886,7 @@ $copyState$
             state.gameMode = GameMode.HomeScreen;
             state.hasStartedGame = false;
         } else if(activated('copyScore') || action=='copyScore') {
-            scoreToClipboard(state.gameStats);
+            scoreToClipboard(state.gameStats, state.achievements);
             this.stateCopied = true;
         }
     };

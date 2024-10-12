@@ -326,7 +326,8 @@ function clearLevelStats(levelStats: LevelStats) {
 }
 
 function updateAchievements(state: State, type:'gameStart'|'turnEnd'|'levelEnd'|'gameEnd') {
-    for(const key in state.achievements) {
+    let key:keyof Achievements;
+    for(key in state.achievements) {
         state.achievements[key].update(state, type);
     }
 }
@@ -3013,6 +3014,17 @@ function setLights(gameMap: GameMap, state: State) {
         id++;
     }
 }
+
+export function startResumeConfiguredGame(state:State) {
+    state.gameMode = GameMode.Mansion;
+    if (!state.hasStartedGame) {
+        state.persistedStats.totalPlays++;
+        setStat('totalPlays',state.persistedStats.totalPlays);            
+        state.hasStartedGame = true;
+    }
+    playAmbience(state);
+}
+
 
 export function restartGame(state: State) {
     state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
