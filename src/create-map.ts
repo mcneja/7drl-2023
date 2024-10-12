@@ -1257,16 +1257,16 @@ function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>) {
 
 function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: number, levelType: LevelType, rng: RNG) {
 
-    // Collect sets of edges that are mirrors of each other
-
-    const edgeSets = getEdgeSets(adjacencies, rng);
-
     // Connect all adjacent exterior rooms together.
 
     for (const adj of adjacencies) {
         const room0 = adj.roomLeft;
         const room1 = adj.roomRight;
         if (room0.roomType != RoomType.Exterior || room1.roomType != RoomType.Exterior) {
+            continue;
+        }
+
+        if (adj.length < 2) {
             continue;
         }
 
@@ -1286,12 +1286,20 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             continue;
         }
 
+        if (adj.length < 2) {
+            continue;
+        }
+
         adj.door = true;
         adj.doorType = DoorType.Standard;
         const group0 = room0.group;
         const group1 = room1.group;
         joinGroups(rooms, group0, group1);
     }
+
+    // Collect sets of edges that are mirrors of each other
+
+    const edgeSets = getEdgeSets(adjacencies, rng);
 
     if (levelType === LevelType.Fortress) {
         // Connect all the rooms with doors.
@@ -1305,9 +1313,6 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             let addDoor = false;
 
             for (const adj of edgeSet) {
-                if (adj.length < 2) {
-                    break;
-                }
                 if (adj.roomLeft.roomType === RoomType.Exterior) {
                     break;
                 }
@@ -1348,9 +1353,6 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             let addDoor = false;
 
             for (const adj of edgeSet) {
-                if (adj.length < 2) {
-                    break;
-                }
                 if (adj.roomLeft.roomType !== RoomType.PublicRoom) {
                     break;
                 }
@@ -1389,16 +1391,13 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             let addDoor = false;
 
             for (const adj of edgeSet) {
-                if (adj.length < 2) {
+                if (adj.roomLeft.roomType === adj.roomRight.roomType) {
                     break;
                 }
                 if (adj.roomLeft.roomType === RoomType.Exterior) {
                     break;
                 }
                 if (adj.roomRight.roomType === RoomType.Exterior) {
-                    break;
-                }
-                if (isCourtyardRoomType(adj.roomLeft.roomType) === isCourtyardRoomType(adj.roomRight.roomType)) {
                     break;
                 }
 
@@ -1524,9 +1523,6 @@ function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room)
             if (adj.dir[0] == 0) {
                 continue;
             }
-            if (adj.length < 2) {
-                continue;
-            }
 
             if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
                 adjs.push(adj);
@@ -1551,9 +1547,6 @@ function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room):
     for (const edgeSet of edgeSets) {
         for (const adj of edgeSet) {
             if (adj.dir[0] == 0) {
-                continue;
-            }
-            if (adj.length < 2) {
                 continue;
             }
 
@@ -1624,14 +1617,12 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
             continue;
         }
 
-        const room0 = adj.roomLeft;
-        const room1 = adj.roomRight;
-
-        const wallBetweenCourtyards = isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType);
-
-        if (adj.length < 2 && !wallBetweenCourtyards) {
+        if (adj.length < 2) {
             continue;
         }
+
+        const room0 = adj.roomLeft;
+        const room1 = adj.roomRight;
 
         if (room0.roomType === RoomType.Exterior || room0.roomType === RoomType.Vault) {
             continue;
@@ -1652,7 +1643,9 @@ function addAdditionalFortressDoors(adjacencies: Array<Adjacency>, rng: RNG) {
 
         adj.door = true;
 
-        if (wallBetweenCourtyards || depthDifference < 2) {
+        if (isCourtyardRoomType(room0.roomType) && isCourtyardRoomType(room1.roomType)) {
+            adj.doorType = DoorType.Standard;
+        } else if (depthDifference < 2) {
             adj.doorType = DoorType.Standard;
         } else {
             adj.doorType = DoorType.Locked;
@@ -2491,9 +2484,6 @@ function generatePatrolRouteSingle(rooms: Array<Room>, rng: RNG): Array<PatrolNo
             if (!adj.door) {
                 continue;
             }
-            if (adj.length < 2) {
-                continue;
-            }
             const roomNext = (adj.roomLeft === room) ? adj.roomRight : adj.roomLeft;
             if (roomVisited.has(roomNext)) {
                 continue;
@@ -2621,9 +2611,6 @@ function placePatrolRouteLargeLoop(level: number, gameMap: GameMap, rooms: Array
             if (!adj.door) {
                 continue;
             }
-            if (adj.length < 2) {
-                continue;
-            }
             const roomNext = (adj.roomLeft === visit.room) ? adj.roomRight : adj.roomLeft;
             if (!roomsValid.has(roomNext)) {
                 continue;
@@ -2689,7 +2676,6 @@ function placePatrolRoutesDense(
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
-        adj.length >= 2 &&
         isPatrolledRoom(adj.roomLeft) &&
         isPatrolledRoom(adj.roomRight));
 
@@ -3144,7 +3130,6 @@ function placePatrolRoutes(
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
-        adj.length >= 2 &&
         adj.roomLeft.roomType !== RoomType.Exterior &&
         adj.roomRight.roomType !== RoomType.Exterior &&
         adj.roomLeft.roomType !== RoomType.Vault &&
@@ -3860,20 +3845,18 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
 
 function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
 
-    // Plot walls around all the rooms, except between connected courtyard or exterior rooms.
+    // Plot walls around all the rooms, except between courtyard or exterior rooms.
 
     for (const adj of adjacencies) {
         const type0 = adj.roomLeft.roomType;
         const type1 = adj.roomRight.roomType;
 
-        if (adj.door) {
-            if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
-                continue;
-            }
+        if (isCourtyardRoomType(type0) && isCourtyardRoomType(type1)) {
+            continue;
+        }
 
-            if (type0 === RoomType.Exterior && type1 === RoomType.Exterior) {
-                continue;
-            }
+        if (type0 === RoomType.Exterior && type1 === RoomType.Exterior) {
+            continue;
         }
 
         for (let i = 0; i < adj.length + 1; ++i) {
@@ -3967,10 +3950,6 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
 
         for (const a of walls) {
             if (!a.door) {
-                continue;
-            }
-
-            if (a.length < 2) {
                 continue;
             }
 
