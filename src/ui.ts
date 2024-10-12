@@ -877,6 +877,7 @@ $copyState$
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
+            this.achievementsLine = undefined;
             game.restartGame(state);
         } else if (activated('menu') || action=='menu') {
             this.stateCopied = false;
@@ -884,6 +885,7 @@ $copyState$
             state.dailyRun = null;
             game.restartGame(state);
             state.gameMode = GameMode.HomeScreen;
+            this.achievementsLine = undefined;
             state.hasStartedGame = false;
         } else if(activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats, state.achievements);
