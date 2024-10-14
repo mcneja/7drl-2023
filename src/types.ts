@@ -37,6 +37,7 @@ enum GameMode {
     Win,
     DailyHub,
     CreditsScreen,
+    DevScreen,
 }
 
 enum AmbienceType {
@@ -130,6 +131,7 @@ type State = {
     achievements: Achievements;
     rng: RNG;
     fpsInfo: FPSInfo;
+    devMode: boolean;
     dailyRun: string|null;
     tLast: number | undefined;
     lightStates: Array<number>;

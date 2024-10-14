@@ -9,7 +9,7 @@ import { getFontTileSet, getEntityTileSet, TextureType, TileInfo } from './tiles
 import { ItemType } from './game-map';
 import { Achievement, Achievements } from './achievements';
 
-export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen };
+export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, DevScreen };
 
 function scoreToClipboard(stats:GameStats, achievements:Achievements) {
     const numGhostedLevels = stats.numGhostedLevels;
@@ -300,7 +300,7 @@ class HomeScreen extends TextWindow {
     pages = [
 `LLLOOOT!
 
-$playRestartOrResume$
+$playRestartOrResume$$devMode$
 [H|helpControls]: Controls help
 [M|helpKey]: Map key
 [D|homeDaily]: Daily challenge
@@ -308,7 +308,8 @@ $playRestartOrResume$
 [S|homeStats]: Statistics
 [A|homeAchievements]: Achievements
 [C|credits]: Credits`
-    ]; 
+    ];
+    devSequence = '';
     constructor() {
         super();
     }
@@ -318,11 +319,31 @@ $playRestartOrResume$
             (state.dailyRun !== null ? '[R|homePlay]: Resume daily game\n[N|homeRestart]: New game' :
                 '[R|homePlay]: Resume game\n[N|homeRestart]: New game');
         this.state.set('playRestartOrResume', commands);
+        this.state.set('devMode', state.devMode? '\n[X|devMenu]: Developer menu':'')
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
+        if (activated('left')) {
+            this.devSequence += 'L';
+        }
+        if (activated('right')) {
+            this.devSequence += 'R';
+        }
+        if (activated('up')) {
+            this.devSequence += 'U';
+        }
+        if (activated('down')) {
+            this.devSequence += 'D';
+        }
+        if (this.devSequence === 'LRLRUD') {
+            this.devSequence = '';
+            state.devMode = !state.devMode;
+        }
         if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
             game.startResumeConfiguredGame(state);
+            this.devSequence = '';
+        } else if(activated('devMenu') || actionSelected=='devMenu') {
+            state.gameMode = GameMode.DevScreen;
         } else if (activated('homeRestart') || actionSelected=='homeRestart') {
             state.rng = new RNG();
             state.dailyRun = null;
@@ -344,6 +365,90 @@ $playRestartOrResume$
         }
     }
 }
+
+class DevScreen extends TextWindow {
+    pages = [
+`Developer Menu
+
+[Alt+<|prevLevel]  Previous level
+[Alt+>|nextLevel]  Next level
+[Alt+C|collectLoot]  Collect loot 
+[Alt+S|markSeen]  Mark mansion seen
+[Alt+A|seeAll]  See entire map: $seeAll$
+[Alt+P|guardPatrols]  See guard patrols: $guardPatrols$
+[Alt+V|guardSight]  See guard sight: $guardSight$
+[F|showFPS]      Show FPS: $showFPS$
+
+$message$
+
+[Esc|menu]    Back to menu`,
+    ];
+    constructor() {
+        super();
+        this.state.set('message','');
+    }
+    update(state: State): void {
+        this.state.set('showFPS', state.fpsInfo.enabled? 'Yes':'No');
+        this.state.set('seeAll', state.seeAll ? 'Yes' : 'No');
+        this.state.set('guardPatrols', state.seeGuardPatrols ? 'Yes' : 'No');
+        this.state.set('guardSight', state.seeGuardSight ? 'Yes' : 'No');
+        this.state.set('showFPS', state.fpsInfo.enabled ? 'Yes' : 'No');
+    }
+    onControls(state:State, activated:(action:string)=>boolean) {
+        const action = this.navigateUI(activated);
+        if(activated('menu') || action=='menu') {
+            state.gameMode = GameMode.HomeScreen;
+            this.state.set('message', '')
+        } else if (activated('prevLevel') || action=='prevLevel') {
+            if (state.hasStartedGame) {
+                if (state.level > 0) {
+                    game.scoreCompletedLevel(state);
+                    game.setupLevel(state, state.level-1);
+                }    
+            } else {
+                this.state.set('message', 'START GAME FIRST');
+            }
+        } else if (activated('nextLevel') || action=='nextLevel') {
+            if (state.hasStartedGame) {
+                if (state.level < state.gameMapRoughPlans.length - 1) {
+                    game.scoreCompletedLevel(state);
+                    game.setupLevel(state, state.level+1);
+                }
+            } else {
+                this.state.set('message', 'START GAME FIRST');
+            }
+        } else if (activated('collectLoot') || action=='collectLoot') {
+            if (state.hasStartedGame) {
+                const loot = state.gameMap.collectAllLoot();
+                state.player.loot += loot;
+                state.lootStolen += loot;
+                game.postTurn(state);    
+            } else {
+                this.state.set('message', 'START GAME FIRST');
+            }
+        } else if (activated('markSeen') || action=='markSeen') {
+            if (state.hasStartedGame) {
+                state.gameMap.markAllSeen();
+                game.postTurn(state);    
+            } else {
+                this.state.set('message', 'START GAME FIRST');
+            }
+        } else if (activated('seeAll') || action=='seeAll') {
+            state.seeAll = !state.seeAll;
+            this.state.set('message', '')
+        } else if (activated('guardSight') || action=='guardSight') {
+            state.seeGuardSight = !state.seeGuardSight;
+            this.state.set('message', '')
+        } else if (activated('guardPatrols') || action=='guardPatrols') {
+            state.seeGuardPatrols = !state.seeGuardPatrols;
+            this.state.set('message', '')
+        } else if (activated('showFPS') || action=='showFPS') {
+            state.fpsInfo.enabled = !state.fpsInfo.enabled;
+            this.state.set('message', '')
+        }
+    }
+}
+
 
 class OptionsScreen extends TextWindow {
     pages = [

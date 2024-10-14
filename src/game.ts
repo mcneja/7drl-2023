@@ -9,7 +9,7 @@ import { TileInfo, getEntityTileSet, getTerrainTileSet, getFontTileSet, EntityTi
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
 import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
-import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen } from './ui'
+import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen, DevScreen } from './ui'
 import { AmbienceType, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
 import * as colorPreset from './color-preset';
@@ -280,7 +280,7 @@ function updateControllerState(state:State) {
     }
 }
 
-function scoreCompletedLevel(state: State) {
+export function scoreCompletedLevel(state: State) {
     if(state.gameMapRoughPlans[state.level].played) {
         return;
     }
@@ -2130,7 +2130,7 @@ function advanceTime(state: State) {
     updateAchievements(state, "turnEnd");
 }
 
-function postTurn(state: State) {
+export function postTurn(state: State) {
     const allSeen = state.gameMap.allSeen();
     const allLooted = state.lootStolen >= state.lootAvailable;
 
@@ -2887,6 +2887,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         idleTimer: 5,
         rng: rng,
         fpsInfo: {enabled: false, msgFPS: 'FPS: --', frames:0, cumulativeTime:0, worstFrame:0, drops:0},
+        devMode: false,
         dailyRun: null,
         leapToggleActive: false,
         healthBarState: {
@@ -2909,6 +2910,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.Dead]: new DeadScreen(),
             [GameMode.Win]: new WinScreen(),
             [GameMode.CreditsScreen]: new CreditsScreen(),
+            [GameMode.DevScreen]: new DevScreen(),
         },
         player: new Player(gameMap.playerStartPos),
         ambience: AmbienceType.Outdoor,

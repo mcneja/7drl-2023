@@ -45,6 +45,7 @@ const controlStates0: ControlStates = {
     'showSpeech': false,
     'idleCursorToggle': false,
     'showFPS':false,
+    'devMenu':false,
 };
 
 var lastController:Controller|null = null;
@@ -89,6 +90,7 @@ const defaultKeyMap:KeyMap = {
     'KeyR': ['homePlay'],
     'KeyS': ['down','homeStats'],
     'KeyW': ['up'],
+    'KeyX': ['devMenu'],
     'KeyZ': ['wait', 'menuAccept'],
     'Period': ['wait', 'menuAccept'],
     'Shift': ['jump'],
