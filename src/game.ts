@@ -24,6 +24,7 @@ enum NoiseType {
     Creak,
     Splash,
     Thud,
+    Alarm,
     BangDoor,
     BangChair,
 }
@@ -512,6 +513,17 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             for (const treasureInfo of state.gameMap.treasures) {
                 if (treasureInfo.posTreasure.equals(item.pos)) {
                     treasureInfo.stolen = true;
+                    if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress) {
+                        for (const g of state.gameMap.guards) {
+                            g.angry = true;
+                            if (g.mode === GuardMode.Unconscious) {
+                                g.modeTimeout = 0;
+                            }
+                        }
+                        makeNoise(state.gameMap, state.player, NoiseType.Alarm, 
+                            pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
+                        state.popups.setNotificationHold('ALARM! ALARM! ALARM!', pos);
+                    }
                 }
             }
             offset = 0.5;
@@ -2034,6 +2046,9 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: numbe
             break;
         case NoiseType.Thud:
             // Sound effect currently played in executeLeapAttack
+            break;
+        case NoiseType.Alarm:
+            sounds.treasureAlarm.play(1.0);
             break;
         case NoiseType.BangDoor:
             sounds.thump.play(0.5);
