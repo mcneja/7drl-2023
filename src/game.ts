@@ -104,6 +104,7 @@ function main(images: Array<HTMLImageElement>) {
         canvasSizeX = canvas.clientWidth;
         canvasSizeY = canvas.clientHeight;
         state.camera.snapped = false;
+        screen.orientation.unlock();
     });
     observer.observe(canvas);
 
