@@ -2812,6 +2812,8 @@ export function loadStats(): PersistedStats {
         achievementSteppy: getStat('achievementSteppy') ?? 0,
         achievementHurty: getStat('achievementHurty') ?? 0,
         achievementVictory: getStat('achievementVictory') ?? 0,
+        achievementHealthy: getStat('achievementHealthy') ?? 0,
+        achievementTreasure: getStat('achievementTreasure') ?? 0,
     };
 }
 
@@ -2840,6 +2842,8 @@ export function saveStats(persistedStats: PersistedStats) {
     setStat('achievementLeapy', persistedStats.achievementLeapy);
     setStat('achievementSteppy', persistedStats.achievementSteppy);
     setStat('achievementHurty', persistedStats.achievementHurty);
+    setStat('achievementHealthy', persistedStats.achievementHealthy);
+    setStat('achievementTreasure', persistedStats.achievementTreasure);
 }
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, ambientSoundPool:ActiveHowlPool, touchController:TouchController): State {

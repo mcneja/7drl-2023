@@ -1,5 +1,5 @@
 import { numTurnsParForCurrentMap } from './game';
-import { ItemType } from './game-map';
+import { maxPlayerHealth, ItemType } from './game-map';
 import { GuardMode } from './guard';
 import { State } from './types';
 
@@ -15,10 +15,13 @@ export function getAchievements(): Achievements {
         achievementSofty: new SoftyAchievement(),
         achievementHungry: new HungryAchievement(),
         achievementHurty: new HurtyAchievement(),
+        achievementHealthy: new HealthyAchievement(),
+        achievementTreasure: new TreasureAchievement(),
     }
 }
 
 export type Achievements = {
+    achievementVictory: Achievement;
     achievementGhosty: Achievement;
     achievementZippy: Achievement;
     achievementHungry: Achievement;
@@ -28,7 +31,8 @@ export type Achievements = {
     achievementLeapy: Achievement;
     achievementSteppy: Achievement;
     achievementHurty: Achievement;
-    achievementVictory: Achievement;
+    achievementHealthy: Achievement;
+    achievementTreasure: Achievement;
 }
 
 export class Achievement {
@@ -169,6 +173,30 @@ class HurtyAchievement extends Achievement {
                 this.failed = true;
             }
             this.damageTakenThisLevel = false;
+        }
+    }
+}
+
+class HealthyAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F915}';
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'turnEnd') {
+            if (state.player.health < maxPlayerHealth) {
+                this.failed = true;
+            }
+        }
+    }
+}
+
+class TreasureAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F451}';
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'levelEnd') {
+            if (state.gameMap.items.some(item => item.type === ItemType.Treasure)) {
+                this.failed = true;
+            }
         }
     }
 }

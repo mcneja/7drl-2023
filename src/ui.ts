@@ -812,6 +812,8 @@ when you complete a game.
  $leapyAchieved$ Leapy: leapt more than 80% of your turns
  $steppyAchieved$ Steppy: leap no more than 20 turns
  $hurtyAchieved$ Hurty: took a wound on levels 2-10
+ $healthyAchieved$ Healthy: never wounded
+ $treasureAchieved$ Looty: got all optional loot
 
 [Esc|menu] Back to menu`,
 ];
@@ -823,16 +825,18 @@ when you complete a game.
             const str: string = completionCount>0 ? `#${tileInfo.textureIndex}#` : achievement.failed ? failed : incomplete;
             window.state.set(key, str);
         }
-        setIcon(this, 'victoryAchieved', state.persistedStats.achievementVictory, state.achievements.achievementVictory, ts.achievementVictory);
-        setIcon(this, 'ghostyAchieved',  state.persistedStats.achievementGhosty,  state.achievements.achievementGhosty,  ts.achievementGhosty);
-        setIcon(this, 'zippyAchieved',   state.persistedStats.achievementZippy,   state.achievements.achievementZippy,   ts.achievementZippy);
-        setIcon(this, 'hungryAchieved',  state.persistedStats.achievementHungry,  state.achievements.achievementHungry,  ts.achievementHungry);
-        setIcon(this, 'thumpyAchieved',  state.persistedStats.achievementThumpy,  state.achievements.achievementThumpy,  ts.achievementThumpy);
-        setIcon(this, 'softyAchieved',   state.persistedStats.achievementSofty,   state.achievements.achievementSofty,   ts.achievementSofty);
-        setIcon(this, 'noisyAchieved',   state.persistedStats.achievementNoisy,   state.achievements.achievementNoisy,   ts.achievementNoisy);
-        setIcon(this, 'leapyAchieved',   state.persistedStats.achievementLeapy,   state.achievements.achievementLeapy,   ts.achievementLeapy);
-        setIcon(this, 'steppyAchieved',  state.persistedStats.achievementSteppy,  state.achievements.achievementSteppy,  ts.achievementSteppy);
-        setIcon(this, 'hurtyAchieved',   state.persistedStats.achievementHurty,   state.achievements.achievementHurty,   ts.achievementHurty);
+        setIcon(this, 'victoryAchieved',  state.persistedStats.achievementVictory,  state.achievements.achievementVictory,  ts.achievementVictory);
+        setIcon(this, 'ghostyAchieved',   state.persistedStats.achievementGhosty,   state.achievements.achievementGhosty,   ts.achievementGhosty);
+        setIcon(this, 'zippyAchieved',    state.persistedStats.achievementZippy,    state.achievements.achievementZippy,    ts.achievementZippy);
+        setIcon(this, 'hungryAchieved',   state.persistedStats.achievementHungry,   state.achievements.achievementHungry,   ts.achievementHungry);
+        setIcon(this, 'thumpyAchieved',   state.persistedStats.achievementThumpy,   state.achievements.achievementThumpy,   ts.achievementThumpy);
+        setIcon(this, 'softyAchieved',    state.persistedStats.achievementSofty,    state.achievements.achievementSofty,    ts.achievementSofty);
+        setIcon(this, 'noisyAchieved',    state.persistedStats.achievementNoisy,    state.achievements.achievementNoisy,    ts.achievementNoisy);
+        setIcon(this, 'leapyAchieved',    state.persistedStats.achievementLeapy,    state.achievements.achievementLeapy,    ts.achievementLeapy);
+        setIcon(this, 'steppyAchieved',   state.persistedStats.achievementSteppy,   state.achievements.achievementSteppy,   ts.achievementSteppy);
+        setIcon(this, 'hurtyAchieved',    state.persistedStats.achievementHurty,    state.achievements.achievementHurty,    ts.achievementHurty);
+        setIcon(this, 'healthyAchieved',  state.persistedStats.achievementHealthy,  state.achievements.achievementHealthy,  ts.achievementHealthy);
+        setIcon(this, 'treasureAchieved', state.persistedStats.achievementTreasure, state.achievements.achievementTreasure, ts.achievementTreasure);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);

@@ -541,6 +541,8 @@ const entityTileSet31Color:EntityTileSet = {
         achievementLeapy: {textureIndex: 0x5d},
         achievementSteppy: {textureIndex: 0x5e},
         achievementHurty: {textureIndex: 0x5f},
+        achievementHealthy: {textureIndex: 0x5f},
+        achievementTreasure: {textureIndex: 0x4b},
     },
     achievementIncompleteIcon: {textureIndex: 0x3f},
     achievementFailedIcon: {textureIndex: 0},

@@ -90,6 +90,7 @@ type PersistedStats = {
     allDailyWins: number;
     allDailyWinsFirstTry: number;
 
+    achievementVictory: number;
     achievementGhosty: number;
     achievementZippy: number;
     achievementHungry: number;
@@ -99,7 +100,8 @@ type PersistedStats = {
     achievementLeapy: number;
     achievementSteppy: number;
     achievementHurty: number;
-    achievementVictory: number;
+    achievementHealthy: number;
+    achievementTreasure: number;
 }
 
 interface Particle {
