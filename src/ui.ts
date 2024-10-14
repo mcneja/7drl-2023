@@ -300,16 +300,17 @@ class HomeScreen extends TextWindow {
     pages = [
 `LLLOOOT!
 
-$playRestartOrResume$$devMode$
+$playRestartOrResume$
 [H|helpControls]: Controls help
 [M|helpKey]: Map key
 [D|homeDaily]: Daily challenge
 [O|homeOptions]: Options
 [S|homeStats]: Statistics
 [A|homeAchievements]: Achievements
-[C|credits]: Credits`
+[C|credits]: Credits$devMode$`
     ];
-    devSequence = '';
+    devSequence: string = 'LRLRUD';
+    devSequenceCursor: number = 0;
     constructor() {
         super();
     }
@@ -323,25 +324,9 @@ $playRestartOrResume$$devMode$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
-        if (activated('left')) {
-            this.devSequence += 'L';
-        }
-        if (activated('right')) {
-            this.devSequence += 'R';
-        }
-        if (activated('up')) {
-            this.devSequence += 'U';
-        }
-        if (activated('down')) {
-            this.devSequence += 'D';
-        }
-        if (this.devSequence === 'LRLRUD') {
-            this.devSequence = '';
-            state.devMode = !state.devMode;
-        }
         if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
             game.startResumeConfiguredGame(state);
-            this.devSequence = '';
+            this.devSequenceCursor = 0;
         } else if(activated('devMenu') || actionSelected=='devMenu') {
             state.gameMode = GameMode.DevScreen;
         } else if (activated('homeRestart') || actionSelected=='homeRestart') {
@@ -362,6 +347,31 @@ $playRestartOrResume$$devMode$
             state.gameMode = GameMode.HelpKey;
         } else if (activated('credits') || actionSelected=='credits') {
             state.gameMode = GameMode.CreditsScreen;
+        }
+
+        if (activated('left')) {
+            this.updateCheatCode('L', state);
+        }
+        if (activated('right')) {
+            this.updateCheatCode('R', state);
+        }
+        if (activated('up')) {
+            this.updateCheatCode('U', state);
+        }
+        if (activated('down')) {
+            this.updateCheatCode('D', state);
+        }
+    }
+    updateCheatCode(ch: string, state: State) {
+        if (this.devSequence[this.devSequenceCursor] !== ch) {
+            this.devSequenceCursor = 0;
+        }
+        if (this.devSequence[this.devSequenceCursor] === ch) {
+            ++this.devSequenceCursor;
+        }
+        if (this.devSequenceCursor >= this.devSequence.length) {
+            state.devMode = !state.devMode;
+            this.devSequenceCursor = 0;
         }
     }
 }
