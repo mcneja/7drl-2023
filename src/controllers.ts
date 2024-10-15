@@ -156,6 +156,9 @@ class Controller {
         for(const c in this.controlStates) {
             this.controlTimes[c] = Date.now();
         }
+        window.addEventListener('blur', e=>{
+            this.clearPressedAll();
+        })
     }
     setPressed(action:string, state:boolean, updateFrame:boolean=true) {
         this.controlStates[action] = state;
@@ -166,6 +169,11 @@ class Controller {
             }    
         }
         lastController = this; 
+    }
+    clearPressedAll() {
+        for(const c in this.controlStates) {
+            this.controlStates[c] = false;
+        }
     }
     endFrame () {
         this.currentFramePresses.clear();
