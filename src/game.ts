@@ -89,13 +89,20 @@ function main(images: Array<HTMLImageElement>) {
             // Set Howler volume and mutes from game state
 
             Howler.volume(state.soundVolume);
-            Howler.mute(state.volumeMute);
+            Howler.mute(soundShouldBeMuted(state));
             for(const s in state.subtitledSounds) {
                 state.subtitledSounds[s].mute = state.guardMute;
             }
         }
     }
-    
+
+    window.addEventListener('blur', e=>{
+        Howler.mute(soundShouldBeMuted(state));
+    });
+    window.addEventListener('focus', e=>{
+        Howler.mute(soundShouldBeMuted(state));
+    });
+
     function requestUpdateAndRender() {
         requestAnimationFrame(now => updateAndRender(now, renderer, state));
     }
@@ -2752,9 +2759,13 @@ export function setSoundVolume(state: State, soundVolume: number) {
     window.localStorage.setItem('LLL/soundVolume', soundVolume.toString());
 }
 
+function soundShouldBeMuted(state: State): boolean {
+    return state.volumeMute || !document.hasFocus();
+}
+
 export function setVolumeMute(state: State, volumeMute: boolean) {
     state.volumeMute = volumeMute;
-    Howler.mute(volumeMute);
+    Howler.mute(soundShouldBeMuted(state));
     window.localStorage.setItem('LLL/volumeMute', volumeMute ? 'true' : 'false');
 }
 
