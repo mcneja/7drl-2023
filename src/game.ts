@@ -254,7 +254,7 @@ function updateControllerState(state:State) {
             state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
-            state.popups.setNotification('Guard speech ' + (state.guardMute ? 'disabled' : 'enabled'), state.player.pos);
+            state.popups.setNotification('Guard speech: ' + (state.guardMute ? 'disabled' : 'enabled'), state.player.pos);
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
@@ -269,18 +269,18 @@ function updateControllerState(state:State) {
             }
             state.player.idle = false;
             state.idleTimer = 2;
-            state.popups.setNotification("Setting player idle cursor to "+state.player.idleCursorType, state.player.pos);
+            state.popups.setNotification("Player idle cursor: "+state.player.idleCursorType, state.player.pos);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
-            state.popups.setNotification('Sound ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player.pos);
+            state.popups.setNotification('Sound: ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player.pos);
         } else if (activated('volumeDown')) {
             const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
             setSoundVolume(state, soundVolume);
-            state.popups.setNotification('Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
+            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
-            state.popups.setNotification('Sound volume ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
+            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
         } else if (activated('showSpeech')) {
             state.popups.toggleShow(state.player.pos);
         }
