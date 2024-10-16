@@ -158,7 +158,7 @@ class Controller {
         }
         window.addEventListener('blur', e=>{
             this.clearPressedAll();
-        })
+        });
     }
     setPressed(action:string, state:boolean, updateFrame:boolean=true) {
         this.controlStates[action] = state;
@@ -188,11 +188,8 @@ class KeyboardController extends Controller {
             keyMap = defaultKeyMap;
         this.keyMap = keyMap;
         let that = this;
-        const html = document.querySelector("html");
-        if(html) {
-            html.onkeydown = function(e) {that.keyDownHandler(e)};
-            html.onkeyup = function(e) {that.keyUpHandler(e)};
-        }
+        document.onkeydown = function(e) {that.keyDownHandler(e)};
+        document.onkeyup = function(e) {that.keyUpHandler(e)};
     }
     getCode(e:KeyboardEvent, modifyShift:boolean=false):string {
         let code = e.code;

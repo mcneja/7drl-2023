@@ -387,7 +387,7 @@ class DevScreen extends TextWindow {
 [Alt+A|seeAll]  See entire map: $seeAll$
 [Alt+P|guardPatrols]  See guard patrols: $guardPatrols$
 [Alt+V|guardSight]  See guard sight: $guardSight$
-[F|showFPS]      Show FPS: $showFPS$
+[Alt+F|showFPS]  Show FPS: $showFPS$
 
 $message$
 
