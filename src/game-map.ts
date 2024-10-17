@@ -339,7 +339,7 @@ class Player {
     lightActive: boolean = false;
     idle: boolean = false;
     idleCursorAnimation: Animator[]|null = null;
-    idleCursorType:'orbs'|'bracket'|'off' = 'orbs';
+    idleCursorType:'orbs'|'off' = 'orbs';
 
     constructor(pos: vec2) {
         this.pos = vec2.clone(pos);

@@ -319,7 +319,6 @@ const entityTileSet31Color:EntityTileSet = {
         speechBubbleR: {textureIndex:0xb7, color:0xffffffff},
         speechBubbleL: {textureIndex:0xb8, color:0xffffffff},
         idleIndicator: {textureIndex:0xbc, color:0xffffffff},
-        idleIndicatorAlt: {textureIndex:0xfd, color:0xffffffff},
         playerHint: {textureIndex:0xb9, color:0xffffffff},
         uiWindowTile: {textureIndex:0x20, color:0xffffffff},
         uiCreakyTile: {textureIndex:0x21, color:0xffffffff},

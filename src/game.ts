@@ -258,9 +258,6 @@ function updateControllerState(state:State) {
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
-                    state.player.idleCursorType = 'bracket';
-                    break;
-                case 'bracket':
                     state.player.idleCursorType = 'off';
                     break;
                 case 'off':
@@ -2480,7 +2477,6 @@ function renderPlayer(state: State, renderer: Renderer) {
     const tileInfoTinted = structuredClone(tileInfo);
     if (!dead) {
         if (player.idle) {
-            // const idleTileInfo = renderer.tileSet.namedTiles['idleIndicatorAlt'];
             if(player.idleCursorAnimation !== null && player.idleCursorAnimation.length === 1 && 
                 player.idleCursorAnimation[0] instanceof PulsingColorAnimation) {
                 const tile = player.idleCursorAnimation[0].currentTile();
@@ -3209,16 +3205,7 @@ function updateIdle(state:State, dt:number) {
     }
     player.animation = new SpriteAnimation(tweenSeq, tiles);
     if(!player.idle) {
-        if(player.idleCursorType==='bracket') {
-            const tile = tileSet.namedTiles['idleIndicatorAlt'];
-            if(tile.color) {
-                tile.color = 0xa0FFFFFF & tile.color;
-                tile.unlitColor = 0x00FFFFFF & tile.color;
-            }
-                player.idleCursorAnimation = [
-                new PulsingColorAnimation(tile, 0, 1/Math.PI),
-            ];    
-        } else if(player.idleCursorType==='orbs') {
+        if(player.idleCursorType==='orbs') {
             player.idleCursorAnimation = [
                 new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 0, 0),
                 new IdleRadialAnimation(tileSet.namedTiles['idleIndicator'], 0.6, Math.PI, 2*Math.PI/3, 0),
