@@ -3249,6 +3249,20 @@ function placePatrolRoutes(
     return generatePatrolPathsFromNodes(nodes, level, gameMap, outsidePatrolRoute, rng);
 }
 
+function willNeedToRotate(lookDir: vec2, patrolPositions: Array<vec2>): boolean {
+    const moveDir = vec2.create();
+    for (let i = patrolPositions.length - 1; i > 0; --i) {
+        vec2.subtract(moveDir, patrolPositions[i], patrolPositions[i-1]);
+        if (moveDir.equals(lookDir)) {
+            return false;
+        }
+        if (vec2.dot(moveDir, lookDir) <= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function generatePatrolPathsFromNodes(
     nodes: Array<PatrolNode>,
     level: number,
@@ -3323,28 +3337,23 @@ function generatePatrolPathsFromNodes(
                     patrolPositions.push(pos);
                 }
 
-                // If the activity look direction is at right angles to the approaching move direction,
-                // insert an extra turn at the activity station, to account for the turn the guard will
-                // spend rotating to face the activity look direction.
-                // This is not quite right; sometimes someone will be approaching diagaonally and will
-                // need to turn but this won't recognize it. Need to look farther back to determine
-                // what orientation the approaching person will have.
+                patrolPositions.push(vec2.clone(posMid));
 
-                if (patrolPositions.length > 0) {
-                    const includeDoors = false;
-                    const lookPos = gameMap.tryGetPosLookAt(posMid, includeDoors);
-                    if (lookPos !== undefined) {
-                        const moveDir = vec2.create();
-                        vec2.subtract(moveDir, posMid, patrolPositions[patrolPositions.length - 1]);
-                        const lookDir = vec2.create();
-                        vec2.subtract(lookDir, lookPos, posMid);
-                        if (vec2.dot(moveDir, lookDir) <= 0) {
-                            patrolPositions.push(vec2.clone(posMid));
-                        }
+                // If the approaching guard will need to rotate to face the activity station when they
+                // arrive, insert an extra turn at the activity station.
+                // Note: This is only looking back as far as the door into this room so it may be
+                // incorrect sometimes.
+
+                const includeDoors = false;
+                const lookPos = gameMap.tryGetPosLookAt(posMid, includeDoors);
+                if (lookPos !== undefined) {
+                    const lookDir = vec2.create();
+                    vec2.subtract(lookDir, lookPos, posMid);
+                    if (willNeedToRotate(lookDir, patrolPositions)) {
+                        patrolPositions.push(vec2.clone(posMid));
                     }
                 }
 
-                patrolPositions.push(vec2.clone(posMid));
                 patrolPositions.push(vec2.clone(posMid));
                 patrolPositions.push(vec2.clone(posMid));
 
