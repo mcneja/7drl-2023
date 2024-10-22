@@ -691,7 +691,7 @@ function updateAmbience(state: State) {
     let closestStove:number = Infinity;
     const stoves = state.gameMap.items.filter((item)=>item.type===ItemType.Stove);
     const maxRange = 10;
-    function soundSeeker(cells:CellGrid, checkedCells:Set<number>, pos:vec2, remainingRange:number) {
+    function seekNearbyAmbient(cells:CellGrid, checkedCells:Set<number>, pos:vec2, remainingRange:number) {
         const newPositionsToRecurse:vec2[] = [];
         for(let delta of [[1,0],[0,1],[-1,0],[0,-1]]) {
             const p = pos.add(vec2.fromValues(delta[0],delta[1]));
@@ -712,15 +712,16 @@ function updateAmbience(state: State) {
                 }
             }
         }
-        if (remainingRange>0 && closestGrass===Infinity && closestStove===Infinity && closestWater===Infinity) {
+        if (remainingRange>0 && closestStove===Infinity && (closestGrass===Infinity || closestWater===Infinity)) {
             for (let p of newPositionsToRecurse) {
-                soundSeeker(cells, checkedCells, p, remainingRange-1);
+                seekNearbyAmbient(cells, checkedCells, p, remainingRange-1);
             }    
         }
     }
-    soundSeeker(state.gameMap.cells, new Set(), state.player.pos, maxRange);
+    seekNearbyAmbient(state.gameMap.cells, new Set(), state.player.pos, maxRange);
     const closestAmbience = Math.min(closestGrass, closestStove, closestWater);
     const newAmbience = closestAmbience===Infinity? AmbienceType.Indoor :
+                        closestWater<Infinity && closestGrass<Infinity? AmbienceType.OutdoorWater :
                         closestWater<Infinity? AmbienceType.Water :
                         closestStove<Infinity? AmbienceType.Kitchen :
                         closestAmbience===closestGrass? AmbienceType.Outdoor :
@@ -742,12 +743,13 @@ function playMoveSound(state: State, cellOld: Cell, cellNew: Cell) {
         cellMid = state.gameMap.cells.atVec(midPos);    
     }
 
-    if (cellOld.type===TerrainType.DoorEW || cellOld.type===TerrainType.DoorNS
-        || cellMid.type===TerrainType.PortcullisEW || cellMid.type===TerrainType.PortcullisNS 
-        || cellMid.type===TerrainType.OneWayWindowE || cellMid.type===TerrainType.OneWayWindowW
-        || cellMid.type===TerrainType.OneWayWindowN || cellMid.type===TerrainType.OneWayWindowS) {
-        updateAmbience(state);
-    }
+    //OLD LOGIC TO ONLY UPDATE AMBIENCE BETWEEN DOORWAYS
+    // if (cellOld.type===TerrainType.DoorEW || cellOld.type===TerrainType.DoorNS
+    //     || cellMid.type===TerrainType.PortcullisEW || cellMid.type===TerrainType.PortcullisNS 
+    //     || cellMid.type===TerrainType.OneWayWindowE || cellMid.type===TerrainType.OneWayWindowW
+    //     || cellMid.type===TerrainType.OneWayWindowN || cellMid.type===TerrainType.OneWayWindowS) {
+    // }
+    updateAmbience(state);
 
     // Hide sound effect
 
