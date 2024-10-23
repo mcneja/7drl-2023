@@ -329,6 +329,7 @@ function clearLevelStats(levelStats: LevelStats) {
     levelStats.numSpottings = 0;
     levelStats.damageTaken = 0;
     levelStats.extraFoodCollected = 0;
+    levelStats.steppableLeaps = 0;
 }
 
 function updateAchievements(state: State, type:'gameStart'|'turnEnd'|'levelEnd'|'gameEnd') {
@@ -1794,9 +1795,11 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     // If the leap destination is blocked, try a step if it can succeeed; else fail
 
+    const canStepToMid = canStepToPos(state, posMid);
+
     const guard = state.gameMap.guards.find((guard) => guard.pos.equals(posNew));
     if (!canLeapToPos(state, posNew)) {
-        if (canStepToPos(state, posMid)) {
+        if (canStepToMid) {
             if (guard !== undefined && 
                 guard.overheadIcon() === GuardStates.Alerted &&
                 cellNew.type !== TerrainType.PortcullisEW &&
@@ -1835,6 +1838,8 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
         state.sounds["douse"].play(0.05);
         torchMid.type = ItemType.TorchUnlit;
         player.itemUsed = torchMid;
+    } else if (canStepToMid && cellMid.type !== TerrainType.GroundWoodCreaky) {
+        ++state.levelStats.steppableLeaps;
     }
 
     // End level if moving off the map
@@ -2890,6 +2895,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             numSpottings: 0,
             damageTaken: 0,
             extraFoodCollected: 0,
+            steppableLeaps: 0,
         },
         achievements: getAchievements(),
         lightStates: Array(gameMap.lightCount).fill(0),

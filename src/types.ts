@@ -60,6 +60,7 @@ type LevelStats = {
     numSpottings: number;
     damageTaken: number;
     extraFoodCollected: number;
+    steppableLeaps: number;
 }
 
 type GameStats = {

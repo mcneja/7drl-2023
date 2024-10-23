@@ -91,7 +91,7 @@ class SteppyAchievement extends Achievement {
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
-            if (state.numLeapMoves > 20) {
+            if (state.levelStats.steppableLeaps > 0) {
                 this.failed = true;
             }
         }

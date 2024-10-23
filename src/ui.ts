@@ -811,7 +811,7 @@ when you complete a game.
  $softyAchieved$ Softy: did not KO anyone
  $noisyAchieved$ Noisy: alerted guards with noise on levels 2-10
  $leapyAchieved$ Leapy: leapt more than 80% of your turns
- $steppyAchieved$ Steppy: leap no more than 20 turns
+ $steppyAchieved$ Steppy: no leaps where stepping will work
  $hurtyAchieved$ Hurty: took a wound on levels 2-10
  $healthyAchieved$ Healthy: never wounded
  $treasureAchieved$ Looty: got all optional loot
