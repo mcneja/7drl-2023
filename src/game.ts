@@ -2333,7 +2333,6 @@ function renderTerrain(state: State, renderer: Renderer) {
             // Draw tile
             let tile = cell.animation? cell.animation.currentTile():terrTiles[terrainType];
             if ((terrainType===TerrainType.DoorEW || terrainType===TerrainType.DoorNS) && !cell.blocksSight && tile.textureIndex!==undefined) {
-                console.log('Drawing open doorway')
                 tile = {textureIndex:tile.textureIndex+1, color: tile.color, unlitColor: tile.unlitColor};
             }
             renderer.addGlyphLit4(x, y, x+1, y+1, tile, lv);
