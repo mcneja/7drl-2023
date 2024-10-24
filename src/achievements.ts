@@ -18,6 +18,7 @@ export function getAchievements(): Achievements {
         achievementHealthy: new HealthyAchievement(),
         achievementTreasure: new TreasureAchievement(),
         achievementMapping: new MappingAchievement(),
+        achievementFaceless: new FacelessAchievement(),
     }
 }
 
@@ -35,6 +36,7 @@ export type Achievements = {
     achievementHealthy: Achievement;
     achievementTreasure: Achievement;
     achievementMapping: Achievement;
+    achievementFaceless: Achievement;
 }
 
 export class Achievement {
@@ -59,7 +61,7 @@ class GhostyAchievement extends Achievement {
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
-            if (state.levelStats.numSpottings > 0) {
+            if (state.levelStats.numSpottings > 0 || state.levelStats.numKnockouts > 0) {
                 this.failed = true;
             }
         }
@@ -204,13 +206,25 @@ class TreasureAchievement extends Achievement {
 }
 
 class MappingAchievement extends Achievement {
-    unicodeBadge: string = '\u{1F451}';
+    unicodeBadge: string = '\u{1F5FA}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
             if (!this.failed &&
                 (state.lootStolen > 0 || state.treasureStolen > 0 || state.levelStats.extraFoodCollected > 0) &&
                 !state.gameMap.allSeen()) {
+                this.failed = true;
+            }
+        }
+    }
+}
+
+class FacelessAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F977}';
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'turnEnd') {
+            if (state.levelStats.numSpottings > 0) {
                 this.failed = true;
             }
         }

@@ -531,7 +531,7 @@ const entityTileSet31Color:EntityTileSet = {
     ],
     achievementIcons: {
         achievementVictory: {textureIndex: 0x4b},
-        achievementGhosty: {textureIndex: 0x4c},
+        achievementGhosty: {textureIndex: 0x6e},
         achievementZippy: {textureIndex: 0x4d},
         achievementHungry: {textureIndex: 0x4e},
         achievementThumpy: {textureIndex: 0x4f},
@@ -543,6 +543,7 @@ const entityTileSet31Color:EntityTileSet = {
         achievementHealthy: {textureIndex: 0x6b},
         achievementTreasure: {textureIndex: 0x6c},
         achievementMapping: {textureIndex: 0x6d},
+        achievementFaceless: {textureIndex: 0x4c},
     },
     achievementIncompleteIcon: {textureIndex: 0x3f},
     achievementFailedIcon: {textureIndex: 0},

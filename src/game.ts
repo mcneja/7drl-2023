@@ -2828,6 +2828,7 @@ export function loadStats(): PersistedStats {
         achievementHealthy: getStat('achievementHealthy') ?? 0,
         achievementTreasure: getStat('achievementTreasure') ?? 0,
         achievementMapping: getStat('achievementMapping') ?? 0,
+        achievementFaceless: getStat('achievementFaceless') ?? 0,
     };
 }
 
@@ -2859,6 +2860,7 @@ export function saveStats(persistedStats: PersistedStats) {
     setStat('achievementHealthy', persistedStats.achievementHealthy);
     setStat('achievementTreasure', persistedStats.achievementTreasure);
     setStat('achievementMapping', persistedStats.achievementMapping);
+    setStat('achievementFaceless', persistedStats.achievementFaceless);
 }
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, ambientSoundPool:ActiveHowlPool, touchController:TouchController): State {

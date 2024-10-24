@@ -804,18 +804,19 @@ Earn achievements by meeting certain requirements
 when you complete a game.
 
  $victoryAchieved$ Victory: winning is enough...
- $ghostyAchieved$ Ghosty: ghost every level
- $zippyAchieved$ Zippy: under par time on every level
  $hungryAchieved$ Hungry: got all the food
+ $treasureAchieved$ Looty: got all optional loot
+ $healthyAchieved$ Healthy: never wounded
+ $hurtyAchieved$ Hurty: took a wound on levels 2-10
+ $steppyAchieved$ Steppy: no leaps where stepping will work
+ $mappingAchieved$ Mappy: map 100% before looting anything
  $thumpyAchieved$ Thumpy: KO'd all guards
  $softyAchieved$ Softy: did not KO anyone
  $noisyAchieved$ Noisy: alerted guards with noise on levels 2-10
  $leapyAchieved$ Leapy: leapt more than 80% of your turns
- $steppyAchieved$ Steppy: no leaps where stepping will work
- $hurtyAchieved$ Hurty: took a wound on levels 2-10
- $healthyAchieved$ Healthy: never wounded
- $treasureAchieved$ Looty: got all optional loot
- $mappingAchieved$ Mappy: map 100% before looting anything
+ $zippyAchieved$ Zippy: under par time on every level
+ $facelessAchieved$ Ghosty: ghost every level
+ $ghostyAchieved$ Ultra-Ghosty: Ghosty with no knockouts
 
 [Esc|menu] Back to menu`,
 ];
@@ -840,6 +841,7 @@ when you complete a game.
         setIcon(this, 'healthyAchieved',  state.persistedStats.achievementHealthy,  state.achievements.achievementHealthy,  ts.achievementHealthy);
         setIcon(this, 'treasureAchieved', state.persistedStats.achievementTreasure, state.achievements.achievementTreasure, ts.achievementTreasure);
         setIcon(this, 'mappingAchieved',  state.persistedStats.achievementMapping,  state.achievements.achievementMapping,  ts.achievementMapping);
+        setIcon(this, 'facelessAchieved', state.persistedStats.achievementFaceless, state.achievements.achievementFaceless, ts.achievementFaceless);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
