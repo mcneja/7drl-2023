@@ -103,6 +103,7 @@ type PersistedStats = {
     achievementHurty: number;
     achievementHealthy: number;
     achievementTreasure: number;
+    achievementMapping: number;
 }
 
 interface Particle {

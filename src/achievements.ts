@@ -17,6 +17,7 @@ export function getAchievements(): Achievements {
         achievementHurty: new HurtyAchievement(),
         achievementHealthy: new HealthyAchievement(),
         achievementTreasure: new TreasureAchievement(),
+        achievementMapping: new MappingAchievement(),
     }
 }
 
@@ -33,6 +34,7 @@ export type Achievements = {
     achievementHurty: Achievement;
     achievementHealthy: Achievement;
     achievementTreasure: Achievement;
+    achievementMapping: Achievement;
 }
 
 export class Achievement {
@@ -195,6 +197,20 @@ class TreasureAchievement extends Achievement {
         super.update(state, type);
         if (type === 'levelEnd') {
             if (state.gameMap.items.some(item => item.type === ItemType.Treasure)) {
+                this.failed = true;
+            }
+        }
+    }
+}
+
+class MappingAchievement extends Achievement {
+    unicodeBadge: string = '\u{1F451}';
+    update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
+        super.update(state, type);
+        if (type === 'turnEnd') {
+            if (!this.failed &&
+                (state.lootStolen > 0 || state.treasureStolen > 0 || state.levelStats.extraFoodCollected > 0) &&
+                !state.gameMap.allSeen()) {
                 this.failed = true;
             }
         }

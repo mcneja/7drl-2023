@@ -815,6 +815,7 @@ when you complete a game.
  $hurtyAchieved$ Hurty: took a wound on levels 2-10
  $healthyAchieved$ Healthy: never wounded
  $treasureAchieved$ Looty: got all optional loot
+ $mappingAchieved$ Mappy: map 100% before looting anything
 
 [Esc|menu] Back to menu`,
 ];
@@ -838,6 +839,7 @@ when you complete a game.
         setIcon(this, 'hurtyAchieved',    state.persistedStats.achievementHurty,    state.achievements.achievementHurty,    ts.achievementHurty);
         setIcon(this, 'healthyAchieved',  state.persistedStats.achievementHealthy,  state.achievements.achievementHealthy,  ts.achievementHealthy);
         setIcon(this, 'treasureAchieved', state.persistedStats.achievementTreasure, state.achievements.achievementTreasure, ts.achievementTreasure);
+        setIcon(this, 'mappingAchieved',  state.persistedStats.achievementMapping,  state.achievements.achievementMapping,  ts.achievementMapping);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
