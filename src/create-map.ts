@@ -577,6 +577,17 @@ function addSeatedGuard(level: number, gameMap: GameMap, rooms: Array<Room>, nee
         }
     }
 
+    // Avoid any activity stations that have loot on them
+
+    for (const item of gameMap.items) {
+        if (item.type === ItemType.Coin ||
+            item.type === ItemType.Health ||
+            item.type === ItemType.Treasure ||
+            item.type === ItemType.Note) {
+            patrolled.set(item.pos[0], item.pos[1], true);
+        }
+    }
+
     // Look for a chair facing a table
 
     const positions: Array<vec2> = [];
