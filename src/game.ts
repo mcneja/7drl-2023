@@ -490,7 +490,9 @@ export function advanceToWin(state: State) {
         // if(state.dailyRun===getCurrentDateFormatted()) state.scoreServer.addScore(score, state.totalTurns, state.level+1);
     }
     saveStats(state.persistedStats);
-    persistAchievements(state);
+    if (!state.dailyRun) {
+        persistAchievements(state);
+    }
 
     state.gameMode = GameMode.Win;
 }
