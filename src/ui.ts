@@ -1,7 +1,7 @@
 import { Renderer } from './render';
 import { vec2, mat4 } from './my-matrix';
 import { Rect, TouchTargets, lastController } from './controllers';
-import { GameMode, GameStats, State } from './types';
+import { DailyRun, GameMode, GameStats, State } from './types';
 import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
@@ -311,9 +311,6 @@ $playRestartOrResume$
     ];
     devSequence: string = 'LRLRUD';
     devSequenceCursor: number = 0;
-    constructor() {
-        super();
-    }
     update(state: State) {
         const commands =
             !state.hasStartedGame ? '[P|homePlay]: Play game\n' :
@@ -741,11 +738,32 @@ $copyState$
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('homePlay') || action=='homePlay') {
             this.stateCopied = false;
-            let date = game.getCurrentDateFormatted();
-            state.rng = new RNG('Daily '+date);
-            state.dailyRun = date;
+            const date = game.getCurrentDateFormatted();
+            const rng = new RNG('Daily '+date);
+            const achievements: Array<Achievement> = [
+                state.achievements.achievementVictory,
+                state.achievements.achievementGhosty,
+                state.achievements.achievementZippy,
+                state.achievements.achievementSteppy,
+                state.achievements.achievementNoisy,
+                state.achievements.achievementThumpy,
+                state.achievements.achievementSofty,
+                state.achievements.achievementHungry,
+                state.achievements.achievementHurty,
+                state.achievements.achievementHealthy,
+                state.achievements.achievementTreasure,
+                state.achievements.achievementMapping,
+                state.achievements.achievementFaceless,
+            ];
+            const achievement = achievements[rng.randomInRange(achievements.length)];
+            state.rng = rng;
+            state.dailyRun = {
+                date: date,
+                achievement: achievement,
+            };
             game.restartGame(state);
             state.hasStartedGame = true;
+            state.popups.setNotificationHold('Rule: ' + state.dailyRun.achievement.description, state.player.pos);
         } else if(activated('copyScore') || action=='copyScore') {
             const stats:GameStats = state.persistedStats.lastPlayedDailyGame ?? {
                 totalScore: 0,
@@ -914,7 +932,7 @@ Cumulative:  $totalScore$
 
 class DeadScreen extends TextWindow{
     pages = [
-`         You are dead!
+`$title$$dailyRun$
 
 Statistics
 Completed:     $level$ of $numLevels$
@@ -928,6 +946,14 @@ $copyState$
     ];
     stateCopied: boolean = false;
     update(state:State) {
+        const title = state.dailyRun ? 'Daily Run Failed' : '         You are dead!';
+        let dailyRun = '';
+        if (state.dailyRun) {
+            dailyRun = '\n\nRule: ' + state.dailyRun.achievement.description;
+        }
+
+        this.state.set('title', title);
+        this.state.set('dailyRun', dailyRun);
         this.state.set('level', state.level.toString());
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
@@ -957,7 +983,7 @@ $copyState$
 
 class WinScreen extends TextWindow {
     pages = [
-`Mission Complete!
+`$missionComplete$
 
 Statistics
 Ghosted:       $numGhostedLevels$ of $numLevels$
@@ -971,28 +997,29 @@ $copyState$
     stateCopied: boolean = false;
     achievementsLine: string|undefined = undefined;
     update(state:State) {
+        if (state.dailyRun) {
+            this.state.set('missionComplete', 'Daily Run Complete!\n\nRule: ' + state.dailyRun.achievement.description);
+        } else {
+            this.state.set('missionComplete', 'Mission Complete!');
+        }
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
         this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
-        const incomplete = `#${getEntityTileSet().achievementIncompleteIcon.textureIndex}#`;
-        const failed = `#${getEntityTileSet().achievementFailedIcon.textureIndex}#`;
-        function setIcon(window: TextWindow, key: string, completionCount: number, achievement: Achievement, tileInfo: TileInfo) {
-            const str: string = completionCount>0 ? `#${tileInfo.textureIndex}#` : achievement.failed ? failed : incomplete;
-            window.state.set(key, str);
-        }
         if (this.achievementsLine===undefined) {
             this.achievementsLine = '';
-            let a:keyof Achievements;
-            for (a in state.achievements) {
-                if (!state.achievements[a].failed) {
-                    this.achievementsLine += `#${getEntityTileSet().achievementIcons[a].textureIndex}#`
+            if (!state.dailyRun) {
+                let a:keyof Achievements;
+                for (a in state.achievements) {
+                    if (!state.achievements[a].failed) {
+                        this.achievementsLine += `#${getEntityTileSet().achievementIcons[a].textureIndex}#`;
+                    }
+                }
+                if (this.achievementsLine.length>0) {
+                    this.achievementsLine = '\nAchievements:  '+this.achievementsLine;
                 }
             }
-            if (this.achievementsLine.length>0) {
-                this.achievementsLine = '\nAchievements:  '+this.achievementsLine+'\n';
-                this.state.set('achievements', this.achievementsLine);
-            }
+            this.state.set('achievements', this.achievementsLine);
         }
     }
     onControls(state:State, activated:(action:string)=>boolean) {

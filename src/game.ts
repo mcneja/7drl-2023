@@ -304,7 +304,7 @@ export function scoreCompletedLevel(state: State) {
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level + 1;
     state.gameStats.numGhostedLevels += ghosted ? 1 : 0;
-    state.gameStats.daily = state.dailyRun;
+    state.gameStats.daily = state.dailyRun ? state.dailyRun.date : null;
     state.gameStats.timeEnded = Date.now();
 }
 
@@ -320,7 +320,7 @@ function scoreIncompleteLevel(state: State) {
     state.gameStats.turns += state.totalTurns;
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level;
-    state.gameStats.daily = state.dailyRun;
+    state.gameStats.daily = state.dailyRun ? state.dailyRun.date : null;
     state.gameStats.timeEnded = Date.now();
 }
 
@@ -336,6 +336,13 @@ function updateAchievements(state: State, type:'gameStart'|'turnEnd'|'levelEnd'|
     let key:keyof Achievements;
     for(key in state.achievements) {
         state.achievements[key].update(state, type);
+    }
+    if (state.dailyRun) {
+        const achievement = state.dailyRun.achievement;
+        if (achievement.failed) {
+            state.player.health = 0;
+            state.popups.setNotification('Failed: ' + achievement.description, state.player.pos);
+        }
     }
 }
 
@@ -466,6 +473,14 @@ function advanceToMansionComplete(state: State) {
 }
 
 export function advanceToWin(state: State) {
+    updateAchievements(state, "gameEnd");
+
+    if (state.dailyRun && state.dailyRun.achievement.failed) {
+        failLevel(state);
+        state.gameMode = GameMode.Dead;
+        return;
+    }
+
     const victorySong = (Math.random() < 0.1) ? 'easterEgg' : 'victorySong';
     state.sounds[victorySong].play(0.5);
     state.persistedStats.totalWins++;
@@ -477,7 +492,6 @@ export function advanceToWin(state: State) {
         turns: state.totalTurns,
         level: state.level+1
     };
-    updateAchievements(state, "gameEnd");
     state.persistedStats.scores.push(scoreEntry);
     if(state.dailyRun) {
         state.persistedStats.currentDailyBestScore = Math.max(state.persistedStats.currentDailyBestScore, score);
@@ -2123,26 +2137,30 @@ function advanceTime(state: State) {
         state.sounds['hitPlayer'].play(0.5);
 
         if (state.player.health <= 0) {
-            setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
-            scoreIncompleteLevel(state);
-            state.persistedStats.bestScore = Math.max(state.persistedStats.bestScore, state.gameStats.totalScore);
-            const scoreEntry: ScoreEntry = {
-                score: state.gameStats.totalScore,
-                date: getCurrentDateFormatted(),
-                turns: state.totalTurns,
-                level: state.level+1
-            };
-            state.persistedStats.scores.push(scoreEntry);        
-            if(state.dailyRun) {
-                state.persistedStats.currentDailyBestScore=Math.max(state.persistedStats.currentDailyBestScore, state.gameStats.totalScore);
-                state.persistedStats.lastPlayedDailyGame = structuredClone(state.gameStats);
-//                setStat('lastDaily', state.gameStats);
-            }
-            saveStats(state.persistedStats);
+            failLevel(state);
         }
     }
 
     updateAchievements(state, "turnEnd");
+}
+
+function failLevel(state: State) {
+    setTimeout(()=>state.sounds['gameOverJingle'].play(0.5), 1000);
+    scoreIncompleteLevel(state);
+    state.persistedStats.bestScore = Math.max(state.persistedStats.bestScore, state.gameStats.totalScore);
+    const scoreEntry: ScoreEntry = {
+        score: state.gameStats.totalScore,
+        date: getCurrentDateFormatted(),
+        turns: state.totalTurns,
+        level: state.level+1
+    };
+    state.persistedStats.scores.push(scoreEntry);        
+    if(state.dailyRun) {
+        state.persistedStats.currentDailyBestScore=Math.max(state.persistedStats.currentDailyBestScore, state.gameStats.totalScore);
+        state.persistedStats.lastPlayedDailyGame = structuredClone(state.gameStats);
+//        setStat('lastDaily', state.gameStats);
+    }
+    saveStats(state.persistedStats);
 }
 
 export function postTurn(state: State) {
@@ -3096,7 +3114,7 @@ export function restartGame(state: State) {
         numLevels: 0,
         numCompletedLevels: 0,
         numGhostedLevels: 0,
-        daily: state.dailyRun,
+        daily: state.dailyRun ? state.dailyRun.date : null,
         timeStarted: Date.now(),
         timeEnded: 0,
     };

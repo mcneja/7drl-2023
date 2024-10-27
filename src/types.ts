@@ -6,9 +6,9 @@ import { Popups } from './popups';
 import { TouchController, GamepadManager, KeyboardController } from './controllers';
 import { TextWindow } from './ui';
 import { Animator } from './animation';
-import { Achievements } from './achievements';
+import { Achievement, Achievements } from './achievements';
 
-export {Camera, GameMode, GameStats, LevelStats, PersistedStats, State, ScoreEntry, AmbienceType}
+export {Camera, DailyRun, GameMode, GameStats, LevelStats, PersistedStats, State, ScoreEntry, AmbienceType}
 
 type Camera = {
     position: vec2;
@@ -129,6 +129,11 @@ type FPSInfo = {
     msgFPS: string;
 }
 
+type DailyRun = {
+    date: string;
+    achievement: Achievement;
+}
+
 type State = {
     gameStats: GameStats;
     persistedStats: PersistedStats;
@@ -137,7 +142,7 @@ type State = {
     rng: RNG;
     fpsInfo: FPSInfo;
     devMode: boolean;
-    dailyRun: string|null;
+    dailyRun: DailyRun | null;
     tLast: number | undefined;
     lightStates: Array<number>;
     dt: number;

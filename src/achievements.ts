@@ -41,6 +41,7 @@ export type Achievements = {
 
 export class Achievement {
     failed: boolean = false;
+    description: string;
     unicodeBadge: string = '';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         if (type === 'gameStart') {
@@ -51,6 +52,7 @@ export class Achievement {
 
 class VictoryAchievement extends Achievement {
     unicodeBadge: string = '\u{1F451}';
+    description: string = 'Just finish';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
     }
@@ -58,6 +60,7 @@ class VictoryAchievement extends Achievement {
 
 class GhostyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F47B}';
+    description: string = 'Ghost every level';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -70,6 +73,7 @@ class GhostyAchievement extends Achievement {
 
 class ZippyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F3C3}';
+    description: string = 'Under par time on every level';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -82,6 +86,7 @@ class ZippyAchievement extends Achievement {
 
 class LeapyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F998}';
+    description: string = 'Leap more than 80% of your turns';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -92,6 +97,7 @@ class LeapyAchievement extends Achievement {
 
 class SteppyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F6B6}';
+    description: string = 'No leaps where stepping will work';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -104,6 +110,7 @@ class SteppyAchievement extends Achievement {
 
 class NoisyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F941}';
+    description: string = 'Alert guards with noise on all levels';
     noiseHeardOnCurrentLevel: boolean = false;
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
@@ -124,6 +131,7 @@ class NoisyAchievement extends Achievement {
 
 class ThumpyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F44A}';
+    description: string = 'Knock out all guards';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -136,6 +144,7 @@ class ThumpyAchievement extends Achievement {
 
 class SoftyAchievement extends Achievement {
     unicodeBadge: string = '\u{262E}';
+    description: string = 'No knockouts';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -148,6 +157,7 @@ class SoftyAchievement extends Achievement {
 
 class HungryAchievement extends Achievement {
     unicodeBadge: string = '\u{1F96A}';
+    description: string = 'Collect all food';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -160,6 +170,7 @@ class HungryAchievement extends Achievement {
 
 class HurtyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F915}';
+    description: string = 'Take a wound on every level';
     damageTakenThisLevel: boolean = false;
     priorTurnHealth: number = 0;
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
@@ -183,6 +194,7 @@ class HurtyAchievement extends Achievement {
 
 class HealthyAchievement extends Achievement {
     unicodeBadge: string = '\u{1F915}';
+    description: string = 'Never get wounded';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -195,6 +207,7 @@ class HealthyAchievement extends Achievement {
 
 class TreasureAchievement extends Achievement {
     unicodeBadge: string = '\u{1F451}';
+    description: string = 'Collect all optional loot';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
@@ -207,6 +220,7 @@ class TreasureAchievement extends Achievement {
 
 class MappingAchievement extends Achievement {
     unicodeBadge: string = '\u{1F5FA}';
+    description: string = 'Map 100% before looting';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -221,6 +235,7 @@ class MappingAchievement extends Achievement {
 
 class FacelessAchievement extends Achievement {
     unicodeBadge: string = '\u{1F977}';
+    description: string = 'Ghost with no knockouts';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
