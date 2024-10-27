@@ -903,7 +903,7 @@ Cumulative:  $totalScore$
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
         if (activated('startLevel') || action=='startLevel') {
-            if (state.level >= game.gameConfig.numGameMaps - 1) {
+            if (state.level >= state.gameMapRoughPlans.length - 1) {
                 game.advanceToWin(state);
             } else {
                 game.setupLevel(state, state.level + 1);

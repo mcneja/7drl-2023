@@ -114,12 +114,14 @@ class Float64Grid {
 
 enum LevelType {
     Manor,
+    ManorRed,
     Mansion,
     Fortress,
 }
 
 type GameMapRoughPlan = {
     levelType: LevelType;
+    level: number; // level for difficulty purposees
     numRoomsX: number;
     numRoomsY: number;
     totalLoot: number;

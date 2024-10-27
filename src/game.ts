@@ -1,5 +1,5 @@
 import { vec2, mat4 } from './my-matrix';
-import { createGameMapRoughPlans, createGameMap, Adjacency } from './create-map';
+import { createGameMapRoughPlans, createGameRoughPlansDailyRun, createGameMap, Adjacency } from './create-map';
 import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight } from './guard';
@@ -15,7 +15,7 @@ import { AmbienceType, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry,
 import * as colorPreset from './color-preset';
 import { Achievements, getAchievements } from './achievements';
 
-export const gameConfig = {
+const gameConfig = {
     numGameMaps: 10,
     totalGameLoot: 100
 }
@@ -355,14 +355,14 @@ function persistAchievements(state: State) {
 
 export function setupLevel(state: State, level: number) {
     state.level = level;
-    if (state.level >= gameConfig.numGameMaps) {
+    if (state.level >= state.gameMapRoughPlans.length) {
         restartGame(state);
         return;
     }
 
     state.activeSoundPool.empty();
     state.ambientSoundPool.empty();
-    state.gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    state.gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
@@ -546,7 +546,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         const pt0 = vec2.create();
         const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]+offset));
         const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5+offset/2));
-        const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, entityTileSet, state.level);
+        const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, entityTileSet);
         const animation = new SpriteAnimation([
                 {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
                 {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
@@ -859,7 +859,7 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
         player.hasVaultKey = true;
         pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key};
     }
-    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, entityTileSet, state.level);
+    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, entityTileSet);
     if(pickedItem) {
         const pt0 = vec2.create();
         const pt2 = posNew.subtract(pickedItem.pos);
@@ -1001,7 +1001,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             joltCamera(state, dx, dy);
             makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
             advanceTime(state);
-            if (state.level === 0) {
+            if (state.gameMapRoughPlans[state.level].level === 0) {
                 state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
             }
         } else {
@@ -1009,7 +1009,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             state.player.noiseOffset[0] = dx;
             state.player.noiseOffset[1] = dy;
             state.player.pickTarget = null;
-            if (state.level === 0) {
+            if (state.gameMapRoughPlans[state.level].level === 0) {
                 state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy) + '\nagain', state.player.pos);
             }
         }
@@ -1023,7 +1023,7 @@ function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepTy
             (item.type === ItemType.Bookshelf || item.type === ItemType.Note));
         if (item === undefined) {
             bumpFail(state, dx, dy);
-            if (state.level === 0 && !state.experiencedPlayer && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
+            if (state.gameMapRoughPlans[state.level].level === 0 && !state.experiencedPlayer && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
                 state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy), state.player.pos);
             }
         } else {
@@ -1236,7 +1236,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
         state.popups.setNotification('Window is\nimpassable\nfrom here', state.player.pos);
 
-        if (state.level === 0) {
+        if (state.gameMapRoughPlans[state.level].level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
         }
 
@@ -1249,7 +1249,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     if (isOneWayWindowTerrainType(cellNew.type)) {
         setLeapStatusMessage(state, dx, dy);
 
-        if (state.level === 0) {
+        if (state.gameMapRoughPlans[state.level].level === 0) {
             setTimeout(()=>state.sounds['jump'].play(0.3), 250);
         }
 
@@ -1303,7 +1303,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
                 setLeapStatusMessage(state, dx, dy);
             }
             state.sounds['gate'].play(0.3);
-            if (state.level === 0) {
+            if (state.gameMapRoughPlans[state.level].level === 0) {
                 setTimeout(()=>state.sounds['jump'].play(0.3), 1000);
             }
             bumpAnim(state, dx, dy);
@@ -1435,7 +1435,9 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
-    if (state.level === 3) {
+    const level = state.gameMapRoughPlans[state.level].level;
+
+    if (level === 3) {
         runPickpocketTutorial(state);
         return;
     }
@@ -1444,7 +1446,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
-    if (state.level === 2 && !state.hasEnteredMansion && state.player.pos.equals(state.gameMap.playerStartPos)) {
+    if (level === 2 && !state.hasEnteredMansion && state.player.pos.equals(state.gameMap.playerStartPos)) {
         const pos = vec2.create();
         vec2.copy(pos, state.player.pos);
         pos[1] += 1;
@@ -1452,7 +1454,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
-    if (state.level === 1 && !state.hasEnteredMansion) {
+    if (level === 1 && !state.hasEnteredMansion) {
         let sqdistGuardNearest = Infinity;
         let guardNearest: Guard | undefined = undefined;
         for (const guard of state.gameMap.guards) {
@@ -1469,7 +1471,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
         return;
     }
 
-    if (state.level !== 0) {
+    if (level !== 0) {
         return;
     }
 
@@ -1903,7 +1905,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
     const jumpedGate = cellMid.type === TerrainType.PortcullisNS || cellMid.type === TerrainType.PortcullisEW;
     if (jumpedGate) {
         state.hasEnteredMansion = true;
-    } else if (state.level === 0 && !state.hasEnteredMansion) {
+    } else if (state.gameMapRoughPlans[state.level].level === 0 && !state.hasEnteredMansion) {
         state.experiencedPlayer = true;
     }
 
@@ -2295,22 +2297,25 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
 function waterTileSetForLevelType(levelType: LevelType, terrainTileset:TerrainTileSet) {
     switch (levelType) {
         case LevelType.Manor: return terrainTileset.waterAnimation;
+        case LevelType.ManorRed: return terrainTileset.waterAnimation;
         case LevelType.Mansion: return terrainTileset.manseWaterAnimation;
         case LevelType.Fortress: return terrainTileset.fortressWaterAnimation;
     }
 }
 
-function terrainTileSetForLevelType(levelType: LevelType, terrainTileset:TerrainTileSet, level:number) {
+function terrainTileSetForLevelType(levelType: LevelType, terrainTileset:TerrainTileSet) {
     switch (levelType) {
-        case LevelType.Manor: return level==1 || level==3 || level===5||level>=8? terrainTileset.redWallTerrainTiles: terrainTileset.terrainTiles;
+        case LevelType.Manor: return terrainTileset.terrainTiles;
+        case LevelType.ManorRed: return terrainTileset.redWallTerrainTiles;
         case LevelType.Mansion: return terrainTileset.manseTerrainTiles;
         case LevelType.Fortress: return terrainTileset.fortressTerrainTiles;
     }
 }
 
-function itemTileSetForLevelType(levelType: LevelType, entityTileset:EntityTileSet, level:number) {
+function itemTileSetForLevelType(levelType: LevelType, entityTileset:EntityTileSet) {
     switch (levelType) {
-        case LevelType.Manor: return level==1 || level==3 || level===5||level>=8? entityTileset.redWallItemTiles: entityTileset.itemTiles;
+        case LevelType.Manor: return entityTileset.itemTiles;
+        case LevelType.ManorRed: return entityTileset.redWallItemTiles;
         case LevelType.Mansion: return entityTileset.manseItemTiles;
         case LevelType.Fortress: return entityTileset.fortressItemTiles;
     }
@@ -2319,7 +2324,7 @@ function itemTileSetForLevelType(levelType: LevelType, entityTileset:EntityTileS
 function renderTerrain(state: State, renderer: Renderer) {
 
     // Draw terrain
-    const terrTiles = terrainTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.terrainTileSet, state.level);
+    const terrTiles = terrainTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.terrainTileSet);
 
     for (let x = 0; x < state.gameMap.cells.sizeX; ++x) {
         for (let y = state.gameMap.cells.sizeY-1; y >= 0 ; --y) { //Render top to bottom for overlapped tiles
@@ -2361,7 +2366,7 @@ function renderTerrain(state: State, renderer: Renderer) {
 
 function renderItems(state: State, renderer: Renderer) {
     // Draw items
-    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.entityTileSet, state.level);
+    const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.entityTileSet);
 
     for(const item of state.gameMap.items) {
         let x = item.pos[0];
@@ -2867,7 +2872,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     const rng = new RNG();  
     const initialLevel = debugInitialLevel;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
-    const gameMap = createGameMap(initialLevel, gameMapRoughPlans[initialLevel]);
+    const gameMap = createGameMap(gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
     let keyRepeatRate = parseInt(window.localStorage.getItem('LLL/keyRepeatRate')??'175');
     if(isNaN(keyRepeatRate)) keyRepeatRate = 175;
@@ -3065,12 +3070,14 @@ export function startResumeConfiguredGame(state:State) {
     playAmbience(state);
 }
 
-
 export function restartGame(state: State) {
-    state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
-    state.level = debugInitialLevel;
+    if (state.dailyRun) {
+        state.gameMapRoughPlans = createGameRoughPlansDailyRun(state.rng);
+    } else {
+        state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
+    }
 
-
+    state.level = Math.min(state.gameMapRoughPlans.length - 1, debugInitialLevel);
 
     state.persistedStats.totalPlays++;
     setStat('totalPlays',state.persistedStats.totalPlays);
@@ -3091,7 +3098,7 @@ export function restartGame(state: State) {
         timeStarted: Date.now(),
         timeEnded: 0,
     };
-    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    const gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
     state.player = new Player(gameMap.playerStartPos);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
@@ -3130,7 +3137,7 @@ export function restartGame(state: State) {
 }
 
 function resetState(state: State) {
-    const gameMap = createGameMap(state.level, state.gameMapRoughPlans[state.level]);
+    const gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
     state.player = new Player(gameMap.playerStartPos);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
@@ -3341,7 +3348,7 @@ function updateState(state: State, screenSize: vec2, dt: number) {
     if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress && !state.oldPlayerPos.equals(state.player.pos)) {
         const item = state.gameMap.items.find((item) => item.pos.equals(state.oldPlayerPos))
         if(item && item.type === ItemType.Bush) {
-            const ti0 = itemTileSetForLevelType(LevelType.Fortress, getEntityTileSet(), state.level)[item.type];
+            const ti0 = itemTileSetForLevelType(LevelType.Fortress, getEntityTileSet())[item.type];
             const ti1 = {...ti0};
             const ti2 = {...ti0};
             const ti3 = {...ti0};

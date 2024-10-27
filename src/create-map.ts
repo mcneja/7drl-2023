@@ -1,4 +1,4 @@
-export { createGameMap, createGameMapRoughPlans, Adjacency };
+export { createGameMap, createGameMapRoughPlans, createGameRoughPlansDailyRun, Adjacency };
 
 import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, LevelType, TerrainType, TreasureInfo, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
 import { Guard } from './guard';
@@ -80,6 +80,16 @@ type PatrolRoute = {
     maxRoomDepth: number,
 }
 
+function createGameRoughPlansDailyRun(rng: RNG): Array<GameMapRoughPlan> {
+    const gameMapRoughPlans: Array<GameMapRoughPlan> = createGameMapRoughPlans(10, 100, rng);
+
+    const i0 = 3 + rng.randomInRange(2);
+    const i1 = 5 + rng.randomInRange(2);
+    const i2 = 7 + rng.randomInRange(3);
+
+    return [gameMapRoughPlans[i0], gameMapRoughPlans[i1], gameMapRoughPlans[i2]];
+}
+
 function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
@@ -97,6 +107,8 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
             levelType = LevelType.Fortress;
         } else if (level === iLevelMansion0 || level === iLevelMansion1) {
             levelType = LevelType.Mansion;
+        } else if (level === 1 || level === 3 || level === 5 || level >= 8) {
+            levelType = LevelType.ManorRed;
         } else {
             levelType = LevelType.Manor;
         }
@@ -104,6 +116,7 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
         const [numRoomsX, numRoomsY] = makeLevelSize(level, levelType, levelRNG);
         gameMapRoughPlans.push({
             levelType: levelType,
+            level: level,
             numRoomsX: numRoomsX,
             numRoomsY: numRoomsY,
             totalLoot: 0,
@@ -179,7 +192,9 @@ function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number,
     return [x,y];
 }
 
-function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
+function createGameMap(plan: GameMapRoughPlan): GameMap {
+    const level = plan.level;
+
     const rng = plan.rng;
     rng.reset();
 
@@ -191,6 +206,7 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
 
     switch (levelType) {
     case LevelType.Manor:
+    case LevelType.ManorRed:
         makeManorRoomGrid(inside, rng);
         break;
 
@@ -233,7 +249,11 @@ function createGameMap(level: number, plan: GameMapRoughPlan): GameMap {
         mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
 
-    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && levelType !== LevelType.Manor && insideIsVerticallySymmetric(inside);
+    const mirrorRoomsY =
+        (plan.numRoomsY & 1) === 1 &&
+        levelType !== LevelType.Manor &&
+        levelType !== LevelType.ManorRed &&
+        insideIsVerticallySymmetric(inside);
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
     }
