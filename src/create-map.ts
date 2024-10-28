@@ -675,7 +675,7 @@ function addSeatedGuard(level: number, gameMap: GameMap, rooms: Array<Room>, nee
                 pos[1] >= room.posMin[1] &&
                 pos[0] < room.posMax[0] &&
                 pos[1] < room.posMax[1]) {
-                const i = Math.min(patrolRoutes.length, needKey ? 1 : 0);
+                const i = rng.randomInRange(patrolRoutes.length + 1);
                 patrolRoutes.splice(i, 0, {rooms: [room], path: [vec2.clone(pos)], minRoomDepth: room.depth, maxRoomDepth: room.depth});
                 return;
             }
@@ -5598,16 +5598,18 @@ function placeGuards(
         return;
     }
 
-    // Sort patrol routes in descending order by minimum depth, but leave the stationary patrol routes in place.
-
-    patrolRoutes.sort((a, b) => (a.rooms.length <= 1 || b.rooms.length <= 1) ? 0 : b.minRoomDepth - a.minRoomDepth);
-
-    // If we need to place a key guard, choose the middle patrol route
+    // If we need to place a key guard, choose the median patrol route in terms of minimum room depth
 
     if (placeKey && patrolRoutes.length > 0) {
-        const i = Math.floor(patrolRoutes.length / 2);
-        const patrolRoute = patrolRoutes[i];
-        patrolRoutes.splice(i, 1);
+        let patrolRoutesSorted = patrolRoutes.filter(p => p.path.length > 1 && p.minRoomDepth > 0);
+        if (patrolRoutesSorted.length === 0) {
+            patrolRoutesSorted = [...patrolRoutes];
+        }
+        patrolRoutesSorted.sort((a, b) => a.minRoomDepth - b.minRoomDepth);
+
+        const i = Math.floor(patrolRoutesSorted.length / 2);
+        const patrolRoute = patrolRoutesSorted[i];
+        patrolRoutes = patrolRoutes.filter(p => p !== patrolRoute);
 
         const pathIndexStart = 0;
         const guard = new Guard(patrolRoute.path, pathIndexStart);
@@ -5616,6 +5618,25 @@ function placeGuards(
         }
         guard.hasVaultKey = true;
         map.guards.push(guard);
+    }
+
+    // If we need to place loot on a guard, and we're on level 3 (the pickpocket training level), try to find a stationary guard
+
+    if (guardLoot > 0 && level < 4) {
+        const i = patrolRoutes.findIndex(p => p.path.length <= 1);
+        if (i >= 0) {
+            const patrolRoute = patrolRoutes[i];
+            patrolRoutes.splice(i, 1);
+
+            const pathIndexStart = 0;
+            const guard = new Guard(patrolRoute.path, pathIndexStart);
+            if (level > 1 && rng.randomInRange(5 + level) < level) {
+                guard.hasTorch = true;
+            }
+            guard.hasPurse = true;
+            guardLoot--;
+            map.guards.push(guard);
+        }
     }
 
     // Create guards for remaining patrol routes
