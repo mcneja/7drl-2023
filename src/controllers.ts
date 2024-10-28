@@ -21,6 +21,7 @@ const controlStates0: ControlStates = {
     'panLeft': false,
     'panRight': false,
     'menu': false,
+    'menuBack': false,
     'homePlay': false,
     'homeDaily': false,
     'homeStats': false,
@@ -72,7 +73,7 @@ const defaultKeyMap:KeyMap = {
     'Digit9' : ['guardMute'],
     'Enter': ['wait', 'menuAccept'],
     'Equal': ['volumeUp'],
-    'Escape' : ['menu'],
+    'Escape' : ['menu', 'menuBack'],
     'KeyA': ['left', 'homeAchievements'],
     'KeyC': ['copyScore', 'credits'],
     'KeyD': ['right','homeDaily','keyRepeatDelay'],
@@ -427,10 +428,7 @@ class TouchController extends Controller {
 
         for (const [bname, b] of Object.entries(this.touchTargets)) {
             if (!Object.hasOwn(touchTargets, bname)) {
-                this.setPressed(bname, false, false);
-                if (this.targetOnTouchDown === bname) {
-                    this.targetOnTouchDown = null;
-                }
+                this.controlStates[bname] = false;
             }
         }
 

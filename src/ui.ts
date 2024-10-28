@@ -96,7 +96,7 @@ class TextWindow {
     }
     parseButton(line:string, base:number, row:number, rows:number): [string, number] {
         const origin = base;
-        let pipe, end;
+        let pipe: number, end: number;
         while(true) {
             pipe = line.slice(base).indexOf('|');
             if(pipe<0) return [line, base];
@@ -391,7 +391,7 @@ class DevScreen extends TextWindow {
 
 $message$
 
-[Esc|menu]    Back to menu`,
+[Esc|menuBack]    Back to menu`,
     ];
     constructor() {
         super();
@@ -406,7 +406,7 @@ $message$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
             this.state.set('message', '')
         } else if (activated('prevLevel') || action=='prevLevel') {
@@ -474,7 +474,7 @@ class OptionsScreen extends TextWindow {
 [D|keyRepeatDelay]      Key repeat delay $keyRepeatDelay$ms
 [Ctrl+R|forceRestart] Reset data
 
-[Esc|menu]    Back to menu`,
+[Esc|menuBack]    Back to menu`,
     ];
     update(state: State): void {
         this.state.set('volumeLevel', (state.soundVolume * 100).toFixed(0));
@@ -486,7 +486,7 @@ class OptionsScreen extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('volumeUp') || action=='volumeUp') {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
@@ -538,7 +538,7 @@ class HelpControls extends TextWindow {
 Disable NumLock if using numpad
 Touch and gamepad also supported
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
         `Help: Touch Controls
 
   Move: #016# / #017# / #018# / #019#
@@ -551,7 +551,7 @@ Touch and gamepad also supported
 
 Keyboard and gamepad also supported
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
         `Help: Gamepad Controls
 
   Move: Left Stick/Pad
@@ -564,7 +564,7 @@ Keyboard and gamepad also supported
 
 Keyboard and touch also supported
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
 ];
     update(state: State): void {
         this.activePage = lastController === state.keyboardController? 0:
@@ -572,7 +572,7 @@ Keyboard and touch also supported
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -593,13 +593,13 @@ class HelpKey extends TextWindow {
 #${getEntityTileSet().namedTiles["uiWindowTile"].textureIndex}# Window: One-way escape route
 #${getEntityTileSet().namedTiles["uiCreakyTile"].textureIndex}# Creaky floor: Alerts guards
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
     ];
     update(state: State): void {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -619,13 +619,13 @@ Additional assistance by Mike Gaffney
 Testing by Mendi Carroll and Tom Elmer
 Special thanks to Mendi Carroll
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
     ];
     update(state: State): void {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -645,7 +645,7 @@ Total daily runs:   $dailyPlays$
 Total daily wins:   $dailyWins$
 Win streak:         $dailyWinStreak$
 
-[Esc|menu] Back to menu`
+[Esc|menuBack] Back to menu`
 
 class DailyHubScreen extends TextWindow {
     pages = [
@@ -668,7 +668,7 @@ Last score:        $lastScore$
 [C|copyScore] Copy last game to clipboard
 $copyState$
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
     ];
     stateCopied: boolean = false;
     prevDay(d:Date):Date {
@@ -736,7 +736,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('homePlay') || action=='homePlay') {
@@ -778,7 +778,7 @@ Total plays:             $allDailyPlays$
 Total wins:              $allDailyWins$
 Total wins first try:    $allDailyWinsFirstTry$
 
-[Esc|menu] Back to menu`];
+[Esc|menuBack] Back to menu`];
     update(state:State) {
         this.state.set('totalPlays', state.persistedStats.totalPlays.toString());
         this.state.set('totalWins', state.persistedStats.totalWins.toString());
@@ -790,7 +790,7 @@ Total wins first try:    $allDailyWinsFirstTry$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         };
     }
@@ -818,7 +818,7 @@ when you complete a game.
  $facelessAchieved$ Ghosty: ghost every level
  $ghostyAchieved$ Ultra-Ghosty: Ghosty with no knockouts
 
-[Esc|menu] Back to menu`,
+[Esc|menuBack] Back to menu`,
 ];
     update(state:State) {
         const ts = getEntityTileSet().achievementIcons;
@@ -845,7 +845,7 @@ when you complete a game.
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menu') || action=='menu') {
+        if(activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         };
     }
@@ -924,7 +924,7 @@ Total Score:   $totalScore$
 [N|homeRestart]:   New game
 [C|copyScore]:   Copy score to clipboard
 $copyState$
-[Esc|menu]: Exit to home screen`
+[Esc|menuBack]: Exit to home screen`
     ];
     stateCopied: boolean = false;
     update(state:State) {
@@ -941,7 +941,7 @@ $copyState$
             state.rng = new RNG();
             state.dailyRun = null;
             game.restartGame(state);
-        } else if (activated('menu') || action=='menu') {
+        } else if (activated('menuBack') || action=='menuBack') {
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
@@ -966,7 +966,7 @@ Total Score:   $totalScore$$achievements$
 [N|homeRestart]:   New game
 [C|copyScore]:   Copy score to clipboard
 $copyState$
-[Esc|menu]: Exit to home screen`
+[Esc|menuBack]: Exit to home screen`
     ];
     stateCopied: boolean = false;
     achievementsLine: string|undefined = undefined;
@@ -1003,7 +1003,7 @@ $copyState$
             state.dailyRun = null;
             this.achievementsLine = undefined;
             game.restartGame(state);
-        } else if (activated('menu') || action=='menu') {
+        } else if (activated('menuBack') || action=='menuBack') {
             this.stateCopied = false;
             state.rng = new RNG();
             state.dailyRun = null;
