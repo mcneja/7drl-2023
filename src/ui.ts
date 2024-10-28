@@ -800,23 +800,20 @@ class AchievementsScreen extends TextWindow {
     pages = [
 `Achievements
 
-Earn achievements by meeting certain requirements
-when you complete a game.
+Earn achievements by meeting certain
+requirements when you complete a game.
 
  $victoryAchieved$ Victory: winning is enough...
- $hungryAchieved$ Hungry: got all the food
- $treasureAchieved$ Looty: got all optional loot
- $healthyAchieved$ Healthy: never wounded
- $hurtyAchieved$ Hurty: took a wound on levels 2-10
- $steppyAchieved$ Steppy: no leaps where stepping will work
- $mappingAchieved$ Mappy: map 100% before looting anything
- $thumpyAchieved$ Thumpy: KO'd all guards
- $softyAchieved$ Softy: did not KO anyone
- $noisyAchieved$ Noisy: alerted guards with noise on levels 2-10
- $leapyAchieved$ Leapy: leapt more than 80% of your turns
- $zippyAchieved$ Zippy: under par time on every level
+ $hungryAchieved$ Hungry: collect all food
+ $treasureAchieved$ Looty: steal all optional loot
+ $healthyAchieved$ Healthy: take no damage
+ $steppyAchieved$ Steppy: no leap where a step works
+ $thumpyAchieved$ Thumpy: knock out all guards
+ $softyAchieved$ Softy: no knockouts
+ $mappingAchieved$ Looky: map 100% before looting anything
  $facelessAchieved$ Ghosty: ghost every level
- $ghostyAchieved$ Ultra-Ghosty: Ghosty with no knockouts
+ $zippyAchieved$ Zippy: under par time on every level
+ $ghostyAchieved$ Mosty Ghosty: ghost with no knockouts
 
 [Esc|menuBack] Back to menu`,
 ];
@@ -834,10 +831,7 @@ when you complete a game.
         setIcon(this, 'hungryAchieved',   state.persistedStats.achievementHungry,   state.achievements.achievementHungry,   ts.achievementHungry);
         setIcon(this, 'thumpyAchieved',   state.persistedStats.achievementThumpy,   state.achievements.achievementThumpy,   ts.achievementThumpy);
         setIcon(this, 'softyAchieved',    state.persistedStats.achievementSofty,    state.achievements.achievementSofty,    ts.achievementSofty);
-        setIcon(this, 'noisyAchieved',    state.persistedStats.achievementNoisy,    state.achievements.achievementNoisy,    ts.achievementNoisy);
-        setIcon(this, 'leapyAchieved',    state.persistedStats.achievementLeapy,    state.achievements.achievementLeapy,    ts.achievementLeapy);
         setIcon(this, 'steppyAchieved',   state.persistedStats.achievementSteppy,   state.achievements.achievementSteppy,   ts.achievementSteppy);
-        setIcon(this, 'hurtyAchieved',    state.persistedStats.achievementHurty,    state.achievements.achievementHurty,    ts.achievementHurty);
         setIcon(this, 'healthyAchieved',  state.persistedStats.achievementHealthy,  state.achievements.achievementHealthy,  ts.achievementHealthy);
         setIcon(this, 'treasureAchieved', state.persistedStats.achievementTreasure, state.achievements.achievementTreasure, ts.achievementTreasure);
         setIcon(this, 'mappingAchieved',  state.persistedStats.achievementMapping,  state.achievements.achievementMapping,  ts.achievementMapping);
@@ -975,12 +969,6 @@ $copyState$
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
         this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
-        const incomplete = `#${getEntityTileSet().achievementIncompleteIcon.textureIndex}#`;
-        const failed = `#${getEntityTileSet().achievementFailedIcon.textureIndex}#`;
-        function setIcon(window: TextWindow, key: string, completionCount: number, achievement: Achievement, tileInfo: TileInfo) {
-            const str: string = completionCount>0 ? `#${tileInfo.textureIndex}#` : achievement.failed ? failed : incomplete;
-            window.state.set(key, str);
-        }
         if (this.achievementsLine===undefined) {
             this.achievementsLine = '';
             let a:keyof Achievements;
@@ -990,9 +978,9 @@ $copyState$
                 }
             }
             if (this.achievementsLine.length>0) {
-                this.achievementsLine = '\nAchievements:  '+this.achievementsLine+'\n';
-                this.state.set('achievements', this.achievementsLine);
+                this.achievementsLine = '\nAchievements:  '+this.achievementsLine;
             }
+            this.state.set('achievements', this.achievementsLine);
         }
     }
     onControls(state:State, activated:(action:string)=>boolean) {

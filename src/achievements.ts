@@ -6,37 +6,31 @@ import { State } from './types';
 export function getAchievements(): Achievements {
     return {
         achievementVictory: new VictoryAchievement(),
-        achievementGhosty: new GhostyAchievement(),
-        achievementZippy: new ZippyAchievement(),
-        achievementLeapy: new LeapyAchievement(),
+        achievementHungry: new HungryAchievement(),
+        achievementTreasure: new TreasureAchievement(),
+        achievementHealthy: new HealthyAchievement(),
         achievementSteppy: new SteppyAchievement(),
-        achievementNoisy: new NoisyAchievement(),
         achievementThumpy: new ThumpyAchievement(),
         achievementSofty: new SoftyAchievement(),
-        achievementHungry: new HungryAchievement(),
-        achievementHurty: new HurtyAchievement(),
-        achievementHealthy: new HealthyAchievement(),
-        achievementTreasure: new TreasureAchievement(),
         achievementMapping: new MappingAchievement(),
         achievementFaceless: new FacelessAchievement(),
+        achievementZippy: new ZippyAchievement(),
+        achievementGhosty: new GhostyAchievement(),
     }
 }
 
 export type Achievements = {
     achievementVictory: Achievement;
-    achievementGhosty: Achievement;
-    achievementZippy: Achievement;
     achievementHungry: Achievement;
+    achievementTreasure: Achievement;
+    achievementHealthy: Achievement;
+    achievementSteppy: Achievement;
     achievementThumpy: Achievement;
     achievementSofty: Achievement;
-    achievementNoisy: Achievement;
-    achievementLeapy: Achievement;
-    achievementSteppy: Achievement;
-    achievementHurty: Achievement;
-    achievementHealthy: Achievement;
-    achievementTreasure: Achievement;
     achievementMapping: Achievement;
     achievementFaceless: Achievement;
+    achievementZippy: Achievement;
+    achievementGhosty: Achievement;
 }
 
 export class Achievement {
