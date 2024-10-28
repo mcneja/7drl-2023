@@ -175,7 +175,7 @@ class Controller {
             this.controlStates[c] = false;
         }
     }
-    endFrame () {
+    endFrame() {
         this.currentFramePresses.clear();
     }
 }
@@ -416,11 +416,25 @@ class TouchController extends Controller {
         }
     }
     activateTouchTargets(extraTouchTargets: TouchTargets|undefined) {
+        let touchTargets: TouchTargets;
         if(extraTouchTargets === undefined) {
-            this.touchTargets = this.coreTouchTargets;
+            touchTargets = this.coreTouchTargets;
         } else {
-            this.touchTargets = {...this.coreTouchTargets, ...extraTouchTargets};        
+            touchTargets = {...this.coreTouchTargets, ...extraTouchTargets};
         }
+
+        // Clear pressed status on any touch targets going away
+
+        for (const [bname, b] of Object.entries(this.touchTargets)) {
+            if (!Object.hasOwn(touchTargets, bname)) {
+                this.setPressed(bname, false, false);
+                if (this.targetOnTouchDown === bname) {
+                    this.targetOnTouchDown = null;
+                }
+            }
+        }
+
+        this.touchTargets = touchTargets;
     }
     //touchstart handler
     process_mousedown(ev: MouseEvent) {
