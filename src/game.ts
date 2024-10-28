@@ -3517,10 +3517,9 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const r = 8;
 
     const inGame = state.gameMode===GameMode.Mansion;
-    const showMenuButton = inGame || state.gameMode === GameMode.HomeScreen;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:showMenuButton},
+        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
         {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
         {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:inGame},
         {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:true},

@@ -406,7 +406,9 @@ $message$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
             this.state.set('message', '')
         } else if (activated('prevLevel') || action=='prevLevel') {
@@ -486,7 +488,9 @@ class OptionsScreen extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('volumeUp') || action=='volumeUp') {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
@@ -504,11 +508,11 @@ class OptionsScreen extends TextWindow {
             state.keyRepeatRate -= 50;
             if(state.keyRepeatRate<100) state.keyRepeatRate = 400;
             window.localStorage.setItem('LLL/keyRepeatRate', state.keyRepeatRate.toString());
-        } else if(activated('keyRepeatDelay') || action=='keyRepeatDelay') {
+        } else if (activated('keyRepeatDelay') || action=='keyRepeatDelay') {
             state.keyRepeatDelay -= 50;
             if(state.keyRepeatDelay<100) state.keyRepeatDelay = 500;
             window.localStorage.setItem('LLL/keyRepeatDelay', state.keyRepeatDelay.toString());
-        } else if(activated('forceRestart') || action=='forceRestart') {
+        } else if (activated('forceRestart') || action=='forceRestart') {
             //TODO: Prompt??
             window.localStorage.clear();
             state.persistedStats = game.loadStats();
@@ -572,7 +576,9 @@ Keyboard and touch also supported
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -599,7 +605,9 @@ class HelpKey extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -625,7 +633,9 @@ Special thanks to Mendi Carroll
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         }
     }
@@ -736,7 +746,9 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             this.stateCopied = false;
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('homePlay') || action=='homePlay') {
@@ -746,7 +758,7 @@ $copyState$
             state.dailyRun = date;
             game.restartGame(state);
             state.hasStartedGame = true;
-        } else if(activated('copyScore') || action=='copyScore') {
+        } else if (activated('copyScore') || action=='copyScore') {
             const stats:GameStats = state.persistedStats.lastPlayedDailyGame ?? {
                 totalScore: 0,
                 turns: 0,
@@ -790,7 +802,9 @@ Total wins first try:    $allDailyWinsFirstTry$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         };
     }
@@ -839,7 +853,9 @@ requirements when you complete a game.
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if(activated('menuBack') || action=='menuBack') {
+        if (activated('menu') || action=='menu') {
+            game.startResumeConfiguredGame(state);
+        } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         };
     }
@@ -942,7 +958,7 @@ $copyState$
             game.restartGame(state);
             state.gameMode = GameMode.HomeScreen;
             state.hasStartedGame = false;
-        } else if(activated('copyScore') || action=='copyScore') {
+        } else if (activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats, state.achievements);
             this.stateCopied = true;
         }
@@ -999,7 +1015,7 @@ $copyState$
             state.gameMode = GameMode.HomeScreen;
             this.achievementsLine = undefined;
             state.hasStartedGame = false;
-        } else if(activated('copyScore') || action=='copyScore') {
+        } else if (activated('copyScore') || action=='copyScore') {
             scoreToClipboard(state.gameStats, state.achievements);
             this.stateCopied = true;
         }
