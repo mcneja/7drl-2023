@@ -591,7 +591,7 @@ class HelpKey extends TextWindow {
 #${getEntityTileSet().playerTiles.normal.textureIndex}# Thief: You!
 #${getEntityTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
 #${getEntityTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Steal it!
-#${getEntityTileSet().itemTiles[ItemType.Treasure].textureIndex}# Optional Loot: Steal it?
+#${getEntityTileSet().itemTiles[ItemType.Treasure].textureIndex}# Bonus Loot: Steal it?
 #${getEntityTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
 #${getEntityTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
 #${getEntityTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Guards sit here
@@ -819,7 +819,7 @@ requirements when you complete a game.
 
  $victoryAchieved$ Victory: winning is enough...
  $hungryAchieved$ Hungry: collect all food
- $treasureAchieved$ Looty: steal all optional loot
+ $treasureAchieved$ Looty: steal all bonus loot
  $healthyAchieved$ Healthy: take no damage
  $steppyAchieved$ Steppy: no leap where a step works
  $thumpyAchieved$ Thumpy: knock out all guards
