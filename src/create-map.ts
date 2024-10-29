@@ -369,7 +369,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
     const guardsAvailableForLoot = patrolRoutes.length - (needKey ? 1 : 0);
     const guardLoot = Math.min(Math.floor(level/3), Math.min(guardsAvailableForLoot, plan.totalLoot));
 
-    placeLoot(plan.totalLoot - guardLoot, rooms, map, levelType, rng);
+    placeLoot(plan.totalLoot - guardLoot, rooms, map, patrolRoutes, levelType, rng);
     giveBooksTitles(map.bookTitle, rooms, map.items.filter(item=>item.type === ItemType.Bookshelf), rng);
     placeTreasure(map, rooms, rng);
 
@@ -5013,7 +5013,12 @@ function placeItem(map: GameMap, pos: vec2, type: ItemType) {
     });
 }
 
-function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, levelType: LevelType, rng: RNG) {
+function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, patrolRoutes: Array<PatrolRoute>, levelType: LevelType, rng: RNG) {
+
+    // Build maps of preferred and prohibited positions on the map
+
+    const posPreferred = buildPosPreferred(map);
+    const posProhibited = buildPosProhibited(map, patrolRoutes);
 
     let totalLootPlaced = 0;
 
@@ -5036,7 +5041,7 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, l
                 break;
             }
 
-            if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
+            if (tryPlaceLoot(posProhibited, posPreferred, room.posMin, room.posMax, map, rng)) {
                 ++totalLootPlaced;
             }
         }
@@ -5065,7 +5070,7 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, l
         }
 
         if (numExits < 2) {
-            if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
+            if (tryPlaceLoot(posProhibited, posPreferred, room.posMin, room.posMax, map, rng)) {
                 ++totalLootPlaced;
             }
         }
@@ -5086,7 +5091,7 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, l
             continue;
         }
 
-        if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
+        if (tryPlaceLoot(posProhibited, posPreferred, room.posMin, room.posMax, map, rng)) {
             ++totalLootPlaced;
         }
     }
@@ -5097,7 +5102,7 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, l
     rng.shuffleArray(candidateRooms);
     for (let i = 0; i < 1000 && totalLootPlaced < totalLootToPlace; ++i) {
         const room = candidateRooms[i % candidateRooms.length];
-        if (tryPlaceLoot(room.posMin, room.posMax, map, rng)) {
+        if (tryPlaceLoot(posProhibited, posPreferred, room.posMin, room.posMax, map, rng)) {
             ++totalLootPlaced;
         }
     }
@@ -5124,51 +5129,63 @@ function canHoldHealth(itemType: ItemType): boolean {
     return itemType === ItemType.Table;
 }
 
-function isValidGroundLootPos(pos: vec2, map: GameMap): boolean {
-    let cellType = map.cells.atVec(pos).type;
+function buildPosPreferred(map: GameMap): BooleanGrid {
+    const posPreferred = new BooleanGrid(map.cells.sizeX, map.cells.sizeY, false);
 
-    if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
-        return false;
-    }
-
-    if (isItemAtPos(map, pos)) {
-        return false;
-    }
-
-    return true;
-}
-
-function isLootPreferredAtPos(pos: vec2, map: GameMap): boolean {
-    let cellType = map.cells.atVec(pos).type;
-
-    if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
-        return false;
-    }
-
-    let foundLootHoldingItem = false;
+    // Try to put loot on loot-holding furniture
 
     for (const item of map.items) {
-        if (item.pos.equals(pos)) {
-            if (!canHoldLoot(item.type)) {
-                return false;
-            }
-            foundLootHoldingItem = true;
+        if (canHoldLoot(item.type)) {
+            posPreferred.set(item.pos[0], item.pos[1], true);
         }
     }
 
-    return foundLootHoldingItem;
+    return posPreferred;
 }
 
-function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean
+function buildPosProhibited(map: GameMap, patrolRoutes: Array<PatrolRoute>): BooleanGrid {
+    const posProhibited = new BooleanGrid(map.cells.sizeX, map.cells.sizeY, false);
+
+    // Reject places in water or walls
+
+    for (let x = 0; x < map.cells.sizeX; ++x) {
+        for (let y = 0; y < map.cells.sizeY; ++y) {
+            const cellType = map.cells.at(x, y).type;
+            if (cellType === TerrainType.GroundWater || cellType >= TerrainType.Wall0000) {
+                posProhibited.set(x, y, true);
+            }
+        }
+    }
+
+    // Reject places where stationary guards are standing/sitting
+
+    for (const patrolRoute of patrolRoutes) {
+        if (patrolRoute.path.length === 1) {
+            for (const pos of patrolRoute.path) {
+                posProhibited.set(pos[0], pos[1], true);
+            }
+        }
+    }
+
+    // Reject places with items that can't hold loot
+
+    for (const item of map.items) {
+        if (!canHoldLoot(item.type)) {
+            posProhibited.set(item.pos[0], item.pos[1], true);
+        }
+    }
+
+    return posProhibited;
+}
+
+function tryPlaceLoot(posProhibited: BooleanGrid, posPreferred: BooleanGrid, posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boolean
 {
     const positions: Array<vec2> = [];
 
     for (let x = posMin[0]; x < posMax[0]; ++x) {
         for (let y = posMin[1]; y < posMax[1]; ++y) {
-            const pos = vec2.fromValues(x, y);
-
-            if (isLootPreferredAtPos(pos, map)) {
-                positions.push(pos);
+            if (!posProhibited.get(x, y) && posPreferred.get(x, y)) {
+                positions.push(vec2.fromValues(x, y));
             }
         }
     }
@@ -5176,10 +5193,8 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
     if (positions.length === 0) {
         for (let x = posMin[0]; x < posMax[0]; ++x) {
             for (let y = posMin[1]; y < posMax[1]; ++y) {
-                const pos = vec2.fromValues(x, y);
-    
-                if (isValidGroundLootPos(pos, map)) {
-                    positions.push(pos);
+                if (!posProhibited.get(x, y)) {
+                    positions.push(vec2.fromValues(x, y));
                 }
             }
         }
@@ -5189,7 +5204,9 @@ function tryPlaceLoot(posMin: vec2, posMax: vec2, map: GameMap, rng: RNG): boole
         }
     }
 
-    placeItem(map, positions[rng.randomInRange(positions.length)], ItemType.Coin);
+    const pos = positions[rng.randomInRange(positions.length)];
+    placeItem(map, pos, ItemType.Coin);
+    posProhibited.set(pos[0], pos[1], true);
     return true;
 }
 
