@@ -205,7 +205,11 @@ function updateControllerState(state:State) {
                 tryPlayerStep(state, 0, 1, StepType.Normal);
             }
         } else if (activated('wait')) {
-            tryPlayerWait(state);
+            if (state.leapToggleActive !== controller.controlStates['jump']) {
+                tryPlayerMakeNoise(state);
+            } else {
+                tryPlayerWait(state);
+            }
         } else if (activated('menu')) {
             if(state.player.health>0) {
                 state.gameMode = GameMode.HomeScreen;
@@ -380,7 +384,6 @@ export function setupLevel(state: State, level: number) {
     vec2.copy(state.player.pos, state.gameMap.playerStartPos);
     state.player.dir = vec2.fromValues(0, -1);
     state.player.noisy = false;
-    state.player.preNoisy = false;
     state.player.hasVaultKey = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
@@ -440,7 +443,7 @@ const mansionCompleteTopStatusHint: Array<string> = [
     'Knock out adjacent, unaware guards with Shift+Dir',
     'Pickpocket by following exactly for two turns',
     'Zoom view with [ and ]',
-    'Bang walls to make noise with Shift+Dir',
+    'Make noise with Shift+Wait',
     '\'Ghost\' by never being fully seen',
     'Knock out spotting guard by leaping onto them',
 ];
@@ -994,128 +997,146 @@ export function joltCamera(state: State, dx: number, dy: number) {
     vec2.scaleAndAdd(state.camera.joltVelocity, state.camera.joltVelocity, vec2.fromValues(dx, dy), -8);
 }
 
-function tryMakeBangNoise(state: State, dx: number, dy: number, stepType: StepType) {
+function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepType: StepType) {
     if (stepType === StepType.AttemptedLeap) {
-        if (state.player.preNoisy && dx === state.player.noiseOffset[0] && dy === state.player.noiseOffset[1]) {
-            preTurn(state);
-            state.player.pickTarget = null;
-            bumpAnim(state, dx*1.25, dy*1.25);
-            joltCamera(state, dx, dy);
-            makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
-            advanceTime(state);
-            if (state.gameMapRoughPlans[state.level].level === 0) {
-                state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
-            }
-        } else {
-            state.player.preNoisy = true;
-            state.player.noiseOffset[0] = dx;
-            state.player.noiseOffset[1] = dy;
-            state.player.pickTarget = null;
-            if (state.gameMapRoughPlans[state.level].level === 0) {
-                state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy) + '\nagain', state.player.pos);
-            }
+        bumpFail(state, dx, dy);
+        return;
+    }
+
+    // See if we are bumping a bookshelf; display the book title, if so.
+    const x = state.player.pos[0] + dx;
+    const y = state.player.pos[1] + dy;
+    const item = state.gameMap.items.find(item =>
+        item.pos[0] === x &&
+        item.pos[1] === y &&
+        (item.type === ItemType.Bookshelf || item.type === ItemType.Note));
+    if (item === undefined) {
+        bumpFail(state, dx, dy);
+        return;
+    }
+
+    preTurn(state);
+
+    const firstBump = state.player.pickTarget !== item;
+    state.player.pickTarget = firstBump && state.gameMap.treasures.some(treasure => treasure.switches.some(s => s.equals(item.pos))) ? item : null;
+
+    if (!state.gameMap.cells.at(x, y).lit) {
+        state.player.lightActive = true;
+    }
+
+    bumpAnim(state, dx, dy);
+    advanceTime(state);
+
+    if (firstBump) {
+        let title = state.gameMap.bookTitle.get(item);
+        if (title === undefined) {
+            title = 'Untitled';
         }
-    } else {
-        // See if we are bumping a bookshelf; display the book title, if so.
-        const x = state.player.pos[0] + dx;
-        const y = state.player.pos[1] + dy;
-        const item = state.gameMap.items.find(item =>
-            item.pos[0] === x &&
-            item.pos[1] === y &&
-            (item.type === ItemType.Bookshelf || item.type === ItemType.Note));
-        if (item === undefined) {
-            bumpFail(state, dx, dy);
-            if (state.gameMapRoughPlans[state.level].level === 0 && !state.experiencedPlayer && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
-                state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy), state.player.pos);
-            }
-        } else {
-            preTurn(state);
+        if (item.type === ItemType.Bookshelf) {
+            title = '"' + title + '"';
+        }
+        state.popups.setNotification(title, state.player.pos);
+        return;
+    }
 
-            const firstBump = state.player.pickTarget !== item;
-            state.player.pickTarget = firstBump && state.gameMap.treasures.some(treasure => treasure.switches.some(s => s.equals(item.pos))) ? item : null;
+    enum SwitchResult {
+        None,
+        Completed,
+        Reset,
+        Advance,
+        Complete,
+    };
 
-            if (!state.gameMap.cells.at(x, y).lit) {
-                state.player.lightActive = true;
-            }
+    let switchResult: SwitchResult = SwitchResult.None;
 
-            bumpAnim(state, dx, dy);
-            advanceTime(state);
+    for (const treasure of state.gameMap.treasures) {
+        const secretSwitchIndex = treasure.switches.findIndex(s => s.equals(item.pos));
 
-            if (firstBump) {
-                let title = state.gameMap.bookTitle.get(item);
-                if (title === undefined) {
-                    title = 'Untitled';
+        if (secretSwitchIndex < 0) {
+            continue;
+        }
+
+        if (treasure.numSwitchesUsed >= treasure.switches.length) {
+            switchResult = Math.max(switchResult, SwitchResult.Completed);
+        } else if (secretSwitchIndex === treasure.numSwitchesUsed) {
+            ++treasure.numSwitchesUsed;
+            if (treasure.numSwitchesUsed >= treasure.switches.length) {
+                const gates = state.gameMap.items.filter(itemLock=>(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
+                state.gameMap.items = state.gameMap.items.filter(itemLock=>!(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
+                state.gameMap.cells.atVec(treasure.posTreasure).blocksPlayerMove = false;
+                for (let gate of gates) {
+                    const animation = new FrameAnimator(entityTileSet.treasureGateAnimation, 0.3, 0, 1);
+                    animation.removeOnFinish = true;
+                    gate.animation = animation;
+                    state.particles.push(gate);                        
                 }
-                if (item.type === ItemType.Bookshelf) {
-                    title = '"' + title + '"';
-                }
-                state.popups.setNotification(title, state.player.pos);
+                switchResult = Math.max(switchResult, SwitchResult.Complete);
             } else {
-                enum SwitchResult {
-                    None,
-                    Completed,
-                    Reset,
-                    Advance,
-                    Complete,
-                };
-
-                let switchResult: SwitchResult = SwitchResult.None;
-
-                for (const treasure of state.gameMap.treasures) {
-                    const secretSwitchIndex = treasure.switches.findIndex(s => s.equals(item.pos));
-
-                    if (secretSwitchIndex < 0) {
-                        continue;
-                    }
-
-                    if (treasure.numSwitchesUsed >= treasure.switches.length) {
-                        switchResult = Math.max(switchResult, SwitchResult.Completed);
-                    } else if (secretSwitchIndex === treasure.numSwitchesUsed) {
-                        ++treasure.numSwitchesUsed;
-                        if (treasure.numSwitchesUsed >= treasure.switches.length) {
-                            const gates = state.gameMap.items.filter(itemLock=>(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
-                            state.gameMap.items = state.gameMap.items.filter(itemLock=>!(itemLock.type===ItemType.TreasureLock && itemLock.pos.equals(treasure.posTreasure)));
-                            state.gameMap.cells.atVec(treasure.posTreasure).blocksPlayerMove = false;
-                            for (let gate of gates) {
-                                const animation = new FrameAnimator(entityTileSet.treasureGateAnimation, 0.3, 0, 1);
-                                animation.removeOnFinish = true;
-                                gate.animation = animation;
-                                state.particles.push(gate);                        
-                            }
-                            switchResult = Math.max(switchResult, SwitchResult.Complete);
-                        } else {
-                            switchResult = Math.max(switchResult, SwitchResult.Advance);
-                        }
-                    } else if (secretSwitchIndex === 0) {
-                        treasure.numSwitchesUsed = 1;
-                        switchResult = Math.max(switchResult, SwitchResult.Advance);
-                    } else {
-                        treasure.numSwitchesUsed = 0;
-                        switchResult = Math.max(switchResult, SwitchResult.Reset);
-                    }
-                }
-
-                switch (switchResult) {
-                    case SwitchResult.None:
-                        break;
-                    case SwitchResult.Completed:
-                    case SwitchResult.Reset:
-                        state.sounds.switchReset.play(0.5);
-                        state.popups.setNotification('(clunk)', state.player.pos);
-                        break;
-                    case SwitchResult.Advance:
-                        state.sounds.switchProgress.play(0.5);
-                        state.popups.setNotification('(click)', state.player.pos);
-                        break;
-                    case SwitchResult.Complete:
-                        state.sounds.switchSuccess.play(0.5);
-                        state.popups.setNotification('(rumble)', state.player.pos);
-                        joltCamera(state, dx, dy);
-                        break;
-                }
+                switchResult = Math.max(switchResult, SwitchResult.Advance);
             }
+        } else if (secretSwitchIndex === 0) {
+            treasure.numSwitchesUsed = 1;
+            switchResult = Math.max(switchResult, SwitchResult.Advance);
+        } else {
+            treasure.numSwitchesUsed = 0;
+            switchResult = Math.max(switchResult, SwitchResult.Reset);
         }
     }
+
+    switch (switchResult) {
+        case SwitchResult.None:
+            break;
+        case SwitchResult.Completed:
+        case SwitchResult.Reset:
+            state.sounds.switchReset.play(0.5);
+            state.popups.setNotification('(clunk)', state.player.pos);
+            break;
+        case SwitchResult.Advance:
+            state.sounds.switchProgress.play(0.5);
+            state.popups.setNotification('(click)', state.player.pos);
+            break;
+        case SwitchResult.Complete:
+            state.sounds.switchSuccess.play(0.5);
+            state.popups.setNotification('(rumble)', state.player.pos);
+            joltCamera(state, dx, dy);
+            break;
+    }
+}
+
+function tryPlayerMakeNoise(state: State) {
+    const player = state.player;
+
+    // Can't move if you're dead
+    if (player.health <= 0) {
+        state.popups.setNotification(deadNotification, state.player.pos);
+        return;
+    }
+
+    player.idle = false;
+    state.idleTimer = 5;
+
+    // Move camera with player by releasing any panning motion
+
+    state.camera.panning = false;
+    state.touchController.clearMotion();
+
+    preTurn(state);
+
+    state.gameMap.identifyAdjacentCells(player.pos);
+
+    player.pickTarget = null;
+
+    const dx = 0;
+    const dy = 1;
+    bumpAnim(state, dx, dy);
+    joltCamera(state, dx, dy);
+    makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 0, 0, state.sounds);
+    advanceTime(state);
+    if (state.gameMapRoughPlans[state.level].level === 0) {
+        state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
+    }
+
+    ++state.numWaitMoves;
 }
 
 function tryPlayerWait(state: State) {
@@ -1139,7 +1160,6 @@ function tryPlayerWait(state: State) {
     state.gameMap.identifyAdjacentCells(player.pos);
 
     player.pickTarget = null;
-    player.preNoisy = false;
 
     ++state.numWaitMoves;
 
@@ -1156,10 +1176,6 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     if (player.health <= 0) {
         state.popups.setNotification(deadNotification, state.player.pos);
         return;
-    }
-
-    if (stepType !== StepType.AttemptedLeap) {
-        player.preNoisy = false;
     }
 
     player.idle = false;
@@ -1224,7 +1240,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             if (stepType === StepType.Normal && state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
                 state.popups.setNotification('Locked!', state.player.pos);
             }
-            tryMakeBangNoise(state, dx, dy, stepType);
+            tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
         }
         return;
     }
@@ -1242,7 +1258,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
         }
 
-        tryMakeBangNoise(state, dx, dy, stepType);
+        tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
         return;
     }
 
@@ -1275,7 +1291,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
                 if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
                     setLeapStatusMessage(state, dx, dy);
                 }
-                tryMakeBangNoise(state, dx, dy, stepType);
+                tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
             }
             return;
 
@@ -1317,7 +1333,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
                 if (stepType === StepType.Normal) {
                     state.popups.setNotification('Locked!', state.player.pos);
                 }
-                tryMakeBangNoise(state, dx, dy, stepType);
+                tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
                 return;
             }
             break;
@@ -2095,7 +2111,6 @@ function preTurn(state: State) {
 
 function advanceTime(state: State) {
     const oldHealth = state.player.health;
-    state.player.preNoisy = false;
     ++state.turns;
     ++state.totalTurns;
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
@@ -2639,18 +2654,14 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     }
 
     // Render an icon over the player if the player is being noisy
-    if (player.preNoisy || player.noisy) {
+    if (player.noisy) {
         const a = player.animation;
         const offset = a && a instanceof SpriteAnimation ? a.offset : vec2.create();
         if (Math.abs(offset[0]) < 0.5 && Math.abs(offset[1]) < 0.5) {
             const x = player.pos[0] + player.noiseOffset[0] / 2;
             const y = player.pos[1] + player.noiseOffset[1] / 2;
-            if (player.preNoisy) {
-                renderer.addGlyph(x, y, x+1, y+1, entityTileSet.namedTiles['pickTarget']);
-            } else {
-                const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
-                renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, entityTileSet.namedTiles['noise']);
-            }
+            const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
+            renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, entityTileSet.namedTiles['noise']);
         }
     }
 }
