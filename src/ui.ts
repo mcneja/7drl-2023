@@ -6,7 +6,7 @@ import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
 import { getFontTileSet, getEntityTileSet, TextureType, TileInfo } from './tilesets';
-import { ItemType } from './game-map';
+import { ItemType, LevelType } from './game-map';
 import { Achievement, Achievements } from './achievements';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, DevScreen };
@@ -864,11 +864,21 @@ requirements when you complete a game.
     }
 }
 
-
+function levelTypeName(levelType: LevelType): string {
+    switch (levelType) {
+        case LevelType.Manor:
+        case LevelType.ManorRed:
+            return 'Manor';
+        case LevelType.Mansion:
+            return 'Mansion';
+        case LevelType.Fortress:
+            return 'Fortress';
+    }
+}
 
 class MansionCompleteScreen extends TextWindow {
     pages = [
-`Mansion $level$ Complete!
+`$levelType$ Looted! ($level$/$numLevels$)
 
 $levelStats$Loot:        $lootScore$$treasureScore$$foodScore$
 Ghost:       $ghostBonus$
@@ -903,7 +913,9 @@ Cumulative:  $totalScore$
             levelStats += '\n';
         }
 
+        this.state.set('levelType', levelTypeName(state.gameMapRoughPlans[state.level].levelType));
         this.state.set('level', (state.level+1).toString());
+        this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('levelStats', levelStats);
         this.state.set('lootScore', (state.lootStolen * 10).toString());
         this.state.set('treasureScore', (state.gameMap.treasures.length > 0) ? ('\nBonus Loot:  ' + treasureScore) : '');
