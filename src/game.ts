@@ -205,11 +205,9 @@ function updateControllerState(state:State) {
                 tryPlayerStep(state, 0, 1, StepType.Normal);
             }
         } else if (activated('wait')) {
-            if (state.leapToggleActive !== controller.controlStates['jump']) {
-                tryPlayerMakeNoise(state);
-            } else {
-                tryPlayerWait(state);
-            }
+            tryPlayerWait(state);
+        } else if (activated('bang')) {
+            tryPlayerMakeNoise(state);
         } else if (activated('menu')) {
             if(state.player.health>0) {
                 state.gameMode = GameMode.HomeScreen;
@@ -443,7 +441,7 @@ const mansionCompleteTopStatusHint: Array<string> = [
     'Knock out adjacent, unaware guards with Shift+Dir',
     'Pickpocket by following exactly for two turns',
     'Zoom view with [ and ]',
-    'Make noise with Shift+Wait',
+    'Make noise with X to attract a guard',
     '\'Ghost\' by never being fully seen',
     'Knock out spotting guard by leaping onto them',
 ];
@@ -1126,17 +1124,30 @@ function tryPlayerMakeNoise(state: State) {
 
     player.pickTarget = null;
 
-    const dx = 0;
-    const dy = 1;
+    const [dx, dy] = bangDir(state);
     bumpAnim(state, dx, dy);
     joltCamera(state, dx, dy);
-    makeNoise(state.gameMap, state.player, NoiseType.BangDoor, 0, 0, state.sounds);
+    makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
     advanceTime(state);
     if (state.gameMapRoughPlans[state.level].level === 0) {
         state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
     }
 
     ++state.numWaitMoves;
+}
+
+function bangDir(state: State): [number, number] {
+    const pos = state.player.pos;
+    for(let dir of [[0,1],[0,-1],[-1,0],[1,0]]) {
+        const x = pos[0] + dir[0];
+        const y = pos[1] + dir[1];
+        const cell = state.gameMap.cells.at(x, y);
+        if (cell.blocksPlayerMove || (cell.type >= TerrainType.Wall0000 && cell.type <= TerrainType.PortcullisEW)) {
+            return [dir[0], dir[1]];
+        }
+    }
+
+    return [0, -1];
 }
 
 function tryPlayerWait(state: State) {
@@ -3520,14 +3531,17 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const x = 0;
     const y = statusBarPixelSizeY;
     const w = screenSize[0];
-    const h = screenSize[1] - 2*statusBarPixelSizeY;
+    const h = screenSize[1] - statusBarPixelSizeY;
 
     const buttonSizePixels = Math.min(80, Math.floor(Math.min(w,h)/5));
     const bw = buttonSizePixels;
     const bh = buttonSizePixels;
-    const r = 8;
+    const r = 0;
 
     const inGame = state.gameMode===GameMode.Mansion;
+
+    const bangX = (w > h) ? (x + w - 3.5 * bw - r) : (x + w - bw - r);
+    const bangY = (w > h) ? (y + r) : (y + 2.5 * bh + r);
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
         {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
@@ -3538,8 +3552,9 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
         {action:'up',         rect:new Rect(x+bw+r,        y+2*bh+r,    bw,     bh),     tileInfo:tt['up'],         visible:true},
         {action:'down',       rect:new Rect(x+bw+r,        y+r,         bw,     bh),     tileInfo:tt['down'],       visible:true},
         {action:'wait',       rect:new Rect(x+bw+r,        y+bh+r,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
-        {action:'jump',       rect:new Rect(x+w-1.75*bw-r, y+0.75*bw+r, 1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
-        {action:'menuAccept', rect:new Rect(x+w-1.75*bw-r, y+0.75*bw+r, 1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
+        {action:'bang',       rect:new Rect(bangX,         bangY,       bw,     bh),     tileInfo:tt['bang'],       visible:inGame},
+        {action:'jump',       rect:new Rect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
+        {action:'menuAccept', rect:new Rect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
     ];
 
     const emptyRect = new Rect();

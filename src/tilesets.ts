@@ -331,6 +331,7 @@ const entityTileSet31Color:EntityTileSet = {
         'right':            {textureIndex: r([1,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'wait':             {textureIndex: r([4,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'jump':             {textureIndex: r([5,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
+        'bang':             {textureIndex: r([13, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'menuAccept':       {textureIndex: r([4,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'zoomOut':          {textureIndex: r([6,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'zoomIn':           {textureIndex: r([7,  1]), color:0xa0ffffff, unlitColor:0x30ffffff},
