@@ -838,8 +838,9 @@ requirements when you complete a game.
         const ts = getEntityTileSet().achievementIcons;
         const incomplete = `#${getEntityTileSet().achievementIncompleteIcon.textureIndex}#`;
         const failed = `#${getEntityTileSet().achievementFailedIcon.textureIndex}#`;
+        const dailyRunInProgress = state.dailyRun !== null;
         function setIcon(window: TextWindow, key: string, completionCount: number, achievement: Achievement, tileInfo: TileInfo) {
-            const str: string = completionCount>0 ? `#${tileInfo.textureIndex}#` : achievement.failed ? failed : incomplete;
+            const str: string = completionCount>0 ? `#${tileInfo.textureIndex}#` : (achievement.failed || dailyRunInProgress) ? failed : incomplete;
             window.state.set(key, str);
         }
         setIcon(this, 'victoryAchieved',  state.persistedStats.achievementVictory,  state.achievements.achievementVictory,  ts.achievementVictory);
@@ -1004,7 +1005,7 @@ $copyState$
             this.achievementsLine = '';
             let a:keyof Achievements;
             for (a in state.achievements) {
-                if (!state.achievements[a].failed) {
+                if (!state.achievements[a].failed && !state.dailyRun) {
                     this.achievementsLine += `#${getEntityTileSet().achievementIcons[a].textureIndex}#`
                 }
             }
