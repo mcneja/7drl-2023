@@ -221,12 +221,14 @@ class Guard {
                 this.modeTimeout = 2 + randomInRange(4);
                 this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
             } else if (this.mode !== GuardMode.MoveToDownedGuard) {
+                vec2.copy(this.goal, player.pos);
                 if (isRelaxedGuardMode(this.mode)) {
                     this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
+                } else {
+                    this.goals = this.chooseMoveTowardPosition(this.goal, state.gameMap);
                 }
                 this.mode = GuardMode.MoveToLastSound;
                 this.modeTimeout = 4 + randomInRange(2);
-                vec2.copy(this.goal, player.pos);
             }
         }
 
