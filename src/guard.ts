@@ -210,6 +210,26 @@ class Guard {
             }
         }
 
+        // Potentially change states if we Hear the thief
+
+        if (this.heardThief &&
+            this.mode !== GuardMode.Unconscious &&
+            this.mode !== GuardMode.ChaseVisibleTarget) {
+
+            if (isRelaxedGuardMode(this.mode) && !this.heardThiefClosest) {
+                this.mode = GuardMode.Listen;
+                this.modeTimeout = 2 + randomInRange(4);
+                this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
+            } else if (this.mode !== GuardMode.MoveToDownedGuard) {
+                if (isRelaxedGuardMode(this.mode)) {
+                    this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
+                }
+                this.mode = GuardMode.MoveToLastSound;
+                this.modeTimeout = 4 + randomInRange(2);
+                vec2.copy(this.goal, player.pos);
+            }
+        }
+
         // Pass time in the current mode
     
         switch (this.mode) {
@@ -455,21 +475,6 @@ class Guard {
             } else if (this.mode === GuardMode.ChaseVisibleTarget && this.modePrev === GuardMode.ChaseVisibleTarget) {
                 this.mode = GuardMode.MoveToLastSighting;
                 this.modeTimeout = 3;
-            }
-
-            // Hear the thief
-
-            if (this.heardThief && this.mode !== GuardMode.ChaseVisibleTarget) {
-                if (this.adjacentTo(player.pos)) {
-                    this.mode = GuardMode.ChaseVisibleTarget;
-                } else if (isRelaxedGuardMode(this.mode) && !this.heardThiefClosest) {
-                    this.mode = GuardMode.Listen;
-                    this.modeTimeout = 2 + randomInRange(4);
-                } else if (this.mode !== GuardMode.MoveToDownedGuard) {
-                    this.mode = GuardMode.MoveToLastSound;
-                    this.modeTimeout = 4 + randomInRange(2);
-                    vec2.copy(this.goal, player.pos);
-                }
             }
 
             // Hear another guard shouting
