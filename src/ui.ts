@@ -754,10 +754,7 @@ $copyState$
             state.gameMode = GameMode.HomeScreen;
         } else if (activated('homePlay') || action=='homePlay') {
             this.stateCopied = false;
-            let date = game.getCurrentDateFormatted();
-            state.rng = new RNG('Daily '+date);
-            state.dailyRun = date;
-            game.restartGame(state);
+            game.startDailyGame(state);
             state.hasStartedGame = true;
         } else if (activated('copyScore') || action=='copyScore') {
             const stats:GameStats = state.persistedStats.lastPlayedDailyGame ?? {

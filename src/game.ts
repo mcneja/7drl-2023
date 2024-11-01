@@ -58,6 +58,7 @@ const minZoomLevel: number = -4;
 const maxZoomLevel: number = 16;
 const damageDisplayDuration = 0.5;
 const deadNotification: string = 'New Game: Ctrl+R\nMenu: Esc/Slash';
+const deadDailyNotification: string = 'Retry: Ctrl+R\nMenu: Esc/Slash';
 
 function loadResourcesThenRun() {
     Promise.all([
@@ -222,9 +223,13 @@ function updateControllerState(state:State) {
             state.lootStolen += loot;
             postTurn(state);
         } else if (activated('forceRestart')) {
-            state.rng = new RNG();
-            state.dailyRun = null;
-            restartGame(state);
+            if (state.dailyRun) {
+                startDailyGame(state);
+            } else {
+                state.rng = new RNG();
+                state.dailyRun = null;
+                restartGame(state);
+            }
         } else if (activated('nextLevel')) {
             if (state.level < state.gameMapRoughPlans.length - 1) {
                 scoreCompletedLevel(state);
@@ -1125,7 +1130,7 @@ function tryPlayerWait(state: State) {
 
     // Can't move if you're dead.
     if (player.health <= 0) {
-        state.popups.setNotification(deadNotification, state.player.pos);
+        showDeadNotification(state);
         return;
     }
 
@@ -1156,7 +1161,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
 
     const player = state.player;
     if (player.health <= 0) {
-        state.popups.setNotification(deadNotification, state.player.pos);
+        showDeadNotification(state);
         return;
     }
 
@@ -1579,6 +1584,10 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     }
 }
 
+function showDeadNotification(state: State) {
+    state.popups.setNotification(state.dailyRun ? deadDailyNotification : deadNotification, state.player.pos);
+}
+
 function isAnyoneAwareOfPlayer(state: State): boolean {
     return state.gameMap.guards.some(guard => !isRelaxedGuardMode(guard.mode) && guard.mode !== GuardMode.Unconscious);
 }
@@ -1698,7 +1707,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     const player = state.player;
     if (player.health <= 0) {
-        state.popups.setNotification(deadNotification, state.player.pos);
+        showDeadNotification(state);
         return;
     }
 
@@ -3140,6 +3149,13 @@ export function restartGame(state: State) {
 //    analyzeLevel(state);
     Howler.stop();
     playAmbience(state);
+}
+
+export function startDailyGame(state: State) {
+    let date = getCurrentDateFormatted();
+    state.rng = new RNG('Daily '+date);
+    state.dailyRun = date;
+    restartGame(state);
 }
 
 function resetState(state: State) {
