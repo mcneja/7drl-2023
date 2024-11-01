@@ -2309,6 +2309,7 @@ function renderTouchButtons(renderer:Renderer, touchController:TouchController) 
     for(const bkey in touchController.coreTouchTargets) {
         if (!(bkey in touchController.controlStates)) continue;
         const b = touchController.coreTouchTargets[bkey];
+        if (!b.mouseable && touchController.mouseActive) continue;
         if (b.tileInfo === null || b.rect[2] === 0 || b.rect[3] === 0) continue;
         const lit = touchController.controlStates[bkey] ? 1 : 0;
         renderer.addGlyphLit(

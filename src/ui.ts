@@ -79,7 +79,8 @@ class TextWindow {
             id: -1,
             rect: new Rect(0, 0, 0, 0),
             tileInfo: {},
-            touchXY: [-1, -1],        
+            touchXY: [-1, -1],
+            mouseable: true,
         };
     }
     parseImage(line:string, base:number, row:number, rows:number): [string, number] {

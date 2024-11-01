@@ -356,6 +356,7 @@ type TouchTargets = {
         rect:Rect,
         tileInfo:TileInfo|null,
         touchXY:[number, number],
+        mouseable:boolean,
     }
 };
 
@@ -380,20 +381,20 @@ class TouchController extends Controller {
         this.lastMotion = {id:-1,active:false,x0:0,y0:0,x:0,y:0};
 
         this.coreTouchTargets = {
-            'up':           {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'down':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'left':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'right':        {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'wait':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'bang':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'jump':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'menuAccept':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'pan':          {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'zoomIn':       {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'zoomOut':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'forceRestart': {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'menu':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
-            'fullscreen':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null},
+            'up':           {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'down':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'left':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'right':        {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'wait':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'bang':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'jump':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'menuAccept':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
+            'pan':          {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
+            'zoomIn':       {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
+            'zoomOut':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
+            'forceRestart': {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
+            'menu':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
+            'fullscreen':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
         };
         this.touchTargets = this.coreTouchTargets;
     }
@@ -451,6 +452,7 @@ class TouchController extends Controller {
         this.lastMotion.y = y;
         this.targetOnTouchDown = null;
         for (const [bname, b] of Object.entries(this.touchTargets)) {
+            if(!b.mouseable) continue;
             const touching = b.rect.collide(x, y);
             if(touching) {
                 b.touchXY = [ev.clientX, ev.clientY];
@@ -473,6 +475,7 @@ class TouchController extends Controller {
             this.lastMotion.y = y;
         }
         for (const [bname, b] of Object.entries(this.touchTargets)) {
+            if(!b.mouseable) continue;
             if(b.id === -2) { //already pressing this button down
                 const touching = b.rect.collide(x, y);
                 if(touching) {
@@ -488,6 +491,7 @@ class TouchController extends Controller {
     // mouseup handler
     process_mouseup(ev:MouseEvent) {
         for (const [bname, b] of Object.entries(this.touchTargets)) {
+            if(!b.mouseable) continue;
             if(this.controlStates[bname]) {
                 b.id = -1;
                 this.setPressed(bname, false, true);
