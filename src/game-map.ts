@@ -328,6 +328,7 @@ class Player {
     health: number;
     loot: number;
     noisy: boolean; // did the player make noise last turn?
+    preNoisy: boolean; // did the player step at wall last turn?
     noiseOffset: vec2; // which direction was the noise made relative to the player's position?
     noisyAnim: number;
     hasVaultKey: boolean;
@@ -348,6 +349,7 @@ class Player {
         this.health = maxPlayerHealth;
         this.loot = 0;
         this.noisy = false;
+        this.preNoisy = false;
         this.noiseOffset = vec2.fromValues(0, 0);
         this.noisyAnim = 0;
         this.hasVaultKey = false;

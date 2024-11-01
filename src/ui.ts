@@ -533,7 +533,6 @@ class HelpControls extends TextWindow {
   Wait: Space / Z / Period / Numpad5
   Leap/Run: Shift + move (unlimited!)
   Leap/Run (Toggle): F / Numpad+
-  Make Noise: X
   Zoom View: [ / ]
   Scroll View: Control + move
   Recenter View: Control + wait
@@ -550,7 +549,6 @@ Touch and gamepad also supported
   Move: #016# / #017# / #018# / #019#
   Wait: #020#
   Leap/Run: #21# + move (unlimited!)
-  Make Noise: #29#
   Zoom View: #22# / #23#
   Scroll View: Touch and drag
   Menu: #27#
@@ -564,7 +562,6 @@ Keyboard and gamepad also supported
   Move: Left Stick/Pad
   Wait: Button2
   Leap/Run: Button1 + move
-  Make Noise: Button3
   Zoom View: Left / Right trigger
   Scroll View: Right stick
   Recenter View: Right bumper

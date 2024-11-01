@@ -11,7 +11,6 @@ const controlStates0: ControlStates = {
     'up': false,
     'down': false,
     'wait': false,
-    'bang': false,
     'jump': false,
     'zoomIn': false,
     'zoomOut': false,
@@ -92,7 +91,7 @@ const defaultKeyMap:KeyMap = {
     'KeyR': ['homePlay'],
     'KeyS': ['down','homeStats'],
     'KeyW': ['up'],
-    'KeyX': ['bang', 'devMenu'],
+    'KeyX': ['devMenu'],
     'KeyZ': ['wait', 'menuAccept'],
     'Period': ['wait', 'menuAccept'],
     'Shift': ['jump'],
@@ -316,7 +315,6 @@ class GamepadManager {
             c.gamepad = g; //put the latest state in the gamepad object
             c.setPressed("jump", buttonPressed(g, 0));
             c.setPressed("wait", buttonPressed(g, 2));
-            c.setPressed('bang', buttonPressed(g, 3));
             c.setPressed("menuAccept", buttonPressed(g, 0)||buttonPressed(g, 2));
 //            c.setPressed("startLevel", buttonPressed(g, 3));
             c.setPressed("zoomOut", buttonPressed(g, 6) && !buttonPressed(g, 7));
@@ -386,7 +384,6 @@ class TouchController extends Controller {
             'left':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
             'right':        {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
             'wait':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
-            'bang':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
             'jump':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
             'menuAccept':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:false},
             'pan':          {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
