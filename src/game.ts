@@ -3095,7 +3095,8 @@ export function startResumeConfiguredGame(state:State) {
 }
 
 export function restartGame(state: State) {
-    if (state.dailyRun) {
+    const isDailyRun = state.dailyRun !== null;
+    if (isDailyRun) {
         state.gameMapRoughPlans = createGameRoughPlansDailyRun(state.rng);
     } else {
         state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
@@ -3105,7 +3106,7 @@ export function restartGame(state: State) {
 
     state.persistedStats.totalPlays++;
     setStat('totalPlays',state.persistedStats.totalPlays);
-    if(state.dailyRun) {
+    if (isDailyRun) {
         state.persistedStats.currentDailyPlays++;
         setStat('currentDailyPlays',state.persistedStats.currentDailyPlays);
         state.persistedStats.allDailyPlays++;
@@ -3123,7 +3124,7 @@ export function restartGame(state: State) {
         timeEnded: 0,
     };
     const gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
-    state.player = new Player(gameMap.playerStartPos, state.dailyRun !== null);
+    state.player = new Player(gameMap.playerStartPos, isDailyRun);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -3135,7 +3136,7 @@ export function restartGame(state: State) {
     state.numWaitMoves = 0;
     state.numZoomMoves = 0;
     state.hasEnteredMansion = false;
-    state.experiencedPlayer = false;
+    state.experiencedPlayer = isDailyRun;
     state.finishedLevel = false;
     state.turns = 0;
     state.totalTurns = 0;
