@@ -216,12 +216,16 @@ function updateControllerState(state:State) {
         } else if (activated('jumpToggle')) {
             state.leapToggleActive = !state.leapToggleActive;
         } else if (activated('seeAll')) {
-            state.seeAll = !state.seeAll;
+            if (state.devMode) {
+                state.seeAll = !state.seeAll;
+            }
         } else if (activated('collectLoot')) {
-            const loot = state.gameMap.collectAllLoot();
-            state.player.loot += loot;
-            state.lootStolen += loot;
-            postTurn(state);
+            if (state.devMode) {
+                const loot = state.gameMap.collectAllLoot();
+                state.player.loot += loot;
+                state.lootStolen += loot;
+                postTurn(state);
+            }
         } else if (activated('forceRestart')) {
             if (state.dailyRun) {
                 startDailyGame(state);
@@ -231,32 +235,40 @@ function updateControllerState(state:State) {
                 restartGame(state);
             }
         } else if (activated('nextLevel')) {
-            if (state.level < state.gameMapRoughPlans.length - 1) {
+            if (state.devMode && state.level < state.gameMapRoughPlans.length - 1) {
                 scoreCompletedLevel(state);
                 setupLevel(state, state.level+1);
             }
         } else if (activated('resetState')) {
-            resetState(state);
+            if (state.devMode) {
+                resetState(state);
+            }
         } else if (activated('prevLevel')) {
-            if (state.level > 0) {
+            if (state.devMode && state.level > 0) {
                 scoreCompletedLevel(state);
                 setupLevel(state, state.level-1);
             }
         } else if (activated('showFPS')) {
-            state.fpsInfo.enabled = !state.fpsInfo.enabled;
+            if (state.devMode) {
+                state.fpsInfo.enabled = !state.fpsInfo.enabled;
+            }
         } else if (activated('guardSight')) {
-            state.seeGuardSight = !state.seeGuardSight;
+            if (state.devMode) {
+                state.seeGuardSight = !state.seeGuardSight;
+            }
         } else if (activated('guardPatrols')) {
-            state.seeGuardPatrols = !state.seeGuardPatrols;
+            if (state.devMode) {
+                state.seeGuardPatrols = !state.seeGuardPatrols;
+            }
         } else if (activated('markSeen')) {
-            state.gameMap.markAllSeen();
-            postTurn(state);
+            if (state.devMode) {
+                state.gameMap.markAllSeen();
+                postTurn(state);
+            }
         } else if (activated('zoomIn')) {
             zoomIn(state);
         } else if (activated('zoomOut')) {
             zoomOut(state);
-        } else if (activated('seeAll')) {
-            state.seeAll = !state.seeAll;
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
             state.popups.setNotification('Guard speech: ' + (state.guardMute ? 'disabled' : 'enabled'), state.player.pos);
