@@ -207,8 +207,6 @@ function updateControllerState(state:State) {
             }
         } else if (activated('wait')) {
             tryPlayerWait(state);
-        } else if (activated('bang')) {
-            tryPlayerMakeNoise(state);
         } else if (activated('menu')) {
             if(state.player.health>0) {
                 state.gameMode = GameMode.HomeScreen;
@@ -387,6 +385,7 @@ export function setupLevel(state: State, level: number) {
     vec2.copy(state.player.pos, state.gameMap.playerStartPos);
     state.player.dir = vec2.fromValues(0, -1);
     state.player.noisy = false;
+    state.player.preNoisy = false;
     state.player.hasVaultKey = false;
     state.player.damagedLastTurn = false;
     state.player.turnsRemainingUnderwater = maxPlayerTurnsUnderwater;
@@ -446,7 +445,7 @@ const mansionCompleteTopStatusHint: Array<string> = [
     'Knock out adjacent, unaware guards with Shift+Dir',
     'Pickpocket by following exactly for two turns',
     'Zoom view with [ and ]',
-    'Make noise with X to attract a guard',
+    'Bang walls to make noise with Dir, then Shift+Dir',
     '\'Ghost\' by never being fully seen',
     'Knock out spotting guard by leaping onto them',
 ];
@@ -1002,7 +1001,20 @@ export function joltCamera(state: State, dx: number, dy: number) {
 
 function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepType: StepType) {
     if (stepType === StepType.AttemptedLeap) {
-        bumpFail(state, dx, dy);
+        if (state.player.preNoisy && dx === state.player.noiseOffset[0] && dy === state.player.noiseOffset[1]) {
+            preTurn(state);
+            state.player.pickTarget = null;
+            bumpAnim(state, dx*1.25, dy*1.25);
+            joltCamera(state, dx, dy);
+            makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
+            advanceTime(state);
+            if (state.gameMapRoughPlans[state.level].level === 0) {
+                state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
+            }
+        } else {
+            state.player.preNoisy = false;
+            bumpFail(state, dx, dy);
+        }
         return;
     }
 
@@ -1014,6 +1026,13 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
         item.pos[1] === y &&
         (item.type === ItemType.Bookshelf || item.type === ItemType.Note));
     if (item === undefined) {
+        state.player.preNoisy = true;
+        state.player.noiseOffset[0] = dx;
+        state.player.noiseOffset[1] = dy;
+        state.player.pickTarget = null;
+        if (state.gameMapRoughPlans[state.level].level === 0 && !state.experiencedPlayer && !isWindowTerrainType(state.gameMap.cells.at(x, y).type)) {
+            state.popups.setNotification('Make Noise:\nShift+' + directionArrowCharacter(dx, dy), state.player.pos);
+        }
         bumpFail(state, dx, dy);
         return;
     }
@@ -1106,55 +1125,6 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
     }
 }
 
-function tryPlayerMakeNoise(state: State) {
-    const player = state.player;
-
-    // Can't move if you're dead
-    if (player.health <= 0) {
-        showDeadNotification(state);
-        return;
-    }
-
-    player.idle = false;
-    state.idleTimer = 5;
-
-    // Move camera with player by releasing any panning motion
-
-    state.camera.panning = false;
-    state.touchController.clearMotion();
-
-    preTurn(state);
-
-    state.gameMap.identifyAdjacentCells(player.pos);
-
-    player.pickTarget = null;
-
-    const [dx, dy] = bangDir(state);
-    bumpAnim(state, dx, dy);
-    joltCamera(state, dx, dy);
-    makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
-    advanceTime(state);
-    if (state.gameMapRoughPlans[state.level].level === 0) {
-        state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
-    }
-
-    ++state.numWaitMoves;
-}
-
-function bangDir(state: State): [number, number] {
-    const pos = state.player.pos;
-    for(let dir of [[0,1],[0,-1],[-1,0],[1,0]]) {
-        const x = pos[0] + dir[0];
-        const y = pos[1] + dir[1];
-        const cell = state.gameMap.cells.at(x, y);
-        if (cell.blocksPlayerMove || (cell.type >= TerrainType.Wall0000 && cell.type <= TerrainType.PortcullisEW)) {
-            return [dir[0], dir[1]];
-        }
-    }
-
-    return [0, -1];
-}
-
 function tryPlayerWait(state: State) {
     const player = state.player;
 
@@ -1176,6 +1146,7 @@ function tryPlayerWait(state: State) {
     state.gameMap.identifyAdjacentCells(player.pos);
 
     player.pickTarget = null;
+    player.preNoisy = false;
 
     ++state.numWaitMoves;
 
@@ -1192,6 +1163,10 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     if (player.health <= 0) {
         showDeadNotification(state);
         return;
+    }
+
+    if (stepType !== StepType.AttemptedLeap) {
+        player.preNoisy = false;
     }
 
     player.idle = false;
@@ -1306,8 +1281,9 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             } else {
                 if (canLeapToPos(state, vec2.fromValues(posOld[0] + 2*dx, posOld[1] + 2*dy))) {
                     setLeapStatusMessage(state, dx, dy);
+                } else {
+                    tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
                 }
-                tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
             }
             return;
 
@@ -2131,6 +2107,7 @@ function preTurn(state: State) {
 
 function advanceTime(state: State) {
     const oldHealth = state.player.health;
+    state.player.preNoisy = false;
     ++state.turns;
     ++state.totalTurns;
     if (state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater) {
@@ -2676,14 +2653,18 @@ function renderIconOverlays(state: State, renderer: Renderer) {
     }
 
     // Render an icon over the player if the player is being noisy
-    if (player.noisy) {
+    if (player.preNoisy || player.noisy) {
         const a = player.animation;
         const offset = a && a instanceof SpriteAnimation ? a.offset : vec2.create();
         if (Math.abs(offset[0]) < 0.5 && Math.abs(offset[1]) < 0.5) {
             const x = player.pos[0] + player.noiseOffset[0] / 2;
             const y = player.pos[1] + player.noiseOffset[1] / 2;
-            const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
-            renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, entityTileSet.namedTiles['noise']);
+            if (player.preNoisy) {
+                renderer.addGlyph(x, y, x+1, y+1, entityTileSet.namedTiles['pickTarget']);
+            } else {
+                const s = 0.0625 *  Math.sin(player.noisyAnim * Math.PI * 2);
+                renderer.addGlyph(x - s, y - s, x+1+s, y+1+s, entityTileSet.namedTiles['noise']);
+            }
         }
     }
 }
@@ -3560,9 +3541,6 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
 
     const inGame = state.gameMode===GameMode.Mansion;
 
-    const bangX = (w > h) ? (x + w - 3.5 * bw - r) : (x + w - bw - r);
-    const bangY = (w > h) ? (y + r) : (y + 2.5 * bh + r);
-
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
         {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
         {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
@@ -3572,7 +3550,6 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
         {action:'up',         rect:new Rect(x+bw+r,        y+2*bh+r,    bw,     bh),     tileInfo:tt['up'],         visible:true},
         {action:'down',       rect:new Rect(x+bw+r,        y+r,         bw,     bh),     tileInfo:tt['down'],       visible:true},
         {action:'wait',       rect:new Rect(x+bw+r,        y+bh+r,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
-        {action:'bang',       rect:new Rect(bangX,         bangY,       bw,     bh),     tileInfo:tt['bang'],       visible:inGame},
         {action:'jump',       rect:new Rect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
         {action:'menuAccept', rect:new Rect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
     ];
