@@ -1049,6 +1049,12 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
     bumpAnim(state, dx, dy);
     advanceTime(state);
 
+    // advanceTime clears state.player.preNoisy. Set it here so player can bang on bookshelves to make noise.
+
+    state.player.preNoisy = true;
+    state.player.noiseOffset[0] = dx;
+    state.player.noiseOffset[1] = dy;
+
     if (firstBump) {
         let title = state.gameMap.bookTitle.get(item);
         if (title === undefined) {
