@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameRoughPlansDailyRun, createGameMap, Adjacency } from './create-map';
-import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerHealth, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType } from './game-map';
+import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight } from './guard';
 import { Renderer } from './render';
@@ -543,7 +543,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             offset = 0.5;
         } else if (item.type === ItemType.Health) {
             enlargeHealthBar(state);
-            if (state.player.health >= maxPlayerHealth) {
+            if (state.player.health >= state.player.healthMax) {
                 ++state.levelStats.extraFoodCollected;
             } else {
                 ++state.player.health;
@@ -2254,6 +2254,7 @@ function resetHealthBar(state: State) {
     state.healthBarState.healing = false;
     state.healthBarState.enlargeTimeRemaining = 0;
     state.healthBarState.size = 1;
+    state.healthBarState.heartFlashRemaining.length = state.player.healthMax;
     state.healthBarState.heartFlashRemaining.fill(0);
 }
 
@@ -2921,6 +2922,8 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
     let screenShakeEnabledSaved: string | null = window.localStorage.getItem('LLL/screenShakeEnabled');
     const screenShakeEnabled = (screenShakeEnabledSaved === null) ? true : screenShakeEnabledSaved === 'true';
 
+    const player = new Player(gameMap.playerStartPos, false);
+
     const state: State = {
         gameStats: {    
             totalScore: 0,
@@ -2956,7 +2959,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             healing: false,
             size: 1,
             enlargeTimeRemaining: 0,
-            heartFlashRemaining: Array(maxPlayerHealth).fill(0),
+            heartFlashRemaining: Array(player.healthMax).fill(0),
         },
         gameMode: GameMode.HomeScreen,
         textWindows: {
@@ -2973,7 +2976,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             [GameMode.CreditsScreen]: new CreditsScreen(),
             [GameMode.DevScreen]: new DevScreen(),
         },
-        player: new Player(gameMap.playerStartPos),
+        player: player,
         ambience: AmbienceType.Outdoor,
         ambientSoundPool: ambientSoundPool,
         oldPlayerPos: vec2.clone(gameMap.playerStartPos),
@@ -3133,7 +3136,7 @@ export function restartGame(state: State) {
         timeEnded: 0,
     };
     const gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
-    state.player = new Player(gameMap.playerStartPos);
+    state.player = new Player(gameMap.playerStartPos, state.dailyRun !== null);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -3179,7 +3182,7 @@ export function startDailyGame(state: State) {
 
 function resetState(state: State) {
     const gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
-    state.player = new Player(gameMap.playerStartPos);
+    state.player = new Player(gameMap.playerStartPos, state.dailyRun !== null);
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
@@ -3445,7 +3448,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderWorldBorder(state, renderer);
     renderer.flush();
 
-    renderDamageVignette(state.player.health, state.healthBarState.healing, state.healthBarState.damageDisplayTimer, renderer, screenSize);
+    renderDamageVignette(state.player.health, state.player.healthMax, state.healthBarState.healing, state.healthBarState.damageDisplayTimer, renderer, screenSize);
 
     if (state.gameMode===GameMode.Mansion || state.gameMode===GameMode.MansionComplete) {
         renderTextBox(renderer, screenSize, state);
@@ -3481,8 +3484,8 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     }
 }
 
-function renderDamageVignette(hitPoints: number, healing: boolean, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
-    const u = Math.max(1, (maxPlayerHealth - hitPoints)) * Math.max(0, damageDisplayTimer) / damageDisplayDuration;
+function renderDamageVignette(hitPoints: number, hitPointsMax: number, healing: boolean, damageDisplayTimer: number, renderer: Renderer, screenSize: vec2) {
+    const u = Math.max(1, (hitPointsMax - hitPoints)) * Math.max(0, damageDisplayTimer) / damageDisplayDuration;
     if (u <= 0)
         return;
 
@@ -4026,7 +4029,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
         let s = state.healthBarState.size;
         const glyphHeart = fontTileSet.heart.textureIndex;
-        for (let i = 0; i < maxPlayerHealth; ++i) {
+        for (let i = 0; i < state.player.healthMax; ++i) {
             const u = state.healthBarState.heartFlashRemaining[i];
             const color = (i < state.player.health) ? colorLerp(colorPreset.darkRed, colorPreset.white, u) : colorLerp(colorPreset.darkGray, colorPreset.lightRed, u);
             renderer.addGlyph(leftSideX, 0, leftSideX + s, s, {textureIndex:glyphHeart, color:color});
@@ -4086,7 +4089,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
         msgTimer += '!';
     }
 
-    leftSideX = maxPlayerHealth + msgLeapToggle.length + 2;
+    leftSideX = state.player.healthMax + msgLeapToggle.length + 2;
 
     const pad = state.fpsInfo.enabled ? 2 : 1
     const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + msgFPS.length + pad)) / 2;

@@ -1,5 +1,5 @@
 import { numTurnsParForCurrentMap } from './game';
-import { maxPlayerHealth, ItemType } from './game-map';
+import { ItemType } from './game-map';
 import { GuardMode } from './guard';
 import { State } from './types';
 
@@ -180,7 +180,7 @@ class HealthyAchievement extends Achievement {
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
-            if (state.player.health < maxPlayerHealth) {
+            if (state.player.health < state.player.healthMax) {
                 this.failed = true;
             }
         }

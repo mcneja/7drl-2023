@@ -17,7 +17,6 @@ export {
     guardMoveCostForItemType,
     isWindowTerrainType,
     isDoorItemType,
-    maxPlayerHealth,
     maxPlayerTurnsUnderwater,
 };
 
@@ -320,12 +319,14 @@ function guardMoveCostForItemType(itemType: ItemType): number {
 }
 
 const maxPlayerHealth: number = 5;
+const maxPlayerHealthDaily: number = 3;
 const maxPlayerTurnsUnderwater: number = 7;
 
 class Player {
     pos: vec2;
     dir: vec2;
     health: number;
+    healthMax: number;
     loot: number;
     noisy: boolean; // did the player make noise last turn?
     noiseOffset: vec2; // which direction was the noise made relative to the player's position?
@@ -342,10 +343,11 @@ class Player {
     idleCursorAnimation: Animator[]|null = null;
     idleCursorType:'orbs'|'off' = 'orbs';
 
-    constructor(pos: vec2) {
+    constructor(pos: vec2, dailyRun: boolean) {
         this.pos = vec2.clone(pos);
         this.dir = vec2.fromValues(0, -1);
-        this.health = maxPlayerHealth;
+        this.healthMax = dailyRun ? maxPlayerHealthDaily : maxPlayerHealth;
+        this.health = this.healthMax;
         this.loot = 0;
         this.noisy = false;
         this.noiseOffset = vec2.fromValues(0, 0);
