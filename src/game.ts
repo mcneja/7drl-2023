@@ -3589,10 +3589,11 @@ function updateCamera(state: State, screenSize: vec2, dt: number) {
         const posCameraTarget = vec2.create();
         const scaleTarget = Math.pow(zoomPower, state.zoomLevel);
         cameraTargetCenterPosition(
-            posCameraTarget,
             vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
-            scaleTarget,
             screenSize,
+            scaleTarget,
+            lastController === state.touchController && !state.touchController.mouseActive,
+            posCameraTarget,
             state.player.pos
         );
 
@@ -3649,10 +3650,11 @@ function snapCamera(state: State, screenSize: vec2) {
     state.camera.zoomVelocity = 0;
     state.camera.scale = Math.pow(zoomPower, state.camera.zoom);
     cameraTargetCenterPosition(
-        state.camera.position,
         vec2.fromValues(state.gameMap.cells.sizeX, state.gameMap.cells.sizeY),
-        state.camera.scale,
         screenSize,
+        state.camera.scale,
+        lastController === state.touchController && !state.touchController.mouseActive,
+        state.camera.position,
         state.player.pos
     );
     vec2.zero(state.camera.velocity);
@@ -3660,31 +3662,52 @@ function snapCamera(state: State, screenSize: vec2) {
     vec2.zero(state.camera.joltVelocity);
 }
 
-function cameraTargetCenterPosition(posCameraCenter: vec2, worldSize: vec2, zoomScale: number, screenSize: vec2, posPlayer: vec2) {
+function cameraTargetCenterPosition(worldSize: vec2, screenSize: vec2, zoomScale: number, addButtonMargins: boolean, posCameraCenter: vec2, posPlayer: vec2) {
     const posCenterMin = vec2.create();
     const posCenterMax = vec2.create();
-    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, posCenterMin, posCenterMax);
+    cameraCenterPositionLegalRange(worldSize, screenSize, zoomScale, addButtonMargins, posCenterMin, posCenterMax);
 
     posCameraCenter[0] = Math.max(posCenterMin[0], Math.min(posCenterMax[0], posPlayer[0] + 0.5));
     posCameraCenter[1] = Math.max(posCenterMin[1], Math.min(posCenterMax[1], posPlayer[1] + 0.5));
 }
 
-function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, posLegalMin: vec2, posLegalMax: vec2) {
+function cameraCenterPositionLegalRange(worldSize: vec2, screenSize: vec2, zoomScale: number, addButtonMargins: boolean, posLegalMin: vec2, posLegalMax: vec2) {
     const statusBarPixelSizeY = statusBarCharPixelSizeY * statusBarZoom(screenSize);
     const viewPixelSizeX = screenSize[0];
     const viewPixelSizeY = screenSize[1] - statusBarPixelSizeY;
+
+    // This math for computing button sizes is duplicated from updateTouchButtonsGamepad
+    const buttonSizePixels = Math.min(80, Math.floor(Math.min(viewPixelSizeX, viewPixelSizeY)/5));
+    const buttonSizeWorld = buttonSizePixels / (Math.max(pixelsPerTileX, pixelsPerTileY) * zoomScale);
+
     const viewWorldSizeX = viewPixelSizeX / (pixelsPerTileX * zoomScale);
     const viewWorldSizeY = viewPixelSizeY / (pixelsPerTileY * zoomScale);
 
-    let viewCenterMinX = viewWorldSizeX / 2;
-    let viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
+    let viewCenterMinX: number, viewCenterMaxX: number;
+
+    viewCenterMinX = viewWorldSizeX / 2;
+    viewCenterMaxX = worldSize[0] - viewWorldSizeX / 2;
+
+    // If the view is wider than it is high, add margin on the left and right
+    if (addButtonMargins && viewPixelSizeX > viewPixelSizeY) {
+        viewCenterMinX -= 2 * buttonSizeWorld;
+        viewCenterMaxX += 2 * buttonSizeWorld;
+    }
 
     if (viewCenterMinX > viewCenterMaxX) {
         viewCenterMinX = viewCenterMaxX = worldSize[0] / 2;
     }
 
-    let viewCenterMinY = viewWorldSizeY / 2;
-    let viewCenterMaxY = worldSize[1] - viewWorldSizeY / 2;
+    let viewCenterMinY: number, viewCenterMaxY: number;
+
+    viewCenterMinY = viewWorldSizeY / 2;
+    viewCenterMaxY = worldSize[1] - viewWorldSizeY / 2;
+
+    // If the view is higher than it is wide, add margin on the top and bottom
+    if (addButtonMargins && viewPixelSizeX <= viewPixelSizeY) {
+        viewCenterMinY -= 2 * buttonSizeWorld;
+        viewCenterMaxY += 2 * buttonSizeWorld;
+    }
 
     if (viewCenterMinY > viewCenterMaxY) {
         viewCenterMinY = viewCenterMaxY = worldSize[1] / 2;
