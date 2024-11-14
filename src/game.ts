@@ -2182,7 +2182,7 @@ export function postTurn(state: State) {
     if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
-            state.popups.setNotification('Exit area!', state.player.pos);
+            state.popups.setNotification('Escape!', state.player.pos);
         }
         state.finishedLevel = true;
     }
@@ -4083,7 +4083,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     } else {
         // Leave map
 
-        let msg = 'Exit area!';
+        let msg = 'Escape!';
         rightSideX -= msg.length + 1;
         putString(renderer, rightSideX, msg, colorPreset.lightYellow);
     }
