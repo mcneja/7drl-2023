@@ -192,17 +192,12 @@ class KeyboardController extends Controller {
         document.onkeydown = function(e) {that.keyDownHandler(e)};
         document.onkeyup = function(e) {that.keyUpHandler(e)};
     }
-    getCode(e:KeyboardEvent, modifyShift:boolean=false):string {
+    getCode(e:KeyboardEvent):string {
         let code = e.code;
         if(e.altKey) {
             if(e.code!=='AltLeft' && e.code!=='AltRight') {
                 code = 'Alt+'+code;
             } 
-        }
-        if(e.shiftKey && modifyShift) {
-            if(e.code!=='ShiftLeft' && e.code!=='ShiftRight') {
-                code = 'Shift+'+code;
-            }
         }
         if(e.ctrlKey) {
             if (e.code!=='ControlLeft' && e.code!=='ControlRight') {
