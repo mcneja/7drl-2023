@@ -4857,7 +4857,7 @@ function placeCreakyFloorTiles(map: GameMap, room: Room, rng: RNG) {
             if (map.cells.at(x, y).type != TerrainType.GroundWood) {
                 continue;
             }
-            if (map.items.some(item => item.pos[0] === x && item.pos[1] === y && blocksPlayerMovement(item.type))) {
+            if (map.items.some(item => item.pos[0] === x && item.pos[1] === y && item.type !== ItemType.Coin)) {
                 continue;
             }
             if (doorAdjacent(map.cells, vec2.fromValues(x, y))) {
