@@ -2373,7 +2373,7 @@ function renderTerrain(state: State, renderer: Renderer) {
             }
             let terrainType = cell.type;
             if (terrainType == TerrainType.GroundWoodCreaky) {
-                if (!(cell.lit || cell.identified)) {
+                if (!(cell.lit || cell.identified) && !state.seeAll) {
                     terrainType = TerrainType.GroundWood;
                 }
             }
