@@ -545,9 +545,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
                                 g.modeTimeout = 0;
                             }
                         }
-                        makeNoise(state.gameMap, state.player, NoiseType.Alarm, 
+                        makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
                             pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
-                        state.popups.setNotificationHold('ALARM! ALARM! ALARM!', pos);
                     }
                 }
             }
@@ -1018,7 +1017,7 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
             state.player.pickTarget = null;
             bumpAnim(state, dx*1.25, dy*1.25);
             joltCamera(state, dx, dy);
-            makeNoise(state.gameMap, state.player, NoiseType.BangDoor, dx, dy, state.sounds);
+            makeNoise(state.gameMap, state.player, state.popups, NoiseType.BangDoor, dx, dy, state.sounds);
             advanceTime(state);
             if (state.gameMapRoughPlans[state.level].level === 0) {
                 state.popups.setNotification('Noise\nattracts\npeople', state.player.pos);
@@ -1436,7 +1435,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     // Generate movement AI noises
 
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
+        makeNoise(state.gameMap, player, state.popups, NoiseType.Creak, 0, -1, state.sounds);
     }
 
     // Let guards take a turn
@@ -1949,13 +1948,13 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
 
     /*
     if (state.gameMap.items.find((item)=>item.pos.equals(posNew) && item.type === ItemType.Chair)) {
-        makeNoise(state.gameMap, player, NoiseType.BangChair, 0, 0, state.sounds);
+        makeNoise(state.gameMap, player, state.popups, NoiseType.BangChair, 0, 0, state.sounds);
     } else
     */
     if (cellNew.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
+        makeNoise(state.gameMap, player, state.popups, NoiseType.Creak, 0, -1, state.sounds);
     } else if (cellNew.type === TerrainType.GroundWater) {
-        makeNoise(state.gameMap, player, NoiseType.Splash, 0, 0, state.sounds);
+        makeNoise(state.gameMap, player, state.popups, NoiseType.Splash, 0, 0, state.sounds);
     }
 
     // Let guards take a turn
@@ -2029,13 +2028,13 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     // Generate movement AI noises
 
     if (cellMid.type === TerrainType.GroundWoodCreaky) {
-        makeNoise(state.gameMap, player, NoiseType.Creak, 0, -1, state.sounds);
+        makeNoise(state.gameMap, player, state.popups, NoiseType.Creak, 0, -1, state.sounds);
     } else if (cellMid.type === TerrainType.GroundWater) {
-        makeNoise(state.gameMap, player, NoiseType.Splash, 0, 0, state.sounds);
+        makeNoise(state.gameMap, player, state.popups, NoiseType.Splash, 0, 0, state.sounds);
     }
 
     joltCamera(state, dx, dy);
-    makeNoise(state.gameMap, player, NoiseType.Thud, dx, dy, state.sounds);
+    makeNoise(state.gameMap, player, state.popups, NoiseType.Thud, dx, dy, state.sounds);
 
     // Let guards take a turn
 
@@ -2076,7 +2075,7 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
     }
 }
 
-function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: number, dy: number, sounds: Howls) {
+function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: NoiseType, dx: number, dy: number, sounds: Howls) {
     player.noisy = true;
     player.noiseOffset[0] = dx;
     player.noiseOffset[1] = dy;
@@ -2086,18 +2085,24 @@ function makeNoise(map: GameMap, player: Player, noiseType: NoiseType, dx: numbe
     switch (noiseType) {
         case NoiseType.Creak:
             sounds.footstepCreaky.play(0.6);
+            popups.setNotification('Creak!', player.pos);
             break;
         case NoiseType.Splash:
             sounds.splash.play(0.5);
+            popups.setNotification('Splash!', player.pos);
             break;
         case NoiseType.Thud:
             // Sound effect currently played in executeLeapAttack
+            popups.setNotification('Thud!', player.pos);
             break;
         case NoiseType.Alarm:
             sounds.treasureAlarm.play(1.0);
+            const pos = vec2.fromValues(player.pos[0] + dx, player.pos[1] + dy);
+            popups.setNotificationHold('ALARM! ALARM! ALARM!', pos);
             break;
         case NoiseType.BangDoor:
             sounds.thump.play(0.5);
+            popups.setNotification('Thud!', player.pos);
             break;
         case NoiseType.BangChair:
             // TODO: sound effect
