@@ -1709,12 +1709,10 @@ function runPickpocketTutorial(state: State) {
         return;
     }
 
-    // Show a prompt on the guard (using a speech bubble because it moves nicely with the guard)
+    // Show a prompt on the guard
 
-    if (allSeen &&
-        remainingLootOnGuard &&
-        (!state.popups.isSpeechBubbleVisible() || state.popups.currentSpeech === 'Loot')) {
-        state.popups.setSpeech('Loot', guard, guard.pos[1] >= state.player.pos[1]);
+    if (allSeen && remainingLootOnGuard) {
+        state.popups.setNotificationHold('Loot', guard.pos);
     }
 }
 
