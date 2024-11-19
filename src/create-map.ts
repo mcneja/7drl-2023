@@ -40,6 +40,7 @@ enum RoomType {
     TreasureCourtyard,
     LockedTreasure,
     LockedTreasureCourtyard,
+    ThroneRoom,
 }
 
 enum DoorType {
@@ -2057,13 +2058,19 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
     // at least one of everything important for a given mansion size, before then allocating any
     // remaining rooms.
 
+    // Pick a throne room
+
+    if (level === 9) {
+        for (const room of chooseRooms(rooms, roomCanBeThroneRoom, 1, rng)) {
+            room.roomType = RoomType.ThroneRoom;
+        }
+    }
+
     // Pick rooms to be kitchens
 
     if (numRooms >= 8) {
-        const kitchenRooms = rooms.filter((room)=>roomCanBeKitchen(room));
-        if (kitchenRooms.length > 0) {
-            rng.shuffleArray(kitchenRooms);
-            kitchenRooms[0].roomType = RoomType.Kitchen;
+        for (const room of chooseRooms(rooms, roomCanBeKitchen, 1, rng)) {
+            room.roomType = RoomType.Kitchen;
         }
     }
 
@@ -2184,6 +2191,57 @@ function roomCanBeTreasure(room: Room): boolean {
     }
     if (sizeY > 7) {
         return false;
+    }
+
+    return true;
+}
+
+function roomCanBeThroneRoom(room: Room): boolean {
+    if (room.roomType !== RoomType.PublicRoom && room.roomType !== RoomType.PrivateRoom) {
+        return false;
+    }
+
+    if (room.depth < 2) {
+        return false;
+    }
+
+    if (roomHasExteriorDoor(room)) {
+        return false;
+    }
+
+    const sizeX = room.posMax[0] - room.posMin[0];
+    if (sizeX < 3) {
+        return false;
+    }
+
+    const sizeY = room.posMax[1] - room.posMin[1];
+    if (sizeY < 3) {
+        return false;
+    }
+
+    if (sizeX < 4 && sizeY < 5) {
+        return false;
+    }
+
+    if (sizeX < 5 && sizeY < 4) {
+        return false;
+    }
+
+    // The room should have at least one shorter wall with no door
+
+    if (sizeX < sizeY) {
+        if (numDoorsInWall(room, 0, -1) > 0 && numDoorsInWall(room, 0, 1) > 0) {
+            return false;
+        }
+    } else if (sizeY < sizeX) {
+        if (numDoorsInWall(room, -1, 0) > 0 && numDoorsInWall(room, 1, 0) > 0) {
+            return false;
+        }
+    } else {
+        if (numDoorsInWall(room, 0, -1) > 0 && numDoorsInWall(room, 0, 1) > 0 &&
+            numDoorsInWall(room, -1, 0) > 0 && numDoorsInWall(room, 1, 0) > 0) {
+            return false;
+        }
     }
 
     return true;
@@ -3941,6 +3999,12 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
                 continue;
             }
 
+            /*
+            if (roomTypeL === RoomType.ThroneRoom || roomTypeR === RoomType.ThroneRoom) {
+                continue;
+            }
+            */
+
             if (roomTypeL === RoomType.Exterior && roomTypeR === RoomType.Exterior) {
                 continue;
             }
@@ -4049,6 +4113,7 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             case RoomType.TreasureCourtyard: cellType = TerrainType.GroundGrass; break;
             case RoomType.LockedTreasure: cellType = room.privateRoom ? TerrainType.GroundMarble : TerrainType.GroundWood; break;
             case RoomType.LockedTreasureCourtyard: cellType = TerrainType.GroundGrass; break;
+            case RoomType.ThroneRoom: cellType = TerrainType.GroundWood; break;
         }
 
         setRectTerrainType(map, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1], cellType);
@@ -4075,6 +4140,8 @@ function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) 
             renderRoomTreasureCourtyard(map, room, level, rng);
         } else if (room.roomType === RoomType.PublicLibrary || room.roomType === RoomType.PrivateLibrary) {
             renderRoomLibrary(map, room, level, rng);
+        } else if (room.roomType === RoomType.ThroneRoom) {
+            renderRoomThroneRoom(map, room, level, rng);
         }
 
         // Place creaky floor tiles
@@ -4760,6 +4827,183 @@ function renderRoomDining(map: GameMap, room: Room, level: number, rng: RNG) {
     }
 }
 
+function numDoorsInWall(room: Room, dx: number, dy: number): number {
+    let n = 0;
+    for (const adj of room.edges) {
+        if (!adj.door) {
+            continue;
+        }
+        let dxWall = -adj.dir[1];
+        let dyWall = adj.dir[0];
+        if (adj.roomLeft === room) {
+            dxWall = -dxWall;
+            dyWall = -dyWall;
+        }
+        if (dxWall === dx && dyWall === dy) {
+            ++n;
+        }
+    }
+    return n;
+}
+
+function wallDistanceFromDoor(room: Room, dx: number, dy: number): number {
+    // [dx, dy] is unit vector pointing outward from room perpendicular to the wall being measured against
+    // Point inward instead
+    dx = -dx;
+    dy = -dy;
+    const dir = vec2.fromValues(dx, dy);
+    const posDoor = vec2.create();
+    const posOffset = vec2.create();
+    if (dx > 0) {
+        vec2.set(posOffset, room.posMin[0] - 1, 0);
+    } else if (dx < 0) {
+        vec2.set(posOffset, room.posMax[0], 0);
+    } else if (dy > 0) {
+        vec2.set(posOffset, 0, room.posMin[1] - 1);
+    } else {
+        vec2.set(posOffset, 0, room.posMax[1]);
+    }
+
+    let minDist = Infinity;
+    for (const adj of room.edges) {
+        if (!adj.door) {
+            continue;
+        }
+
+        vec2.scaleAndAdd(posDoor, adj.origin, adj.dir, Math.floor(adj.length / 2));
+        vec2.subtract(posDoor, posDoor, posOffset);
+
+        const dist = vec2.dot(dir, posDoor);
+        minDist = Math.min(minDist, dist);
+    }
+
+    console.assert(minDist >= 0);
+
+    return minDist;
+}
+
+function renderRoomThroneRoom(map: GameMap, room: Room, level: number, rng: RNG) {
+
+    // Build a coordinate system for constructing the throne room
+
+    let x0: number;
+    let y0: number;
+    let dx: number;
+    let dy: number;
+    let throneWallLen: number;
+    let crossWallLen: number;
+
+    if (room.posMax[1] - room.posMin[1] < room.posMax[0] - room.posMin[0] ||
+        (numDoorsInWall(room, 0, -1) !== 0 && numDoorsInWall(room, 0, 1) !== 0)) {
+        throneWallLen = room.posMax[1] - room.posMin[1];
+        crossWallLen = room.posMax[0] - room.posMin[0];
+        dx = 0;
+        if (wallDistanceFromDoor(room, -1, 0) > wallDistanceFromDoor(room, 1, 0)) {
+            // Throne on left wall
+            x0 = room.posMin[0];
+            y0 = room.posMin[1];
+            dy = 1;
+        } else {
+            // Throne on right wall
+            x0 = room.posMax[0] - 1;
+            y0 = room.posMax[1] - 1;
+            dy = -1;
+        }
+    } else {
+        throneWallLen = room.posMax[0] - room.posMin[0];
+        crossWallLen = room.posMax[1] - room.posMin[1];
+        dy = 0;
+        if (wallDistanceFromDoor(room, 0, -1) > wallDistanceFromDoor(room, 0, 1)) {
+            // Throne on bottom wall
+            x0 = room.posMax[0] - 1;
+            y0 = room.posMin[1];
+            dx = -1;
+        } else {
+            // Throne on top wall
+            x0 = room.posMin[0];
+            y0 = room.posMax[1] - 1;
+            dx = 1;
+        }
+    }
+
+    const dirWall = vec2.fromValues(dx, dy);
+    const dirCross = vec2.fromValues(dy, -dx);
+    const origin = vec2.fromValues(x0, y0);
+    const pos = vec2.create();
+
+    const numThrones = ((throneWallLen & 1) !== 0) ? 1 : 2;
+    const offset = Math.floor((throneWallLen - numThrones) / 2);
+
+    // Lay down a rug
+
+    for (let i = 0; i < crossWallLen - 1; ++i) {
+        for (let j = 0; j < numThrones; ++j) {
+            vec2.scaleAndAdd(pos, origin, dirWall, offset + j);
+            vec2.scaleAndAdd(pos, pos, dirCross, i);
+            map.cells.atVec(pos).type = TerrainType.GroundMarble;
+        }
+    }
+
+    // Put the throne(s) and lamps on the throne wall
+
+    for (let i = 0; i < numThrones; ++i) {
+        vec2.scaleAndAdd(pos, origin, dirWall, offset + i);
+        placeItem(map, pos, ItemType.Chair);
+    }
+
+    vec2.scaleAndAdd(pos, origin, dirWall, offset - 1);
+    tryPlaceItem(map, pos, ItemType.DrawersShort);
+
+    vec2.scaleAndAdd(pos, origin, dirWall, offset + numThrones);
+    tryPlaceItem(map, pos, ItemType.DrawersShort);
+
+    if (throneWallLen > 4) {
+        vec2.scaleAndAdd(pos, origin, dirWall, 0);
+        tryPlaceItem(map, pos, ItemType.TorchLit);
+
+        vec2.scaleAndAdd(pos, origin, dirWall, throneWallLen - 1);
+        tryPlaceItem(map, pos, ItemType.TorchLit);
+    }
+
+    if (crossWallLen > 6) {
+        if (throneWallLen >= 5) {
+            for (let i = 2; i < crossWallLen - 2; ++i) {
+                vec2.scaleAndAdd(pos, origin, dirWall, 1);
+                vec2.scaleAndAdd(pos, pos, dirCross, i);
+                tryPlaceItem(map, pos, ItemType.Chair);
+
+                vec2.scaleAndAdd(pos, origin, dirWall, throneWallLen - 2);
+                vec2.scaleAndAdd(pos, pos, dirCross, i);
+                tryPlaceItem(map, pos, ItemType.Chair);
+            }
+        } else {
+            if (numDoorsInWall(room, -dirWall[0], -dirWall[1]) === 0) {
+                for (let i = 2; i < crossWallLen - 2; ++i) {
+                    vec2.scaleAndAdd(pos, origin, dirWall, 0);
+                    vec2.scaleAndAdd(pos, pos, dirCross, i);
+                    tryPlaceItem(map, pos, ItemType.Chair);
+                }
+            }
+
+            if (numDoorsInWall(room, dirWall[0], dirWall[1]) === 0) {
+                for (let i = 2; i < crossWallLen - 2; ++i) {
+                    vec2.scaleAndAdd(pos, origin, dirWall, throneWallLen - 1);
+                    vec2.scaleAndAdd(pos, pos, dirCross, i);
+                    tryPlaceItem(map, pos, ItemType.Chair);
+                }
+            }
+        }
+    }
+
+    vec2.scaleAndAdd(pos, origin, dirWall, 0);
+    vec2.scaleAndAdd(pos, pos, dirCross, crossWallLen - 1);
+    tryPlaceItem(map, pos, ItemType.TorchLit);
+
+    vec2.scaleAndAdd(pos, origin, dirWall, throneWallLen - 1);
+    vec2.scaleAndAdd(pos, pos, dirCross, crossWallLen - 1);
+    tryPlaceItem(map, pos, ItemType.TorchLit);
+}
+
 function renderRoomLibrary(map: GameMap, room: Room, level: number, rng: RNG) {
     const x0 = room.posMin[0];
     const y0 = room.posMin[1];
@@ -5021,6 +5265,22 @@ function placeLoot(totalLootToPlace: number, rooms: Array<Room>, map: GameMap, p
     const posProhibited = buildPosProhibited(map, patrolRoutes);
 
     let totalLootPlaced = 0;
+
+    // Throne rooms may get loot.
+
+    for (const room of rooms) {
+        if (room.roomType !== RoomType.ThroneRoom) {
+            continue;
+        }
+
+        if (totalLootPlaced >= totalLootToPlace) {
+            break;
+        }
+
+        if (tryPlaceLoot(posProhibited, posPreferred, room.posMin, room.posMax, map, rng)) {
+            ++totalLootPlaced;
+        }
+    }
 
     // Vault rooms (may) get loot.
 
@@ -5583,7 +5843,7 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
         case RoomType.PrivateCourtyard:
         case RoomType.TreasureCourtyard:
         case RoomType.LockedTreasureCourtyard:
-                return true;
+            return true;
         case RoomType.Exterior:
         case RoomType.PublicRoom:
         case RoomType.PrivateRoom:
@@ -5595,7 +5855,8 @@ function isCourtyardRoomType(roomType: RoomType): boolean {
         case RoomType.Kitchen:
         case RoomType.Treasure:
         case RoomType.LockedTreasure:
-                return false;
+        case RoomType.ThroneRoom:
+            return false;
     }
 }
 
