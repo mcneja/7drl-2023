@@ -2060,7 +2060,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
 
     // Pick a throne room
 
-    if (level === 9) {
+    if (levelType === LevelType.Fortress) {
         for (const room of chooseRooms(rooms, roomCanBeThroneRoom, 1, rng)) {
             room.roomType = RoomType.ThroneRoom;
         }
