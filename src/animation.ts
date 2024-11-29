@@ -113,7 +113,7 @@ export class PulsingColorAnimation extends Animator {
     /**
      * 
      * @param tile Tile index and optional color tint values for lit and unlit states
-     * @param duration Lenght of time the animation will run for
+     * @param duration Length of time the animation will run for
      * @param period 
      */
     constructor(tile:TileInfo, duration:number, period:number) {

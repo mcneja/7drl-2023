@@ -1,5 +1,6 @@
 import * as colorPreset from './color-preset';
 import { Achievements } from './achievements';
+import { ItemType } from './game-map';
 
 const entityImageTileset31Color = require('url:./entitytiles31color.png');
 const terrainImageTileset31Color = require('url:./terraintiles31color.png');
@@ -63,6 +64,10 @@ export type EntityTileSet = {
         dead:    TileInfo;
         litFace: TileInfo;
     };
+    itemGlows : {
+        [ItemType.Coin]: TileInfo;
+        [ItemType.Treasure]: TileInfo;
+    }
     unlitTile: TileInfo;
     stoveAnimation: Array<TileInfo>;
     candleAnimation: Array<TileInfo>;
@@ -341,6 +346,10 @@ const entityTileSet31Color:EntityTileSet = {
         'forceRestart':     {textureIndex: r([10, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'fullscreen':       {textureIndex: r([14, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
     },
+    itemGlows: {
+        [ItemType.Coin]:    {textureIndex: r([12,  9]),  color:0xa0ffffff,      unlitColor:0x00ffffff},
+        [ItemType.Treasure]:{textureIndex: r([5,   9]),  color:0xa0ffffff,      unlitColor:0x00ffffff},
+    },
     itemTiles: [
         {textureIndex: r([3,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Chair,
         {textureIndex: r([4,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Table,
@@ -369,7 +378,7 @@ const entityTileSet31Color:EntityTileSet = {
         {textureIndex: r([15,  7]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Note,
         {textureIndex: r([8,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasureLockBox,
         {textureIndex: r([7,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.TreasurePlinth,
-        {textureIndex: r([0,  12]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
+        {textureIndex: r([5,  10]),  color:colorPreset.white,      unlitColor:colorPreset.white}, // ItemType.Treasure,
     ],
     redWallItemTiles: [
         {textureIndex: r([3,  13]),  color:colorPreset.white,      unlitColor:colorItemUnlit}, // ItemType.Chair,

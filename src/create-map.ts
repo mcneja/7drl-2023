@@ -1,6 +1,6 @@
 export { createGameMap, createGameMapRoughPlans, createGameRoughPlansDailyRun, Adjacency };
 
-import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, LevelType, TerrainType, TreasureInfo, guardMoveCostForItemType, isWindowTerrainType } from './game-map';
+import { BooleanGrid, CellGrid, Int32Grid, Item, ItemType, Float64Grid, GameMap, GameMapRoughPlan, LevelType, TerrainType, TreasureInfo, guardMoveCostForItemType, isWindowTerrainType, itemLayers } from './game-map';
 import { Guard } from './guard';
 import { vec2 } from './my-matrix';
 import { RNG } from './random';
@@ -4347,7 +4347,8 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
         console.assert(usable.get(pos[0], pos[1]));
         console.assert(!occupied.get(pos[0], pos[1]));
 
-        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: candidateItems[iItemType] };
+        const iType = candidateItems[iItemType];
+        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: iType, topLayer:itemLayers[iType] };
         map.items.push(item);
         itemsInRoom.push(item);
 
@@ -4429,8 +4430,8 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
         const pos0 = potentialPositions[rng.randomInRange(potentialPositions.length)];
         const pos1 = vec2.fromValues(pos0[0] + 1, pos0[1]);
 
-        const itemBedL = { pos: vec2.clone(pos0), type: ItemType.BedL };
-        const itemBedR = { pos: vec2.clone(pos1), type: ItemType.BedR };
+        const itemBedL = { pos: vec2.clone(pos0), type: ItemType.BedL, topLayer:itemLayers[ItemType.BedL] };
+        const itemBedR = { pos: vec2.clone(pos1), type: ItemType.BedR, topLayer:itemLayers[ItemType.BedR] };
         map.items.push(itemBedL);
         map.items.push(itemBedR);
         itemsInRoom.push(itemBedL); // will check adjacency for the right side of the bed with this too
@@ -4467,7 +4468,7 @@ function renderRoomBedroom(map: GameMap, room: Room, level: number, rng: RNG) {
         console.assert(usable.get(pos[0], pos[1]));
         console.assert(!occupied.get(pos[0], pos[1]));
 
-        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: itemType };
+        const item = { pos: vec2.fromValues(pos[0] + room.posMin[0], pos[1] + room.posMin[1]), type: itemType, topLayer:itemLayers[itemType] };
         map.items.push(item);
         itemsInRoom.push(item);
 
@@ -5254,6 +5255,7 @@ function placeItem(map: GameMap, pos: vec2, type: ItemType) {
     map.items.push({
         pos: vec2.clone(pos),
         type: type,
+        topLayer: itemLayers[type],
     });
 }
 
@@ -5569,6 +5571,7 @@ function placeTreasure(map: GameMap, rooms: Array<Room>, rng: RNG) {
             const note = {
                 pos: vec2.clone(pos),
                 type: ItemType.Note,
+                topLayer: itemLayers[ItemType.Note],
             };
             map.items.push(note);
             map.bookTitle.set(note, clue);

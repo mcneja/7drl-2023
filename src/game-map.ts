@@ -279,10 +279,42 @@ enum ItemType {
     Treasure,
 }
 
+export const itemLayers: Record<ItemType, boolean> = {
+    [ItemType.Chair]: false,
+    [ItemType.Table]: false,
+    [ItemType.BedL]: false,
+    [ItemType.BedR]: false,
+    [ItemType.DrawersShort]: false,
+    [ItemType.DrawersTall]: false,
+    [ItemType.Bookshelf]: false,
+    [ItemType.Shelf]: false,
+    [ItemType.Stove]: false,
+    [ItemType.Bush]: false,
+    [ItemType.Coin]: true,
+    [ItemType.Health]: false,
+    [ItemType.DoorNS]: false,
+    [ItemType.DoorEW]: false,
+    [ItemType.LockedDoorNS]: false,
+    [ItemType.LockedDoorEW]: false,
+    [ItemType.PortcullisNS]: false,
+    [ItemType.PortcullisEW]: false,
+    [ItemType.TorchUnlit]: false,
+    [ItemType.TorchLit]: false,
+    [ItemType.TorchCarry]: false, //TODO: Next four don't belong here because they are carried by guards but solves a problem for now.
+    [ItemType.PurseCarry]: false,
+    [ItemType.Key]: false,
+    [ItemType.KeyCarry]: false, 
+    [ItemType.Note]: false,
+    [ItemType.TreasureLock]: true,
+    [ItemType.TreasurePlinth]: false,
+    [ItemType.Treasure]: true,
+}
+
 type Item = {
     pos: vec2;
     type: ItemType;
     animation? : Animator;
+    topLayer: boolean;
 }
 
 function guardMoveCostForItemType(itemType: ItemType): number {

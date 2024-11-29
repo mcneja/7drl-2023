@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameRoughPlansDailyRun, createGameMap, Adjacency } from './create-map';
-import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType } from './game-map';
+import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType, itemLayers } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight } from './guard';
 import { Renderer } from './render';
@@ -383,6 +383,7 @@ export function setupLevel(state: State, level: number) {
     state.lightStates = new Array(state.gameMap.lightCount).fill(0);
     setLights(state.gameMap, state);
     setCellAnimations(state.gameMap, state);
+    setItemAnimations(state.gameMap, state);
     state.hintMessage = '';
     resetHealthBar(state);
     state.finishedLevel = false;
@@ -870,12 +871,12 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
         guard.hasPurse = false;
         player.loot += 1;
         state.lootStolen += 1;
-        pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Coin};
+        pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Coin, topLayer:itemLayers[ItemType.Coin]};
     }
     if (guard.hasVaultKey) {
         guard.hasVaultKey = false;
         player.hasVaultKey = true;
-        pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key};
+        pickedItem = {pos:vec2.clone(guard.pos), type:ItemType.Key, topLayer:itemLayers[ItemType.Key]};
     }
     const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, entityTileSet);
     if(pickedItem) {
@@ -2401,11 +2402,11 @@ function renderTerrain(state: State, renderer: Renderer) {
 }
 
 
-function renderItems(state: State, renderer: Renderer) {
+function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
     // Draw items
     const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.entityTileSet);
 
-    for(const item of state.gameMap.items) {
+    for(const item of state.gameMap.items.filter(item=>item.topLayer===topLayer)) {
         let x = item.pos[0];
         let y = item.pos[1];
         const cell = state.gameMap.cells.at(x, y);
@@ -2434,10 +2435,15 @@ function renderItems(state: State, renderer: Renderer) {
                 renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[item.type], lv);
             }
         } else if (item.type===ItemType.Treasure) {
-            const ti = item.animation ?
-                item.animation.currentTile() :
-                itemTiles[item.type];
-            renderer.addGlyphLit4(x, y+0.5, x + 1, y + 1.5, ti, lv);
+            renderer.addGlyph(x, y+0.5, x + 1, y + 1.5, itemTiles[item.type]);
+            if (item.animation) {
+                renderer.addGlyph(x, y+0.5, x + 1, y + 1.5, item.animation.currentTile());
+            }
+        } else if (item.type===ItemType.Coin) {
+            renderer.addGlyph(x, y, x + 1, y + 1, itemTiles[item.type]);
+            if (item.animation) {
+                renderer.addGlyph(x, y, x + 1, y + 1, item.animation.currentTile());
+            }
         } else {
             const ti = item.animation ?
                 item.animation.currentTile() :
@@ -3022,6 +3028,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
 
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
+    setItemAnimations(gameMap, state);
     chooseGuardMoves(state);
     postTurn(state);
     showMoveTutorialNotifications(state, state.player.pos);
@@ -3051,6 +3058,16 @@ function setCellAnimations(gameMap: GameMap, state: State) {
         if(c.type===TerrainType.GroundWater) {
             c.animation = new FrameAnimator(waterTileSetForLevelType(levelType, tileSet), 1, (counter*1369)%4);
             counter++;
+        }
+    }
+}
+
+function setItemAnimations(gameMap: GameMap, state: State) {
+    for (let item of gameMap.items) {
+        if (item.type===ItemType.Treasure) {
+            item.animation = new PulsingColorAnimation(getEntityTileSet().itemGlows[item.type], 0, 1);
+        } else if (item.type===ItemType.Coin) {
+            item.animation = new PulsingColorAnimation(getEntityTileSet().itemGlows[item.type], 0, .75);
         }
     }
 }
@@ -3143,6 +3160,7 @@ export function restartGame(state: State) {
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
+    setItemAnimations(gameMap, state);
     state.gameMode = GameMode.Mansion;
     state.hintMessage = '';
     resetHealthBar(state);
@@ -3189,6 +3207,7 @@ function resetState(state: State) {
     state.lightStates = Array(gameMap.lightCount).fill(0);
     setLights(gameMap, state);
     setCellAnimations(gameMap, state);
+    setItemAnimations(gameMap, state);
     state.turns = 0;
     state.totalTurns = 0;
     state.lootStolen = 0;
@@ -3384,6 +3403,9 @@ function updateState(state: State, screenSize: vec2, dt: number) {
     for(let c of state.gameMap.cells.values) {
         c.animation?.update(dt);
     }
+    for(let i of state.gameMap.items) {
+        i.animation?.update(dt);
+    }
     for(let g of state.gameMap.guards) {
         if(g.animation?.update(dt)) {
             g.animation = null;
@@ -3435,7 +3457,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderer.flush();
 
     renderer.start(matScreenFromWorld, TextureType.Entity);
-    renderItems(state, renderer);
+    renderItems(state, renderer, false);
     if(state.gameMode===GameMode.Mansion) {
         renderGuardSight(state, renderer);
         renderGuardPatrolPaths(state, renderer);
@@ -3444,6 +3466,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     if ((state.gameMode !== GameMode.MansionComplete && state.gameMode !== GameMode.Win) || state.player.animation) {
         renderPlayer(state, renderer);
     }
+    renderItems(state, renderer, true);
     renderParticles(state, renderer);
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);
