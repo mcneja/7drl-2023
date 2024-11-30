@@ -585,6 +585,13 @@ Keyboard and touch also supported
     }
 }
 
+const treasureA = getEntityTileSet().namedTiles['treasureA'].textureIndex;
+const treasureB = getEntityTileSet().namedTiles['treasureB'].textureIndex;
+const treasureC = getEntityTileSet().namedTiles['treasureC'].textureIndex;
+const treasureD = getEntityTileSet().namedTiles['treasureD'].textureIndex;
+const treasureE = getEntityTileSet().namedTiles['treasureE'].textureIndex;
+const treasureV = getEntityTileSet().namedTiles['treasureV'].textureIndex;
+
 class HelpKey extends TextWindow {
     pages = [
         `Map Key
@@ -592,13 +599,14 @@ class HelpKey extends TextWindow {
 #${getEntityTileSet().playerTiles.normal.textureIndex}# Thief: You!
 #${getEntityTileSet().npcTiles[3].textureIndex}# Guard: Avoid them!
 #${getEntityTileSet().itemTiles[ItemType.Coin].textureIndex}# Loot: Steal it!
-#${getEntityTileSet().itemTiles[ItemType.TreasureE].textureIndex}# Bonus loot: Steal it?
 #${getEntityTileSet().itemTiles[ItemType.Bush].textureIndex}# Tree: Hiding place
 #${getEntityTileSet().itemTiles[ItemType.Table].textureIndex}# Table: Hiding place
 #${getEntityTileSet().itemTiles[ItemType.Chair].textureIndex}# Stool: Guards sit here
 #${getEntityTileSet().itemTiles[ItemType.TorchLit].textureIndex}# Torch: Douse it
 #${getEntityTileSet().namedTiles["uiWindowTile"].textureIndex}# Window: One-way escape
 #${getEntityTileSet().namedTiles["uiCreakyTile"].textureIndex}# Creaky floor: Alerts guards
+Bonus loot: Steal it?
+#${treasureA}##${treasureB}##${treasureC}##${treasureD}##${treasureE}##${treasureV}#
 
 [Esc|menuBack] Back to menu`,
     ];

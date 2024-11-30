@@ -325,6 +325,12 @@ const entityTileSet31Color:EntityTileSet = {
         playerHint: {textureIndex:0xb9, color:0xffffffff},
         uiWindowTile: {textureIndex:0x20, color:0xffffffff},
         uiCreakyTile: {textureIndex:0x21, color:0xffffffff},
+        treasureA: {textureIndex: 0xa0, color:0xffffffff},
+        treasureB: {textureIndex: 0xa1, color:0xffffffff},
+        treasureC: {textureIndex: 0xa2, color:0xffffffff},
+        treasureD: {textureIndex: 0xa3, color:0xffffffff},
+        treasureE: {textureIndex: 0xa4, color:0xffffffff},
+        treasureV: {textureIndex: 0xab, color:0xffffffff},
     },
     touchButtons: {
         'menu':             {textureIndex: r([11, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
