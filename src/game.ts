@@ -468,6 +468,7 @@ function advanceToMansionComplete(state: State) {
     updateAchievements(state, "levelEnd");
     state.activeSoundPool.empty();
     state.ambientSoundPool.empty();
+    Howler.stop();
     state.sounds['levelCompleteJingle'].play(0.35);
     if(state.levelStats.numSpottings === 0) {
         state.persistedStats.totalGhosts++;
@@ -484,6 +485,7 @@ function advanceToMansionComplete(state: State) {
 }
 
 export function advanceToWin(state: State) {
+    Howler.stop();
     const victorySong = (Math.random() < 0.1) ? 'easterEgg' : 'victorySong';
     state.sounds[victorySong].play(0.5);
     state.persistedStats.totalWins++;
