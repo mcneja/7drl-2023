@@ -11,7 +11,12 @@ import { Achievement, Achievements } from './achievements';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, DevScreen };
 
-function scoreToClipboard(stats:GameStats, achievements:Achievements) {
+function scoreToClipboard(stats:GameStats | null, achievements:Achievements) {
+    if (stats === null) {
+        navigator.clipboard.writeText('No game played yet!');
+        return;
+    }
+
     const numGhostedLevels = stats.numGhostedLevels;
     const totalScore = stats.totalScore;
     const turns = stats.turns;
@@ -20,30 +25,33 @@ function scoreToClipboard(stats:GameStats, achievements:Achievements) {
     const win = numCompletedLevels >= numLevels;
     const daily = stats.daily;
 
-    const runText = daily!==null? '\uD83D\uDCC5 Daily run for '+daily:
+    const runText = daily !== null ?
+        '\uD83D\uDCC5 Daily run for ' + daily :
         '\uD83C\uDFB2 Random game';
-    const endText = win? 'Completed mission in '+turns+' turns.':
-        '\uD83D\uDC80 Died in mansion '+ (numCompletedLevels + 1) +' after '+turns+' turns.';
-    let badges = '';
-    if (win) {
+    const endText =
+        stats.numLevels === 0 ? '' :
+        win ? 'Completed mission in ' + turns + ' turns.' :
+        '\uD83D\uDC80 Died on level ' + (numCompletedLevels + 1) + ' after ' + turns + ' turns.';
+    let achievementsLine = '';
+    if (win && daily === null) {
         let a:keyof Achievements;
         for(a in achievements) {
             if (!achievements[a].failed) {
-                badges += achievements[a].unicodeBadge;
+                achievementsLine += achievements[a].unicodeBadge;
             }
         }    
-        if (badges.length>0) {
-            badges = 'Achievements: '+badges+'\n';
+        if (achievementsLine.length>0) {
+            achievementsLine = 'Achievements: '+achievementsLine+'\n';
         }
     }
 
-    navigator.clipboard.writeText(
-        `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
+    const scoreMessage = `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
         `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
         `Ghosted:     ${numGhostedLevels}\n`+
         `Total score: ${totalScore}\n`+
-        `${badges}`
-    )
+        `${achievementsLine}`;
+
+    navigator.clipboard.writeText(scoreMessage);
 }
 
 
@@ -668,7 +676,6 @@ Win streak:         $dailyWinStreak$
 
 class DailyHubScreen extends TextWindow {
     pages = [
-//Daily runs
 `The Daily Challenge
 
 Play a new seeded game each day and 
@@ -765,17 +772,7 @@ $copyState$
             game.startDailyGame(state);
             state.hasStartedGame = true;
         } else if (activated('copyScore') || action=='copyScore') {
-            const stats:GameStats = state.persistedStats.lastPlayedDailyGame ?? {
-                totalScore: 0,
-                turns: 0,
-                numLevels: 0,
-                numCompletedLevels: 0,
-                numGhostedLevels: 0,
-                daily: null,
-                timeStarted: Date.now(),
-                timeEnded: 0,
-            };
-            scoreToClipboard(stats, state.achievements);
+            scoreToClipboard(state.persistedStats.lastPlayedDailyGame, state.achievements);
             this.stateCopied = true;
         }
     };        
@@ -1006,14 +1003,16 @@ $copyState$
         this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
         if (this.achievementsLine===undefined) {
             this.achievementsLine = '';
-            let a:keyof Achievements;
-            for (a in state.achievements) {
-                if (!state.achievements[a].failed && !state.dailyRun) {
-                    this.achievementsLine += `#${getEntityTileSet().achievementIcons[a].textureIndex}#`
+            if (!state.dailyRun) {
+                let a:keyof Achievements;
+                for (a in state.achievements) {
+                    if (!state.achievements[a].failed) {
+                        this.achievementsLine += `#${getEntityTileSet().achievementIcons[a].textureIndex}#`
+                    }
                 }
-            }
-            if (this.achievementsLine.length>0) {
-                this.achievementsLine = '\nAchievements:  '+this.achievementsLine;
+                if (this.achievementsLine.length>0) {
+                    this.achievementsLine = '\nAchievements:  '+this.achievementsLine;
+                }
             }
             this.state.set('achievements', this.achievementsLine);
         }
