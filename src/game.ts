@@ -544,14 +544,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
                 if (treasureInfo.posTreasure.equals(item.pos)) {
                     treasureInfo.stolen = true;
                     if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress) {
-                        for (const g of state.gameMap.guards) {
-                            g.angry = true;
-                            if (g.mode === GuardMode.Unconscious) {
-                                g.modeTimeout = 0;
-                            }
-                        }
                         makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
-                            pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
+                            pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
                     }
                 }
             }
@@ -564,14 +558,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             animType = ItemType.Coin;
             numGained = 3;
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
-            for (const g of state.gameMap.guards) {
-                g.angry = true;
-                if (g.mode === GuardMode.Unconscious) {
-                    g.modeTimeout = 0;
-                }
-            }
             makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
-                pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
+                pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
         } else if (item.type === ItemType.Health) {
             enlargeHealthBar(state);
             if (state.player.health >= state.player.healthMax) {
@@ -2112,12 +2100,10 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
     }
 }
 
-function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: NoiseType, dx: number, dy: number, sounds: Howls) {
+function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: NoiseType, dx: number, dy: number, sounds: Howls, radius:number = 23, makeAngry:boolean = false) {
     player.noisy = true;
     player.noiseOffset[0] = dx;
     player.noiseOffset[1] = dy;
-
-    const radius = 23;
 
     switch (noiseType) {
         case NoiseType.Creak:
@@ -2153,6 +2139,12 @@ function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: Nois
         if (!foundClosestGuard) {
             foundClosestGuard = true;
             guard.heardThiefClosest = true;
+        }
+        if (makeAngry) {
+            guard.angry = true;
+            if (guard.mode === GuardMode.Unconscious) {
+                guard.modeTimeout = 0;
+            }    
         }
     }
 }
