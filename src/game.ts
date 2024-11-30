@@ -2223,7 +2223,7 @@ export function postTurn(state: State) {
         state.finishedLevel = true;
     }
 
-    if (state.turns === numTurnsParForCurrentMap(state)) {
+    if (state.turns === numTurnsParForCurrentMap(state) + 1) {
         const vaultItems:Item[] = [];
         let itemsRemoved = false;
         state.gameMap.items = state.gameMap.items.filter((item)=>{
@@ -2243,9 +2243,9 @@ export function postTurn(state: State) {
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
         }
         if (itemsRemoved) {
-            state.popups.setNotification('Running late!\nTreasure was removed.', state.player.pos);
+            state.popups.setNotificationHold('Late!\nTreasure was removed.', state.player.pos);
         } else {
-            state.popups.setNotification('Running late!', state.player.pos);
+            state.popups.setNotificationHold('Late!', state.player.pos);
         }
         state.sounds.clockChime.play(1.0);
     }
