@@ -583,7 +583,7 @@ function addSeatedGuard(level: number, gameMap: GameMap, rooms: Array<Room>, nee
     for (const item of gameMap.items) {
         if (item.type === ItemType.Coin ||
             item.type === ItemType.Health ||
-            item.type === ItemType.Treasure ||
+            item.type >= ItemType.TreasureA ||
             item.type === ItemType.Note) {
             patrolled.set(item.pos[0], item.pos[1], true);
         }
@@ -4301,7 +4301,7 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
 
     // TODO: This is all largely a copy of renderRoomBedroom. Need to commonize
 
-    const candidateItems = [ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.Shelf, ItemType.TorchUnlit];
+    const candidateItems = [ItemType.VaultTreasureBox, ItemType.VaultTreasureBox, ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.Shelf, ItemType.TorchUnlit];
     rng.shuffleArray(candidateItems);
 
     const sizeX = room.posMax[0] - room.posMin[0];
@@ -4482,6 +4482,8 @@ function isTallItemType(itemType: ItemType): boolean {
     switch (itemType) {
         case ItemType.Bookshelf:
         case ItemType.DrawersShort:
+        case ItemType.VaultTreasureBox:
+        case ItemType.EmptyVaultTreasureBox:
         case ItemType.DrawersTall:
         case ItemType.Shelf:
         case ItemType.TorchUnlit:
@@ -5497,8 +5499,8 @@ function placeTreasure(map: GameMap, rooms: Array<Room>, rng: RNG) {
     for (const plinth of map.items.filter(item => item.type === ItemType.TreasurePlinth)) {
 
         // Place treasure on the plinth.
-
-        placeItem(map, plinth.pos, ItemType.Treasure);
+        const treasureType = rng.randomInRange(5); 
+        placeItem(map, plinth.pos, ItemType.TreasureA + treasureType);
 
         const treasure: TreasureInfo = {
             switches: [],

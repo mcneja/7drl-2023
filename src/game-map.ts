@@ -273,10 +273,16 @@ enum ItemType {
     PurseCarry,
     Key,
     KeyCarry, 
+    VaultTreasureBox,
+    EmptyVaultTreasureBox,
     Note,
     TreasureLock,
     TreasurePlinth,
-    Treasure,
+    TreasureA,
+    TreasureB,
+    TreasureC,
+    TreasureD,
+    TreasureE,
 }
 
 export const itemLayers: Record<ItemType, boolean> = {
@@ -290,7 +296,7 @@ export const itemLayers: Record<ItemType, boolean> = {
     [ItemType.Shelf]: false,
     [ItemType.Stove]: false,
     [ItemType.Bush]: false,
-    [ItemType.Coin]: true,
+    [ItemType.Coin]: false,
     [ItemType.Health]: false,
     [ItemType.DoorNS]: false,
     [ItemType.DoorEW]: false,
@@ -304,10 +310,16 @@ export const itemLayers: Record<ItemType, boolean> = {
     [ItemType.PurseCarry]: false,
     [ItemType.Key]: false,
     [ItemType.KeyCarry]: false, 
+    [ItemType.VaultTreasureBox]: false,
+    [ItemType.EmptyVaultTreasureBox]: false,
     [ItemType.Note]: false,
     [ItemType.TreasureLock]: true,
     [ItemType.TreasurePlinth]: false,
-    [ItemType.Treasure]: true,
+    [ItemType.TreasureA]: true,
+    [ItemType.TreasureB]: true,
+    [ItemType.TreasureC]: true,
+    [ItemType.TreasureD]: true,
+    [ItemType.TreasureE]: true,
 }
 
 type Item = {
@@ -346,7 +358,13 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.Note: return 0;
         case ItemType.TreasureLock: return Infinity;
         case ItemType.TreasurePlinth: return Infinity;
-        case ItemType.Treasure: return Infinity;
+        case ItemType.VaultTreasureBox: return Infinity;
+        case ItemType.EmptyVaultTreasureBox: return Infinity;
+        case ItemType.TreasureA: return Infinity;
+        case ItemType.TreasureB: return Infinity;
+        case ItemType.TreasureC: return Infinity;
+        case ItemType.TreasureD: return Infinity;
+        case ItemType.TreasureE: return Infinity;
     }
 }
 
@@ -518,9 +536,12 @@ class GameMap {
 
     hasLootAt(pos: vec2): boolean {
         return this.items.some(item =>
-            item.pos.equals(pos) &&
-            (item.type === ItemType.Coin || item.type === ItemType.Treasure || item.type === ItemType.Health)
-        );
+            item.pos.equals(pos) && (
+                item.type === ItemType.Coin || 
+                item.type >= ItemType.TreasureA || 
+                item.type === ItemType.Health || 
+                item.type === ItemType.VaultTreasureBox
+            ));
     }
 
     collectLootAt(pos:vec2): Array<Item> {
@@ -532,9 +553,12 @@ class GameMap {
             } else if (item.type === ItemType.Coin || item.type === ItemType.Health) {
                 items.push(item);
                 return false;
-            } else if (item.type === ItemType.Treasure && !lockedTreasure) {
+            } else if (item.type >= ItemType.TreasureA && !lockedTreasure) {
                 items.push(item);
                 return false;
+            } else if (item.type === ItemType.VaultTreasureBox) {
+                items.push(item);
+                return false;                
             } else {
                 return true;
             }

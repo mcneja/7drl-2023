@@ -528,12 +528,14 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
     let coinCollected = false;
     let healthCollected = false;
     for (const item of itemsCollected) {
+        let animType = item.type;
         let offset = 0;
+        let numGained = 1;
         if (item.type === ItemType.Coin) {
             ++state.player.loot;
             ++state.lootStolen;
             coinCollected = true;
-        } else if (item.type === ItemType.Treasure) {
+        } else if (item.type >= ItemType.TreasureA) {
             coinCollected = true;
             ++state.treasureStolen;
             for (const treasureInfo of state.gameMap.treasures) {
@@ -552,6 +554,16 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
                 }
             }
             offset = 0.5;
+        } else if (item.type === ItemType.VaultTreasureBox) {
+            state.player.loot += 3;
+            state.lootStolen += 3;
+            state.lootAvailable += 3;
+            coinCollected = true;
+            animType = ItemType.Coin;
+            numGained = 3;
+            state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
+            makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
+                pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
         } else if (item.type === ItemType.Health) {
             enlargeHealthBar(state);
             if (state.player.health >= state.player.healthMax) {
@@ -562,22 +574,26 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             }
             healthCollected = true;
         }
-        const pt0 = vec2.create();
-        const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]+offset));
-        const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5+offset/2));
         const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, entityTileSet);
-        const animation = new SpriteAnimation([
-                {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
-                {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
-            ], 
-            [
-                itemTiles[item.type], 
-                itemTiles[item.type]
-            ]
-        );
-        animation.removeOnFinish = true;
-        item.animation = animation;
-        state.particles.push(item);
+        for(let i=0; i<numGained; i++) {
+            const animItem:Item = {type:animType, pos:vec2.clone(item.pos), topLayer:false};
+            const pt0 = vec2.create();
+            const pt2 = vec2.fromValues((posFlyToward[0]-item.pos[0]), (posFlyToward[1]-item.pos[1]+offset));
+            const pt1 = pt2.scale(0.3333).add(vec2.fromValues(0,0.5+offset/2));
+            const animation = new SpriteAnimation([
+                    {pt0:pt0, pt1:pt1, duration:0.1, fn:tween.easeOutQuad},
+                    {pt0:pt1, pt1:pt2, duration:0.1, fn:tween.easeInQuad}
+                ], 
+                [
+                    itemTiles[animType], 
+                    itemTiles[animType]
+                ]
+            );
+            animation.time = -i*0.2;
+            animation.removeOnFinish = true;
+            animItem.animation = animation;
+            state.particles.push(animItem);
+        }
     }
 
     if (coinCollected) {
@@ -618,13 +634,19 @@ function canStepToPos(state: State, pos: vec2): boolean {
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(pos))) {
         switch (item.type) {
         case ItemType.DrawersShort:
+        case ItemType.VaultTreasureBox:
+        case ItemType.EmptyVaultTreasureBox:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
         case ItemType.PortcullisEW:
         case ItemType.PortcullisNS:
         case ItemType.TreasureLock:
         case ItemType.TreasurePlinth:
-        case ItemType.Treasure:
+        case ItemType.TreasureA:
+        case ItemType.TreasureB:
+        case ItemType.TreasureC:
+        case ItemType.TreasureD:
+        case ItemType.TreasureE:
             return false;
         }
     }
@@ -1289,6 +1311,8 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
     for (const item of state.gameMap.items.filter((item) => item.pos.equals(posNew))) {
         switch (item.type) {
         case ItemType.DrawersShort:
+        case ItemType.VaultTreasureBox:
+        case ItemType.EmptyVaultTreasureBox:
         case ItemType.TreasurePlinth:
             if (canCollectLootAt(state, posNew)) {
                 preTurn(state);
@@ -2051,11 +2075,17 @@ function isLockedDoorAtPos(gameMap: GameMap, pos: vec2): boolean {
 function canLeapOntoItemType(itemType: ItemType): boolean {
     switch (itemType) {
         case ItemType.DrawersShort:
+        case ItemType.VaultTreasureBox:
+        case ItemType.EmptyVaultTreasureBox:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
         case ItemType.TreasureLock:
         case ItemType.TreasurePlinth:
-        case ItemType.Treasure:
+        case ItemType.TreasureA:
+        case ItemType.TreasureB:
+        case ItemType.TreasureC:
+        case ItemType.TreasureD:
+        case ItemType.TreasureE:
             return false;
         default:
             return true;
@@ -2189,6 +2219,33 @@ export function postTurn(state: State) {
             state.popups.setNotification('Escape!', state.player.pos);
         }
         state.finishedLevel = true;
+    }
+
+    if (state.turns === numTurnsParForCurrentMap(state)) {
+        const vaultItems:Item[] = [];
+        let itemsRemoved = false;
+        state.gameMap.items = state.gameMap.items.filter((item)=>{
+            if (item.type===ItemType.VaultTreasureBox) {
+                vaultItems.push(item);
+                itemsRemoved = true;
+                return false;
+            }
+            if (item.type>=ItemType.TreasureA && 
+                !state.gameMap.items.some(lock=>lock.type===ItemType.TreasureLock && lock.pos.equals(item.pos))) {
+                    itemsRemoved = true;
+                    return false;
+            }
+            return true;
+        });
+        for (let item of vaultItems) {
+            state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
+        }
+        if (itemsRemoved) {
+            state.popups.setNotification('Running late!\nTreasure was removed.', state.player.pos);
+        } else {
+            state.popups.setNotification('Running late!', state.player.pos);
+        }
+        state.sounds.clockChime.play(1.0);
     }
 }
 
@@ -2434,10 +2491,15 @@ function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
                 !(state.player.pos[0]===x && state.player.pos[1]===y)) {
                 renderer.addGlyphLit4(x, y, x + 1, y + 1, itemTiles[item.type], lv);
             }
-        } else if (item.type===ItemType.Treasure) {
+        } else if (item.type>=ItemType.TreasureA) {
             renderer.addGlyph(x, y+0.5, x + 1, y + 1.5, itemTiles[item.type]);
             if (item.animation) {
                 renderer.addGlyph(x, y+0.5, x + 1, y + 1.5, item.animation.currentTile());
+            }
+        } else if (item.type===ItemType.VaultTreasureBox) {
+            renderer.addGlyph(x, y, x + 1, y + 1, itemTiles[item.type]);
+            if (item.animation) {
+                renderer.addGlyph(x, y, x + 1, y + 1, item.animation.currentTile());
             }
         } else if (item.type===ItemType.Coin) {
             renderer.addGlyph(x, y, x + 1, y + 1, itemTiles[item.type]);
@@ -3064,10 +3126,10 @@ function setCellAnimations(gameMap: GameMap, state: State) {
 
 function setItemAnimations(gameMap: GameMap, state: State) {
     for (let item of gameMap.items) {
-        if (item.type===ItemType.Treasure) {
-            item.animation = new PulsingColorAnimation(getEntityTileSet().itemGlows[item.type], 0, 1);
-        } else if (item.type===ItemType.Coin) {
-            item.animation = new PulsingColorAnimation(getEntityTileSet().itemGlows[item.type], 0, .75);
+        const glow = getEntityTileSet().itemGlows[item.type];
+        if (glow!==undefined) {
+            const period = item.type===ItemType.Coin ? 0.75: 1.25;
+            item.animation = new PulsingColorAnimation(glow, 0, period);
         }
     }
 }

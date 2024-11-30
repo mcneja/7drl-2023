@@ -86,8 +86,10 @@ class SpriteAnimation extends Animator {
             return true;
         }
         this.time=Math.min(this.time+dt, duration);
-        this.offset[0] = fn(this.time, start[0], end[0], duration);
-        this.offset[1] = fn(this.time, start[1], end[1], duration);
+        if (this.time>=0) {
+            this.offset[0] = fn(this.time, start[0], end[0], duration);
+            this.offset[1] = fn(this.time, start[1], end[1], duration);    
+        }
         if(this.time == duration) {
             this.activePt++;
             this.time = 0;

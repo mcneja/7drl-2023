@@ -192,7 +192,7 @@ class TreasureAchievement extends Achievement {
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'levelEnd') {
-            if (state.gameMap.items.some(item => item.type === ItemType.Treasure)) {
+            if (state.gameMap.items.some(item => item.type >= ItemType.TreasureA)) {
                 this.failed = true;
             }
         }

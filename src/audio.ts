@@ -64,6 +64,11 @@ const douseSet = [
     require('url:./audio/douse-4.mp3'),    
 ];
 
+const clockChimeSet = [
+    require('url:./audio/chiming-clock.mp3'),
+];
+
+
 const igniteSet = [
     require('url:./audio/ignite.mp3'),
     require('url:./audio/ignite-2.mp3'),
@@ -640,6 +645,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hitPlayer = new HowlGroup(hitPlayerSet);
     sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
+    sounds.clockChime = new HowlGroup(clockChimeSet);
 
     sounds.doorOpen = new HowlGroup(doorOpenSet);
     sounds.doorClose = new HowlGroup(doorCloseSet);
