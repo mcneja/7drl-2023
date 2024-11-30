@@ -207,7 +207,7 @@ function updateControllerState(state:State) {
             }
         } else if (activated('wait')) {
             tryPlayerWait(state);
-        } else if (activated('menu')) {
+        } else if (activated('menu') || activated('menuToggle')) {
             if(state.player.health>0) {
                 state.gameMode = GameMode.HomeScreen;
             } else {
@@ -3651,7 +3651,7 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const inGame = state.gameMode===GameMode.Mansion;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
+        {action:'menuToggle', rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
         {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
         {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:inGame},
         {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:true},

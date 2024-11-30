@@ -22,6 +22,7 @@ const controlStates0: ControlStates = {
     'panRight': false,
     'menu': false,
     'menuBack': false,
+    'menuToggle': false,
     'homePlay': false,
     'homeDaily': false,
     'homeStats': false,
@@ -95,7 +96,7 @@ const defaultKeyMap:KeyMap = {
     'KeyZ': ['wait', 'menuAccept'],
     'Period': ['wait', 'menuAccept'],
     'Shift': ['jump'],
-    'Slash' : ['menu'],
+    'Slash' : ['menu', 'menuBack'],
     'Space': ['wait', 'menuAccept'],
     'Minus' : ['volumeDown'],
     'Numpad2': ['down'],
@@ -385,7 +386,7 @@ class TouchController extends Controller {
             'zoomIn':       {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
             'zoomOut':      {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
             'forceRestart': {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
-            'menu':         {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
+            'menuToggle':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
             'fullscreen':   {id:-1, rect:new Rect(), touchXY:[0,0], tileInfo:null, mouseable:true},
         };
         this.touchTargets = this.coreTouchTargets;

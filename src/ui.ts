@@ -333,7 +333,7 @@ $playRestartOrResume$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
-        if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
+        if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu' || activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
             this.devSequenceCursor = 0;
         } else if(activated('devMenu') || actionSelected=='devMenu') {
@@ -415,7 +415,7 @@ $message$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -497,7 +497,7 @@ class OptionsScreen extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -585,7 +585,7 @@ Keyboard and touch also supported
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -622,7 +622,7 @@ Bonus loot: Steal it?
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -650,7 +650,7 @@ Special thanks to Mendi Carroll
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -762,7 +762,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             this.stateCopied = false;
@@ -805,7 +805,7 @@ Total wins first try:    $allDailyWinsFirstTry$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -857,7 +857,7 @@ requirements when you complete a game.
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
