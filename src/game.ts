@@ -564,6 +564,12 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             animType = ItemType.Coin;
             numGained = 3;
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
+            for (const g of state.gameMap.guards) {
+                g.angry = true;
+                if (g.mode === GuardMode.Unconscious) {
+                    g.modeTimeout = 0;
+                }
+            }
             makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
                 pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
         } else if (item.type === ItemType.Health) {
