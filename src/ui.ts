@@ -11,6 +11,18 @@ import { Achievement, Achievements } from './achievements';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, DevScreen };
 
+function displayModal(message: string) {
+    const text = document.getElementById('modalText')!;
+    text.innerHTML = message;
+    const modal = document.getElementById('modalDialog')!;
+    modal.style.display = 'block';
+
+    const closeButton = document.getElementById('modalCloseButton')!;
+    closeButton.onclick = () => {
+        modal.style.display = 'none';
+    }
+}
+
 function scoreToClipboard(stats:GameStats | null, achievements:Achievements) {
     if (stats === null) {
         navigator.clipboard.writeText('No game played yet!');
@@ -52,6 +64,8 @@ function scoreToClipboard(stats:GameStats | null, achievements:Achievements) {
         `${achievementsLine}`;
 
     navigator.clipboard.writeText(scoreMessage);
+
+//    displayModal(scoreMessage.replaceAll('\n', '<br/>'));
 }
 
 
