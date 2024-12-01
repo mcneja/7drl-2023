@@ -602,8 +602,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         state.sounds.coin.play(1.0);
     }
     if (healthCollected) {
-        // TODO: Play health pickup sound
-        state.sounds.coin.play(1.0);
+        state.sounds.food.play(0.25);
     }
 
     return true;
@@ -930,9 +929,13 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
             );
         animation.removeOnFinish = true;
         pickedItem.animation = animation;
-        state.particles.push(pickedItem);            
+        state.particles.push(pickedItem);
 
-        state.sounds.coin.play(1.0);                        
+        if (pickedItem.type===ItemType.Key) {
+            state.sounds.grabKey.play(1.0);
+        } else {
+            state.sounds.coin.play(1.0);
+        }
     }
 }
 
