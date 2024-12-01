@@ -11,22 +11,37 @@ import { Achievement, Achievements } from './achievements';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, DevScreen };
 
+let modalVisible: boolean = false;
+
 function displayModal(message: string) {
     const text = document.getElementById('modalText')!;
     text.innerHTML = message;
     const modal = document.getElementById('modalDialog')!;
     modal.style.display = 'block';
 
+    modalVisible = true;
+
     const closeButton = document.getElementById('modalCloseButton')!;
     closeButton.onclick = () => {
-        modal.style.display = 'none';
+        hideModal();
     }
 }
 
-function scoreToClipboard(stats:GameStats | null, achievements:Achievements) {
+function hideModal() {
+    const modal = document.getElementById('modalDialog')!;
+    modal.style.display = 'none';
+    modalVisible = false;
+}
+
+function displayScorePopup(stats: GameStats | null, achievements: Achievements) {
+    let msg = scoreMessage(stats, achievements);
+    msg = msg.replaceAll('\n', '<br>');
+    displayModal(msg);
+}
+
+function scoreMessage(stats: GameStats | null, achievements: Achievements): string {
     if (stats === null) {
-        navigator.clipboard.writeText('No game played yet!');
-        return;
+        return 'No game played yet!';
     }
 
     const numGhostedLevels = stats.numGhostedLevels;
@@ -63,9 +78,11 @@ function scoreToClipboard(stats:GameStats | null, achievements:Achievements) {
         `Total score: ${totalScore}\n`+
         `${achievementsLine}`;
 
-    navigator.clipboard.writeText(scoreMessage);
+    return scoreMessage;
+}
 
-//    displayModal(scoreMessage.replaceAll('\n', '<br/>'));
+function scoreToClipboard(stats:GameStats | null, achievements:Achievements) {
+    navigator.clipboard.writeText(scoreMessage(stats, achievements));
 }
 
 
@@ -675,22 +692,6 @@ Special thanks to Mendi Carroll
     }
 }
 
-`Daily Challenge for $date$
-
-$dailyStatus$
-$playMode$
-
-Last game played:   $lastPlayed$
-Last score:         $lastScore$
-[C|copyScore] Copy last game to clipboard
-$copyState$
-Best winning score: $bestScore$
-Total daily runs:   $dailyPlays$
-Total daily wins:   $dailyWins$
-Win streak:         $dailyWinStreak$
-
-[Esc|menuBack] Back to menu`
-
 class DailyHubScreen extends TextWindow {
     pages = [
 `The Daily Challenge
@@ -708,25 +709,10 @@ $timeLeft$
 
 Last game played:  $lastPlayed$
 Last score:        $lastScore$
-[C|copyScore] Copy last game to clipboard
-$copyState$
+[S|scorePopup] Score popup (for copy/paste)
 
 [Esc|menuBack] Back to menu`,
     ];
-    stateCopied: boolean = false;
-    prevDay(d:Date):Date {
-        const pd = new Date(d);
-        pd.setDate(pd.getDate()-1);
-        return pd;
-    }
-    nextDay(d:Date):Date {
-        const pd = new Date(d);
-        pd.setDate(pd.getDate()+1);
-        const dnow = new Date();
-        dnow.setUTCHours(24,0,0,0);
-        if(pd>dnow) return d;
-        return pd;
-    }
     timeToMidnightUTC():string {
         const d = new Date();
         const dm = new Date(d);
@@ -775,22 +761,24 @@ $copyState$
         this.state.set('lastPlayed', lastDailyDate);
         this.state.set('lastScore', lastDailyScore.toString());
         this.state.set('bestScore', state.persistedStats.currentDailyBestScore.toString());
-        this.state.set('copyState', this.stateCopied ? '    COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
-        const action = this.navigateUI(activated);
-        if (activated('menuToggle')) {
-            game.startResumeConfiguredGame(state);
-        } else if (activated('menuBack') || action=='menuBack') {
-            this.stateCopied = false;
-            state.gameMode = GameMode.HomeScreen;
-        } else if (activated('homePlay') || action=='homePlay') {
-            this.stateCopied = false;
-            game.startDailyGame(state);
-            state.hasStartedGame = true;
-        } else if (activated('copyScore') || action=='copyScore') {
-            scoreToClipboard(state.persistedStats.lastPlayedDailyGame, state.achievements);
-            this.stateCopied = true;
+        if (modalVisible) {
+            if (activated('menuAccept') || activated('menuBack')) {
+                hideModal();
+            }
+        } else {
+            const action = this.navigateUI(activated);
+            if (activated('menuToggle')) {
+                game.startResumeConfiguredGame(state);
+            } else if (activated('menuBack') || action=='menuBack') {
+                state.gameMode = GameMode.HomeScreen;
+            } else if (activated('homePlay') || action=='homePlay') {
+                game.startDailyGame(state);
+                state.hasStartedGame = true;
+            } else if (activated('scorePopup') || action=='scorePopup') {
+                displayScorePopup(state.persistedStats.lastPlayedDailyGame, state.achievements);
+            }
         }
     };        
 }
@@ -965,35 +953,35 @@ Ghosted:       $numGhostedLevels$
 Total Score:   $totalScore$
 
 [N|homeRestart]:   New game
-[C|copyScore]:   Copy score to clipboard
-$copyState$
+[S|scorePopup]:   Score popup (for copy/paste)
 [Esc|menuBack]: Exit to home screen`
     ];
-    stateCopied: boolean = false;
     update(state:State) {
         this.state.set('level', state.level.toString());
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
-        this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
-        const action = this.navigateUI(activated);
-        if (activated('homeRestart') || action=='homeRestart') {
-            this.stateCopied = false;
-            state.rng = new RNG();
-            state.dailyRun = null;
-            game.restartGame(state);
-        } else if (activated('menuBack') || action=='menuBack') {
-            this.stateCopied = false;
-            state.rng = new RNG();
-            state.dailyRun = null;
-            game.restartGame(state);
-            state.gameMode = GameMode.HomeScreen;
-            state.hasStartedGame = false;
-        } else if (activated('copyScore') || action=='copyScore') {
-            scoreToClipboard(state.gameStats, state.achievements);
-            this.stateCopied = true;
+        if (modalVisible) {
+            if (activated('menuAccept') || activated('menuBack')) {
+                hideModal();
+            }
+        } else {
+            const action = this.navigateUI(activated);
+            if (activated('homeRestart') || action=='homeRestart') {
+                state.rng = new RNG();
+                state.dailyRun = null;
+                game.restartGame(state);
+            } else if (activated('menuBack') || action=='menuBack') {
+                state.rng = new RNG();
+                state.dailyRun = null;
+                game.restartGame(state);
+                state.gameMode = GameMode.HomeScreen;
+                state.hasStartedGame = false;
+            } else if (activated('scorePopup') || action=='scorePopup') {
+                displayScorePopup(state.gameStats, state.achievements);
+            }
         }
     }   
 };
@@ -1007,17 +995,14 @@ Ghosted:       $numGhostedLevels$ of $numLevels$
 Total Score:   $totalScore$$achievements$
 
 [N|homeRestart]:   New game
-[C|copyScore]:   Copy score to clipboard
-$copyState$
+[S|scorePopup]:   Score popup (for copy/paste)
 [Esc|menuBack]: Exit to home screen`
     ];
-    stateCopied: boolean = false;
     achievementsLine: string|undefined = undefined;
     update(state:State) {
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
-        this.state.set('copyState', this.stateCopied ? '       COPIED!' : '');
         if (this.achievementsLine===undefined) {
             this.achievementsLine = '';
             if (!state.dailyRun) {
@@ -1035,24 +1020,27 @@ $copyState$
         }
     }
     onControls(state:State, activated:(action:string)=>boolean) {
-        const action = this.navigateUI(activated);
-        if (activated('homeRestart') || action=='homeRestart') {
-            this.stateCopied = false;
-            state.rng = new RNG();
-            state.dailyRun = null;
-            this.achievementsLine = undefined;
-            game.restartGame(state);
-        } else if (activated('menuBack') || action=='menuBack') {
-            this.stateCopied = false;
-            state.rng = new RNG();
-            state.dailyRun = null;
-            game.restartGame(state);
-            state.gameMode = GameMode.HomeScreen;
-            this.achievementsLine = undefined;
-            state.hasStartedGame = false;
-        } else if (activated('copyScore') || action=='copyScore') {
-            scoreToClipboard(state.gameStats, state.achievements);
-            this.stateCopied = true;
+        if (modalVisible) {
+            if (activated('menuAccept') || activated('menuBack')) {
+                hideModal();
+            }
+        } else {
+            const action = this.navigateUI(activated);
+            if (activated('homeRestart') || action=='homeRestart') {
+                state.rng = new RNG();
+                state.dailyRun = null;
+                this.achievementsLine = undefined;
+                game.restartGame(state);
+            } else if (activated('menuBack') || action=='menuBack') {
+                state.rng = new RNG();
+                state.dailyRun = null;
+                game.restartGame(state);
+                state.gameMode = GameMode.HomeScreen;
+                this.achievementsLine = undefined;
+                state.hasStartedGame = false;
+            } else if (activated('scorePopup') || action=='scorePopup') {
+                displayScorePopup(state.gameStats, state.achievements);
+            }
         }
     };
 }
