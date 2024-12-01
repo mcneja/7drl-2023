@@ -207,7 +207,7 @@ function updateControllerState(state:State) {
             }
         } else if (activated('wait')) {
             tryPlayerWait(state);
-        } else if (activated('menu')) {
+        } else if (activated('menu') || activated('menuToggle')) {
             if(state.player.health>0) {
                 state.gameMode = GameMode.HomeScreen;
             } else {
@@ -225,6 +225,10 @@ function updateControllerState(state:State) {
                 state.player.loot += loot;
                 state.lootStolen += loot;
                 postTurn(state);
+            }
+        } else if (activated('getKey')) {
+            if (state.devMode) {
+                state.player.hasVaultKey = true;
             }
         } else if (activated('forceRestart')) {
             if (state.dailyRun) {
@@ -271,7 +275,7 @@ function updateControllerState(state:State) {
             zoomOut(state);
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
-            state.popups.setNotification('Guard speech: ' + (state.guardMute ? 'disabled' : 'enabled'), state.player.pos);
+            state.popups.setNotification('Guard speech: ' + (state.guardMute ? 'disabled' : 'enabled'), state.player);
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
@@ -283,18 +287,18 @@ function updateControllerState(state:State) {
             }
             state.player.idle = false;
             state.idleTimer = 2;
-            state.popups.setNotification("Player idle cursor: "+state.player.idleCursorType, state.player.pos);
+            state.popups.setNotification("Player idle cursor: "+state.player.idleCursorType, state.player);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
-            state.popups.setNotification('Sound: ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player.pos);
+            state.popups.setNotification('Sound: ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player);
         } else if (activated('volumeDown')) {
             const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
             setSoundVolume(state, soundVolume);
-            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
+            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player);
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
-            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player.pos);
+            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player);
         } else if (activated('showSpeech')) {
             state.popups.toggleShow(state.player.pos);
         }
@@ -377,6 +381,7 @@ export function setupLevel(state: State, level: number) {
         return;
     }
 
+    state.popups.reset();
     state.activeSoundPool.empty();
     state.ambientSoundPool.empty();
     state.gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
@@ -447,9 +452,31 @@ export function numTurnsParForCurrentMap(state: State): number {
     return par;
 }
 
+function countElems<T>(array: Array<T>, predicate: (elem: T) => boolean): number {
+    return array.reduce((total, elem) => total + (predicate(elem) ? 1 : 0), 0);
+}
+
+export function currentMapHasBonusTreasure(state: State): boolean {
+    if (state.gameMap.treasures.length > 0) {
+        return true;
+    }
+
+    if (state.gameMap.items.some(item => item.type === ItemType.VaultTreasureBox || item.type === ItemType.EmptyVaultTreasureBox)) {
+        return true;
+    }
+
+    return false;
+}
+
 export function bonusTreasureScoreForCurrentMap(state: State): number {
-    const levelLootScore = state.lootStolen * 10;
-    return state.gameMap.treasures.reduce((total, treasure) => total + (treasure.stolen ? ((treasure.switches.length > 0) ? levelLootScore : 20) : 0), 0);
+    const lockedTreasureScore = state.lootStolen * 10;
+    const unlockedTreasureScore = lockedTreasureScore / 2;
+    const vaultTreasureScore = 30;
+    let treasureScore = 0;
+    treasureScore += lockedTreasureScore   * countElems(state.gameMap.treasures, treasure => treasure.stolen && treasure.switches.length > 0);
+    treasureScore += unlockedTreasureScore * countElems(state.gameMap.treasures, treasure => treasure.stolen && treasure.switches.length <= 0);
+    treasureScore += vaultTreasureScore    * countElems(state.gameMap.items, item => item.type === ItemType.EmptyVaultTreasureBox);
+    return treasureScore;
 }
 
 const mansionCompleteTopStatusHint: Array<string> = [
@@ -544,28 +571,19 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
                 if (treasureInfo.posTreasure.equals(item.pos)) {
                     treasureInfo.stolen = true;
                     if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress) {
-                        for (const g of state.gameMap.guards) {
-                            g.angry = true;
-                            if (g.mode === GuardMode.Unconscious) {
-                                g.modeTimeout = 0;
-                            }
-                        }
                         makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
-                            pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
+                            pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
                     }
                 }
             }
             offset = 0.5;
         } else if (item.type === ItemType.VaultTreasureBox) {
-            state.player.loot += 3;
-            state.lootStolen += 3;
-            state.lootAvailable += 3;
             coinCollected = true;
             animType = ItemType.Coin;
             numGained = 3;
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
             makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
-                pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds);
+                pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
         } else if (item.type === ItemType.Health) {
             enlargeHealthBar(state);
             if (state.player.health >= state.player.healthMax) {
@@ -602,8 +620,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
         state.sounds.coin.play(1.0);
     }
     if (healthCollected) {
-        // TODO: Play health pickup sound
-        state.sounds.coin.play(1.0);
+        state.sounds.food.play(0.25);
     }
 
     return true;
@@ -930,9 +947,13 @@ function collectGuardLoot(state:State, player:Player, guard:Guard, posNew:vec2, 
             );
         animation.removeOnFinish = true;
         pickedItem.animation = animation;
-        state.particles.push(pickedItem);            
+        state.particles.push(pickedItem);
 
-        state.sounds.coin.play(1.0);                        
+        if (pickedItem.type===ItemType.Key) {
+            state.sounds.grabKey.play(1.0);
+        } else {
+            state.sounds.coin.play(1.0);
+        }
     }
 }
 
@@ -1099,7 +1120,7 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
         if (item.type === ItemType.Bookshelf) {
             title = '"' + title + '"';
         }
-        state.popups.setNotification(title, state.player.pos);
+        state.popups.setNotification(title, state.player);
         return;
     }
 
@@ -1153,15 +1174,15 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
         case SwitchResult.Completed:
         case SwitchResult.Reset:
             state.sounds.switchReset.play(0.5);
-            state.popups.setNotification('(clunk)', state.player.pos);
+            state.popups.setNotification('(clunk)', state.player);
             break;
         case SwitchResult.Advance:
             state.sounds.switchProgress.play(0.5);
-            state.popups.setNotification('(click)', state.player.pos);
+            state.popups.setNotification('(click)', state.player);
             break;
         case SwitchResult.Complete:
             state.sounds.switchSuccess.play(0.5);
-            state.popups.setNotification('(rumble)', state.player.pos);
+            state.popups.setNotification('(rumble)', state.player);
             joltCamera(state, dx, dy);
             break;
     }
@@ -1230,7 +1251,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
 
         if (!state.finishedLevel) {
-            state.popups.setNotification('Collect all loot\nbefore leaving', state.player.pos);
+            state.popups.setNotification('Collect all loot\nbefore leaving', state.player);
             bumpFail(state, dx, dy);
         } else {
             preTurn(state);
@@ -1271,7 +1292,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             advanceTime(state);
         } else {
             if (stepType === StepType.Normal && state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
-                state.popups.setNotification('Locked!', state.player.pos);
+                state.popups.setNotification('Locked!', state.player);
             }
             tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
         }
@@ -1285,7 +1306,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        state.popups.setNotification('Window is\nimpassable\nfrom here', state.player.pos);
+        state.popups.setNotification('Window is\nimpassable\nfrom here', state.player);
 
         if (state.gameMapRoughPlans[state.level].level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
@@ -1367,7 +1388,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         case ItemType.LockedDoorNS:
             if (!player.hasVaultKey) {
                 if (stepType === StepType.Normal) {
-                    state.popups.setNotification('Locked!', state.player.pos);
+                    state.popups.setNotification('Locked!', state.player);
                 }
                 tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
                 return;
@@ -1568,7 +1589,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
             return;
         }
         if (state.player.turnsRemainingUnderwater === 1) {
-            state.popups.setNotification('Out of breath;\nsurfacing', state.player.pos);
+            state.popups.setNotification('Out of breath;\nsurfacing', state.player);
             return;
         }
     }
@@ -1622,14 +1643,14 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     if (!(allSeen && allLooted) && state.numLeapMoves <= 1) {
         const posMid = vec2.fromValues(Math.floor((state.player.pos[0] + posPrev[0]) / 2), Math.floor((state.player.pos[1] + posPrev[1]) / 2));
         if (state.gameMap.items.some(item => item.pos.equals(posMid) && item.type === ItemType.PortcullisEW)) {
-            state.popups.setNotificationHold('Leap over open\nground or low\nfurniture too', state.player.pos);
+            state.popups.setNotificationHold('Leap over open\nground or low\nfurniture too', state.player);
             return;
         }
     }
 }
 
 function showDeadNotification(state: State) {
-    state.popups.setNotification(state.dailyRun ? deadDailyNotification : deadNotification, state.player.pos);
+    state.popups.setNotification(state.dailyRun ? deadDailyNotification : deadNotification, state.player);
 }
 
 function isAnyoneAwareOfPlayer(state: State): boolean {
@@ -2106,12 +2127,10 @@ function isOneWayWindowTerrainType(terrainType: TerrainType): boolean {
     }
 }
 
-function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: NoiseType, dx: number, dy: number, sounds: Howls) {
+function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: NoiseType, dx: number, dy: number, sounds: Howls, radius:number = 23, makeAngry:boolean = false) {
     player.noisy = true;
     player.noiseOffset[0] = dx;
     player.noiseOffset[1] = dy;
-
-    const radius = 23;
 
     switch (noiseType) {
         case NoiseType.Creak:
@@ -2148,6 +2167,12 @@ function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: Nois
             foundClosestGuard = true;
             guard.heardThiefClosest = true;
         }
+        if (makeAngry) {
+            guard.angry = true;
+            if (guard.mode === GuardMode.Unconscious) {
+                guard.modeTimeout = 0;
+            }    
+        }
     }
 }
 
@@ -2156,7 +2181,7 @@ function preTurn(state: State) {
     state.player.damagedLastTurn = false;
     state.player.itemUsed = null;
     state.player.lightActive = false;
-    state.popups.clearNotification();
+    state.popups.updateNotification();
 }
 
 function advanceTime(state: State) {
@@ -2218,12 +2243,17 @@ export function postTurn(state: State) {
     if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
-            state.popups.setNotification('Escape!', state.player.pos);
+            state.popups.setNotification('Escape!', state.player, 3, 5.0);
         }
         state.finishedLevel = true;
     }
 
-    if (state.turns === numTurnsParForCurrentMap(state) + 1) {
+    const numTurnsPar = numTurnsParForCurrentMap(state);
+    if (state.turns === Math.floor(0.75*numTurnsPar) || state.turns === numTurnsPar-10 && numTurnsPar>100) {
+        state.popups.setNotification('Tick tock!', state.player, 3, 5.0);
+        state.sounds.clockTick.play(1.0);
+    }
+    if (state.turns === numTurnsPar + 1) {
         const vaultItems:Item[] = [];
         let itemsRemoved = false;
         state.gameMap.items = state.gameMap.items.filter((item)=>{
@@ -2232,31 +2262,26 @@ export function postTurn(state: State) {
                 itemsRemoved = true;
                 return false;
             }
-            if (item.type>=ItemType.TreasureA && 
-                !state.gameMap.items.some(lock=>lock.type===ItemType.TreasureLock && lock.pos.equals(item.pos))) {
-                    itemsRemoved = true;
-                    return false;
-            }
             return true;
         });
         for (let item of vaultItems) {
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
         }
         if (itemsRemoved) {
-            state.popups.setNotificationHold('Late!\nTreasure was removed.', state.player.pos);
+            state.popups.setNotification('Late!\nVaults were cleared.', state.player, 3, 5.0);
         } else {
-            state.popups.setNotificationHold('Late!', state.player.pos);
+            state.popups.setNotification('Late!', state.player, 3, 5.0);
         }
         state.sounds.clockChime.play(1.0);
     }
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
-    state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+    state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player);
 }
 
 function setLeapStatusMessageHold(state: State, dx: number, dy: number) {
-    state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
+    state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player);
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {
@@ -3651,7 +3676,7 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
     const inGame = state.gameMode===GameMode.Mansion;
 
     const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menu',       rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
+        {action:'menuToggle', rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
         {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
         {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:inGame},
         {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:true},
@@ -3975,7 +4000,8 @@ function renderNotification(renderer: Renderer, screenSize: vec2, state: State) 
     const viewWorldCenterX = state.camera.position[0] + state.camera.joltOffset[0];
     const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
-    const posPopupWorld = state.popups.notificationWorldPos;
+    const wp = state.popups.notificationWorldPos;
+    const posPopupWorld = wp instanceof Player? (wp.animation? wp.pos.add(wp.animation.offset): wp.pos) : wp;
     const popupPixelX = ((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX;
     const popupPixelY = ((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY + pixelsPerCharY;
 

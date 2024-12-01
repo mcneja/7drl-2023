@@ -347,7 +347,7 @@ $playRestartOrResume$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const actionSelected = this.navigateUI(activated);
-        if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu') {
+        if (activated('homePlay') || actionSelected=='homePlay' || activated('menu') || actionSelected=='menu' || activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
             this.devSequenceCursor = 0;
         } else if(activated('devMenu') || actionSelected=='devMenu') {
@@ -406,6 +406,7 @@ class DevScreen extends TextWindow {
 [Alt+<|prevLevel]  Previous level
 [Alt+>|nextLevel]  Next level
 [Alt+C|collectLoot]  Collect loot 
+[Alt+K|getKey]  Get key
 [Alt+S|markSeen]  Mark mansion seen
 [Alt+A|seeAll]  See entire map: $seeAll$
 [Alt+P|guardPatrols]  See guard patrols: $guardPatrols$
@@ -429,7 +430,7 @@ $message$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -461,6 +462,8 @@ $message$
             } else {
                 this.state.set('message', 'START GAME FIRST');
             }
+        } else if (activated('getKey') || action=='getKey') {
+            state.player.hasVaultKey = true;
         } else if (activated('markSeen') || action=='markSeen') {
             if (state.hasStartedGame) {
                 state.gameMap.markAllSeen();
@@ -511,7 +514,7 @@ class OptionsScreen extends TextWindow {
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -599,7 +602,7 @@ Keyboard and touch also supported
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -636,7 +639,7 @@ Bonus loot: Steal it?
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -664,7 +667,7 @@ Special thanks to Mendi Carroll
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -776,7 +779,7 @@ $copyState$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             this.stateCopied = false;
@@ -819,7 +822,7 @@ Total wins first try:    $allDailyWinsFirstTry$
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -871,7 +874,7 @@ requirements when you complete a game.
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
-        if (activated('menu') || action=='menu') {
+        if (activated('menuToggle')) {
             game.startResumeConfiguredGame(state);
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
@@ -933,7 +936,7 @@ Cumulative:  $totalScore$
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('levelStats', levelStats);
         this.state.set('lootScore', (state.lootStolen * 10).toString());
-        this.state.set('treasureScore', (state.gameMap.treasures.length > 0) ? ('\nBonus Loot:  ' + treasureScore) : '');
+        this.state.set('treasureScore', game.currentMapHasBonusTreasure(state) ? ('\nBonus Loot:  ' + treasureScore) : '');
         this.state.set('foodScore', (foodScore > 0) ? ('\nFood:        ' + foodScore) : '');
         this.state.set('timeBonus', timeBonus.toString());
         this.state.set('ghostBonus', ghostBonus.toString());

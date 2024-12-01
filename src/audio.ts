@@ -65,9 +65,21 @@ const douseSet = [
 ];
 
 const clockChimeSet = [
-    require('url:./audio/chiming-clock.mp3'),
+    require('url:./audio/chiming-clock-short.mp3'),
 ];
 
+const clockTickSet = [
+    require('url:./audio/ticking-clock.mp3'),
+];
+
+const foodSet = [
+    require('url:./audio/eating.mp3'),
+]
+
+const grabKeySet = [
+    require('url:./audio/grab-key.mp3'),
+    require('url:./audio/grab-key-2.mp3'),
+]
 
 const igniteSet = [
     require('url:./audio/ignite.mp3'),
@@ -348,24 +360,21 @@ const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
 const guardHearGuardSet: Array<SubtitledSoundDesc> = [ //Repond to guards that enter the chase set
     [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
     [require('url:./audio/guards/What.mp3'), 'What?'],
-    // [require('url:./audio/guards/where.mp3'), 'Where!?'],
     [require('url:./audio/guards/coming.mp3'), 'Coming!'],
-    // [require('url:./audio/guards/here I come.mp3'), 'Here I come!'],
     [require('url:./audio/guards/to arms.mp3'), 'To arms!'],
-    // [require('url:./audio/guards/what is it.mp3'), 'What is it!?'],
-    // [require('url:./audio/guards/i dont know how to whistle.mp3'), 'I don\'t know\nhow to whistle.'],
 ];
 
 const guardSeeUnlitTorchSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/What.mp3'), 'That torch is out!'],
-    [require('url:./audio/guards/What.mp3'), 'It\'s too dark\nin here.'],
-    [require('url:./audio/guards/What.mp3'), 'Let\'s have more light.'],
+    [require('url:./audio/guards/torch-out.mp3'), 'That torch is out!'],
+    [require('url:./audio/guards/torch-out-2.mp3'), 'That light\nburned out!'],
+    [require('url:./audio/guards/too-dark.mp3'), 'It\'s too dark\nin here.'],
+    [require('url:./audio/guards/more-light.mp3'), 'Let\'s have\nmore light.'],
 ]
 
 const guardFinishLightingTorchSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'That\'s better.'],
-    [require('url:./audio/guards/Hmm.mp3'), 'There we go.'],
-    [require('url:./audio/guards/Hmm.mp3'), 'Now where was I?'],
+    [require('url:./audio/guards/that-better.mp3'), 'That\'s better.'],
+    [require('url:./audio/guards/there-we-go.mp3'), 'There we go.'],
+    [require('url:./audio/guards/where-was-i.mp3'), 'Now where was I?'],
 ]
 
 const guardChaseSet: Array<SubtitledSoundDesc> = [ //Yells a warning that will be heard by other guards
@@ -419,15 +428,16 @@ const guardEndChaseSet: Array<SubtitledSoundDesc> = [
 ];
 
 const guardAwakesWarningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), 'Someone smacked me!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Someone hit me!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Who hit me!?'],
+    [require('url:./audio/guards/someone-smacked-me.mp3'), 'Someone smacked me!'],
+    [require('url:./audio/guards/someone-hit-me.mp3'), 'Someone hit me!'],
+    [require('url:./audio/guards/who-hit-me.mp3'), 'Who hit me!?'],
+    [require('url:./audio/guards/devils-hit-me.mp3'), 'Which of you\ndevils hit me!?'],
 ]
 
 const guardDownWarningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), 'We have a guard down!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Man down!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Guard down!'],
+    [require('url:./audio/guards/have-guard-down.mp3'), 'We have a guard down!'],
+    [require('url:./audio/guards/man-down.mp3'), 'Man down!'],
+    [require('url:./audio/guards/guard-down.mp3'), 'Guard down!'],
 ]
 
 const guardStirringSet: Array<SubtitledSoundDesc> = [
@@ -435,8 +445,9 @@ const guardStirringSet: Array<SubtitledSoundDesc> = [
 ]
 
 const guardWarningResponseSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/intruder.mp3'), 'We must have\nan intruder!'],
-    [require('url:./audio/guards/intruder.mp3'), 'I will keep\nan eye out!'],
+    [require('url:./audio/guards/must-have-intruder.mp3'), 'We must have\nan intruder!'],
+    [require('url:./audio/guards/eye-out.mp3'), 'I will keep\nan eye out!'],
+    [require('url:./audio/guards/intruder.mp3'), 'Intruder!'],
 ]
 
 const guardDamageSet: Array<SubtitledSoundDesc> = [
@@ -472,12 +483,14 @@ const guardSeeTorchLitSet: Array<SubtitledSoundDesc> = [
 ];
 
 const guardSeeTorchDousedSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), 'They don\'t\nstay lit!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Somebody should\nrelight that.'],
-    [require('url:./audio/guards/ahh.mp3'), 'That torch\nburned out.'],
-    [require('url:./audio/guards/ahh.mp3'), 'It got dark!'],
-    [require('url:./audio/guards/ahh.mp3'), 'Wish I had\na torch...'],
-    [require('url:./audio/guards/ahh.mp3'), 'Why did that\nhappen?'],
+    [require('url:./audio/guards/dont-stay-lit.mp3'), 'They don\'t\nstay lit!'],
+    [require('url:./audio/guards/paranoid.mp3'), 'Enough to make\'t\na guy paranoid!'],
+    [require('url:./audio/guards/should-relight.mp3'), 'Somebody should\nrelight that.'],
+    [require('url:./audio/guards/torch-burned.mp3'), 'That torch\nburned out.'],
+    [require('url:./audio/guards/light-burned.mp3'), 'That light\nburned out.'],
+    [require('url:./audio/guards/got-dark.mp3'), 'It got dark!'],
+    [require('url:./audio/guards/wish-torch.mp3'), 'Wish I had\na torch...'],
+    [require('url:./audio/guards/why-happen.mp3'), 'Why did that\nhappen?'],
 ];
 
 const guardSpotStolenTreasureSet: Array<SubtitledSoundDesc> = [
@@ -489,9 +502,10 @@ const guardSpotStolenTreasureSet: Array<SubtitledSoundDesc> = [
 ];
 
 const guardExamineStolenTreasureSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/thief.mp3'), 'Someone stole\nthe Treasure!'],
-    [require('url:./audio/guards/thief-2.mp3'), 'It\'s missing!'],
-    [require('url:./audio/guards/thief-3.mp3'), 'Who took that?'],
+    [require('url:./audio/guards/someone-stole.mp3'), 'Someone stole\nthe Treasure!'],
+    [require('url:./audio/guards/its-missing.mp3'), 'It\'s missing!'],
+    [require('url:./audio/guards/who-took-it.mp3'), 'Who took it?'],
+    [require('url:./audio/guards/boss-wont-like.mp3'), 'The boss won\'t\nlike this!'],
 ];
 
 const guardSpotDownedGuardSet: Array<SubtitledSoundDesc> = [
@@ -645,7 +659,10 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hitPlayer = new HowlGroup(hitPlayerSet);
     sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
+    sounds.food = new HowlGroup(foodSet);
+    sounds.grabKey = new HowlGroup(grabKeySet);
     sounds.clockChime = new HowlGroup(clockChimeSet);
+    sounds.clockTick = new HowlGroup(clockTickSet);
 
     sounds.doorOpen = new HowlGroup(doorOpenSet);
     sounds.doorClose = new HowlGroup(doorCloseSet);
