@@ -2222,7 +2222,12 @@ export function postTurn(state: State) {
         state.finishedLevel = true;
     }
 
-    if (state.turns === numTurnsParForCurrentMap(state) + 1) {
+    const numTurnsPar = numTurnsParForCurrentMap(state);
+    if (state.turns === Math.floor(0.75*numTurnsPar) || state.turns === numTurnsPar-10 && numTurnsPar>100) {
+        state.popups.setNotificationHold('Tick tock!', state.player.pos);
+        state.sounds.clockTick.play(1.0);
+    }
+    if (state.turns === numTurnsPar + 1) {
         const vaultItems:Item[] = [];
         let itemsRemoved = false;
         state.gameMap.items = state.gameMap.items.filter((item)=>{
@@ -2231,18 +2236,13 @@ export function postTurn(state: State) {
                 itemsRemoved = true;
                 return false;
             }
-            if (item.type>=ItemType.TreasureA && 
-                !state.gameMap.items.some(lock=>lock.type===ItemType.TreasureLock && lock.pos.equals(item.pos))) {
-                    itemsRemoved = true;
-                    return false;
-            }
             return true;
         });
         for (let item of vaultItems) {
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
         }
         if (itemsRemoved) {
-            state.popups.setNotificationHold('Late!\nTreasure was removed.', state.player.pos);
+            state.popups.setNotificationHold('Late!\nVaults were collected.', state.player.pos);
         } else {
             state.popups.setNotificationHold('Late!', state.player.pos);
         }

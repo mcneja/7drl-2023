@@ -68,6 +68,9 @@ const clockChimeSet = [
     require('url:./audio/chiming-clock.mp3'),
 ];
 
+const clockTickSet = [
+    require('url:./audio/ticking-clock.mp3'),
+];
 
 const igniteSet = [
     require('url:./audio/ignite.mp3'),
@@ -646,6 +649,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
     sounds.clockChime = new HowlGroup(clockChimeSet);
+    sounds.clockTick = new HowlGroup(clockTickSet);
 
     sounds.doorOpen = new HowlGroup(doorOpenSet);
     sounds.doorClose = new HowlGroup(doorCloseSet);
