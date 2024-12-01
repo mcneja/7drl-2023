@@ -2,6 +2,7 @@ export { Popups, PopupType };
 
 import { vec2 } from './my-matrix';
 import { Guard } from './guard';
+import { Player } from './game-map';
 
 enum PopupType {
     Damage,
@@ -28,6 +29,7 @@ enum PopupType {
     GuardSeeTorchDoused,
 }
 
+const dtTurns: number = 1;
 const dTShow: number = 2.0;
 
 class Popups {
@@ -37,8 +39,9 @@ class Popups {
     currentSpeechTimeRemaining: number;
 
     notification: string;
-    notificationWorldPos: vec2;
+    notificationWorldPos: vec2|Player;
     notificationTimeRemaining: number;
+    notificationMaxTurns: number;
 
     constructor() {
         this.currentSpeech = '';
@@ -46,6 +49,7 @@ class Popups {
         this.currentSpeechAbove = false;
         this.currentSpeechTimeRemaining = 0;
         this.notification = '';
+        this.notificationMaxTurns = 0;
         this.notificationWorldPos = vec2.create();
         this.notificationTimeRemaining = 0;
     }
@@ -57,21 +61,26 @@ class Popups {
         this.currentSpeechTimeRemaining = dTShow;
     }
 
-    setNotification(text: string, pos: vec2) {
+    setNotification(text: string, pos: vec2|Player, maxTurns:number = dtTurns, time:number = dTShow) {
         this.notification = text;
-        vec2.copy(this.notificationWorldPos, pos);
-        this.notificationTimeRemaining = dTShow;
+        this.notificationWorldPos = pos instanceof Player? pos : vec2.clone(pos);
+        this.notificationTimeRemaining = time;
+        this.notificationMaxTurns = maxTurns;
     }
 
-    setNotificationHold(text: string, pos: vec2) {
+    setNotificationHold(text: string, pos: vec2|Player) {
         this.notification = text;
-        vec2.copy(this.notificationWorldPos, pos);
+        this.notificationWorldPos = pos instanceof Player? pos : vec2.clone(pos);
         this.notificationTimeRemaining = Infinity;
+        this.notificationMaxTurns = dtTurns;
     }
 
-    clearNotification() {
-        this.notification = '';
-        this.notificationTimeRemaining = 0;
+    updateNotification() {
+        --this.notificationMaxTurns;
+        if (this.notificationMaxTurns <= 0) {
+            this.notificationTimeRemaining = 0;
+            this.notificationMaxTurns = 0;
+        }
     }
 
     isSpeechBubbleVisible(): boolean {
@@ -105,7 +114,8 @@ class Popups {
         this.currentSpeechTimeRemaining = 0;
 
         this.notification = '';
-        vec2.zero(this.notificationWorldPos);
+        this.notificationWorldPos = new vec2(0, 0);
         this.notificationTimeRemaining = 0;
+        this.notificationMaxTurns = 0;
     }
 }
