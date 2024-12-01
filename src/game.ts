@@ -447,12 +447,30 @@ export function numTurnsParForCurrentMap(state: State): number {
     return par;
 }
 
+function countElems<T>(array: Array<T>, predicate: (elem: T) => boolean): number {
+    return array.reduce((total, elem) => total + (predicate(elem) ? 1 : 0), 0);
+}
+
+export function currentMapHasBonusTreasure(state: State): boolean {
+    if (state.gameMap.treasures.length > 0) {
+        return true;
+    }
+
+    if (state.gameMap.items.some(item => item.type === ItemType.VaultTreasureBox || item.type === ItemType.EmptyVaultTreasureBox)) {
+        return true;
+    }
+
+    return false;
+}
+
 export function bonusTreasureScoreForCurrentMap(state: State): number {
     const lockedTreasureScore = state.lootStolen * 10;
     const unlockedTreasureScore = lockedTreasureScore / 2;
     const vaultTreasureScore = 30;
-    let treasureScore = state.gameMap.treasures.reduce((total, treasure) => total + (treasure.stolen ? ((treasure.switches.length > 0) ? lockedTreasureScore : unlockedTreasureScore) : 0), 0);
-    treasureScore += state.gameMap.items.reduce((total, item) => total + ((item.type === ItemType.EmptyVaultTreasureBox) ? vaultTreasureScore : 0), 0);
+    let treasureScore = 0;
+    treasureScore += lockedTreasureScore   * countElems(state.gameMap.treasures, treasure => treasure.stolen && treasure.switches.length > 0);
+    treasureScore += unlockedTreasureScore * countElems(state.gameMap.treasures, treasure => treasure.stolen && treasure.switches.length <= 0);
+    treasureScore += vaultTreasureScore    * countElems(state.gameMap.items, item => item.type === ItemType.EmptyVaultTreasureBox);
     return treasureScore;
 }
 

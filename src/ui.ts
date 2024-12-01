@@ -919,7 +919,7 @@ Cumulative:  $totalScore$
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('levelStats', levelStats);
         this.state.set('lootScore', (state.lootStolen * 10).toString());
-        this.state.set('treasureScore', (state.gameMap.treasures.length > 0) ? ('\nBonus Loot:  ' + treasureScore) : '');
+        this.state.set('treasureScore', game.currentMapHasBonusTreasure(state) ? ('\nBonus Loot:  ' + treasureScore) : '');
         this.state.set('foodScore', (foodScore > 0) ? ('\nFood:        ' + foodScore) : '');
         this.state.set('timeBonus', timeBonus.toString());
         this.state.set('ghostBonus', ghostBonus.toString());
