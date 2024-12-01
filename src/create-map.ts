@@ -5927,7 +5927,9 @@ function placeGuards(
     for (const patrolRoute of patrolRoutes) {
         const pathIndexStart = 0;
         const guard = new Guard(patrolRoute.path, pathIndexStart);
-        if (level > 1 && rng.randomInRange(5 + level) < level) {
+        if (level > 1 &&
+            rng.randomInRange(5 + level) < level &&
+            (patrolRoute.path.length > 1 || !map.items.some(item => item.pos.equals(patrolRoute.path[0])))) {
             guard.hasTorch = true;
         }
         if (guardLoot>0) {
