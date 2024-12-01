@@ -3975,7 +3975,7 @@ function renderNotification(renderer: Renderer, screenSize: vec2, state: State) 
     const viewWorldCenterY = state.camera.position[1] + state.camera.joltOffset[1];
 
     const wp = state.popups.notificationWorldPos;
-    const posPopupWorld = wp instanceof Player? wp.pos: wp;
+    const posPopupWorld = wp instanceof Player? (wp.animation? wp.pos.add(wp.animation.offset): wp.pos) : wp;
     const popupPixelX = ((posPopupWorld[0] + 0.5 - viewWorldCenterX) + viewWorldSizeX / 2) * worldToPixelScaleX;
     const popupPixelY = ((posPopupWorld[1] + 0.5 - viewWorldCenterY) + viewWorldSizeY / 2) * worldToPixelScaleY + pixelsPerCharY;
 
