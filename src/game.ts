@@ -226,6 +226,10 @@ function updateControllerState(state:State) {
                 state.lootStolen += loot;
                 postTurn(state);
             }
+        } else if (activated('getKey')) {
+            if (state.devMode) {
+                state.player.hasVaultKey = true;
+            }
         } else if (activated('forceRestart')) {
             if (state.dailyRun) {
                 startDailyGame(state);
@@ -377,6 +381,7 @@ export function setupLevel(state: State, level: number) {
         return;
     }
 
+    state.popups.reset();
     state.activeSoundPool.empty();
     state.ambientSoundPool.empty();
     state.gameMap = createGameMap(state.gameMapRoughPlans[state.level]);
@@ -2217,7 +2222,7 @@ export function postTurn(state: State) {
     if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
-            state.popups.setNotification('Escape!', state.player);
+            state.popups.setNotification('Escape!', state.player, 3, 5.0);
         }
         state.finishedLevel = true;
     }

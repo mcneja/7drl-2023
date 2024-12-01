@@ -392,6 +392,7 @@ class DevScreen extends TextWindow {
 [Alt+<|prevLevel]  Previous level
 [Alt+>|nextLevel]  Next level
 [Alt+C|collectLoot]  Collect loot 
+[Alt+K|getKey]  Get key
 [Alt+S|markSeen]  Mark mansion seen
 [Alt+A|seeAll]  See entire map: $seeAll$
 [Alt+P|guardPatrols]  See guard patrols: $guardPatrols$
@@ -447,6 +448,8 @@ $message$
             } else {
                 this.state.set('message', 'START GAME FIRST');
             }
+        } else if (activated('getKey') || action=='getKey') {
+            state.player.hasVaultKey = true;
         } else if (activated('markSeen') || action=='markSeen') {
             if (state.hasStartedGame) {
                 state.gameMap.markAllSeen();
