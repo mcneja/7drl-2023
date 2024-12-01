@@ -18,18 +18,9 @@ https://opengameart.org/content/medieval-the-bards-tale
 
 https://freesound.org/people/urupin/sounds/210987/ -- clocktower
 
+https://freesound.org/people/ycbcr/sounds/556991/ -- clock ticking
 
+https://freesound.org/people/Vinrax/sounds/160980/ -- meat eating
 
-
-
-
-
-
-
-
-
-
-
-
-
+https://freesound.org/people/vince2323/sounds/408294/ -- keys
 
