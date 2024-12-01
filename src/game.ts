@@ -321,7 +321,7 @@ export function scoreCompletedLevel(state: State) {
     const score = lootScore + treasureScore + foodScore + timeBonus + ghostBonus;
 
     state.gameStats.totalScore += score;
-    state.gameStats.turns += state.totalTurns;
+    state.gameStats.turns = state.totalTurns;
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level + 1;
     state.gameStats.numGhostedLevels += ghosted ? 1 : 0;
@@ -338,7 +338,7 @@ function scoreIncompleteLevel(state: State) {
     const score = state.lootStolen * 10 + state.levelStats.extraFoodCollected * 5;
 
     state.gameStats.totalScore += score;
-    state.gameStats.turns += state.totalTurns;
+    state.gameStats.turns = state.totalTurns;
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level;
     state.gameStats.daily = state.dailyRun;
