@@ -448,8 +448,12 @@ export function numTurnsParForCurrentMap(state: State): number {
 }
 
 export function bonusTreasureScoreForCurrentMap(state: State): number {
-    const levelLootScore = state.lootStolen * 10;
-    return state.gameMap.treasures.reduce((total, treasure) => total + (treasure.stolen ? ((treasure.switches.length > 0) ? levelLootScore : 20) : 0), 0);
+    const lockedTreasureScore = state.lootStolen * 10;
+    const unlockedTreasureScore = lockedTreasureScore / 2;
+    const vaultTreasureScore = 30;
+    let treasureScore = state.gameMap.treasures.reduce((total, treasure) => total + (treasure.stolen ? ((treasure.switches.length > 0) ? lockedTreasureScore : unlockedTreasureScore) : 0), 0);
+    treasureScore += state.gameMap.items.reduce((total, item) => total + ((item.type === ItemType.EmptyVaultTreasureBox) ? vaultTreasureScore : 0), 0);
+    return treasureScore;
 }
 
 const mansionCompleteTopStatusHint: Array<string> = [
@@ -557,9 +561,6 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             }
             offset = 0.5;
         } else if (item.type === ItemType.VaultTreasureBox) {
-            state.player.loot += 3;
-            state.lootStolen += 3;
-            state.lootAvailable += 3;
             coinCollected = true;
             animType = ItemType.Coin;
             numGained = 3;
