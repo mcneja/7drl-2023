@@ -2243,14 +2243,14 @@ export function postTurn(state: State) {
     if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
-            state.popups.setNotification('Escape!', state.player, 3, 5.0);
+            state.popups.setNotification('\x7f Escape! \x7f', state.player, 3, 5.0);
         }
         state.finishedLevel = true;
     }
 
     const numTurnsPar = numTurnsParForCurrentMap(state);
     if (state.turns === Math.floor(0.75*numTurnsPar) || state.turns === numTurnsPar-10 && numTurnsPar>100) {
-        state.popups.setNotification('Tick tock!', state.player, 3, 5.0);
+        state.popups.setNotification('\x7e Tick tock! \x7e', state.player, 3, 5.0);
         state.sounds.clockTick.play(1.0);
     }
     if (state.turns === numTurnsPar + 1) {
@@ -2268,9 +2268,9 @@ export function postTurn(state: State) {
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
         }
         if (itemsRemoved) {
-            state.popups.setNotification('Late!\nVaults were cleared.', state.player, 3, 5.0);
+            state.popups.setNotification('\x7e Late! \x7e\nVaults were cleared.', state.player, 3, 5.0);
         } else {
-            state.popups.setNotification('Late!', state.player, 3, 5.0);
+            state.popups.setNotification('\x7e Late! \x7e', state.player, 3, 5.0);
         }
         state.sounds.clockChime.play(1.0);
     }
@@ -4215,9 +4215,13 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     // Level number, turn count, and speed bonus
     const msgFPS = state.fpsInfo.enabled ? state.fpsInfo.msgFPS : '';
 
-    const msgLevel = (state.dailyRun ? 'Daily Lvl ' : 'Lvl ') + (state.level + 1);
+    const msgLevel = (state.dailyRun ? '\x7f Daily Lvl ' : '\x7f Lvl ') + (state.level + 1);
 
-    let msgTimer = state.turns + '/' + numTurnsParForCurrentMap(state);
+    const parTurns = numTurnsParForCurrentMap(state);
+    let msgTimer = '\x7e ' + state.turns + '/' + parTurns;
+    const colorTimer = state.turns>parTurns? colorPreset.lightRed : 
+                       state.turns>0.75*parTurns? colorPreset.lightYellow :
+                       colorPreset.lightGreen;
 
     const ghosted = state.levelStats.numSpottings === 0;
     if (!ghosted) {
@@ -4229,7 +4233,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const pad = state.fpsInfo.enabled ? 2 : 1
     const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + msgFPS.length + pad)) / 2;
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
-    putString(renderer, centeredX + msgLevel.length + 1, msgTimer, colorPreset.darkGray);
+    putString(renderer, centeredX + msgLevel.length + 1, msgTimer, colorTimer);
     if(msgFPS!=='') {
         putString(renderer, centeredX + msgLevel.length + msgTimer.length + 2, msgFPS, colorPreset.lightGray);
     }
