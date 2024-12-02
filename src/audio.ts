@@ -484,7 +484,7 @@ const guardSeeTorchLitSet: Array<SubtitledSoundDesc> = [
 
 const guardSeeTorchDousedSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/dont-stay-lit.mp3'), 'They don\'t\nstay lit!'],
-    [require('url:./audio/guards/paranoid.mp3'), 'Enough to make\'t\na guy paranoid!'],
+    [require('url:./audio/guards/paranoid.mp3'), 'That\'s enough to make\na guy paranoid!'],
     [require('url:./audio/guards/should-relight.mp3'), 'Somebody should\nrelight that.'],
     [require('url:./audio/guards/torch-burned.mp3'), 'That torch\nburned out.'],
     [require('url:./audio/guards/light-burned.mp3'), 'That light\nburned out.'],
