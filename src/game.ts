@@ -2243,14 +2243,14 @@ export function postTurn(state: State) {
     if (allSeen && allLooted) {
         if(!state.finishedLevel) {
             state.sounds['levelRequirementJingle'].play(0.5);
-            state.popups.setNotification('\x7f Escape! \x7f', state.player, 3, 5.0);
+            state.popups.setNotification('\x88\x89Escape!', state.player, 3, 5.0);
         }
         state.finishedLevel = true;
     }
 
     const numTurnsPar = numTurnsParForCurrentMap(state);
     if (state.turns === Math.floor(0.75*numTurnsPar) || state.turns === numTurnsPar-10 && numTurnsPar>100) {
-        state.popups.setNotification('\x7e Tick tock! \x7e', state.player, 3, 5.0);
+        state.popups.setNotification('\x8c\x8dTick tock!', state.player, 3, 5.0);
         state.sounds.clockTick.play(1.0);
     }
     if (state.turns === numTurnsPar + 1) {
@@ -2268,9 +2268,9 @@ export function postTurn(state: State) {
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
         }
         if (itemsRemoved) {
-            state.popups.setNotification('\x7e Late! \x7e\nVaults were cleared.', state.player, 3, 5.0);
+            state.popups.setNotification('\x8c\x8dLate!\nVaults were cleared.', state.player, 3, 5.0);
         } else {
-            state.popups.setNotification('\x7e Late! \x7e', state.player, 3, 5.0);
+            state.popups.setNotification('\x8c\x8dLate!', state.player, 3, 5.0);
         }
         state.sounds.clockChime.play(1.0);
     }
@@ -4187,26 +4187,26 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     if (percentRevealed < 100) {
         // Mapping percentage
 
-        let msgSeen = 'Map ' + percentRevealed + '%';
+        let msgSeen = '\x8e\x8fMap ' + percentRevealed + '%';
         rightSideX -= msgSeen.length + 1;
         putString(renderer, rightSideX, msgSeen, colorPreset.white);
     } else if (state.lootStolen < state.lootAvailable || state.gameMode !== GameMode.Mansion) {
         // Total loot
 
-        let msgLoot = 'Loot ' + state.lootStolen + '/' + state.lootAvailable;
+        let msgLoot = '\x8bLoot ' + state.lootStolen + '/' + state.lootAvailable;
         rightSideX -= msgLoot.length + 1;
-        putString(renderer, rightSideX, msgLoot, colorPreset.lightYellow);
+        putString(renderer, rightSideX, msgLoot, colorPreset.lightMagenta);
     } else {
         // Leave map
 
-        let msg = 'Escape!';
+        let msg = '\x88\x89Escape!';
         rightSideX -= msg.length + 1;
-        putString(renderer, rightSideX, msg, colorPreset.lightYellow);
+        putString(renderer, rightSideX, msg, colorPreset.white);
     }
 
     // Key possession
 
-    const msgKey = 'Key';
+    const msgKey = '\x8aKey';
     if (state.player.hasVaultKey) {
         rightSideX -= msgKey.length + 1;
         putString(renderer, rightSideX, msgKey, colorPreset.lightCyan);
@@ -4215,10 +4215,10 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     // Level number, turn count, and speed bonus
     const msgFPS = state.fpsInfo.enabled ? state.fpsInfo.msgFPS : '';
 
-    const msgLevel = (state.dailyRun ? '\x7f Daily Lvl ' : '\x7f Lvl ') + (state.level + 1);
+    const msgLevel = (state.dailyRun ? '\x7fDaily Lvl ' : '\x7fLvl ') + (state.level + 1);
 
     const parTurns = numTurnsParForCurrentMap(state);
-    let msgTimer = '\x7e ' + state.turns + '/' + parTurns;
+    let msgTimer = '\x8c\x8d' + state.turns + '/' + parTurns;
     const colorTimer = state.turns>parTurns? colorPreset.lightRed : 
                        state.turns>0.75*parTurns? colorPreset.lightYellow :
                        colorPreset.lightGreen;
