@@ -4318,22 +4318,28 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
     const unusable = new BooleanGrid(sizeX, sizeY, false);
     const occupied = new BooleanGrid(sizeX, sizeY, false);
 
-    let rootX, rootY;
+    let rootFound = false;
+    let rootX = 0;
+    let rootY = 0;
 
     for (let x = 0; x < sizeX; ++x) {
         for (let y = 0; y < sizeY; ++y) {
             if (!isWalkableTerrainType(map.cells.at(x + room.posMin[0], y + room.posMin[1]).type)) {
                 occupied.set(x, y, true);
                 unusable.set(x, y, true);
-            } else if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
+                continue;
+            }
+
+            if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
                 unusable.set(x, y, true);
+                rootFound = true;
                 rootX = x;
                 rootY = y;
             }
         }
     }
 
-    if (rootX === undefined || rootY === undefined) {
+    if (!rootFound) {
         return;
     }
 
@@ -4362,6 +4368,13 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
 
         occupied.set(pos[0], pos[1], true);
         unusable.set(pos[0], pos[1], true);
+
+        // Vault treasure boxes don't repeat
+
+        if (iType === ItemType.VaultTreasureBox) {
+            candidateItems.splice(iItemType, 1);
+            --iItemType;
+        }
     }
 }
 
