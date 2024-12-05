@@ -1916,6 +1916,10 @@ function assignVaultRoom(rooms: Array<Room>, levelType: LevelType, rng: RNG) {
             continue;
         }
 
+        if (rooms.length >= 30 && room.depth < 3) {
+            continue;
+        }
+
         if (levelType === LevelType.Fortress && isCourtyardRoomType(room.roomType)) {
             continue;
         }
@@ -2163,6 +2167,10 @@ function roomHasExteriorDoor(room: Room): boolean {
 }
 
 function roomCanBeTreasure(room: Room): boolean {
+    if (room.depth  < 2) {
+        return false;
+    }
+
     if (room.roomType !== RoomType.PublicRoom &&
         room.roomType !== RoomType.PrivateRoom &&
         room.roomType !== RoomType.PublicCourtyard &&
