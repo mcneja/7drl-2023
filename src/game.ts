@@ -229,6 +229,11 @@ function updateControllerState(state:State) {
         } else if (activated('getKey')) {
             if (state.devMode) {
                 state.player.hasVaultKey = true;
+                for (const g of state.gameMap.guards) {
+                    if(g.hasVaultKey) {
+                        g.hasVaultKey = false;
+                    }
+                }
             }
         } else if (activated('forceRestart')) {
             if (state.dailyRun) {
