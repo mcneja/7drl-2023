@@ -191,8 +191,15 @@ class TreasureAchievement extends Achievement {
     unicodeBadge: string = '\u{1F451}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
-        if (type === 'levelEnd') {
-            if (state.gameMap.items.some(item => item.type >= ItemType.TreasureA)) {
+        if (type === 'turnEnd') {
+            if (state.gameMap.items.some(item => item.type === ItemType.EmptyVaultTreasureBox)) {
+                this.failed = true;
+            }
+        } else if (type === 'levelEnd') {
+            if (state.gameMap.items.some(item =>
+                    item.type >= ItemType.TreasureA ||
+                    item.type === ItemType.VaultTreasureBox ||
+                    item.type === ItemType.EmptyVaultTreasureBox)) {
                 this.failed = true;
             }
         }

@@ -275,6 +275,7 @@ enum ItemType {
     KeyCarry, 
     VaultTreasureBox,
     EmptyVaultTreasureBox,
+    LootedVaultTreasureBox,
     Note,
     TreasureLock,
     TreasurePlinth,
@@ -312,6 +313,7 @@ export const itemLayers: Record<ItemType, boolean> = {
     [ItemType.KeyCarry]: false, 
     [ItemType.VaultTreasureBox]: false,
     [ItemType.EmptyVaultTreasureBox]: false,
+    [ItemType.LootedVaultTreasureBox]: false,
     [ItemType.Note]: false,
     [ItemType.TreasureLock]: true,
     [ItemType.TreasurePlinth]: false,
@@ -360,6 +362,7 @@ function guardMoveCostForItemType(itemType: ItemType): number {
         case ItemType.TreasurePlinth: return Infinity;
         case ItemType.VaultTreasureBox: return Infinity;
         case ItemType.EmptyVaultTreasureBox: return Infinity;
+        case ItemType.LootedVaultTreasureBox: return Infinity;
         case ItemType.TreasureA: return Infinity;
         case ItemType.TreasureB: return Infinity;
         case ItemType.TreasureC: return Infinity;

@@ -461,7 +461,10 @@ export function currentMapHasBonusTreasure(state: State): boolean {
         return true;
     }
 
-    if (state.gameMap.items.some(item => item.type === ItemType.VaultTreasureBox || item.type === ItemType.EmptyVaultTreasureBox)) {
+    if (state.gameMap.items.some(item =>
+            item.type === ItemType.VaultTreasureBox ||
+            item.type === ItemType.EmptyVaultTreasureBox ||
+            item.type === ItemType.LootedVaultTreasureBox)) {
         return true;
     }
 
@@ -475,7 +478,7 @@ export function bonusTreasureScoreForCurrentMap(state: State): number {
     let treasureScore = 0;
     treasureScore += lockedTreasureScore   * countElems(state.gameMap.treasures, treasure => treasure.stolen && treasure.switches.length > 0);
     treasureScore += unlockedTreasureScore * countElems(state.gameMap.treasures, treasure => treasure.stolen && treasure.switches.length <= 0);
-    treasureScore += vaultTreasureScore    * countElems(state.gameMap.items, item => item.type === ItemType.EmptyVaultTreasureBox);
+    treasureScore += vaultTreasureScore    * countElems(state.gameMap.items, item => item.type === ItemType.LootedVaultTreasureBox);
     return treasureScore;
 }
 
@@ -581,7 +584,7 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             coinCollected = true;
             animType = ItemType.Coin;
             numGained = 3;
-            state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
+            state.gameMap.items.push({type:ItemType.LootedVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
             makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
                 pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
         } else if (item.type === ItemType.Health) {
@@ -655,6 +658,7 @@ function canStepToPos(state: State, pos: vec2): boolean {
         case ItemType.DrawersShort:
         case ItemType.VaultTreasureBox:
         case ItemType.EmptyVaultTreasureBox:
+        case ItemType.LootedVaultTreasureBox:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
         case ItemType.PortcullisEW:
@@ -1336,6 +1340,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         case ItemType.DrawersShort:
         case ItemType.VaultTreasureBox:
         case ItemType.EmptyVaultTreasureBox:
+        case ItemType.LootedVaultTreasureBox:
         case ItemType.TreasurePlinth:
             if (canCollectLootAt(state, posNew)) {
                 preTurn(state);
@@ -2100,6 +2105,7 @@ function canLeapOntoItemType(itemType: ItemType): boolean {
         case ItemType.DrawersShort:
         case ItemType.VaultTreasureBox:
         case ItemType.EmptyVaultTreasureBox:
+        case ItemType.LootedVaultTreasureBox:
         case ItemType.TorchUnlit:
         case ItemType.TorchLit:
         case ItemType.TreasureLock:
