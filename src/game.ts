@@ -1651,7 +1651,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
     if (!(allSeen && allLooted) && state.numLeapMoves <= 1) {
         const posMid = vec2.fromValues(Math.floor((state.player.pos[0] + posPrev[0]) / 2), Math.floor((state.player.pos[1] + posPrev[1]) / 2));
         if (state.gameMap.items.some(item => item.pos.equals(posMid) && item.type === ItemType.PortcullisEW)) {
-            state.popups.setNotificationHold('Leap over open\nground or low\nfurniture too', state.player);
+            state.popups.setNotificationHold('Leap over open\nground or low\nfurniture too', state.player.pos);
             return;
         }
     }
@@ -2286,11 +2286,11 @@ export function postTurn(state: State) {
 }
 
 function setLeapStatusMessage(state: State, dx: number, dy: number) {
-    state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player);
+    state.popups.setNotification('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
 }
 
 function setLeapStatusMessageHold(state: State, dx: number, dy: number) {
-    state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player);
+    state.popups.setNotificationHold('Leap: Shift+' + directionArrowCharacter(dx, dy), state.player.pos);
 }
 
 function directionArrowCharacter(dx: number, dy: number): string {
