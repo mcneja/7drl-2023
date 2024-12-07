@@ -289,7 +289,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 
     if (levelType === LevelType.Fortress) {
         computeRoomDepths(rooms);
-        assignVaultRoom(rooms, levelType, rng);
+        assignVaultRoom(rooms, level, levelType, rng);
         addAdditionalFortressDoors(adjacencies, rng);
     }
 
@@ -1908,7 +1908,7 @@ function hasExteriorDoor(room: Room): boolean {
     return false;
 }
 
-function assignVaultRoom(rooms: Array<Room>, levelType: LevelType, rng: RNG) {
+function assignVaultRoom(rooms: Array<Room>, level: number, levelType: LevelType, rng: RNG) {
     const deadEndRooms: Array<Room> = [];
 
     for (const room of rooms) {
@@ -1916,7 +1916,7 @@ function assignVaultRoom(rooms: Array<Room>, levelType: LevelType, rng: RNG) {
             continue;
         }
 
-        if (rooms.length >= 30 && room.depth < 3) {
+        if (level >= 8 && room.depth < 3) {
             continue;
         }
 
@@ -2022,7 +2022,7 @@ function assignRoomTypes(rooms: Array<Room>, level: number, levelType: LevelType
     // Note: On Fortress levels we did this in a previous step
 
     if (level > 4 && levelType !== LevelType.Fortress) {
-        assignVaultRoom(rooms, levelType, rng);
+        assignVaultRoom(rooms, level, levelType, rng);
     }
 
     // Assign private rooms with only one or two entrances to be bedrooms, if they are large enough
@@ -4298,25 +4298,56 @@ function renderRoomGeneric(map: GameMap, room: Room, level: number, rng: RNG) {
 }
 
 function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
-    const dx = room.posMax[0] - room.posMin[0];
-    const dy = room.posMax[1] - room.posMin[1];
-    if (dx >= 5 && dy >= 5) {
-        map.cells.at(room.posMin[0] + 1, room.posMin[1] + 1).type = TerrainType.Wall0000;
-        map.cells.at(room.posMax[0] - 2, room.posMin[1] + 1).type = TerrainType.Wall0000;
-        map.cells.at(room.posMin[0] + 1, room.posMax[1] - 2).type = TerrainType.Wall0000;
-        map.cells.at(room.posMax[0] - 2, room.posMax[1] - 2).type = TerrainType.Wall0000;
-    }
-
-    // TODO: This is all largely a copy of renderRoomBedroom. Need to commonize
-
-    const candidateItems = [ItemType.VaultTreasureBox, ItemType.VaultTreasureBox, ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.Shelf, ItemType.TorchUnlit];
-    rng.shuffleArray(candidateItems);
-
     const sizeX = room.posMax[0] - room.posMin[0];
     const sizeY = room.posMax[1] - room.posMin[1];
+
     const usable = new BooleanGrid(sizeX, sizeY, true);
     const unusable = new BooleanGrid(sizeX, sizeY, false);
     const occupied = new BooleanGrid(sizeX, sizeY, false);
+
+    // Mark two spaces in from the door as unusable, to leave room to push a body
+
+    const pos = vec2.create();
+    const dir = vec2.create();
+
+    for (const adj of room.edges) {
+        for (let i = 0; i < adj.length; ++i) {
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
+            if (map.cells.atVec(pos).type < TerrainType.PortcullisNS) {
+                continue;
+            }
+            vec2.set(dir, -adj.dir[1], adj.dir[0]);
+            for (let j = -2; j < 3; ++j) {
+                vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
+                vec2.scaleAndAdd(pos, pos, dir, j);
+                if (pos[0] >= room.posMin[0] &&
+                    pos[1] >= room.posMin[1] &&
+                    pos[0] < room.posMax[0] &&
+                    pos[1] < room.posMax[1]) {
+                    unusable.set(pos[0] - room.posMin[0], pos[1] - room.posMin[1], true);
+                }
+            }
+        }
+    }
+
+    // If the room is large enough and the positions are usable, add pillars
+
+    if (sizeX >= 5 && sizeY >= 5) {
+        const pillarPositions = [
+            vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + 1),
+            vec2.fromValues(room.posMax[0] - 2, room.posMin[1] + 1),
+            vec2.fromValues(room.posMin[0] + 1, room.posMax[1] - 2),
+            vec2.fromValues(room.posMax[0] - 2, room.posMax[1] - 2),
+        ];
+
+        if (!pillarPositions.some(pos => unusable.get(pos[0] - room.posMin[0], pos[1] - room.posMin[1]))) {
+            for (const pos of pillarPositions) {
+                map.cells.atVec(pos).type = TerrainType.Wall0000;
+            }
+        }
+    }
+
+    // TODO: This is all largely a copy of renderRoomBedroom. Need to commonize
 
     let rootFound = false;
     let rootX = 0;
@@ -4331,7 +4362,6 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
             }
 
             if (doorAdjacent(map.cells, vec2.fromValues(x + room.posMin[0], y + room.posMin[1]))) {
-                unusable.set(x, y, true);
                 rootFound = true;
                 rootX = x;
                 rootY = y;
@@ -4342,6 +4372,9 @@ function renderRoomVault(map: GameMap, room: Room, rng: RNG) {
     if (!rootFound) {
         return;
     }
+
+    const candidateItems = [ItemType.VaultTreasureBox, ItemType.VaultTreasureBox, ItemType.DrawersTall, ItemType.DrawersShort, ItemType.Chair, ItemType.Table, ItemType.Bookshelf, ItemType.Shelf, ItemType.TorchUnlit];
+    rng.shuffleArray(candidateItems);
 
     const itemsInRoom: Array<Item> = [];
 
@@ -4505,6 +4538,7 @@ function isTallItemType(itemType: ItemType): boolean {
         case ItemType.DrawersShort:
         case ItemType.VaultTreasureBox:
         case ItemType.EmptyVaultTreasureBox:
+        case ItemType.LootedVaultTreasureBox:
         case ItemType.DrawersTall:
         case ItemType.Shelf:
         case ItemType.TorchUnlit:
