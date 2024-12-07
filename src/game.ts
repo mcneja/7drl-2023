@@ -278,7 +278,7 @@ function updateControllerState(state:State) {
             zoomOut(state);
         } else if (activated('guardMute')) {
             setGuardMute(state, !state.guardMute);
-            state.popups.setNotification('Guard speech: ' + (state.guardMute ? 'disabled' : 'enabled'), state.player);
+            state.popups.setNotification('Guard speech: ' + (state.guardMute ? 'disabled' : 'enabled'), state.player, 3, 2.0);
         } else if (activated('idleCursorToggle')) {
             switch (state.player.idleCursorType) {
                 case 'orbs':
@@ -290,18 +290,18 @@ function updateControllerState(state:State) {
             }
             state.player.idle = false;
             state.idleTimer = 2;
-            state.popups.setNotification("Player idle cursor: "+state.player.idleCursorType, state.player);
+            state.popups.setNotification("Player idle cursor: "+state.player.idleCursorType, state.player, 3, 2.0);
         } else if (activated('volumeMute')) {
             setVolumeMute(state, !state.volumeMute);
-            state.popups.setNotification('Sound: ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player);
+            state.popups.setNotification('Sound: ' + (state.volumeMute ? 'disabled' : 'enabled'), state.player, 3, 2.0);
         } else if (activated('volumeDown')) {
             const soundVolume = Math.max(0.1, state.soundVolume - 0.1);
             setSoundVolume(state, soundVolume);
-            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player);
+            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player, 3, 2.0);
         } else if (activated('volumeUp')) {
             const soundVolume = Math.min(1.0, state.soundVolume + 0.1);
             setSoundVolume(state, soundVolume);
-            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player);
+            state.popups.setNotification('Sound volume: ' + Math.floor(state.soundVolume * 100 + 0.5) + '%', state.player, 3, 2.0);
         } else if (activated('showSpeech')) {
             state.popups.toggleShow(state.player.pos);
         }
@@ -1127,7 +1127,7 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
         if (item.type === ItemType.Bookshelf) {
             title = '"' + title + '"';
         }
-        state.popups.setNotification(title, state.player);
+        state.popups.setNotification(title, state.player.pos);
         return;
     }
 
@@ -1181,15 +1181,15 @@ function tryMoveAgainstBlockedSquare(state: State, dx: number, dy: number, stepT
         case SwitchResult.Completed:
         case SwitchResult.Reset:
             state.sounds.switchReset.play(0.5);
-            state.popups.setNotification('(clunk)', state.player);
+            state.popups.setNotification('(clunk)', state.player.pos);
             break;
         case SwitchResult.Advance:
             state.sounds.switchProgress.play(0.5);
-            state.popups.setNotification('(click)', state.player);
+            state.popups.setNotification('(click)', state.player.pos);
             break;
         case SwitchResult.Complete:
             state.sounds.switchSuccess.play(0.5);
-            state.popups.setNotification('(rumble)', state.player);
+            state.popups.setNotification('(rumble)', state.player.pos);
             joltCamera(state, dx, dy);
             break;
     }
@@ -1258,7 +1258,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
 
         if (!state.finishedLevel) {
-            state.popups.setNotification('Collect all loot\nbefore leaving', state.player);
+            state.popups.setNotification('Collect all loot\nbefore leaving', state.player.pos);
             bumpFail(state, dx, dy);
         } else {
             preTurn(state);
@@ -1299,7 +1299,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
             advanceTime(state);
         } else {
             if (stepType === StepType.Normal && state.gameMap.items.some(item => item.type === ItemType.TreasureLock && item.pos.equals(posNew))) {
-                state.popups.setNotification('Locked!', state.player);
+                state.popups.setNotification('Locked!', state.player.pos);
             }
             tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
         }
@@ -1313,7 +1313,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         (cellNew.type == TerrainType.OneWayWindowN && posNew[1] <= posOld[1]) ||
         (cellNew.type == TerrainType.OneWayWindowS && posNew[1] >= posOld[1])) {
 
-        state.popups.setNotification('Window is\nimpassable\nfrom here', state.player);
+        state.popups.setNotification('Window is\nimpassable\nfrom here', state.player.pos);
 
         if (state.gameMapRoughPlans[state.level].level === 0) {
             setTimeout(()=>state.sounds['tooHigh'].play(0.3),250);
@@ -1396,7 +1396,7 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         case ItemType.LockedDoorNS:
             if (!player.hasVaultKey) {
                 if (stepType === StepType.Normal) {
-                    state.popups.setNotification('Locked!', state.player);
+                    state.popups.setNotification('Locked!', state.player.pos);
                 }
                 tryMoveAgainstBlockedSquare(state, dx, dy, stepType);
                 return;
@@ -1597,7 +1597,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
             return;
         }
         if (state.player.turnsRemainingUnderwater === 1) {
-            state.popups.setNotification('Out of breath;\nsurfacing', state.player);
+            state.popups.setNotification('Out of breath;\nsurfacing', state.player.pos);
             return;
         }
     }
@@ -1658,7 +1658,7 @@ function showMoveTutorialNotifications(state: State, posPrev: vec2) {
 }
 
 function showDeadNotification(state: State) {
-    state.popups.setNotification(state.dailyRun ? deadDailyNotification : deadNotification, state.player);
+    state.popups.setNotification(state.dailyRun ? deadDailyNotification : deadNotification, state.player.pos);
 }
 
 function isAnyoneAwareOfPlayer(state: State): boolean {
