@@ -4189,6 +4189,15 @@ function renderRoomCourtyard(map: GameMap, room: Room, level: number, rng: RNG) 
     }
 }
 
+function pillarRoomEndFurniture(level: number, rng: RNG): ItemType {
+    const u = rng.random();
+    if (u < 0.25) {
+        return ItemType.Table;
+    } else {
+        return randomlyLitTorch(level, rng);
+    }
+}
+
 function renderRoomGeneric(map: GameMap, room: Room, level: number, rng: RNG) {
     const dx = room.posMax[0] - room.posMin[0];
     const dy = room.posMax[1] - room.posMin[1];
@@ -4235,12 +4244,12 @@ function renderRoomGeneric(map: GameMap, room: Room, level: number, rng: RNG) {
 
             if (dx > dy) {
                 const dyLamp = Math.floor(dy / 2);
-                placeItem(map, vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + dyLamp), randomlyLitTorch(level, rng));
-                placeItem(map, vec2.fromValues(room.posMax[0] - 2, room.posMax[1] - (dyLamp + 1)), randomlyLitTorch(level, rng));
+                placeItem(map, vec2.fromValues(room.posMin[0] + 1, room.posMin[1] + dyLamp), pillarRoomEndFurniture(level, rng));
+                placeItem(map, vec2.fromValues(room.posMax[0] - 2, room.posMax[1] - (dyLamp + 1)), pillarRoomEndFurniture(level, rng));
             } else if (dy > dx) {
                 const dxLamp = Math.floor(dx / 2);
-                placeItem(map, vec2.fromValues(room.posMin[0] + dxLamp, room.posMin[1] + 1), randomlyLitTorch(level, rng));
-                placeItem(map, vec2.fromValues(room.posMax[0] - (dxLamp + 1), room.posMax[1] - 2), randomlyLitTorch(level, rng));
+                placeItem(map, vec2.fromValues(room.posMin[0] + dxLamp, room.posMin[1] + 1), pillarRoomEndFurniture(level, rng));
+                placeItem(map, vec2.fromValues(room.posMax[0] - (dxLamp + 1), room.posMax[1] - 2), pillarRoomEndFurniture(level, rng));
             }
         }
     } else if (dx == 5 && dy >= 3 && (room.roomType == RoomType.PublicRoom || rng.random() < 0.33333)) {
