@@ -330,6 +330,9 @@ export function scoreCompletedLevel(state: State) {
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level + 1;
     state.gameStats.numGhostedLevels += ghosted ? 1 : 0;
+    state.gameStats.numInjuries += state.levelStats.damageTaken;
+    state.gameStats.numKnockouts += state.levelStats.numKnockouts;
+    state.gameStats.numSpottings += state.levelStats.numSpottings;
     state.gameStats.daily = state.dailyRun;
     state.gameStats.timeEnded = Date.now();
 }
@@ -3048,6 +3051,9 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             numLevels: 0,
             numCompletedLevels: 0,
             numGhostedLevels: 0,
+            numSpottings: 0,
+            numInjuries: 0,
+            numKnockouts: 0,
             daily: null,
             timeStarted: 0,
             timeEnded: 0,
@@ -3260,6 +3266,9 @@ export function restartGame(state: State) {
         numLevels: 0,
         numCompletedLevels: 0,
         numGhostedLevels: 0,
+        numSpottings: 0,
+        numInjuries: 0,
+        numKnockouts: 0,
         daily: state.dailyRun,
         timeStarted: Date.now(),
         timeEnded: 0,

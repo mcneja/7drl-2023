@@ -44,6 +44,9 @@ function scoreMessage(stats: GameStats | null, achievements: Achievements): stri
     }
 
     const numGhostedLevels = stats.numGhostedLevels;
+    const numSpottings = stats.numSpottings;
+    const numInjuries = stats.numInjuries;
+    const numKnockouts = stats.numKnockouts;
     const totalScore = stats.totalScore;
     const turns = stats.turns;
     const numCompletedLevels = stats.numCompletedLevels;
@@ -74,6 +77,9 @@ function scoreMessage(stats: GameStats | null, achievements: Achievements): stri
     const scoreMessage = `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F<br>${runText}<br>${endText}<br>`+
         `Completed:   ${numCompletedLevels} of ${numLevels}<br>` +
         `Ghosted:     ${numGhostedLevels}<br>`+
+        `Spottings:   ${numSpottings}<br>`+
+        `Knockouts:   ${numKnockouts}<br>`+
+        `Injuries:    ${numInjuries}<br>`+
         `Total score: ${totalScore}<br>`+
         `${achievementsLine}`;
 
@@ -885,12 +891,12 @@ class MansionCompleteScreen extends TextWindow {
     pages = [
 `$levelType$ Looted! ($level$/$numLevels$)
 
-$levelStats$Loot:        $lootScore$$treasureScore$$foodScore$
-Ghost:       $ghostBonus$
-Speed:       $timeBonus$
-Total:       $levelScore$
+\x9a\x9b Loot:        $lootScore$$treasureScore$$foodScore$
+\x86\x87 Ghost:       $ghostBonus$
+\x8c\x8d Speed:       $timeBonus$
+\x84\x85 Total:       $levelScore$
 
-Cumulative:  $totalScore$
+\x82\x83 Cumulative:  $totalScore$
 
 [N|startLevel]: Next`
     ];
@@ -904,27 +910,12 @@ Cumulative:  $totalScore$
         const ghostBonus = ghosted ? lootScore : 0;
         const score = lootScore + treasureScore + foodScore + timeBonus + ghostBonus;
 
-        let levelStats = 'Turns:       ' + state.turns + '\n';
-        if (state.levelStats.numSpottings > 0) {
-            levelStats += 'Spottings:   ' + state.levelStats.numSpottings + '\n';
-        }
-        if (state.levelStats.damageTaken > 0) {
-            levelStats += 'Injuries:    ' + state.levelStats.damageTaken + '\n';
-        }
-        if (state.levelStats.numKnockouts > 0) {
-            levelStats += 'Knockouts:   ' + state.levelStats.numKnockouts + '\n';
-        }
-        if (levelStats.length > 0) {
-            levelStats += '\n';
-        }
-
         this.state.set('levelType', levelTypeName(state.gameMapRoughPlans[state.level].levelType));
         this.state.set('level', (state.level+1).toString());
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
-        this.state.set('levelStats', levelStats);
         this.state.set('lootScore', (state.lootStolen * 10).toString());
-        this.state.set('treasureScore', game.currentMapHasBonusTreasure(state) ? ('\nBonus Loot:  ' + treasureScore) : '');
-        this.state.set('foodScore', (foodScore > 0) ? ('\nFood:        ' + foodScore) : '');
+        this.state.set('treasureScore', game.currentMapHasBonusTreasure(state) ? ('\n\x80\x81 Bonus Loot:  ' + treasureScore) : '');
+        this.state.set('foodScore', (foodScore > 0) ? ('\n\x90\x91 Food:        ' + foodScore) : '');
         this.state.set('timeBonus', timeBonus.toString());
         this.state.set('ghostBonus', ghostBonus.toString());
         this.state.set('levelScore', score.toString());
@@ -946,10 +937,15 @@ class DeadScreen extends TextWindow{
     pages = [
 `         You are dead!
 
+\x84\x85 Total Score:   $totalScore$
+
 Statistics
-Completed:     $level$ of $numLevels$
-Ghosted:       $numGhostedLevels$
-Total Score:   $totalScore$
+\x9e\x9f Completed:     $level$ of $numLevels$
+\x8c\x8d Total turns:   $totalTurns$
+\x94\x95 Spottings:     $numSpottings$
+\x92\x93 Injuries:      $numInjuries$
+\x96\x97 Knockouts:     $numKnockouts$
+\x86\x87 Ghosted:       $numGhostedLevels$
 
 [N|homeRestart]:   New game
 [S|scorePopup]:   Score popup (for copy/paste)
@@ -960,6 +956,10 @@ Total Score:   $totalScore$
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
+        this.state.set('totalTurns', `${state.turns}`);
+        this.state.set('numSpottings', `${state.gameStats.numSpottings}`);
+        this.state.set('numInjuries', `${state.gameStats.numInjuries}`);
+        this.state.set('numKnockouts', `${state.gameStats.numKnockouts}`);
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         if (modalVisible) {
@@ -989,9 +989,15 @@ class WinScreen extends TextWindow {
     pages = [
 `Mission Complete!
 
+\x84\x85 Total Score:   $totalScore$$achievements$
+
 Statistics
-Ghosted:       $numGhostedLevels$ of $numLevels$
-Total Score:   $totalScore$$achievements$
+\x9e\x9f Completed:     $level$ of $numLevels$
+\x8c\x8d Total turns:   $totalTurns$
+\x94\x95 Spottings:     $numSpottings$
+\x92\x93 Injuries:      $numInjuries$
+\x96\x97 Knockouts:     $numKnockouts$
+\x86\x87 Ghosted:       $numGhostedLevels$
 
 [N|homeRestart]:   New game
 [S|scorePopup]:   Score popup (for copy/paste)
@@ -999,7 +1005,12 @@ Total Score:   $totalScore$$achievements$
     ];
     achievementsLine: string|undefined = undefined;
     update(state:State) {
+        this.state.set('level', state.level.toString());
         this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
+        this.state.set('totalTurns', `${state.turns}`);
+        this.state.set('numSpottings', `${state.gameStats.numSpottings}`);
+        this.state.set('numInjuries', `${state.gameStats.numInjuries}`);
+        this.state.set('numKnockouts', `${state.gameStats.numKnockouts}`);
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
         if (this.achievementsLine===undefined) {

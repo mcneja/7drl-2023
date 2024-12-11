@@ -69,6 +69,9 @@ type GameStats = {
     numLevels: number;
     numCompletedLevels: number;
     numGhostedLevels: number;
+    numSpottings: number;
+    numInjuries: number;
+    numKnockouts: number;
     daily: string|null;
     timeStarted: number;
     timeEnded: number;

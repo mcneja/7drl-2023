@@ -44,7 +44,7 @@ export class Achievement {
 }
 
 class VictoryAchievement extends Achievement {
-    unicodeBadge: string = '\u{1F451}';
+    unicodeBadge: string = '\u{1F3C6}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
     }
@@ -188,7 +188,7 @@ class HealthyAchievement extends Achievement {
 }
 
 class TreasureAchievement extends Achievement {
-    unicodeBadge: string = '\u{1F451}';
+    unicodeBadge: string = '\u{1F48E}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
