@@ -48,6 +48,7 @@ class Guard {
     hasMoved: boolean = false;
     heardThief: boolean = false;
     heardThiefClosest: boolean = false;
+    heardAlarm: boolean = false;
     hearingGuard: boolean = false;
     heardGuard: boolean = false;
     heardGuardPos: vec2;
@@ -227,7 +228,7 @@ class Guard {
                 } else {
                     this.goals = this.chooseMoveTowardPosition(this.goal, state.gameMap);
                 }
-                this.mode = GuardMode.MoveToLastSound;
+                this.mode = this.heardAlarm? GuardMode.MoveToMissingTreasure:GuardMode.MoveToLastSound;
                 this.modeTimeout = 4 + randomInRange(2);
             }
         }
@@ -530,7 +531,7 @@ class Guard {
                     vec2.copy(this.goal, treasure.posTreasure);
                     this.angry = true;
                     this.modeTimeout = 3;
-                }
+                } 
             }
 
             // If we see an extinguished torch, move to light it.
@@ -578,6 +579,7 @@ class Guard {
     
         this.heardThief = false;
         this.heardThiefClosest = false;
+        this.heardAlarm = false;
 
         // Say something to indicate state changes
 
