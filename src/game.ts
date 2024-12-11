@@ -2178,6 +2178,7 @@ function makeNoise(map: GameMap, player: Player, popups: Popups, noiseType: Nois
         if (!foundClosestGuard) {
             foundClosestGuard = true;
             guard.heardThiefClosest = true;
+            guard.heardAlarm = noiseType === NoiseType.Alarm;
         }
         if (makeAngry) {
             guard.angry = true;
