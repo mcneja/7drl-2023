@@ -1266,7 +1266,11 @@ function tryPlayerStep(state: State, dx: number, dy: number, stepType: StepType)
         posNew[1] < 0 || posNew[1] >= state.gameMap.cells.sizeY) {
 
         if (!state.finishedLevel) {
-            state.popups.setNotification('Collect all loot\nbefore leaving', state.player.pos);
+            if (state.gameMap.fractionRevealed()<1) {
+                state.popups.setNotification('Map and loot\nbefore leaving', state.player.pos);
+            } else {
+                state.popups.setNotification('Collect all loot\nbefore leaving', state.player.pos);
+            }
             bumpFail(state, dx, dy);
         } else {
             preTurn(state);
