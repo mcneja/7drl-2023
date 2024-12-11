@@ -35,7 +35,6 @@ function hideModal() {
 
 function displayScorePopup(stats: GameStats | null, achievements: Achievements) {
     let msg = scoreMessage(stats, achievements);
-    msg = msg.replaceAll('\n', '<br>');
     displayModal(msg);
 }
 
@@ -68,14 +67,14 @@ function scoreMessage(stats: GameStats | null, achievements: Achievements): stri
             }
         }    
         if (achievementsLine.length>0) {
-            achievementsLine = 'Achievements: '+achievementsLine+'\n';
+            achievementsLine = 'Achievements: '+achievementsLine+'<br>';
         }
     }
 
-    const scoreMessage = `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F\n${runText}\n${endText}\n`+
-        `Completed:   ${numCompletedLevels} of ${numLevels}\n` +
-        `Ghosted:     ${numGhostedLevels}\n`+
-        `Total score: ${totalScore}\n`+
+    const scoreMessage = `\uD83C\uDFDB\uFE0F LLLOOOT! \uD83C\uDFDB\uFE0F<br>${runText}<br>${endText}<br>`+
+        `Completed:   ${numCompletedLevels} of ${numLevels}<br>` +
+        `Ghosted:     ${numGhostedLevels}<br>`+
+        `Total score: ${totalScore}<br>`+
         `${achievementsLine}`;
 
     return scoreMessage;
