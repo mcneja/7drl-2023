@@ -51,7 +51,7 @@ class VictoryAchievement extends Achievement {
 }
 
 class GhostyAchievement extends Achievement {
-    unicodeBadge: string = '\u{1F47B}';
+    unicodeBadge: string = '\u{1F43A}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
@@ -221,7 +221,7 @@ class MappingAchievement extends Achievement {
 }
 
 class FacelessAchievement extends Achievement {
-    unicodeBadge: string = '\u{1F977}';
+    unicodeBadge: string = '\u{1F47B}';
     update(state: State, type: 'gameStart' | 'turnEnd' | 'levelEnd' | 'gameEnd') {
         super.update(state, type);
         if (type === 'turnEnd') {
