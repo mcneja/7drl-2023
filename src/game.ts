@@ -2757,7 +2757,9 @@ function renderParticles(state: State, renderer: Renderer) {
             const x = p.pos[0] + offset[0];
             const y = p.pos[1] + offset[1];
             const tileInfo = a.currentTile();
-            renderer.addGlyph(x, y, x+1, y+1, tileInfo);
+            if (!(p.animation instanceof SpriteAnimation) || p.animation.time>=0) {
+                renderer.addGlyph(x, y, x+1, y+1, tileInfo);
+            }
         }
     }
 }
