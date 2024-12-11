@@ -46,6 +46,7 @@ let canvasSizeX: number = canvas.clientWidth;
 let canvasSizeY: number = canvas.clientHeight;
 
 window.onload = loadResourcesThenRun;
+window.onclick = () => { window.focus(); }
 
 const statusBarCharPixelSizeX: number = 8;
 const statusBarCharPixelSizeY: number = 16;
@@ -61,6 +62,7 @@ const deadNotification: string = 'New Game: Ctrl+R\nMenu: Esc/Slash';
 const deadDailyNotification: string = 'Retry: Ctrl+R\nMenu: Esc/Slash';
 
 function loadResourcesThenRun() {
+    window.focus();
     Promise.all([
         loadImage(fontTileSet.imageSrc, fontTileSet.image),
         loadImage(terrainTileSet.imageSrc, terrainTileSet.image),
