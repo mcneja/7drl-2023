@@ -588,6 +588,9 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             animType = ItemType.Coin;
             numGained = 3;
             state.gameMap.items.push({type:ItemType.LootedVaultTreasureBox, pos:vec2.clone(pos), topLayer:false});
+            const goldAnim = new FrameAnimator(getEntityTileSet().vaultGoldAnimationTiles, 0.15, 0, 1);
+            goldAnim.removeOnFinish = true;
+            state.particles.push({pos:vec2.clone(item.pos), animation:goldAnim});
             makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
                 pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
         } else if (item.type === ItemType.Health) {
@@ -2275,13 +2278,18 @@ export function postTurn(state: State) {
         });
         for (let item of vaultItems) {
             state.gameMap.items.push({type:ItemType.EmptyVaultTreasureBox, pos:item.pos, topLayer:false});
+            const goldAnim = new FrameAnimator(getEntityTileSet().vaultGoldAnimationTiles, 0.2, 0, 1);
+            goldAnim.removeOnFinish = true;
+            state.particles.push({pos:vec2.clone(item.pos), animation:goldAnim});
         }
         if (itemsRemoved) {
             state.popups.setNotification('\x8c\x8dLate!\nVaults were cleared.', state.player, 3, 5.0);
+            state.sounds.coinRattle.play(1.0);
+            state.sounds.clockChime.play(0.5);
         } else {
             state.popups.setNotification('\x8c\x8dLate!', state.player, 3, 5.0);
+            state.sounds.clockChime.play(1.0);
         }
-        state.sounds.clockChime.play(1.0);
     }
 }
 
@@ -2730,7 +2738,7 @@ function renderGuards(state: State, renderer: Renderer) {
 
 function renderParticles(state: State, renderer: Renderer) {
     for(let p of state.particles) {
-        if(p.animation) {
+        if(p.animation && (state.seeAll || state.gameMap.cells.atVec(p.pos).seen)) {
             const a = p.animation;
             const offset = (a instanceof SpriteAnimation)||(a instanceof IdleRadialAnimation) ? a.offset : vec2.create();
             const x = p.pos[0] + offset[0];

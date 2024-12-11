@@ -64,6 +64,7 @@ export type EntityTileSet = {
         dead:    TileInfo;
         litFace: TileInfo;
     };
+    vaultGoldAnimationTiles: TileInfo[];
     itemGlows : Partial<Record<ItemType, TileInfo>>;
     unlitTile: TileInfo;
     stoveAnimation: Array<TileInfo>;
@@ -350,6 +351,12 @@ const entityTileSet31Color:EntityTileSet = {
         'forceRestart':     {textureIndex: r([10, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
         'fullscreen':       {textureIndex: r([14, 1]), color:0xa0ffffff, unlitColor:0x30ffffff},
     },
+    vaultGoldAnimationTiles: [
+        {textureIndex: 0x9D, color:0xffffffff, unlitColor:0xffffffff},
+        {textureIndex: 0xAD, color:0xffffffff, unlitColor:0xffffffff},
+        {textureIndex: 0xAE, color:0xffffffff, unlitColor:0xffffffff},
+        {textureIndex: 0xAF, color:0xffffffff, unlitColor:0xffffffff},
+    ],
     itemGlows: {
         [ItemType.Coin]:     {textureIndex: r([12,  9]),  color:0xa0ffffff,      unlitColor:0x00ffffff},
         [ItemType.TreasureA]:{textureIndex: r([5,   9]),  color:0xa0ffffff,      unlitColor:0x00ffffff},

@@ -38,6 +38,10 @@ const hitGuardSet:Array<string> = [
 ];
 
 
+const coinRattleSet = [
+    require('url:./audio/coin-rattle.mp3'),
+]
+
 const coinSet = [
     require('url:./audio/coin.mp3'),
     require('url:./audio/coin-2.mp3'),
@@ -659,6 +663,7 @@ export function setupSounds(sounds:Howls, subtitledSounds:SubtitledHowls, howlPo
     sounds.hitPlayer = new HowlGroup(hitPlayerSet);
     sounds.hitGuard = new HowlGroup(hitGuardSet);
     sounds.coin = new HowlGroup(coinSet);
+    sounds.coinRattle = new HowlGroup(coinRattleSet);
     sounds.food = new HowlGroup(foodSet);
     sounds.grabKey = new HowlGroup(grabKeySet);
     sounds.clockChime = new HowlGroup(clockChimeSet);
