@@ -952,11 +952,11 @@ Statistics
 [Esc|menuBack]: Exit to home screen`
     ];
     update(state:State) {
-        this.state.set('level', state.level.toString());
-        this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
+        this.state.set('level', state.gameStats.numCompletedLevels.toString());
+        this.state.set('numLevels', state.gameStats.numLevels.toString());
         this.state.set('numGhostedLevels', state.gameStats.numGhostedLevels.toString());
         this.state.set('totalScore', state.gameStats.totalScore.toString());
-        this.state.set('totalTurns', `${state.turns}`);
+        this.state.set('totalTurns', `${state.gameStats.turns}`);
         this.state.set('numSpottings', `${state.gameStats.numSpottings}`);
         this.state.set('numInjuries', `${state.gameStats.numInjuries}`);
         this.state.set('numKnockouts', `${state.gameStats.numKnockouts}`);
@@ -1005,9 +1005,9 @@ Statistics
     ];
     achievementsLine: string|undefined = undefined;
     update(state:State) {
-        this.state.set('level', state.level.toString());
-        this.state.set('numLevels', state.gameMapRoughPlans.length.toString());
-        this.state.set('totalTurns', `${state.turns}`);
+        this.state.set('level', state.gameStats.numCompletedLevels.toString());
+        this.state.set('numLevels', state.gameStats.numLevels.toString());
+        this.state.set('totalTurns', `${state.gameStats.turns}`);
         this.state.set('numSpottings', `${state.gameStats.numSpottings}`);
         this.state.set('numInjuries', `${state.gameStats.numInjuries}`);
         this.state.set('numKnockouts', `${state.gameStats.numKnockouts}`);

@@ -349,6 +349,9 @@ function scoreIncompleteLevel(state: State) {
     state.gameStats.turns = state.totalTurns;
     state.gameStats.numLevels = state.gameMapRoughPlans.length;
     state.gameStats.numCompletedLevels = state.level;
+    state.gameStats.numInjuries += state.levelStats.damageTaken;
+    state.gameStats.numKnockouts += state.levelStats.numKnockouts;
+    state.gameStats.numSpottings += state.levelStats.numSpottings;
     state.gameStats.daily = state.dailyRun;
     state.gameStats.timeEnded = Date.now();
 }
