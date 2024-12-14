@@ -6245,10 +6245,12 @@ const lawBookTitles: Array<string> = [
 ];
 
 function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookItems: Array<Item>, rng: RNG) {
-    rng.shuffleArray(lawBookTitles);
+    const lawBookTitlesShuffled = [...lawBookTitles];
+    rng.shuffleArray(lawBookTitlesShuffled);
     let lawBookTitleIndex = 0;
 
-    rng.shuffleArray(bookTitleFirstWord);
+    const bookTitleFirstWordShuffled = [...bookTitleFirstWord];
+    rng.shuffleArray(bookTitleFirstWordShuffled);
     let fantasyTitleFirstWordIndex = 0;
 
     // Divide books into sets by room
@@ -6298,13 +6300,13 @@ function giveBooksTitles(bookTitle: Map<Item, string>, rooms: Array<Room>, bookI
         for (let i = 0; i < books.length; ++i) {
             let bookTitle: string;
             if (room.privateRoom) {
-                const firstWord = bookTitleFirstWord[fantasyTitleFirstWordIndex];
-                fantasyTitleFirstWordIndex = (fantasyTitleFirstWordIndex + 1) % bookTitleFirstWord.length;
+                const firstWord = bookTitleFirstWordShuffled[fantasyTitleFirstWordIndex];
+                fantasyTitleFirstWordIndex = (fantasyTitleFirstWordIndex + 1) % bookTitleFirstWordShuffled.length;
                 const secondWord = bookTitleSecondWord[rng.randomInRange(bookTitleSecondWord.length)];
                 bookTitle = firstWord + ' of ' + secondWord;
             } else {
-                bookTitle = lawBookTitles[lawBookTitleIndex];
-                lawBookTitleIndex = (lawBookTitleIndex + 1) % lawBookTitles.length;
+                bookTitle = lawBookTitlesShuffled[lawBookTitleIndex];
+                lawBookTitleIndex = (lawBookTitleIndex + 1) % lawBookTitlesShuffled.length;
             }
 
             bookTitles.push(bookTitle);
