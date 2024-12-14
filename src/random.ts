@@ -1,6 +1,6 @@
 import seedrandom from "seedrandom";
 
-export { randomInRange, shuffleArray, seedRandom, RNG };
+export { shuffleArray, RNG };
 
 class RNG {
     seed:string;
@@ -31,10 +31,6 @@ class RNG {
             array[j] = temp;
         }
     }
-}
-
-function seedRandom(seed:string) {
-    seedrandom(seed, {global:true});
 }
 
 function randomInRange(n: number): number {

@@ -4,7 +4,7 @@ import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainT
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight } from './guard';
 import { Renderer } from './render';
-import { RNG, randomInRange } from './random';
+import { RNG } from './random';
 import { TileInfo, getEntityTileSet, getTerrainTileSet, getFontTileSet, EntityTileSet, TerrainTileSet, TextureType } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
@@ -1836,7 +1836,7 @@ function tryPlayerLeap(state: State, dx: number, dy: number) {
             preTurn(state);
 
             guardMid.mode = GuardMode.Unconscious;
-            guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+            guardMid.modeTimeout = Math.max(1, 40 - 2*state.level) + state.rng.randomInRange(20);
             if (guardMid.hasPurse || guardMid.hasVaultKey) {
                 collectGuardLoot(state, player, guardMid, posOld);
             }
@@ -2058,7 +2058,7 @@ function executeLeapAttack(state: State, player:Player, target:Guard, dx:number,
     ++state.numLeapMoves;
 
     target.mode = GuardMode.Unconscious;
-    target.modeTimeout = Math.max(1, 40 - 2*state.level) + randomInRange(20);
+    target.modeTimeout = Math.max(1, 40 - 2*state.level) + state.rng.randomInRange(20);
     if (target.hasPurse || target.hasVaultKey) {
         collectGuardLoot(state, player, target, posMid, 0.15);
     }

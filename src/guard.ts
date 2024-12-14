@@ -2,7 +2,7 @@ export { Guard, GuardMode, chooseGuardMoves, guardActAll, lineOfSight, isRelaxed
 
 import { Cell, GameMap, Item, ItemType, Player, GuardStates, isWindowTerrainType, Rect, TerrainType } from './game-map';
 import { vec2 } from './my-matrix';
-import { randomInRange } from './random';
+import { RNG } from './random';
 import { PopupType } from './popups';
 import { LightSourceAnimation, SpriteAnimation, tween } from './animation';
 import { LevelStats, State } from './types';
@@ -219,7 +219,7 @@ class Guard {
 
             if (isRelaxedGuardMode(this.mode) && !this.heardThiefClosest) {
                 this.mode = GuardMode.Listen;
-                this.modeTimeout = 2 + randomInRange(4);
+                this.modeTimeout = 2 + state.rng.randomInRange(4);
                 this.goals = this.chooseMoveTowardPosition(this.pos, state.gameMap);
             } else if (this.mode !== GuardMode.MoveToDownedGuard) {
                 vec2.copy(this.goal, player.pos);
@@ -229,7 +229,7 @@ class Guard {
                     this.goals = this.chooseMoveTowardPosition(this.goal, state.gameMap);
                 }
                 this.mode = this.heardAlarm? GuardMode.MoveToMissingTreasure:GuardMode.MoveToLastSound;
-                this.modeTimeout = 4 + randomInRange(2);
+                this.modeTimeout = 4 + state.rng.randomInRange(2);
             }
         }
 
@@ -463,7 +463,7 @@ class Guard {
         }
     }
 
-    postActSense(map: GameMap, player: Player, levelStats: LevelStats, speech: Array<Speech>, shouts: Array<Shout>) {
+    postActSense(map: GameMap, player: Player, levelStats: LevelStats, speech: Array<Speech>, shouts: Array<Shout>, rng: RNG) {
         if (this.mode !== GuardMode.Unconscious) {
 
             // See the thief, or lose sight of the thief
@@ -471,7 +471,7 @@ class Guard {
             if (this.seesActor(map, player)) {
                 if (isRelaxedGuardMode(this.mode) && !this.adjacentTo(player.pos)) {
                     this.mode = GuardMode.Look;
-                    this.modeTimeout = 2 + randomInRange(4);
+                    this.modeTimeout = 2 + rng.randomInRange(4);
                 } else {
                     this.mode = GuardMode.ChaseVisibleTarget;
                 }
@@ -492,7 +492,7 @@ class Guard {
                 this.mode !== GuardMode.WakeGuard) {
 
                 this.mode = GuardMode.MoveToGuardShout;
-                this.modeTimeout = 2 + randomInRange(4);
+                this.modeTimeout = 2 + rng.randomInRange(4);
                 vec2.copy(this.goal, this.heardGuardPos);
             }
 
@@ -560,7 +560,7 @@ class Guard {
                 if (player.itemUsed.type === ItemType.TorchLit) {
                     vec2.copy(this.goal, player.itemUsed.pos);
                     this.mode = GuardMode.LookAtTorch;
-                    this.modeTimeout = 2 + randomInRange(4);
+                    this.modeTimeout = 2 + rng.randomInRange(4);
                 } else if (player.itemUsed.type === ItemType.TorchUnlit) {
                     speech.push({ speaker: this, speechType: PopupType.GuardSeeTorchDoused });
                 }
@@ -885,7 +885,7 @@ function guardActAll(state: State) {
 
     const shouts: Array<Shout> = [];
     for (const guard of map.guards) {
-        guard.postActSense(map, player, state.levelStats, speech, shouts);
+        guard.postActSense(map, player, state.levelStats, speech, shouts, state.rng);
     }
 
     // Of all the guards trying to talk, pick the one that seems most important and create a speech bubble for them
