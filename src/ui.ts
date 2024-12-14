@@ -619,8 +619,9 @@ Keyboard and touch also supported
 [Esc|menuBack] Back to menu`,
 ];
     update(state: State): void {
-        this.activePage = lastController === state.keyboardController? 0:
-                          lastController === state.touchController? 1 : 2;
+        this.activePage = lastController === state.keyboardController ? 0 :
+                          lastController === state.touchController ? (state.touchController.mouseActive ? 0 : 1) :
+                          2;
     }
     onControls(state:State, activated:(action:string)=>boolean) {
         const action = this.navigateUI(activated);
