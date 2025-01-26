@@ -4,11 +4,13 @@
   "description": "Turn-based stealth in Merry Old England.",
   "source": "src/index.html",
   "scripts": {
-    "build": "parcel build src/index.html --public-url ./",
+    "build": "parcel build src/index.html --public-url . --no-cache",
     "check": "tsc --noEmit",
     "start": "parcel src/index.html"
   },
   "devDependencies": {
+    "@parcel/packager-raw-url": "^2.8.3",
+    "@parcel/transformer-webmanifest": "^2.8.3",
     "@types/howler": "^2.2.7",
     "@types/node": "^18.11.18",
     "@types/seedrandom": "^3.0.5",

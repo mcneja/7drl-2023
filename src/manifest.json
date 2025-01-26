@@ -1,0 +1,16 @@
+{
+  "name": "LLLOOOT!",
+  "short_name": "LLLOOOT!",
+  "description": "Turn-based thievery",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "./images/lllooot_192x192_favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
