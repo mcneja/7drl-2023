@@ -4,7 +4,7 @@
   "description": "Turn-based stealth in Merry Old England.",
   "source": "src/index.html",
   "scripts": {
-    "build": "parcel build src/index.html --public-url . --no-cache",
+    "build": "parcel build src/index.html --public-url .",
     "check": "tsc --noEmit",
     "start": "parcel src/index.html"
   },
