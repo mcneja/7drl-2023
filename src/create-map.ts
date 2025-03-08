@@ -278,6 +278,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 
     // Connect rooms together.
 
+    rng.shuffleArray(adjacencies);
     connectRooms(rooms, adjacencies, level, levelType, rng);
 
     // Join a pair of rooms together.
@@ -311,7 +312,9 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 
     // Render doors and windows.
 
-    renderWalls(levelType, adjacencies, map, rng);
+    renderWalls(levelType, adjacencies, map);
+
+    //verifyRoomsHaveDoors(rooms, map, rng.seed);
 
     // Render floors.
 
@@ -1085,8 +1088,7 @@ function computeAdjacencies(
                     let adj0 = row[i];
                     let adj1 = row[j];
 
-                    adj0.nextMatching = adj1;
-                    adj1.nextMatching = adj0;
+                    groupAdjacencies(adj0, adj1);
 
                     if (i !== j) {
                         // Flip edge adj1 to point the opposite direction
@@ -1113,8 +1115,7 @@ function computeAdjacencies(
                 for (let i = 0; i < row0.length; ++i) {
                     let adj0 = row0[i];
                     let adj1 = row1[i];
-                    adj0.nextMatching = adj1;
-                    adj1.nextMatching = adj0;
+                    groupAdjacencies(adj0, adj1);
                 }
 
                 ry0 += 1;
@@ -1246,8 +1247,7 @@ function computeAdjacencies(
                     let adj0 = row[i];
                     let adj1 = row[(row.length - 1) - i];
 
-                    adj0.nextMatching = adj1;
-                    adj1.nextMatching = adj0;
+                    groupAdjacencies(adj0, adj1);
 
                     // Flip edge a1 to point the opposite direction
                     vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
@@ -1267,8 +1267,7 @@ function computeAdjacencies(
                 for (let i = 0; i < row0.length; ++i) {
                     let adj0 = row0[i];
                     let adj1 = row1[i];
-                    adj0.nextMatching = adj1;
-                    adj1.nextMatching = adj0;
+                    groupAdjacencies(adj0, adj1);
                 }
 
                 ry0 += 1;
@@ -1278,6 +1277,43 @@ function computeAdjacencies(
     }
 
     return adjacencies;
+}
+
+function groupAdjacencies(adj0: Adjacency, adj1: Adjacency) {
+    tailAdjacency(adj0).nextMatching = adj1;
+    tailAdjacency(adj1).nextMatching = adj0;
+}
+
+function tailAdjacency(adj: Adjacency): Adjacency {
+    let adjTail = adj;
+    while (adjTail.nextMatching !== null && adjTail.nextMatching !== adj) {
+        adjTail = adjTail.nextMatching;
+    }
+    return adjTail;
+}
+
+function breakAdjacencyGroup(adj: Adjacency) {
+    while (true) {
+        const adjNext = adj.nextMatching;
+        adj.nextMatching = null;
+        if (adjNext === null) {
+            break;
+        }
+        adj = adjNext;
+    }
+}
+
+function adjacencyGroup(adjStart: Adjacency): Array<Adjacency> {
+    const adjs: Array<Adjacency> = [];
+    let adj = adjStart;
+    while (true) {
+        adjs.push(adj);
+        if (adj.nextMatching === null || adj.nextMatching === adjStart) {
+            break;
+        }
+        adj = adj.nextMatching;
+    }
+    return adjs;
 }
 
 function storeAdjacenciesInRooms(adjacencies: Array<Adjacency>) {
@@ -1291,340 +1327,191 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Connect all adjacent exterior rooms together.
 
-    for (const adj of adjacencies) {
-        const room0 = adj.roomLeft;
-        const room1 = adj.roomRight;
-        if (room0.roomType != RoomType.Exterior || room1.roomType != RoomType.Exterior) {
-            continue;
-        }
-
-        if (adj.length < 2) {
-            continue;
-        }
-
-        adj.door = true;
-        adj.doorType = DoorType.Standard;
-        const group0 = room0.group;
-        const group1 = room1.group;
-        joinGroups(rooms, group0, group1);
-    }
+    connectRoomsMatching(rooms, adjacencies, (adj) =>
+        adj.roomLeft.roomType === RoomType.Exterior &&
+        adj.roomRight.roomType === RoomType.Exterior);
 
     // Connect all adjacent courtyard rooms together.
 
-    for (const adj of adjacencies) {
-        const room0 = adj.roomLeft;
-        const room1 = adj.roomRight;
-        if (room0.roomType != RoomType.PublicCourtyard || room1.roomType != RoomType.PublicCourtyard) {
-            continue;
-        }
-
-        if (adj.length < 2) {
-            continue;
-        }
-
-        adj.door = true;
-        adj.doorType = DoorType.Standard;
-        const group0 = room0.group;
-        const group1 = room1.group;
-        joinGroups(rooms, group0, group1);
-    }
+    connectRoomsMatching(rooms, adjacencies, (adj) =>
+        adj.roomLeft.roomType === RoomType.PublicCourtyard &&
+        adj.roomRight.roomType === RoomType.PublicCourtyard);
 
     // Collect sets of edges that are mirrors of each other
 
-    const edgeSets = getEdgeSets(adjacencies, rng);
-
     if (levelType === LevelType.Fortress) {
-        // Connect all the rooms with doors.
-
-        for (const edgeSet of edgeSets) {
-
-            // This is pretty bad; I just want to grab one adjacency from the set to decide
-            // whether to put doors in all of them, since they all should have the same
-            // situation.
-
-            let addDoor = false;
-
-            for (const adj of edgeSet) {
-                if (adj.roomLeft.roomType === RoomType.Exterior) {
-                    break;
-                }
-                if (adj.roomRight.roomType === RoomType.Exterior) {
-                    break;
-                }
-
-                if (adj.roomLeft.group !== adj.roomRight.group) {
-                    addDoor = true;
-                }
-
-                break;
-            }
-
-            if (addDoor) {
-                for (const adj of edgeSet) {
-                    const room0 = adj.roomLeft;
-                    const room1 = adj.roomRight;
-
-                    const group0 = room0.group;
-                    const group1 = room1.group;
-
-                    adj.door = true;
-                    adj.doorType = DoorType.Standard;
-                    joinGroups(rooms, group0, group1);
-                }
-            }
-        }
+        connectRoomsMatching(rooms, adjacencies, (adj) =>
+            adj.roomLeft.roomType !== RoomType.Exterior &&
+            adj.roomRight.roomType !== RoomType.Exterior &&
+            adj.roomLeft.group !== adj.roomRight.group);
     } else {
         // Connect all the interior rooms with doors.
 
-        for (const edgeSet of edgeSets) {
-
-            // This is pretty bad; I just want to grab one adjacency from the set to decide
-            // whether to put doors in all of them, since they all should have the same
-            // situation.
-
-            let addDoor = false;
-
-            for (const adj of edgeSet) {
-                if (adj.roomLeft.roomType !== RoomType.PublicRoom) {
-                    break;
-                }
-                if (adj.roomRight.roomType !== RoomType.PublicRoom) {
-                    break;
-                }
-
-                if (adj.roomLeft.group !== adj.roomRight.group) {
-                    addDoor = true;
-                } else if (rng.random() < 0.4) {
-                    addDoor = true;
-                }
-
-                break;
-            }
-
-            if (addDoor) {
-                for (const adj of edgeSet) {
-                    const room0 = adj.roomLeft;
-                    const room1 = adj.roomRight;
-
-                    const group0 = room0.group;
-                    const group1 = room1.group;
-
-                    adj.door = true;
-                    adj.doorType = DoorType.Standard;
-                    joinGroups(rooms, group0, group1);
-                }
-            }
-        }
+        connectRoomsMatching(rooms, adjacencies, (adj) =>
+            adj.roomLeft.roomType === RoomType.PublicRoom &&
+            adj.roomRight.roomType === RoomType.PublicRoom &&
+            (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4));
 
         // Create doors between the interiors and the courtyard areas.
 
-        for (const edgeSet of edgeSets) {
-
-            let addDoor = false;
-
-            for (const adj of edgeSet) {
-                if (adj.roomLeft.roomType === adj.roomRight.roomType) {
-                    break;
-                }
-                if (adj.roomLeft.roomType === RoomType.Exterior) {
-                    break;
-                }
-                if (adj.roomRight.roomType === RoomType.Exterior) {
-                    break;
-                }
-
-                if (adj.roomLeft.group !== adj.roomRight.group) {
-                    addDoor = true;
-                } else if (rng.random() < 0.4) {
-                    addDoor = true;
-                }
-
-                break;
-            }
-
-            if (addDoor) {
-                for (const adj of edgeSet) {
-                    const room0 = adj.roomLeft;
-                    const room1 = adj.roomRight;
-
-                    const group0 = room0.group;
-                    const group1 = room1.group;
-
-                    adj.door = true;
-                    adj.doorType = DoorType.Standard;
-                    joinGroups(rooms, group0, group1);
-                }
-            }
-        }
+        connectRoomsMatching(rooms, adjacencies, (adj) =>
+            adj.roomLeft.roomType !== RoomType.Exterior &&
+            adj.roomRight.roomType !== RoomType.Exterior &&
+            adj.roomLeft.roomType !== adj.roomRight.roomType &&
+            (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4));
     }
 
     // Create a door to the surrounding exterior.
 
-    const adjDoor = frontDoorAdjacency(edgeSets, rooms[0]);
+    const adjDoor = frontDoorAdjacency(adjacencies, rooms[0]);
     if (adjDoor !== undefined) {
         adjDoor.door = true;
         adjDoor.doorType = DoorType.GateFront;
 
         // Break symmetry if the door is off center.
 
-        let adjDoorMirror = adjDoor.nextMatching;
-        if (adjDoorMirror !== null && adjDoorMirror !== adjDoor) {
-            adjDoor.nextMatching = null;
-            adjDoorMirror.nextMatching = null;
-        }
+        breakAdjacencyGroup(adjDoor);
     }
 
     // Occasionally create a back door to the exterior.
 
     if (rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
-        const adjDoor = backDoorAdjacency(edgeSets, rooms[0]);
+        const adjDoor = backDoorAdjacency(adjacencies, rooms[0]);
         if (adjDoor !== undefined) {
             adjDoor.door = true;
             adjDoor.doorType = (levelType !== LevelType.Fortress && (level < 3 || rng.random() < 0.75)) ? DoorType.GateBack : DoorType.Locked;
 
             // Break symmetry if the door is off center.
 
-            let adjDoorMirror = adjDoor.nextMatching;
-            if (adjDoorMirror !== null && adjDoorMirror !== adjDoor) {
-                adjDoor.nextMatching = null;
-                adjDoorMirror.nextMatching = null;
-            }
+            breakAdjacencyGroup(adjDoor);
         }
     }
 
     // Also create side doors sometimes.
 
     if (rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
-        const adjDoor = sideDoorAdjacency(edgeSets, rooms[0]);
+        const adjDoor = sideDoorAdjacency(adjacencies, rooms[0]);
         if (adjDoor !== undefined) {
             const doorType = (levelType !== LevelType.Fortress && level < 3) ? DoorType.GateBack : DoorType.Locked;
-            adjDoor.door = true;
-            adjDoor.doorType = doorType;
 
-            const adjDoorMirror = adjDoor.nextMatching;
-            if (adjDoorMirror !== null && adjDoorMirror !== adjDoor) {
-                adjDoorMirror.door = true;
-                adjDoorMirror.doorType = doorType;
+            for (const adj of adjacencyGroup(adjDoor)) {
+                adj.door = true;
+                adj.doorType = doorType;
             }
         }
     }
 }
 
-function getEdgeSets(adjacencies: Array<Adjacency>, rng: RNG): Array<Set<Adjacency>> {
-    const edgeSets: Array<Set<Adjacency>> = [];
+function connectRoomsMatching(rooms: Array<Room>, adjacencies: Array<Adjacency>, acceptAdj: (adj: Adjacency) => boolean) {
     const adjHandled: Set<Adjacency> = new Set();
+    for (const adjTest of adjacencies) {
+        if (adjHandled.has(adjTest)) {
+            continue;
+        }
 
-    for (const adj of adjacencies) {
-        if (adj.length < 2) {
+        const adjs = adjacencyGroup(adjTest);
+
+        for (const adj of adjs) {
+            adjHandled.add(adj);
+        }
+
+        console.assert(adjs.every(adj => adj.length === adjTest.length));
+
+        if (adjTest.length < 2) {
             continue;
         }
-        if (adjHandled.has(adj)) {
+
+        if (!acceptAdj(adjTest)) {
             continue;
         }
-        const adjMirror = adj.nextMatching;
-        const setAdjMirror: Set<Adjacency> = new Set();
-        setAdjMirror.add(adj);
-        adjHandled.add(adj);
-        if (adjMirror !== null) {
-            setAdjMirror.add(adjMirror);
-            adjHandled.add(adjMirror);
+
+        for (const adj of adjs) {
+            adj.door = true;
+            adj.doorType = DoorType.Standard;
+            joinGroups(rooms, adj.roomLeft.group, adj.roomRight.group);
         }
-        edgeSets.push(setAdjMirror);
     }
-
-    rng.shuffleArray(edgeSets);
-
-    return edgeSets;
 }
 
 function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
-    if (groupFrom != groupTo) {
-        for (const room of rooms) {
-            if (room.group == groupFrom) {
-                room.group = groupTo;
-            }
+    if (groupFrom === groupTo) {
+        return;
+    }
+
+    for (const room of rooms) {
+        if (room.group === groupFrom) {
+            room.group = groupTo;
         }
     }
 }
 
-function frontDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
+function frontDoorAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room): Adjacency | undefined {
     const adjs: Array<Adjacency> = [];
 
-    for (const edgeSet of edgeSets) {
-        for (const adj of edgeSet) {
-            if (adj.dir[0] == 0) {
-                continue;
-            }
-
-            if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
-                adjs.push(adj);
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] > 0) {
-                adjs.push(adj);
-            }
+    for (const adj of adjacencies) {
+        if (adj.dir[0] == 0) {
+            continue;
         }
-    }
 
-    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
-
-    if (adjs.length <= 0) {
-        return undefined;
-    }
-
-    return adjs[Math.floor(adjs.length / 2)];
-}
-
-function backDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
-    const adjs: Array<Adjacency> = [];
-
-    for (const edgeSet of edgeSets) {
-        for (const adj of edgeSet) {
-            if (adj.dir[0] == 0) {
-                continue;
-            }
-
-            if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
-                adjs.push(adj);
-            } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] < 0) {
-                adjs.push(adj);
-            }
-        }
-    }
-
-    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
-
-    if (adjs.length <= 0) {
-        return undefined;
-    }
-
-    return adjs[Math.floor(adjs.length / 2)];
-}
-
-function sideDoorAdjacency(edgeSets: Array<Set<Adjacency>>, roomExterior: Room): Adjacency | undefined {
-    const adjs: Array<Adjacency> = [];
-
-    for (const edgeSet of edgeSets) {
-        for (const adj of edgeSet) {
-            if (adj.dir[1] == 0) {
-                continue;
-            }
-            if (adj.length < 3) {
-                continue;
-            }
-            if ((adj.length & 1) !== 0) {
-                continue;
-            }
-
-            if ((adj.roomLeft === roomExterior) === (adj.roomRight === roomExterior)) {
-                continue;
-            }
-
-            const adjMirror = adj.nextMatching;
-            if (adjMirror === null || adjMirror === adj) {
-                continue;
-            }
-
+        if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
+            adjs.push(adj);
+        } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] > 0) {
             adjs.push(adj);
         }
+    }
+
+    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
+
+    if (adjs.length <= 0) {
+        return undefined;
+    }
+
+    return adjs[Math.floor(adjs.length / 2)];
+}
+
+function backDoorAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room): Adjacency | undefined {
+    const adjs: Array<Adjacency> = [];
+
+    for (const adj of adjacencies) {
+        if (adj.dir[0] == 0) {
+            continue;
+        }
+
+        if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
+            adjs.push(adj);
+        } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] < 0) {
+            adjs.push(adj);
+        }
+    }
+
+    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
+
+    if (adjs.length <= 0) {
+        return undefined;
+    }
+
+    return adjs[Math.floor(adjs.length / 2)];
+}
+
+function sideDoorAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room): Adjacency | undefined {
+    const adjs: Array<Adjacency> = [];
+
+    for (const adj of adjacencies) {
+        if (adj.dir[1] == 0) {
+            continue;
+        }
+        if (adj.length < 3) {
+            continue;
+        }
+        if ((adj.length & 1) !== 0) {
+            continue;
+        }
+
+        if ((adj.roomLeft === roomExterior) === (adj.roomRight === roomExterior)) {
+            continue;
+        }
+
+        adjs.push(adj);
     }
 
     adjs.sort((adj0, adj1) => (adj0.origin[1] + adj0.dir[1] * adj0.length / 2) - (adj1.origin[1] + adj1.dir[1] * adj1.length / 2));
@@ -2416,10 +2303,7 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 
     // Remove adj from its twin
 
-    const adjMatch = adj.nextMatching;
-    if (adjMatch !== null) {
-        adjMatch.nextMatching = null;
-    }
+    breakAdjacencyGroup(adj);
 
     // Remove adj from adjacencies and from room0.edges
 
@@ -2462,13 +2346,8 @@ function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room)
 
             // Break all symmetry links
 
-            if (adj0.nextMatching !== null) {
-                adj0.nextMatching.nextMatching = null;
-            }
-            if (adj1.nextMatching !== null) {
-                adj1.nextMatching.nextMatching = null;
-            }
-            adj0.nextMatching = null;
+            breakAdjacencyGroup(adj0);
+            breakAdjacencyGroup(adj1);
 
             // If either edge had a door, the combined edge must have a door, since we already established connectivity.
 
@@ -3949,7 +3828,7 @@ function oneWayWindowTerrainTypeFromDir(dir: vec2): number {
     return oneWayWindowTerrainType[dir[0] + 2 * Math.max(0, dir[1]) + 1];
 }
 
-function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: GameMap, rng:RNG) {
+function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: GameMap) {
 
     // Plot walls around all the rooms, except between courtyard or exterior rooms.
 
@@ -3981,18 +3860,10 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
             continue;
         }
 
-        adjHandled.add(adj0);
+        const walls = adjacencyGroup(adj0);
 
-        const adjMirror = adj0.nextMatching;
-        if (adjMirror !== null && adjMirror !== adj0) {
-            adjHandled.add(adjMirror);
-        }
-
-        let walls: Array<Adjacency> = [];
-        walls.push(adj0);
-
-        if (adjMirror !== null && adjMirror !== adj0) {
-            walls.push(adjMirror);
+        for (const adj of walls) {
+            adjHandled.add(adj);
         }
 
         for (const a of walls) {
@@ -4099,6 +3970,41 @@ function renderWalls(levelType: LevelType, adjacencies: Array<Adjacency>, map: G
         }
     }
 }
+
+/*
+function verifyRoomsHaveDoors(rooms: Array<Room>, map: GameMap, rngSeed: string) {
+    for (const room of rooms) {
+        if (room.roomType === RoomType.Exterior) {
+            continue;
+        }
+        if (!roomHasDoor(room, map)) {
+            console.log('RNG "%s" Room at %d,%d-%d,%d missing door', rngSeed, room.posMin[0], room.posMin[1], room.posMax[0], room.posMax[1]);
+            console.assert(false);
+        }
+    }
+}
+
+function roomHasDoor(room: Room, map: GameMap): boolean {
+    for (let x = room.posMin[0]; x < room.posMax[0]; ++x) {
+        if (map.cells.at(x, room.posMin[1] - 1).type >= TerrainType.PortcullisNS) {
+            return true;
+        }
+        if (map.cells.at(x, room.posMax[1]).type >= TerrainType.PortcullisNS) {
+            return true;
+        }
+    }
+    for (let y = room.posMin[1]; y < room.posMax[1]; ++y) {
+        if (map.cells.at(room.posMin[0] - 1, y).type >= TerrainType.PortcullisNS) {
+            return true;
+        }
+        if (map.cells.at(room.posMax[0], y).type >= TerrainType.PortcullisNS) {
+            return true;
+        }
+    }
+
+    return false;
+}
+*/
 
 function renderRooms(level: number, rooms: Array<Room>, map: GameMap, rng: RNG) {
     for (let iRoom = 1; iRoom < rooms.length; ++iRoom) {
