@@ -990,6 +990,8 @@ function computeAdjacencies(
                     doorType: DoorType.Standard,
                 };
 
+                adj.nextMatching = adj;
+
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
             }
@@ -1017,6 +1019,8 @@ function computeAdjacencies(
                     door: false,
                     doorType: DoorType.Standard,
                 };
+
+                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -1070,6 +1074,8 @@ function computeAdjacencies(
                     door: false,
                     doorType: DoorType.Standard,
                 };
+
+                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -1150,6 +1156,8 @@ function computeAdjacencies(
                     doorType: DoorType.Standard,
                 };
 
+                adj.nextMatching = adj;
+
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
             }
@@ -1177,6 +1185,8 @@ function computeAdjacencies(
                     door: false,
                     doorType: DoorType.Standard,
                 };
+
+                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -1230,6 +1240,8 @@ function computeAdjacencies(
                     door: false,
                     doorType: DoorType.Standard,
                 };
+
+                adj.nextMatching = adj;
 
                 adjacencyRow.push(adj);
                 adjacencies.push(adj);
@@ -1292,26 +1304,21 @@ function tailAdjacency(adj: Adjacency): Adjacency {
     return adjTail;
 }
 
-function breakAdjacencyGroup(adj: Adjacency) {
-    while (true) {
-        const adjNext = adj.nextMatching;
-        adj.nextMatching = null;
-        if (adjNext === null) {
-            break;
-        }
-        adj = adjNext;
-    }
+function removeFromAdjacencyGroup(adj: Adjacency) {
+    tailAdjacency(adj).nextMatching = adj.nextMatching;
+    adj.nextMatching = adj;
 }
 
 function adjacencyGroup(adjStart: Adjacency): Array<Adjacency> {
     const adjs: Array<Adjacency> = [];
     let adj = adjStart;
     while (true) {
+        const adjNext = adj.nextMatching;
         adjs.push(adj);
-        if (adj.nextMatching === null || adj.nextMatching === adjStart) {
+        if (adjNext === null || adjNext === adjStart) {
             break;
         }
-        adj = adj.nextMatching;
+        adj = adjNext;
     }
     return adjs;
 }
@@ -1368,9 +1375,9 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
         adjDoor.door = true;
         adjDoor.doorType = DoorType.GateFront;
 
-        // Break symmetry if the door is off center.
+        // Remove door wall from symmetry group
 
-        breakAdjacencyGroup(adjDoor);
+        removeFromAdjacencyGroup(adjDoor);
     }
 
     // Occasionally create a back door to the exterior.
@@ -1381,9 +1388,9 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             adjDoor.door = true;
             adjDoor.doorType = (levelType !== LevelType.Fortress && (level < 3 || rng.random() < 0.75)) ? DoorType.GateBack : DoorType.Locked;
 
-            // Break symmetry if the door is off center.
+            // Remove door wall from symmetry group
 
-            breakAdjacencyGroup(adjDoor);
+            removeFromAdjacencyGroup(adjDoor);
         }
     }
 
@@ -2301,9 +2308,9 @@ function removeAdjacency(rooms: Array<Room>, adjacencies: Array<Adjacency>, adj:
 
     room0.depth = Math.min(room0.depth, room1.depth);
 
-    // Remove adj from its twin
+    // Remove adj from symmetry group
 
-    breakAdjacencyGroup(adj);
+    removeFromAdjacencyGroup(adj);
 
     // Remove adj from adjacencies and from room0.edges
 
@@ -2344,10 +2351,10 @@ function tryJoinCollinearAdjacencies(adjacencies: Array<Adjacency>, room0: Room)
             adj0.origin[1] = y0;
             adj0.length = length;
 
-            // Break all symmetry links
+            // Remove joined edges from symmetry groups
 
-            breakAdjacencyGroup(adj0);
-            breakAdjacencyGroup(adj1);
+            removeFromAdjacencyGroup(adj0);
+            removeFromAdjacencyGroup(adj1);
 
             // If either edge had a door, the combined edge must have a door, since we already established connectivity.
 
