@@ -2515,7 +2515,6 @@ function renderTerrain(state: State, renderer: Renderer) {
     }
 }
 
-
 function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
     // Draw items
     const itemTiles = itemTileSetForLevelType(state.gameMapRoughPlans[state.level].levelType, renderer.entityTileSet);
@@ -2575,12 +2574,9 @@ function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
             renderer.addGlyphLit4(x, y, x + 1, y + 1, ti, lv);
         }
     }
-
-    // Draw adjacencies
-    // renderRoomAdjacencies(state.gameMap.adjacencies, renderer);
 }
 
-function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer) {
+function debugRenderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer) {
     const tile = {
         textureIndex: 2,
         color: 0xffffffff,
@@ -3033,7 +3029,7 @@ export function saveStats(persistedStats: PersistedStats) {
 }
 
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, ambientSoundPool:ActiveHowlPool, touchController:TouchController): State {
-    const rng = new RNG();  
+    const rng = new RNG();
     const initialLevel = debugInitialLevel;
     const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
     const gameMap = createGameMap(gameMapRoughPlans[initialLevel]);
@@ -3594,6 +3590,9 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
         renderPlayer(state, renderer);
     }
     renderItems(state, renderer, true);
+
+    //debugRenderRoomAdjacencies(state.gameMap.adjacencies, renderer);
+
     renderParticles(state, renderer);
     if(state.gameMode===GameMode.Mansion) {
         renderIconOverlays(state, renderer);
