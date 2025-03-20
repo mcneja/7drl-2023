@@ -21,7 +21,7 @@ const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     [3,7,3,6,21,30],
     [5,7,4,6,24,36],
     [5,9,4,6,30,42],
-    [7,9,7,9,36,49],
+    [5,9,5,9,35,49],
 ];
 
 enum RoomType {
@@ -161,23 +161,41 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
 function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number, number] {
     let xmin: number, xmax: number, ymin: number, ymax: number, Amin: number, Amax: number;
     [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];
-    let x = xmin + 2*rng.randomInRange(1+(xmax-xmin)/2);
-    let y = ymin + rng.randomInRange(1+ymax-ymin);
+
+    // Establish base dimensions by flipping a bunch of coins (trying to approximate a normal distribution)
+
+    let x = xmin;
+    for (let i = xmin; i < xmax; ++i) {
+        if (rng.random() < 0.5) {
+            ++x;
+        }
+    }
+
+    let y = ymin;
+    for (let i = ymin; i < ymax; ++i) {
+        if (rng.random() < 0.5) {
+            ++y;
+        }
+    }
+
+    // Enforce odd width
+
+    if ((x & 1) === 0) {
+        if (x > xmin && rng.random() < 0.5) {
+            --x;
+        } else {
+            ++x;
+        }
+    }
+
+    // Enforce minimum and maximum area by adjusting vertical dimension
+
     y = Math.min(Math.floor(Amax/x), y);
     y = Math.max(y, Math.ceil(Amin/x));
 
-    if (levelType === LevelType.Fortress) {
-        // Ensure LevelType.Fortress levels have odd number of rooms vertically
-        // (All levels have an odd number of rooms horizontally)
-        if ((y & 1) === 0) {
-            if (y < 7) {
-                ++y;
-            } else {
-                --y;
-            }
-        }
-    } else if (levelType === LevelType.Mansion) {
-        // Try to quantize the level dimensions we chose above to ones that work for the mansion style
+    // Quantize mansion dimensions to work with its style
+
+    if (levelType === LevelType.Mansion) {
         x = Math.floor((x + 1) / 3 + 0.5);
         y = Math.floor((y + 1) / 3 + 0.5);
         x = Math.max(2, x);
@@ -216,15 +234,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
         break;
 
     case LevelType.Fortress:
-        const ringCourtyard = rng.random() < 0.25;
-        for (let x = 0; x < plan.numRoomsX; ++x) {
-            for (let y = 0; y < plan.numRoomsY; ++y) {
-                const dx = Math.min(x, (plan.numRoomsX - 1) - x);
-                const dy = Math.min(y, (plan.numRoomsY - 1) - y);
-                const d = Math.min(dx, dy);
-                inside.set(x, y, d !== 1 || (!ringCourtyard && y > 1 && dx !== 1));
-            }
-        }
+        makeFortressRoomGrid(inside, rng);
         break;
     }
 
@@ -250,11 +260,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
         mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
 
-    const mirrorRoomsY =
-        (plan.numRoomsY & 1) === 1 &&
-        levelType !== LevelType.Manor &&
-        levelType !== LevelType.ManorRed &&
-        insideIsVerticallySymmetric(inside);
+    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && insideIsVerticallySymmetric(inside) && Math.random() < 0.5;
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
     }
@@ -395,8 +401,9 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 }
 
 function insideIsHorizontallySymmetric(inside: BooleanGrid): boolean {
+    const sizeHalfX = Math.floor(inside.sizeX / 2);
     for (let y = 0; y < inside.sizeY; ++y) {
-        for (let x = 0; x < Math.floor(inside.sizeX / 2); ++x) {
+        for (let x = 0; x < sizeHalfX; ++x) {
             if (inside.get(x, y) !== inside.get(inside.sizeX - 1 - x, y)) {
                 return false;
             }
@@ -406,8 +413,9 @@ function insideIsHorizontallySymmetric(inside: BooleanGrid): boolean {
 }
 
 function insideIsVerticallySymmetric(inside: BooleanGrid): boolean {
+    const sizeHalfY = Math.floor(inside.sizeY / 2);
     for (let x = 0; x < inside.sizeX; ++x) {
-        for (let y = 0; y < Math.floor(inside.sizeY / 2); ++y) {
+        for (let y = 0; y < sizeHalfY; ++y) {
             if (inside.get(x, y) !== inside.get(x, inside.sizeY - 1 - y)) {
                 return false;
             }
@@ -420,26 +428,18 @@ function makeManorRoomGrid(inside: BooleanGrid, rng: RNG) {
     const sizeX = inside.sizeX;
     const sizeY = inside.sizeY;
 
-    const halfX = Math.floor((sizeX + 1) / 2);
-
-    const numCourtyardRoomsHalf = Math.floor((sizeY * halfX) / 4);
-    for (let i = numCourtyardRoomsHalf; i > 0; --i) {
-        const x = rng.randomInRange(halfX);
+    const numCourtyardRoomsMax = Math.floor((sizeX * sizeY) / 4);
+    for (let i = 0; i < numCourtyardRoomsMax; ++i) {
+        const x = rng.randomInRange(sizeX);
         const y = rng.randomInRange(sizeY);
         inside.set(x, y, false);
-    }
-
-    for (let y = 0; y < sizeY; ++y) {
-        for (let x = halfX; x < sizeX; ++x) {
-            inside.set(x, y, inside.get((sizeX - 1) - x, y));
-        }
     }
 
     if ((sizeX & 1) === 1) {
         mirrorInteriorLeftToRight(inside);
     }
 
-    if ((sizeY & 1) === 1) {
+    if ((sizeY & 1) === 1 && rng.random() < 0.125) {
         mirrorInteriorBottomToTop(inside);
     }
 
@@ -517,6 +517,18 @@ function makeMansionRoomGrid(inside: BooleanGrid, rng: RNG) {
             for (let y = yMin; y < yMax; ++y) {
                 inside.set(x, y, true);
             }
+        }
+    }
+}
+
+function makeFortressRoomGrid(inside: BooleanGrid, rng: RNG) {
+    const ringCourtyard = rng.random() < 0.25;
+    for (let x = 0; x < inside.sizeX; ++x) {
+        for (let y = 0; y < inside.sizeY; ++y) {
+            const dx = Math.min(x, (inside.sizeX - 1) - x);
+            const dy = Math.min(y, (inside.sizeY - 1) - y);
+            const d = Math.min(dx, dy);
+            inside.set(x, y, d !== 1 || (!ringCourtyard && y > 1 && dx !== 1));
         }
     }
 }
