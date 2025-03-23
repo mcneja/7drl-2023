@@ -21,7 +21,7 @@ const levelShapeInfo:Array<[number,number,number,number,number,number]> = [
     [3,7,3,6,21,30],
     [5,7,4,6,24,36],
     [5,9,4,6,30,42],
-    [5,9,5,9,35,49],
+    [7,9,5,9,35,63],
 ];
 
 enum RoomType {
