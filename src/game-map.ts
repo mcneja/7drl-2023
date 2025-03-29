@@ -116,6 +116,7 @@ enum LevelType {
     ManorRed,
     Mansion,
     Fortress,
+    Warrens,
 }
 
 type GameMapRoughPlan = {

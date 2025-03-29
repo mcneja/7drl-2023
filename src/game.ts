@@ -2452,6 +2452,7 @@ function waterTileSetForLevelType(levelType: LevelType, terrainTileset:TerrainTi
         case LevelType.ManorRed: return terrainTileset.waterAnimation;
         case LevelType.Mansion: return terrainTileset.manseWaterAnimation;
         case LevelType.Fortress: return terrainTileset.fortressWaterAnimation;
+        case LevelType.Warrens: return terrainTileset.waterAnimation;
     }
 }
 
@@ -2461,6 +2462,7 @@ function terrainTileSetForLevelType(levelType: LevelType, terrainTileset:Terrain
         case LevelType.ManorRed: return terrainTileset.redWallTerrainTiles;
         case LevelType.Mansion: return terrainTileset.manseTerrainTiles;
         case LevelType.Fortress: return terrainTileset.fortressTerrainTiles;
+        case LevelType.Warrens: return terrainTileset.redWallTerrainTiles;
     }
 }
 
@@ -2470,6 +2472,7 @@ function itemTileSetForLevelType(levelType: LevelType, entityTileset:EntityTileS
         case LevelType.ManorRed: return entityTileset.redWallItemTiles;
         case LevelType.Mansion: return entityTileset.manseItemTiles;
         case LevelType.Fortress: return entityTileset.fortressItemTiles;
+        case LevelType.Warrens: return entityTileset.redWallItemTiles;
     }
 }
 
