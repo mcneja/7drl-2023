@@ -36,7 +36,8 @@ enum StepType {
 }
 
 const debugInitialLevel = 0; // set to non-zero to test level generation
-const debugSeeAll = false; // initial value for see-all cheat code
+const debugLevelGen = false;
+const debugSeeAll = debugLevelGen; // initial value for see-all cheat code
 const terrainTileSet = getTerrainTileSet();
 const entityTileSet = getEntityTileSet();
 const fontTileSet = getFontTileSet();
@@ -247,6 +248,7 @@ function updateControllerState(state:State) {
             if (state.devMode && state.level < state.gameMapRoughPlans.length - 1) {
                 scoreCompletedLevel(state);
                 setupLevel(state, state.level+1);
+                state.camera.zoomed = false;
             }
         } else if (activated('resetState')) {
             if (state.devMode) {
@@ -256,6 +258,7 @@ function updateControllerState(state:State) {
             if (state.devMode && state.level > 0) {
                 scoreCompletedLevel(state);
                 setupLevel(state, state.level-1);
+                state.camera.zoomed = false;
             }
         } else if (activated('showFPS')) {
             if (state.devMode) {
@@ -3082,7 +3085,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         idleTimer: 5,
         rng: rng,
         fpsInfo: {enabled: false, msgFPS: 'FPS: --', frames:0, cumulativeTime:0, worstFrame:0, drops:0},
-        devMode: false,
+        devMode: debugLevelGen,
         dailyRun: null,
         leapToggleActive: false,
         healthBarState: {
@@ -3092,7 +3095,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
             enlargeTimeRemaining: 0,
             heartFlashRemaining: Array(player.healthMax).fill(0),
         },
-        gameMode: GameMode.HomeScreen,
+        gameMode: debugLevelGen ? GameMode.Mansion : GameMode.HomeScreen,
         textWindows: {
             [GameMode.HomeScreen]: new HomeScreen(),
             [GameMode.OptionsScreen]: new OptionsScreen(),
@@ -3117,7 +3120,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         numWaitMoves: 0,
         numZoomMoves: 0,
         hasEnteredMansion: false,
-        experiencedPlayer: false,
+        experiencedPlayer: debugLevelGen,
         finishedLevel: false,
         hasStartedGame: false,
         zoomLevel: initZoomLevel,
@@ -3295,7 +3298,7 @@ export function restartGame(state: State) {
     state.numWaitMoves = 0;
     state.numZoomMoves = 0;
     state.hasEnteredMansion = false;
-    state.experiencedPlayer = isDailyRun;
+    state.experiencedPlayer = isDailyRun || debugLevelGen;
     state.finishedLevel = false;
     state.turns = 0;
     state.totalTurns = 0;
