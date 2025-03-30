@@ -3122,7 +3122,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         hasEnteredMansion: false,
         experiencedPlayer: debugLevelGen,
         finishedLevel: false,
-        hasStartedGame: false,
+        hasStartedGame: debugLevelGen,
         zoomLevel: initZoomLevel,
         seeAll: debugSeeAll,
         seeGuardSight: false,
