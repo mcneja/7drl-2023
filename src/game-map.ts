@@ -17,6 +17,7 @@ export {
     guardMoveCostForItemType,
     isWindowTerrainType,
     isDoorItemType,
+    levelTypeName,
     maxPlayerTurnsUnderwater,
 };
 
@@ -117,6 +118,16 @@ enum LevelType {
     Mansion,
     Fortress,
     Warrens,
+}
+
+function levelTypeName(levelType: LevelType): string {
+    switch (levelType) {
+        case LevelType.Manor: return 'Manor';
+        case LevelType.ManorRed: return 'Manor';
+        case LevelType.Mansion: return 'Mansion';
+        case LevelType.Fortress: return 'Fortress';
+        case LevelType.Warrens: return 'Warrens';
+    }
 }
 
 type GameMapRoughPlan = {

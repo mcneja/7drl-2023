@@ -187,16 +187,6 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
     return gameMapRoughPlans;
 }
 
-function levelTypeName(levelType: LevelType): string {
-    switch (levelType) {
-        case LevelType.Manor: return 'Manor';
-        case LevelType.ManorRed: return 'ManorRed';
-        case LevelType.Mansion: return 'Mansion';
-        case LevelType.Fortress: return 'Fortress';
-        case LevelType.Warrens: return 'Warrens';
-    }
-}
-
 function makeLevelSize(level: number, levelType: LevelType, rng: RNG) : [number, number] {
     let xmin: number, xmax: number, ymin: number, ymax: number, Amin: number, Amax: number;
     [xmin, xmax, ymin, ymax, Amin, Amax] = levelShapeInfo[level];

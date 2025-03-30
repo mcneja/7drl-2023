@@ -6,7 +6,7 @@ import * as colorPreset from './color-preset';
 import * as game from './game';
 import { RNG } from './random';
 import { getFontTileSet, getEntityTileSet, TextureType, TileInfo } from './tilesets';
-import { ItemType, LevelType } from './game-map';
+import { ItemType, levelTypeName } from './game-map';
 import { Achievement, Achievements } from './achievements';
 
 export { TextWindow, HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, AchievementsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, DevScreen };
@@ -873,18 +873,6 @@ requirements when you complete a game.
         } else if (activated('menuBack') || action=='menuBack') {
             state.gameMode = GameMode.HomeScreen;
         };
-    }
-}
-
-function levelTypeName(levelType: LevelType): string {
-    switch (levelType) {
-        case LevelType.Manor:
-        case LevelType.ManorRed:
-            return 'Manor';
-        case LevelType.Mansion:
-            return 'Mansion';
-        case LevelType.Fortress:
-            return 'Fortress';
     }
 }
 
