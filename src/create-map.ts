@@ -316,7 +316,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 
     // Join rooms to make bigger rooms.
 
-    joinRoomsWarren(rooms, adjacencies, rng);
+//    joinRoomsWarren(rooms, adjacencies, rng);
 
     // Connect rooms together.
 
@@ -325,7 +325,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 
     // Join a pair of rooms together.
 
-    //makeDoubleRooms(rooms, adjacencies, rng);
+    makeDoubleRooms(rooms, adjacencies, rng);
 
     // In fortresses, connectRooms added only the bare minimum of doors necessary to connect the level.
     //  Add additional doors now, but lock them.
@@ -638,44 +638,13 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
     
     roomsX = roomsX * 2 - 1;
     roomsY = roomsY * 2 - 1;
-    const inside = new BooleanGrid(roomsX, roomsY, true);
-    const levelType = LevelType.Warrens;
-    const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
-    const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
-    for (let x = 0; x <= roomsX; ++x) {
-        for (let y = 0; y < roomsY; ++y) {
-            const wallX = Math.floor(x / 2) * 6 + (x & 1) * 4;
-            offsetX.set(x, y, wallX);
-        }
-    }
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = 0; y <= roomsY; ++y) {
-            const wallY = Math.floor(y / 2) * 6 + (y & 1) * 4;
-            offsetY.set(x, y, wallY);
-        }
-    }
-    for (let x = 0; x < roomsX; x += 2) {
-        for (let y = 0; y < roomsY; y += 2) {
-            if (!insideStage1.get(Math.floor(x / 2), Math.floor(y / 2))) {
-                inside.set(x, y, false);
-            }
-        }
-    }
-    for (let x = 1; x < roomsX; x += 2) {
-        for (let y = 0; y < roomsY; ++y) {
-            inside.set(x, y, (y & 1) ? false : connectedX.get(Math.floor(x / 2), Math.floor(y / 2)));
-        }
-    }
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = 1; y < roomsY; y += 2) {
-            inside.set(x, y, (x & 1) ? false : connectedY.get(Math.floor(x / 2), Math.floor(y / 2)));
-        }
-    }
+    const [inside, offsetX, offsetY] = generateWarrenOffsets(insideStage1, connectedX, connectedY, rng);
 
     // Translate the building so it abuts the X and Y axes with outerBorder/outerBorderBottom padding
 
     offsetBuilding(offsetX, offsetY, 1, outerBorderBottom);
 
+    const levelType = LevelType.Warrens;
     const [rooms, roomIndex] = createRooms(inside, offsetX, offsetY, levelType);
 
     // Compute a list of room adjacencies.
@@ -784,6 +753,46 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
     map.adjacencies = adjacencies;
 
     return map;
+}
+
+function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGrid, connectedY: BooleanGrid, rng: RNG): [BooleanGrid, Int32Grid, Int32Grid] {
+    const roomsX = insideStage1.sizeX * 2 - 1;
+    const roomsY = insideStage1.sizeY * 2 - 1;
+    const inside = new BooleanGrid(roomsX, roomsY, true);
+    const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
+    const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
+    const cellSizeX = 6;
+    for (let x = 0; x <= roomsX; ++x) {
+        for (let y = 0; y < roomsY; ++y) {
+            const wallX = Math.floor(x / 2) * cellSizeX + (x & 1) * (cellSizeX - 2);
+            offsetX.set(x, y, wallX);
+        }
+    }
+    const cellSizeY = 6;
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 0; y <= roomsY; ++y) {
+            const wallY = Math.floor(y / 2) * cellSizeY + (y & 1) * (cellSizeY - 2);
+            offsetY.set(x, y, wallY);
+        }
+    }
+    for (let x = 0; x < roomsX; x += 2) {
+        for (let y = 0; y < roomsY; y += 2) {
+            if (!insideStage1.get(Math.floor(x / 2), Math.floor(y / 2))) {
+                inside.set(x, y, false);
+            }
+        }
+    }
+    for (let x = 1; x < roomsX; x += 2) {
+        for (let y = 0; y < roomsY; ++y) {
+            inside.set(x, y, (y & 1) ? false : connectedX.get(Math.floor(x / 2), Math.floor(y / 2)));
+        }
+    }
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 1; y < roomsY; y += 2) {
+            inside.set(x, y, (x & 1) ? false : connectedY.get(Math.floor(x / 2), Math.floor(y / 2)));
+        }
+    }
+    return [inside, offsetX, offsetY];
 }
 
 function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, needKey: boolean, patrolRoutes:Array<PatrolRoute>, rng:RNG):void {
@@ -960,71 +969,61 @@ function offsetWalls(
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
 
+    const forceTJunctionProbability = 0.75;
     const straightOutsideWalls = rng.random() < 0.25;
+    const straightWallMinX = straightOutsideWalls;
+    const straightWallMaxX = straightOutsideWalls;
+    const straightWallMinY = straightOutsideWalls;
+    const straightWallMaxY = straightOutsideWalls;
 
-    if (straightOutsideWalls) {
-        let i = rng.randomInRange(3) - 1;
-        for (let y = 0; y < roomsY; ++y)
-            offsetX.set(0, y, i);
+    const roomVarianceX = 3;
+    const roomVarianceY = 3;
 
-        i = rng.randomInRange(3) - 1;
-        for (let y = 0; y < roomsY; ++y)
-            offsetX.set(roomsX, y, i);
-
-        i = rng.randomInRange(3) - 1;
-        for (let x = 0; x < roomsX; ++x)
-            offsetY.set(x, 0, i);
-
-        i = rng.randomInRange(3) - 1;
-        for (let x = 0; x < roomsX; ++x)
-            offsetY.set(x, roomsY, i);
-
-        for (let x = 1; x < roomsX; ++x) {
-            for (let y = 0; y < roomsY; ++y) {
-                offsetX.set(x, y, rng.randomInRange(3) - 1);
-            }
-        }
-
-        for (let x = 0; x < roomsX; ++x) {
-            for (let y = 1; y < roomsY; ++y) {
-                offsetY.set(x, y, rng.randomInRange(3) - 1);
-            }
-        }
-    } else {
-        for (let x = 0; x < roomsX + 1; ++x) {
-            for (let y = 0; y < roomsY; ++y) {
-                offsetX.set(x, y, rng.randomInRange(3) - 1);
-            }
-        }
-
-        for (let x = 0; x < roomsX; ++x) {
-            for (let y = 0; y < roomsY + 1; ++y) {
-                offsetY.set(x, y, rng.randomInRange(3) - 1);
-            }
-        }
-    }
-
-    for (let x = 1; x < roomsX; ++x) {
-        for (let y = 1; y < roomsY; ++y) {
+    for (let x = 0; x <= roomsX; ++x) {
+        for (let y = 0; y <= roomsY; ++y) {
             if (rng.randomInRange(2) === 0) {
-                offsetX.set(x, y, offsetX.get(x, y-1));
+                // Align walls vertically through this intersection
+                if (y < roomsY) {
+                    offsetX.set(x, y, (y > 0) ? offsetX.get(x, y - 1) : rng.randomInRange(roomVarianceX) + roomSizeX * x - 1);
+                }
+                if (x < roomsX) {
+                    let wallY = roomSizeY * y - 1;
+                    if (x <= 0) {
+                        wallY += rng.randomInRange(roomVarianceY);
+                    } else if ((straightWallMinY && y === 0) || (straightWallMaxY && y === roomsY)) {
+                        wallY = offsetY.get(x - 1, y);
+                    } else if (rng.random() >= forceTJunctionProbability) {
+                        wallY += rng.randomInRange(roomVarianceY);
+                    } else {
+                        wallY += rng.randomInRange(roomVarianceY - 1);
+                        if (wallY >= offsetY.get(x - 1, y)) {
+                            ++wallY;
+                        }
+                    }
+                    offsetY.set(x, y, wallY);
+                }
             } else {
-                offsetY.set(x, y, offsetY.get(x-1, y));
+                // Align walls horizontally through this intersection
+                if (y < roomsY) {
+                    let wallX = roomSizeX * x - 1;
+                    if (y <= 0) {
+                        wallX += rng.randomInRange(roomVarianceX);
+                    } else if ((straightWallMinX && x === 0) || (straightWallMaxX && x === roomsX)) {
+                        wallX = offsetX.get(x, y - 1);
+                    } else if (rng.random() >= forceTJunctionProbability) {
+                        wallX += rng.randomInRange(roomVarianceX);
+                    } else {
+                        wallX += rng.randomInRange(roomVarianceX - 1);
+                        if (wallX >= offsetX.get(x, y - 1)) {
+                            ++wallX;
+                        }
+                    }
+                    offsetX.set(x, y, wallX);
+                }
+                if (x < roomsX) {
+                    offsetY.set(x, y, (x > 0) ? offsetY.get(x - 1, y) : rng.randomInRange(roomVarianceY) + roomSizeY * y - 1);
+                }
             }
-        }
-    }
-
-    // Add in room widths
-
-    for (let x = 0; x < roomsX + 1; ++x) {
-        for (let y = 0; y < roomsY; ++y) {
-            offsetX.set(x, y, offsetX.get(x, y) + x * roomSizeX);
-        }
-    }
-
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = 0; y < roomsY + 1; ++y) {
-            offsetY.set(x, y, offsetY.get(x, y) + y * roomSizeY);
         }
     }
 
@@ -2672,7 +2671,7 @@ function removableAdjacencyWarren(adjacencies: Array<Adjacency>, roomExterior: R
         // Don't let rooms get too long and skinny
         if (room0.roomType !== RoomType.Exterior &&
             room0.roomType !== RoomType.PublicCourtyard &&
-            aspect > 1.8) {
+            aspect > 2) {
             continue;
         }
 
