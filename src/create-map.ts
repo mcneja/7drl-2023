@@ -2595,10 +2595,7 @@ function removableAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room, r
         const aspect = Math.max(rx, ry) / Math.min(rx, ry);
 
         // Don't let rooms get too long and skinny
-        if (room0.roomType !== RoomType.Exterior &&
-            roomMinDimension(room0) > 2 &&
-            roomMinDimension(room1) > 2 &&
-            aspect > 2) {
+        if (room0.roomType !== RoomType.Exterior && aspect > 2) {
             continue;
         }
 
