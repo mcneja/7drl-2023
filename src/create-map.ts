@@ -283,7 +283,31 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
 
     // Randomly offset walls, and establish mirror relationships between them
 
-    const [offsetX, offsetY] = offsetWalls(plan.numRoomsX, plan.numRoomsY, rng);
+    const forceTJunctionProbability = 0.75;
+    const randomJunctionOrientationProbability = 0.5;
+    const straightOutsideWalls = rng.random() < 0.25;
+    const straightWallMinX = straightOutsideWalls;
+    const straightWallMaxX = straightOutsideWalls;
+    const straightWallMinY = straightOutsideWalls;
+    const straightWallMaxY = straightOutsideWalls;
+
+    const roomVarianceX = 3;
+    const roomVarianceY = 3;
+
+    const [offsetX, offsetY] = offsetWalls(
+        plan.numRoomsX,
+        plan.numRoomsY,
+        roomSizeX,
+        roomSizeY,
+        roomVarianceX,
+        roomVarianceY,
+        forceTJunctionProbability,
+        randomJunctionOrientationProbability,
+        straightWallMinX,
+        straightWallMinY,
+        straightWallMaxX,
+        straightWallMaxY,
+        rng);
 
     // Enforce symmetry by mirroring wall offsets from one side to the other
 
@@ -292,7 +316,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
         mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
 
-    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && insideIsVerticallySymmetric(inside) && Math.random() < 0.5;
+    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && insideIsVerticallySymmetric(inside) && (!mirrorRoomsX || Math.random() < 0.5);
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
     }
@@ -964,24 +988,31 @@ function addSeatedGuard(level: number, gameMap: GameMap, rooms: Array<Room>, nee
 function offsetWalls(
     roomsX: number,
     roomsY: number,
+    roomSizeX: number,
+    roomSizeY: number,
+    roomVarianceX: number,
+    roomVarianceY: number,
+    forceTJunctionProbability: number,
+    randomJunctionOrientationProbability: number,
+    straightWallMinX: boolean,
+    straightWallMinY: boolean,
+    straightWallMaxX: boolean,
+    straightWallMaxY: boolean,
     rng: RNG): [offsetX: Int32Grid, offsetY: Int32Grid]
 {
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
 
-    const forceTJunctionProbability = 0.75;
-    const straightOutsideWalls = rng.random() < 0.25;
-    const straightWallMinX = straightOutsideWalls;
-    const straightWallMaxX = straightOutsideWalls;
-    const straightWallMinY = straightOutsideWalls;
-    const straightWallMaxY = straightOutsideWalls;
-
-    const roomVarianceX = 3;
-    const roomVarianceY = 3;
+    const junctionOrientationOffset = rng.randomInRange(2);
 
     for (let x = 0; x <= roomsX; ++x) {
         for (let y = 0; y <= roomsY; ++y) {
-            if (rng.randomInRange(2) === 0) {
+            const alignVertical =
+                (rng.random() < randomJunctionOrientationProbability) ?
+                rng.randomInRange(2) === 0 :
+                ((x + y + junctionOrientationOffset) & 1) === 0;
+
+            if (alignVertical) {
                 // Align walls vertically through this intersection
                 if (y < roomsY) {
                     offsetX.set(x, y, (y > 0) ? offsetX.get(x, y - 1) : rng.randomInRange(roomVarianceX) + roomSizeX * x - 1);
