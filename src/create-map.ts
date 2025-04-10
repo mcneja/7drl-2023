@@ -618,7 +618,7 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
         const x = rng.randomInRange(roomsX);
         const y = rng.randomInRange(roomsY);
         numConnected.set(x, y, 1);
-        if (rng.random() < 0.5) {
+        if (x > 0 && y > 0 && x < roomsX - 1 && y < roomsY - 1 && rng.random() < 0.667) {
             insideStage1.set(x, y, false);
         }
     }
@@ -780,30 +780,118 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
 }
 
 function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGrid, connectedY: BooleanGrid, rng: RNG): [BooleanGrid, Int32Grid, Int32Grid] {
-    const roomsX = insideStage1.sizeX * 2 - 1;
-    const roomsY = insideStage1.sizeY * 2 - 1;
-    const inside = new BooleanGrid(roomsX, roomsY, true);
+    const numBlocksX = insideStage1.sizeX;
+    const numBlocksY = insideStage1.sizeY;
+    const forceTJunctionProbability = 0.5;
+    const randomJunctionOrientationProbability = 0.5;
+    const straightWallMinX = true;
+    const straightWallMinY = false;
+    const straightWallMaxX = true;
+    const straightWallMaxY = true;
+    const blockSize = 7;
+    const blockVariance = 3;
+
+    const blockOffsetX = new Int32Grid(numBlocksX + 1, numBlocksY, 0);
+    const blockOffsetY = new Int32Grid(numBlocksX, numBlocksY + 1, 0);
+
+    const junctionOrientationOffset = rng.randomInRange(2);
+
+    for (let x = 0; x <= numBlocksX; ++x) {
+        for (let y = 0; y <= numBlocksY; ++y) {
+            const needsAlignVertical = (y > 0 && y < numBlocksY && ((x > 0 && connectedY.get(x - 1, y - 1)) || (x < numBlocksX && connectedY.get(x, y - 1))));
+            const needsAlignHorizontal = (x > 0 && x < numBlocksX && ((y > 0 && connectedX.get(x - 1, y - 1)) || (y < numBlocksY && connectedX.get(x - 1, y))));
+
+            if (needsAlignVertical && needsAlignHorizontal) {
+                blockOffsetX.set(x, y, blockOffsetX.get(x, y - 1));
+                blockOffsetY.set(x, y, blockOffsetY.get(x - 1, y));
+                continue;
+            }
+
+            const alignVertical = needsAlignVertical || (!needsAlignHorizontal &&
+                ((rng.random() < randomJunctionOrientationProbability) ?
+                 rng.randomInRange(2) === 0 :
+                 ((x + y + junctionOrientationOffset) & 1) === 0));
+
+            if (alignVertical) {
+                // Align walls vertically through this intersection
+                if (y < numBlocksY) {
+                    blockOffsetX.set(x, y, (y > 0) ? blockOffsetX.get(x, y - 1) : rng.randomInRange(blockVariance) + blockSize * x - 1);
+                }
+                if (x < numBlocksX) {
+                    let wallY = blockSize * y - 1;
+                    if (x <= 0) {
+                        wallY += rng.randomInRange(blockVariance);
+                    } else if ((straightWallMinY && y === 0) || (straightWallMaxY && y === numBlocksY)) {
+                        wallY = blockOffsetY.get(x - 1, y);
+                    } else if (rng.random() >= forceTJunctionProbability) {
+                        wallY += rng.randomInRange(blockVariance);
+                    } else {
+                        wallY += rng.randomInRange(blockVariance - 1);
+                        if (wallY >= blockOffsetY.get(x - 1, y)) {
+                            ++wallY;
+                        }
+                    }
+                    blockOffsetY.set(x, y, wallY);
+                }
+            } else {
+                // Align walls horizontally through this intersection
+                if (y < numBlocksY) {
+                    let wallX = blockSize * x - 1;
+                    if (y <= 0) {
+                        wallX += rng.randomInRange(blockVariance);
+                    } else if ((straightWallMinX && x === 0) || (straightWallMaxX && x === numBlocksX)) {
+                        wallX = blockOffsetX.get(x, y - 1);
+                    } else if (rng.random() >= forceTJunctionProbability) {
+                        wallX += rng.randomInRange(blockVariance);
+                    } else {
+                        wallX += rng.randomInRange(blockVariance - 1);
+                        if (wallX >= blockOffsetX.get(x, y - 1)) {
+                            ++wallX;
+                        }
+                    }
+                    blockOffsetX.set(x, y, wallX);
+                }
+                if (x < numBlocksX) {
+                    blockOffsetY.set(x, y, (x > 0) ? blockOffsetY.get(x - 1, y) : rng.randomInRange(blockVariance) + blockSize * y - 1);
+                }
+            }
+        }
+    }
+
+    const roomsX = numBlocksX * 2 - 1;
+    const roomsY = numBlocksY * 2 - 1;
+
+    const inside = new BooleanGrid(roomsX, roomsY, false);
     const offsetX = new Int32Grid(roomsX + 1, roomsY, 0);
     const offsetY = new Int32Grid(roomsX, roomsY + 1, 0);
-    const cellSizeX = 6;
-    for (let x = 0; x <= roomsX; ++x) {
-        for (let y = 0; y < roomsY; ++y) {
-            const wallX = Math.floor(x / 2) * cellSizeX + (x & 1) * (cellSizeX - 2);
-            offsetX.set(x, y, wallX);
-        }
-    }
-    const cellSizeY = 6;
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = 0; y <= roomsY; ++y) {
-            const wallY = Math.floor(y / 2) * cellSizeY + (y & 1) * (cellSizeY - 2);
-            offsetY.set(x, y, wallY);
-        }
-    }
-    for (let x = 0; x < roomsX; x += 2) {
-        for (let y = 0; y < roomsY; y += 2) {
-            if (!insideStage1.get(Math.floor(x / 2), Math.floor(y / 2))) {
-                inside.set(x, y, false);
+
+    const alleyWidth = 2;
+
+    for (let x = 0; x < numBlocksX; ++x) {
+        for (let y = 0; y < numBlocksY; ++y) {
+            const wallX0 = blockOffsetX.get(x, y);
+            const wallX1 = blockOffsetX.get(x + 1, y) - alleyWidth;
+            offsetX.set(2*x, 2*y, wallX0);
+            offsetX.set(2*x + 1, 2*y, wallX1);
+            if (y + 1 < numBlocksY) {
+                offsetX.set(2*x, 2*y + 1, wallX0);
+                offsetX.set(2*x + 1, 2*y + 1, wallX1);
             }
+
+            const wallY0 = blockOffsetY.get(x, y);
+            const wallY1 = blockOffsetY.get(x, y + 1) - alleyWidth;
+            offsetY.set(2*x, 2*y, wallY0);
+            offsetY.set(2*x, 2*y + 1, wallY1);
+            if (x + 1 < numBlocksX) {
+                offsetY.set(2*x + 1, 2*y, wallY0);
+                offsetY.set(2*x + 1, 2*y + 1, wallY1);
+            }
+        }
+    }
+
+    for (let x = 0; x < numBlocksX; ++x) {
+        for (let y = 0; y < numBlocksY; ++y) {
+            inside.set(2*x, 2*y, insideStage1.get(x, y));
         }
     }
     for (let x = 1; x < roomsX; x += 2) {
@@ -816,6 +904,7 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
             inside.set(x, y, (x & 1) ? false : connectedY.get(Math.floor(x / 2), Math.floor(y / 2)));
         }
     }
+
     return [inside, offsetX, offsetY];
 }
 
@@ -2699,7 +2788,7 @@ function removableAdjacencyWarren(adjacencies: Array<Adjacency>, roomExterior: R
         // Don't let rooms get too long and skinny
         if (room0.roomType !== RoomType.Exterior &&
             room0.roomType !== RoomType.PublicCourtyard &&
-            aspect > 2) {
+            aspect > 2.5) {
             continue;
         }
 
@@ -3484,7 +3573,13 @@ function shortestPatrolRoute(nodes: Array<PatrolNode> | undefined): PatrolNode |
 }
 
 function isPatrolledRoom(room: Room): boolean {
-    return room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault;
+    if (room.roomType === RoomType.Vault) {
+        return false;
+    }
+    if (room.roomType === RoomType.Exterior) {
+        return false;
+    }
+    return true;
 }
 
 function canJoinNodes(node0: PatrolNode, node1: PatrolNode, maxRouteLength: number): boolean {
