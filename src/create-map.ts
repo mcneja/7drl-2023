@@ -788,8 +788,8 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
     const straightWallMinY = false;
     const straightWallMaxX = true;
     const straightWallMaxY = true;
-    const blockSize = 7;
-    const blockVariance = 3;
+    const blockSize = 6;
+    const blockVariance = 2;
 
     const blockOffsetX = new Int32Grid(numBlocksX + 1, numBlocksY, 0);
     const blockOffsetY = new Int32Grid(numBlocksX, numBlocksY + 1, 0);
@@ -2788,7 +2788,7 @@ function removableAdjacencyWarren(adjacencies: Array<Adjacency>, roomExterior: R
         // Don't let rooms get too long and skinny
         if (room0.roomType !== RoomType.Exterior &&
             room0.roomType !== RoomType.PublicCourtyard &&
-            aspect > 2.5) {
+            aspect > ((Math.min(rx, ry) > 2) ? 2.0 : 3.0)) {
             continue;
         }
 
