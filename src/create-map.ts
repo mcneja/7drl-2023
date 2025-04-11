@@ -670,8 +670,8 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
         }
     }
 
-    roomsX = roomsX * 2 - 1;
-    roomsY = roomsY * 2 - 1;
+    // Create wall offsets
+
     const [inside, offsetX, offsetY] = generateWarrenOffsets(insideStage1, connectedX, connectedY, rng);
 
     // Translate the building so it abuts the X and Y axes with outerBorder/outerBorderBottom padding
