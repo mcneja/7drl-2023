@@ -780,7 +780,7 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
 
     // Final setup
 
-    markExteriorAsSeen(map);
+    //markExteriorAsSeen(map);
     map.computeLighting(null);
     map.recomputeVisibility(map.playerStartPos);
 
