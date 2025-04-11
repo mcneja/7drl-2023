@@ -143,6 +143,7 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
         }
 
         const [numRoomsX, numRoomsY] = makeLevelSize(level, levelType, levelRNG);
+
         gameMapRoughPlans.push({
             levelType: levelType,
             level: level,
@@ -423,10 +424,10 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
     } else if (level < 2) {
         patrolRoutes = placePatrolRouteSingle(map, rooms, rng);
     } else {
-        patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, rng);
+        patrolRoutes = placePatrolRoutesDense(levelType, level, map, rooms, adjacencies, rng);
 //        patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
 //        patrolRoutes = placePatrolRouteSingle(map, rooms, rng);
-//        patrolRoutes = placePatrolRouteSingleDense(map, rooms, rng);
+//        patrolRoutes = placePatrolRouteSingleDense(levelType, map, rooms, rng);
 //        patrolRoutes = placePatrolRoutesLong(map, rooms, rng);
 //        patrolRoutes = placePatrolRouteLargeLoop(map, rooms, rng);
 
@@ -634,13 +635,15 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
             if (x < 0 || y < 0 || x >= roomsX || y >= roomsY) {
                 continue;
             }
+            /*
             if (numConnected.get(x, y) < minConnected) {
                 minConnected = numConnected.get(x, y);
                 neighbors.length = 0;
             }
             if (numConnected.get(x, y) === minConnected) {
+            */
                 neighbors.push([dx, dy]);
-            }
+            //}
         }
         console.assert(neighbors.length > 0);
         const [dx, dy] = neighbors[rng.randomInRange(neighbors.length)];
@@ -742,10 +745,10 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
     } else if (level < 2) {
         patrolRoutes = placePatrolRouteSingle(map, rooms, rng);
     } else {
-        patrolRoutes = placePatrolRoutesDense(level, map, rooms, adjacencies, rng);
+        patrolRoutes = placePatrolRoutesDense(levelType, level, map, rooms, adjacencies, rng);
 //        patrolRoutes = placePatrolRoutes(level, map, rooms, adjacencies, rng);
 //        patrolRoutes = placePatrolRouteSingle(map, rooms, rng);
-//        patrolRoutes = placePatrolRouteSingleDense(map, rooms, rng);
+//        patrolRoutes = placePatrolRouteSingleDense(levelType, map, rooms, rng);
 //        patrolRoutes = placePatrolRoutesLong(map, rooms, rng);
 //        patrolRoutes = placePatrolRouteLargeLoop(map, rooms, rng);
     }
@@ -3045,10 +3048,10 @@ function placePatrolRouteSingle(gameMap: GameMap, rooms: Array<Room>, rng: RNG):
     return patrolRoutes;
 }
 
-function placePatrolRouteSingleDense(gameMap: GameMap, rooms: Array<Room>, rng: RNG): Array<PatrolRoute> {
+function placePatrolRouteSingleDense(levelType: LevelType, gameMap: GameMap, rooms: Array<Room>, rng: RNG): Array<PatrolRoute> {
     const roomsValid: Set<Room> = new Set();
     for (const room of rooms) {
-        if (room.roomType !== RoomType.Exterior && room.roomType !== RoomType.Vault) {
+        if (isPatrolledRoom(levelType, room)) {
             roomsValid.add(room);
         }
     }
@@ -3194,6 +3197,7 @@ function deadEndPatrolNode(nodes: Array<PatrolNode>): PatrolNode | undefined {
 }
 
 function placePatrolRoutesDense(
+    levelType: LevelType,
     level: number,
     gameMap: GameMap,
     rooms: Array<Room>, 
@@ -3204,8 +3208,8 @@ function placePatrolRoutesDense(
 
     const adjacenciesShuffled = adjacencies.filter((adj) =>
         adj.door &&
-        isPatrolledRoom(adj.roomLeft) &&
-        isPatrolledRoom(adj.roomRight));
+        isPatrolledRoom(levelType, adj.roomLeft) &&
+        isPatrolledRoom(levelType, adj.roomRight));
 
     rng.shuffleArray(adjacenciesShuffled);
 
@@ -3363,7 +3367,7 @@ function placePatrolRoutesDense(
     // Find unvisited rooms and generate segments from them
 
     for (const room of rooms) {
-        if (!isPatrolledRoom(room)) {
+        if (!isPatrolledRoom(levelType, room)) {
             continue;
         }
 
@@ -3374,7 +3378,7 @@ function placePatrolRoutesDense(
             }
         }
 
-        const adjPotential = room.edges.filter((adj)=>adj.door && isPatrolledRoom(adj.roomLeft) && isPatrolledRoom(adj.roomRight));
+        const adjPotential = room.edges.filter((adj)=>adj.door && isPatrolledRoom(levelType, adj.roomLeft) && isPatrolledRoom(levelType, adj.roomRight));
         if (adjPotential.length === 0) {
             continue;
         }
@@ -3572,11 +3576,11 @@ function shortestPatrolRoute(nodes: Array<PatrolNode> | undefined): PatrolNode |
     return nodeShortest;
 }
 
-function isPatrolledRoom(room: Room): boolean {
+function isPatrolledRoom(levelType: LevelType, room: Room): boolean {
     if (room.roomType === RoomType.Vault) {
         return false;
     }
-    if (room.roomType === RoomType.Exterior) {
+    if (room.roomType === RoomType.Exterior && (levelType !== LevelType.Warrens || room.gridX < 0)) {
         return false;
     }
     return true;
@@ -4138,6 +4142,10 @@ function posInDoor(pos: vec2, room0: Room, room1: Room, gameMap: GameMap) {
                 vec2.scaleAndAdd(posAdj, adj.origin, adj.dir, i);
                 const terrainType = gameMap.cells.atVec(posAdj).type;
                 if (terrainType >= TerrainType.PortcullisNS && terrainType <= TerrainType.GardenDoorEW) {
+                    vec2.copy(pos, posAdj);
+                    return;
+                }
+                if (terrainType <= TerrainType.GroundTreasure) {
                     vec2.copy(pos, posAdj);
                     return;
                 }
