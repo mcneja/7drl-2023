@@ -37,6 +37,7 @@ enum StepType {
 
 const debugInitialLevel = 0; // set to non-zero to test level generation
 const debugLevelGen = false;
+const debugForceLevelType: LevelType | undefined = undefined;
 const debugSeeAll = debugLevelGen; // initial value for see-all cheat code
 const terrainTileSet = getTerrainTileSet();
 const entityTileSet = getEntityTileSet();
@@ -3037,7 +3038,7 @@ export function saveStats(persistedStats: PersistedStats) {
 function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPool:ActiveHowlPool, ambientSoundPool:ActiveHowlPool, touchController:TouchController): State {
     const rng = new RNG();
     const initialLevel = debugInitialLevel;
-    const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng);
+    const gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, rng, debugForceLevelType);
     const gameMap = createGameMap(gameMapRoughPlans[initialLevel]);
     const stats = loadStats();
     let keyRepeatRate = parseInt(window.localStorage.getItem('LLL/keyRepeatRate')??'175');
@@ -3257,7 +3258,7 @@ export function restartGame(state: State) {
     if (isDailyRun) {
         state.gameMapRoughPlans = createGameRoughPlansDailyRun(state.rng);
     } else {
-        state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng);
+        state.gameMapRoughPlans = createGameMapRoughPlans(gameConfig.numGameMaps, gameConfig.totalGameLoot, state.rng, debugForceLevelType);
     }
 
     state.level = Math.min(state.gameMapRoughPlans.length - 1, debugInitialLevel);

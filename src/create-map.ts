@@ -82,7 +82,7 @@ type PatrolRoute = {
 }
 
 function createGameRoughPlansDailyRun(rng: RNG): Array<GameMapRoughPlan> {
-    const gameMapRoughPlans: Array<GameMapRoughPlan> = createGameMapRoughPlans(10, 100, rng);
+    const gameMapRoughPlans: Array<GameMapRoughPlan> = createGameMapRoughPlans(10, 100, rng, undefined);
 
     const i0 = 3 + rng.randomInRange(2);
     const i1 = 5 + rng.randomInRange(2);
@@ -91,7 +91,7 @@ function createGameRoughPlansDailyRun(rng: RNG): Array<GameMapRoughPlan> {
     return [gameMapRoughPlans[i0], gameMapRoughPlans[i1], gameMapRoughPlans[i2]];
 }
 
-function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): Array<GameMapRoughPlan> {
+function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG, forceLevelType: LevelType | undefined): Array<GameMapRoughPlan> {
     const gameMapRoughPlans: Array<GameMapRoughPlan> = [];
 
     // Establish the level types and sizes
@@ -126,7 +126,9 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG): 
         const levelRNG = new RNG('lvl'+level+rng.random());
 
         let levelType: LevelType;
-        if (level === 9 || level === iLevelFortressExtra) {
+        if (forceLevelType !== undefined) {
+            levelType = forceLevelType;
+        } else if (level === 9 || level === iLevelFortressExtra) {
             levelType = LevelType.Fortress;
         } else if (level === iLevelMansion0 || level === iLevelMansion1) {
             levelType = LevelType.Mansion;
@@ -619,7 +621,7 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
         const x = rng.randomInRange(roomsX);
         const y = rng.randomInRange(roomsY);
         numConnected.set(x, y, 1);
-        if (x > 0 && y > 0 && x < roomsX - 1 && y < roomsY - 1 && rng.random() < 0.667) {
+        if (x > 0 && x < roomsX - 1 && y < roomsY - 1 && rng.random() < 0.5) {
             insideStage1.set(x, y, false);
         }
     }
@@ -635,6 +637,9 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
             if (x < 0 || y < 0 || x >= roomsX || y >= roomsY) {
                 continue;
             }
+            if (!insideStage1.get(x, y)) {
+                continue;
+            }
             /*
             if (numConnected.get(x, y) < minConnected) {
                 minConnected = numConnected.get(x, y);
@@ -645,7 +650,9 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
                 neighbors.push([dx, dy]);
             //}
         }
-        console.assert(neighbors.length > 0);
+        if (neighbors.length === 0) {
+            continue;
+        }
         const [dx, dy] = neighbors[rng.randomInRange(neighbors.length)];
         numConnected.set(pos[0], pos[1], numConnected.get(pos[0], pos[1]) + 1);
         if (dx < 0) {
@@ -662,7 +669,7 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
             numConnected.set(pos[0], pos[1] + 1, numConnected.get(pos[0], pos[1] + 1) + 1);
         }
     }
-    
+
     roomsX = roomsX * 2 - 1;
     roomsY = roomsY * 2 - 1;
     const [inside, offsetX, offsetY] = generateWarrenOffsets(insideStage1, connectedX, connectedY, rng);
