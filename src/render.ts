@@ -1,7 +1,6 @@
 export { Renderer };
 import { TerrainTileSet, EntityTileSet, FontTileSet, TileInfo, TextureType } from './tilesets';
 import { vec2, mat4 } from './my-matrix';
-import { text } from 'stream/consumers';
 
 type VignetteRenderer = (
     matDiscFromScreen: mat4,
