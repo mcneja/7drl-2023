@@ -604,33 +604,51 @@ function makeFortressRoomGrid(inside: BooleanGrid, rng: RNG) {
 }
 
 function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalLoot: number, rng: RNG): GameMap {
-    let roomsX = numRoomsX;
-    let roomsY = numRoomsY;
-    const toConnect: Array<[number, number]> = [];
-    for (let x = 0; x < roomsX; ++x) {
-        for (let y = 0; y < roomsY; ++y) {
-            toConnect.push([x, y]);
-        }
-    }
-    rng.shuffleArray(toConnect);
+    const roomsX = numRoomsX;
+    const roomsY = numRoomsY;
+
     const connectedX = new BooleanGrid(roomsX - 1, roomsY, false);
     const connectedY = new BooleanGrid(roomsX, roomsY - 1, false);
-    const numConnected = new Int32Grid(roomsX, roomsY, 0);
+
+    const connected = new BooleanGrid(roomsX, roomsY, false);
     const insideStage1 = new BooleanGrid(roomsX, roomsY, true);
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY - 1; ++y) {
+            if (rng.random() < 0.125) {
+                connected.set(x, y, true);
+            }
+        }
+    }
+
     for (let i = Math.floor(roomsX * roomsY / 8); i > 0; --i) {
         const x = rng.randomInRange(roomsX);
-        const y = rng.randomInRange(roomsY);
-        numConnected.set(x, y, 1);
-        if (x > 0 && x < roomsX - 1 && y < roomsY - 1 && rng.random() < 0.5) {
+        const y = rng.randomInRange(roomsY - 1);
+        if (x > 0 && x < roomsX - 1 && rng.random() < 0.5) {
+            connected.set(x, y, true);
             insideStage1.set(x, y, false);
         }
     }
+
+    for (let x = 0; x < roomsX - 1; ++x) {
+        connectedX.set(x, roomsY - 1, true);
+    }
+
+    const toConnect: Array<[number, number]> = [];
+    for (let x = 0; x < roomsX; ++x) {
+        for (let y = 0; y < roomsY - 1; ++y) {
+            if (!connected.get(x, y)) {
+                toConnect.push([x, y]);
+            }
+        }
+    }
+
+    rng.shuffleArray(toConnect);
+
     for (const pos of toConnect) {
-        if (numConnected.get(pos[0], pos[1]) > 0) {
+        if (connected.get(pos[0], pos[1])) {
             continue;
         }
         const neighbors: Array<[number, number]> = [];
-        let minConnected = 4;
         for (const [dx, dy] of [[1, 0], [0, 1], [0, -1]]) {
             const x = pos[0] + dx;
             const y = pos[1] + dy;
@@ -640,33 +658,25 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
             if (!insideStage1.get(x, y)) {
                 continue;
             }
-            /*
-            if (numConnected.get(x, y) < minConnected) {
-                minConnected = numConnected.get(x, y);
-                neighbors.length = 0;
-            }
-            if (numConnected.get(x, y) === minConnected) {
-            */
-                neighbors.push([dx, dy]);
-            //}
+            neighbors.push([dx, dy]);
         }
         if (neighbors.length === 0) {
             continue;
         }
         const [dx, dy] = neighbors[rng.randomInRange(neighbors.length)];
-        numConnected.set(pos[0], pos[1], numConnected.get(pos[0], pos[1]) + 1);
+        connected.set(pos[0], pos[1], true);
         if (dx < 0) {
             connectedX.set(pos[0] - 1, pos[1], true);
-            numConnected.set(pos[0] - 1, pos[1], numConnected.get(pos[0] - 1, pos[1]) + 1);
+            connected.set(pos[0] - 1, pos[1], true);
         } else if (dx > 0) {
             connectedX.set(pos[0], pos[1], true);
-            numConnected.set(pos[0] + 1, pos[1], numConnected.get(pos[0] + 1, pos[1]) + 1);
+            connected.set(pos[0] + 1, pos[1], true);
         } else if (dy < 0) {
             connectedY.set(pos[0], pos[1] - 1, true);
-            numConnected.set(pos[0], pos[1] - 1, numConnected.get(pos[0], pos[1] - 1) + 1);
+            connected.set(pos[0], pos[1] - 1, true);
         } else if (dy > 0) {
             connectedY.set(pos[0], pos[1], true);
-            numConnected.set(pos[0], pos[1] + 1, numConnected.get(pos[0], pos[1] + 1) + 1);
+            connected.set(pos[0], pos[1] + 1, true);
         }
     }
 
