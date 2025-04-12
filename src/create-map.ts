@@ -802,8 +802,8 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
 function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGrid, connectedY: BooleanGrid, rng: RNG): [BooleanGrid, Int32Grid, Int32Grid] {
     const numBlocksX = insideStage1.sizeX;
     const numBlocksY = insideStage1.sizeY;
-    const forceTJunctionProbability = 0.5;
-    const randomJunctionOrientationProbability = 0.5;
+    const forceTJunctionProbability = 0.8;
+    const randomJunctionOrientationProbability = 0;
     const straightWallMinX = true;
     const straightWallMinY = false;
     const straightWallMaxX = true;
@@ -813,16 +813,38 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
     const blockVarianceEndX = 2 + rng.randomInRange(2);
     const blockVarianceEndY = 3 + rng.randomInRange(2);
 
-    const baseOffsetX = new Array<number>(numBlocksX + 1);
-    baseOffsetX[0] = -1;
-    for (let x = 0; x < numBlocksX; ++x) {
-        baseOffsetX[x + 1] = baseOffsetX[x] + blockSize + rng.randomInRange(2);
+    // Establish base widths for each column
+    const baseOffsetX = Array<number>(numBlocksX + 1).fill(blockSize);
+    for (let i = Math.floor(baseOffsetX.length / 2); i > 0; --i) {
+        const x = rng.randomInRange(baseOffsetX.length);
+        baseOffsetX[x] += 1;
+    }
+    // Convert widths to base offsets for each column
+    {
+        let x = -1;
+        for (let i = 0; i < baseOffsetX.length; ++i) {
+            const xNext = x + baseOffsetX[i];
+            baseOffsetX[i] = x;
+            x = xNext;
+        }
     }
 
-    const baseOffsetY = new Array<number>(numBlocksY + 1);
-    baseOffsetY[0] = -1;
-    for (let y = 0; y < numBlocksY; ++y) {
-        baseOffsetY[y + 1] = baseOffsetY[y] + blockSize + rng.randomInRange(2);
+    // Establish base heights for each row
+    const baseOffsetY = Array<number>(numBlocksY + 1).fill(blockSize);
+    for (let i = Math.floor(baseOffsetY.length / 2); i > 0; --i) {
+        const y = rng.randomInRange(baseOffsetY.length);
+        baseOffsetY[y] += 1;
+    }
+    baseOffsetY[0] += 1;
+    baseOffsetY[baseOffsetY.length - 1] += 1;
+    // Convert heights to base offsets for each row
+    {
+        let y = -1;
+        for (let i = 0; i < baseOffsetY.length; ++i) {
+            const yNext = y + baseOffsetY[i];
+            baseOffsetY[i] = y;
+            y = yNext;
+        }
     }
 
     const blockOffsetX = new Int32Grid(numBlocksX + 1, numBlocksY, 0);
