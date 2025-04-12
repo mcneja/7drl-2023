@@ -170,6 +170,7 @@ type State = {
     seeAll: boolean;
     seeGuardSight: boolean;
     seeGuardPatrols: boolean;
+    seeRoomAdjacencies: boolean;
     camera: Camera;
     level: number;
     turns: number;

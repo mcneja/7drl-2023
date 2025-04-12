@@ -42,6 +42,7 @@ const controlStates0: ControlStates = {
     'markSeen': false,
     'guardSight': false,
     'guardPatrols': false,
+    'roomAdjacencies': false,
     'nextLevel': false,
     'prevLevel': false,
     'fullscreen': false,
@@ -58,6 +59,7 @@ type KeyMap = {[id:string]: Array<string>}
 const defaultKeyMap:KeyMap = {
     'Alt+Comma': ['prevLevel'],
     'Alt+KeyA': ['seeAll'],
+    'Alt+KeyB': ['roomAdjacencies'],
     'Alt+KeyC': ['collectLoot'],
     'Alt+KeyK': ['getKey'],
     'Alt+KeyP': ['guardPatrols'],

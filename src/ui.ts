@@ -433,6 +433,7 @@ class DevScreen extends TextWindow {
 [Alt+A|seeAll]  See entire map: $seeAll$
 [Alt+P|guardPatrols]  See guard patrols: $guardPatrols$
 [Alt+V|guardSight]  See guard sight: $guardSight$
+[Alt+B|roomAdjacencies]  See rooms: $roomAdjacencies$
 [Alt+F|showFPS]  Show FPS: $showFPS$
 
 $message$
@@ -448,6 +449,7 @@ $message$
         this.state.set('seeAll', state.seeAll ? 'Yes' : 'No');
         this.state.set('guardPatrols', state.seeGuardPatrols ? 'Yes' : 'No');
         this.state.set('guardSight', state.seeGuardSight ? 'Yes' : 'No');
+        this.state.set('roomAdjacencies', state.seeRoomAdjacencies ? 'Yes' : 'No');
         this.state.set('showFPS', state.fpsInfo.enabled ? 'Yes' : 'No');
     }
     onControls(state:State, activated:(action:string)=>boolean) {
@@ -502,6 +504,9 @@ $message$
         } else if (activated('guardPatrols') || action=='guardPatrols') {
             state.seeGuardPatrols = !state.seeGuardPatrols;
             this.state.set('message', '')
+        } else if (activated('roomAdjacencies') || action==='roomAdjacencies') {
+            state.seeRoomAdjacencies = !state.seeRoomAdjacencies;
+            this.state.set('message', '');
         } else if (activated('showFPS') || action=='showFPS') {
             state.fpsInfo.enabled = !state.fpsInfo.enabled;
             this.state.set('message', '')

@@ -273,6 +273,10 @@ function updateControllerState(state:State) {
             if (state.devMode) {
                 state.seeGuardPatrols = !state.seeGuardPatrols;
             }
+        } else if (activated('roomAdjacencies')) {
+            if (state.devMode) {
+                state.seeRoomAdjacencies = !state.seeRoomAdjacencies;
+            }
         } else if (activated('markSeen')) {
             if (state.devMode) {
                 state.gameMap.markAllSeen();
@@ -2583,9 +2587,14 @@ function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
     }
 }
 
-function debugRenderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer) {
+function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer) {
     const tile = {
         textureIndex: 2,
+        color: 0xffffffff,
+        unlitColor: 0xffffffff
+    };
+    const tile2 = {
+        textureIndex: 1,
         color: 0xffffffff,
         unlitColor: 0xffffffff
     };
@@ -2611,7 +2620,7 @@ function debugRenderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Ren
         const x1 = Math.max(p0x, p1x) + r + Math.abs(adj.dir[0]) * -0.5;
         const y1 = Math.max(p0y, p1y) + r + Math.abs(adj.dir[1]) * -0.5;
 
-        renderer.addGlyph(x0, y0, x1, y1, tile);
+        renderer.addGlyph(x0, y0, x1, y1, adj.door ? tile2 : tile);
     }
 }
 
@@ -3128,6 +3137,7 @@ function initState(sounds:Howls, subtitledSounds: SubtitledHowls, activeSoundPoo
         seeAll: debugSeeAll,
         seeGuardSight: false,
         seeGuardPatrols: false,
+        seeRoomAdjacencies: false,
         camera: createCamera(gameMap.playerStartPos, initZoomLevel),
         level: initialLevel,
         turns: 0,
@@ -3588,17 +3598,19 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
 
     renderer.start(matScreenFromWorld, TextureType.Entity);
     renderItems(state, renderer, false);
-    if(state.gameMode===GameMode.Mansion) {
-        renderGuardSight(state, renderer);
-        renderGuardPatrolPaths(state, renderer);
-    }
+
+    renderGuardSight(state, renderer);
+    renderGuardPatrolPaths(state, renderer);
+
     renderGuards(state, renderer);
     if ((state.gameMode !== GameMode.MansionComplete && state.gameMode !== GameMode.Win) || state.player.animation) {
         renderPlayer(state, renderer);
     }
     renderItems(state, renderer, true);
 
-    //debugRenderRoomAdjacencies(state.gameMap.adjacencies, renderer);
+    if (state.seeRoomAdjacencies) {
+        renderRoomAdjacencies(state.gameMap.adjacencies, renderer);
+    }
 
     renderParticles(state, renderer);
     if(state.gameMode===GameMode.Mansion) {
