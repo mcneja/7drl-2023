@@ -809,7 +809,21 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
     const straightWallMaxX = true;
     const straightWallMaxY = true;
     const blockSize = 6;
-    const blockVariance = 2;
+    const blockSizeMin = 4;
+    const blockVarianceEndX = 2 + rng.randomInRange(2);
+    const blockVarianceEndY = 3 + rng.randomInRange(2);
+
+    const baseOffsetX = new Array<number>(numBlocksX + 1);
+    baseOffsetX[0] = -1;
+    for (let x = 0; x < numBlocksX; ++x) {
+        baseOffsetX[x + 1] = baseOffsetX[x] + blockSize + rng.randomInRange(2);
+    }
+
+    const baseOffsetY = new Array<number>(numBlocksY + 1);
+    baseOffsetY[0] = -1;
+    for (let y = 0; y < numBlocksY; ++y) {
+        baseOffsetY[y + 1] = baseOffsetY[y] + blockSize + rng.randomInRange(2);
+    }
 
     const blockOffsetX = new Int32Grid(numBlocksX + 1, numBlocksY, 0);
     const blockOffsetY = new Int32Grid(numBlocksX, numBlocksY + 1, 0);
@@ -820,6 +834,9 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
         for (let y = 0; y <= numBlocksY; ++y) {
             const needsAlignVertical = (y > 0 && y < numBlocksY && ((x > 0 && connectedY.get(x - 1, y - 1)) || (x < numBlocksX && connectedY.get(x, y - 1))));
             const needsAlignHorizontal = (x > 0 && x < numBlocksX && ((y > 0 && connectedX.get(x - 1, y - 1)) || (y < numBlocksY && connectedX.get(x - 1, y))));
+
+            const blockVarianceX = (x >= numBlocksX) ? blockVarianceEndX : ((baseOffsetX[x + 1] - baseOffsetX[x]) - blockSizeMin);
+            const blockVarianceY = (y >= numBlocksY) ? blockVarianceEndY : ((baseOffsetY[y + 1] - baseOffsetY[y]) - blockSizeMin);
 
             if (needsAlignVertical && needsAlignHorizontal) {
                 blockOffsetX.set(x, y, blockOffsetX.get(x, y - 1));
@@ -835,18 +852,18 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
             if (alignVertical) {
                 // Align walls vertically through this intersection
                 if (y < numBlocksY) {
-                    blockOffsetX.set(x, y, (y > 0) ? blockOffsetX.get(x, y - 1) : rng.randomInRange(blockVariance) + blockSize * x - 1);
+                    blockOffsetX.set(x, y, (y > 0) ? blockOffsetX.get(x, y - 1) : rng.randomInRange(blockVarianceX) + baseOffsetX[x]);
                 }
                 if (x < numBlocksX) {
-                    let wallY = blockSize * y - 1;
+                    let wallY = baseOffsetY[y];
                     if (x <= 0) {
-                        wallY += rng.randomInRange(blockVariance);
+                        wallY += rng.randomInRange(blockVarianceY);
                     } else if ((straightWallMinY && y === 0) || (straightWallMaxY && y === numBlocksY)) {
                         wallY = blockOffsetY.get(x - 1, y);
                     } else if (rng.random() >= forceTJunctionProbability) {
-                        wallY += rng.randomInRange(blockVariance);
+                        wallY += rng.randomInRange(blockVarianceY);
                     } else {
-                        wallY += rng.randomInRange(blockVariance - 1);
+                        wallY += rng.randomInRange(blockVarianceY - 1);
                         if (wallY >= blockOffsetY.get(x - 1, y)) {
                             ++wallY;
                         }
@@ -856,15 +873,15 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
             } else {
                 // Align walls horizontally through this intersection
                 if (y < numBlocksY) {
-                    let wallX = blockSize * x - 1;
+                    let wallX = baseOffsetX[x];
                     if (y <= 0) {
-                        wallX += rng.randomInRange(blockVariance);
+                        wallX += rng.randomInRange(blockVarianceX);
                     } else if ((straightWallMinX && x === 0) || (straightWallMaxX && x === numBlocksX)) {
                         wallX = blockOffsetX.get(x, y - 1);
                     } else if (rng.random() >= forceTJunctionProbability) {
-                        wallX += rng.randomInRange(blockVariance);
+                        wallX += rng.randomInRange(blockVarianceX);
                     } else {
-                        wallX += rng.randomInRange(blockVariance - 1);
+                        wallX += rng.randomInRange(blockVarianceX - 1);
                         if (wallX >= blockOffsetX.get(x, y - 1)) {
                             ++wallX;
                         }
@@ -872,7 +889,7 @@ function generateWarrenOffsets(insideStage1: BooleanGrid, connectedX: BooleanGri
                     blockOffsetX.set(x, y, wallX);
                 }
                 if (x < numBlocksX) {
-                    blockOffsetY.set(x, y, (x > 0) ? blockOffsetY.get(x - 1, y) : rng.randomInRange(blockVariance) + blockSize * y - 1);
+                    blockOffsetY.set(x, y, (x > 0) ? blockOffsetY.get(x - 1, y) : rng.randomInRange(blockVarianceY) + baseOffsetY[y]);
                 }
             }
         }
