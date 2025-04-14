@@ -465,6 +465,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
     map.computeLighting(null);
     map.recomputeVisibility(map.playerStartPos);
 
+    map.rooms = rooms.map(room => ({ posMin: room.posMin, posMax: room.posMax }));
     map.adjacencies = adjacencies;
 
     return map;
@@ -794,6 +795,7 @@ function makeWarrens(level: number, numRoomsX: number, numRoomsY: number, totalL
     map.computeLighting(null);
     map.recomputeVisibility(map.playerStartPos);
 
+    map.rooms = rooms.map(room => ({ posMin: room.posMin, posMax: room.posMax }));
     map.adjacencies = adjacencies;
 
     return map;

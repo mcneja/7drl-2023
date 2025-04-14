@@ -1,6 +1,6 @@
 import { vec2, mat4 } from './my-matrix';
 import { createGameMapRoughPlans, createGameRoughPlansDailyRun, createGameMap, Adjacency } from './create-map';
-import { BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType, itemLayers } from './game-map';
+import { Rect, BooleanGrid, Cell, ItemType, GameMap, Item, Player, LevelType, TerrainType, maxPlayerTurnsUnderwater, GuardStates, CellGrid, isDoorItemType, isWindowTerrainType, itemLayers } from './game-map';
 import { SpriteAnimation, LightSourceAnimation, tween, LightState, FrameAnimator, TweenData, RadialAnimation as IdleRadialAnimation, PulsingColorAnimation, RadialAnimation } from './animation';
 import { Guard, GuardMode, chooseGuardMoves, guardActAll, isRelaxedGuardMode, lineOfSight } from './guard';
 import { Renderer } from './render';
@@ -8,7 +8,8 @@ import { RNG } from './random';
 import { TileInfo, getEntityTileSet, getTerrainTileSet, getFontTileSet, EntityTileSet, TerrainTileSet, TextureType } from './tilesets';
 import { setupSounds, Howls, SubtitledHowls, ActiveHowlPool, Howler } from './audio';
 import { Popups } from './popups';
-import { Controller, TouchController, GamepadManager, KeyboardController, lastController, Rect } from './controllers';
+import { Controller, TouchController, GamepadManager, KeyboardController, lastController } from './controllers';
+import { Rect as ButtonRect } from './controllers';
 import { HomeScreen, OptionsScreen, WinScreen, DeadScreen, StatsScreen, MansionCompleteScreen, HelpControls, HelpKey, DailyHubScreen, CreditsScreen, AchievementsScreen, DevScreen } from './ui'
 import { AmbienceType, Camera, GameMode, LevelStats, PersistedStats, ScoreEntry, State} from './types';
 
@@ -2587,17 +2588,36 @@ function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
     }
 }
 
-function renderRoomAdjacencies(adjacencies: Array<Adjacency>, renderer: Renderer) {
+function renderRoomAdjacencies(rooms: Array<Rect>, adjacencies: Array<Adjacency>, renderer: Renderer) {
     const tile = {
-        textureIndex: 2,
-        color: 0xffffffff,
+        textureIndex: 4,
+        color: 0xb0a0a0ff,
         unlitColor: 0xffffffff
     };
     const tile2 = {
-        textureIndex: 1,
-        color: 0xffffffff,
+        textureIndex: 4,
+        color: 0xb0ffffff,
         unlitColor: 0xffffffff
     };
+
+    const roomTile = {
+        textureIndex: 4,
+        color: 0x80a0a0a0,
+        unlitColor: 0xffffffff
+    }
+
+    const r = 1 / 8;
+
+    for (const room of rooms) {
+        const x0 = room.posMin[0];
+        const y0 = room.posMin[1];
+        const x1 = room.posMax[0];
+        const y1 = room.posMax[1];
+        renderer.addGlyph(x0,     y0,     x1,     y0 + r, roomTile);
+        renderer.addGlyph(x0,     y1 - r, x1,     y1,     roomTile);
+        renderer.addGlyph(x0,     y0 + r, x0 + r, y1 - r, roomTile);
+        renderer.addGlyph(x1 - r, y0 + r, x1,     y1 - r, roomTile);
+    }
 
     for (const adj of adjacencies) {
         const x0 = adj.origin[0];
@@ -3609,7 +3629,7 @@ function renderScene(renderer: Renderer, screenSize: vec2, state: State) {
     renderItems(state, renderer, true);
 
     if (state.seeRoomAdjacencies) {
-        renderRoomAdjacencies(state.gameMap.adjacencies, renderer);
+        renderRoomAdjacencies(state.gameMap.rooms, state.gameMap.adjacencies, renderer);
     }
 
     renderParticles(state, renderer);
@@ -3731,20 +3751,20 @@ function updateTouchButtonsGamepad(touchController:TouchController, renderer:Ren
 
     const inGame = state.gameMode===GameMode.Mansion;
 
-    const buttonData: Array<{action:string,rect:Rect,tileInfo:TileInfo,visible:boolean}> = [
-        {action:'menuToggle', rect:new Rect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
-        {action:'zoomIn',     rect:new Rect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
-        {action:'zoomOut',    rect:new Rect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:inGame},
-        {action:'left',       rect:new Rect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:true},
-        {action:'right',      rect:new Rect(x+2*bw+r,      y+bh+r,      bw,     bh),     tileInfo:tt['right'],      visible:true},
-        {action:'up',         rect:new Rect(x+bw+r,        y+2*bh+r,    bw,     bh),     tileInfo:tt['up'],         visible:true},
-        {action:'down',       rect:new Rect(x+bw+r,        y+r,         bw,     bh),     tileInfo:tt['down'],       visible:true},
-        {action:'wait',       rect:new Rect(x+bw+r,        y+bh+r,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
-        {action:'jump',       rect:new Rect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
-        {action:'menuAccept', rect:new Rect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
+    const buttonData: Array<{action:string,rect:ButtonRect,tileInfo:TileInfo,visible:boolean}> = [
+        {action:'menuToggle', rect:new ButtonRect(x+r,           y+h-bh-r,    bw,     bh),     tileInfo:tt['menu'],       visible:true},
+        {action:'zoomIn',     rect:new ButtonRect(x+w-bw-r,      y+h-bh-r,    bw,     bh),     tileInfo:tt['zoomIn'],     visible:inGame},
+        {action:'zoomOut',    rect:new ButtonRect(x+w-bw-r,      y+h-2*bh-r,  bw,     bh),     tileInfo:tt['zoomOut'],    visible:inGame},
+        {action:'left',       rect:new ButtonRect(x+r,           y+bh+r,      bw,     bh),     tileInfo:tt['left'],       visible:true},
+        {action:'right',      rect:new ButtonRect(x+2*bw+r,      y+bh+r,      bw,     bh),     tileInfo:tt['right'],      visible:true},
+        {action:'up',         rect:new ButtonRect(x+bw+r,        y+2*bh+r,    bw,     bh),     tileInfo:tt['up'],         visible:true},
+        {action:'down',       rect:new ButtonRect(x+bw+r,        y+r,         bw,     bh),     tileInfo:tt['down'],       visible:true},
+        {action:'wait',       rect:new ButtonRect(x+bw+r,        y+bh+r,      bw,     bh),     tileInfo:tt['wait'],       visible:inGame},
+        {action:'jump',       rect:new ButtonRect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['jump'],       visible:inGame},
+        {action:'menuAccept', rect:new ButtonRect(x+w-1.5*bw-r,  y+r,         1.5*bw, 1.5*bh), tileInfo:tt['menuAccept'], visible:!inGame},
     ];
 
-    const emptyRect = new Rect();
+    const emptyRect = new ButtonRect();
 
     for(const b of buttonData) {
         touchController.updateCoreTouchTarget(b.action, b.visible ? b.rect : emptyRect, b.tileInfo);

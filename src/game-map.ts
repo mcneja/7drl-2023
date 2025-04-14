@@ -529,10 +529,13 @@ class GameMap {
     playerStartPos: vec2;
     lightCount: number;
     numPreRevealedCells: number;
-    adjacencies: Array<Adjacency>;
     backtrackingCoefficient: number;
     bookTitle: Map<Item, string>;
     treasures: Array<TreasureInfo>;
+
+    // Development visualization data:
+    rooms: Array<Rect>;
+    adjacencies: Array<Adjacency>;
 
     constructor(cells: CellGrid) {
         this.cells = cells;
@@ -543,10 +546,12 @@ class GameMap {
         this.playerStartPos = vec2.create();
         this.lightCount = 0;
         this.numPreRevealedCells = 0;
-        this.adjacencies = [];
         this.backtrackingCoefficient = 1;
         this.bookTitle = new Map();
         this.treasures = [];
+
+        this.rooms = [];
+        this.adjacencies = [];
     }
 
     hasLootAt(pos: vec2): boolean {
