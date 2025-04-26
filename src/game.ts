@@ -2589,58 +2589,43 @@ function renderItems(state: State, renderer: Renderer, topLayer: boolean) {
 }
 
 function renderRoomAdjacencies(rooms: Array<Rect>, adjacencies: Array<Adjacency>, renderer: Renderer) {
-    const tile = {
-        textureIndex: 4,
-        color: 0xb0a0a0ff,
-        unlitColor: 0xffffffff
-    };
-    const tile2 = {
-        textureIndex: 4,
-        color: 0xb0ffffff,
-        unlitColor: 0xffffffff
-    };
+    const tileRoom = { textureIndex: 4, color: 0xffffffff, unlitColor: 0xffffffff };
+    const tileWall = { textureIndex: 4, color: 0xff4040ff, unlitColor: 0xffffffff };
+    const tileDoor = { textureIndex: 4, color: 0xffffffff, unlitColor: 0xffffffff };
 
-    const roomTile = {
-        textureIndex: 4,
-        color: 0x80a0a0a0,
-        unlitColor: 0xffffffff
-    }
-
-    const r = 1 / 8;
+    const r = 1 / 16;
 
     for (const room of rooms) {
         const x0 = room.posMin[0];
         const y0 = room.posMin[1];
         const x1 = room.posMax[0];
         const y1 = room.posMax[1];
-        renderer.addGlyph(x0,     y0,     x1,     y0 + r, roomTile);
-        renderer.addGlyph(x0,     y1 - r, x1,     y1,     roomTile);
-        renderer.addGlyph(x0,     y0 + r, x0 + r, y1 - r, roomTile);
-        renderer.addGlyph(x1 - r, y0 + r, x1,     y1 - r, roomTile);
+        renderer.addGlyph(x0,     y0,     x1,     y0 + r, tileRoom);
+        renderer.addGlyph(x0,     y1 - r, x1,     y1,     tileRoom);
+        renderer.addGlyph(x0,     y0 + r, x0 + r, y1 - r, tileRoom);
+        renderer.addGlyph(x1 - r, y0 + r, x1,     y1 - r, tileRoom);
     }
 
     for (const adj of adjacencies) {
-        const x0 = adj.origin[0];
-        const y0 = adj.origin[1];
-        const x1 = adj.origin[0] + adj.dir[0] * adj.length;
-        const y1 = adj.origin[1] + adj.dir[1] * adj.length;
-        renderer.addGlyph(x0 + 0.25, y0 + 0.25, x0 + 0.75, y0 + 0.75, tile);
-        renderer.addGlyph(x1 + 0.25, y1 + 0.25, x1 + 0.75, y1 + 0.75, tile);
-    }
+        const p0x = 0.5 + adj.origin[0];
+        const p0y = 0.5 + adj.origin[1];
+        const p1x = p0x + adj.dir[0] * adj.length;
+        const p1y = p0y + adj.dir[1] * adj.length;
 
-    for (const adj of adjacencies) {
-        const p0x = adj.origin[0] + 0.5;
-        const p0y = adj.origin[1] + 0.5;
-        const p1x = adj.origin[0] + adj.dir[0] * adj.length + 0.5;
-        const p1y = adj.origin[1] + adj.dir[1] * adj.length + 0.5;
+        const dx = Math.abs(adj.dir[0]) * (1 - r);
+        const dy = Math.abs(adj.dir[1]) * (1 - r);
 
-        const r = 0.1;
-        const x0 = Math.min(p0x, p1x) - r + Math.abs(adj.dir[0]) *  0.5;
-        const y0 = Math.min(p0y, p1y) - r + Math.abs(adj.dir[1]) *  0.5;
-        const x1 = Math.max(p0x, p1x) + r + Math.abs(adj.dir[0]) * -0.5;
-        const y1 = Math.max(p0y, p1y) + r + Math.abs(adj.dir[1]) * -0.5;
+        const x0 = Math.min(p0x, p1x) + dx - (0.5 - r);
+        const y0 = Math.min(p0y, p1y) + dy - (0.5 - r);
+        const x1 = Math.max(p0x, p1x) - dx + (0.5 - r);
+        const y1 = Math.max(p0y, p1y) - dy + (0.5 - r);
 
-        renderer.addGlyph(x0, y0, x1, y1, adj.door ? tile2 : tile);
+        const tile = adj.door ? tileDoor : tileWall;
+
+        renderer.addGlyph(x0,     y0,     x1,     y0 + r, tile);
+        renderer.addGlyph(x0,     y1 - r, x1,     y1,     tile);
+        renderer.addGlyph(x0,     y0 + r, x0 + r, y1 - r, tile);
+        renderer.addGlyph(x1 - r, y0 + r, x1,     y1 - r, tile);
     }
 }
 
