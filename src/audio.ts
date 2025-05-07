@@ -406,20 +406,16 @@ const guardChaseSet: Array<SubtitledSoundDesc> = [ //Yells a warning that will b
 ];
 
 const guardEndChaseSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/lost em.mp3'), 'Lost \'im!'],
     [require('url:./audio/guards/must have run.mp3'), 'Must have\nrun off...'],
     [require('url:./audio/guards/oh well.mp3'), 'Oh, well...'],
     [require('url:./audio/guards/where they go.mp3'), 'Where did they go?'],
     [require('url:./audio/guards/his holiness.mp3'), 'His Holiness would\nnot be pleased!'],
     [require('url:./audio/guards/the boss.mp3'), 'The boss will\nnot be pleased!'],
     [require('url:./audio/guards/huff puff give up.mp3'), 'I give up!'],
-    [require('url:./audio/guards/where did he go.mp3'), 'Where did he go!?'],
-    [require('url:./audio/guards/drats lost him.mp3'), 'Drats!\nLost him!'],
     [require('url:./audio/guards/gone.mp3'), 'Gone!'],
     [require('url:./audio/guards/come back here.mp3'), 'Come back here!'],
     [require('url:./audio/guards/rotten scoundrel.mp3'), 'Rotten scoundrel!'],
     [require('url:./audio/guards/aargh.mp3'), 'Aargh!!'],
-    [require('url:./audio/guards/not coming back.mp3'), 'He\'s not coming back!'],
     [require('url:./audio/guards/blast.mp3'), 'Blast!'],
     [require('url:./audio/guards/dont come back.mp3'), 'Don\'t come back!'],
     [require('url:./audio/guards/wont get away next time.mp3'), 'You won\'t\nget away\nnext time!'],
@@ -427,8 +423,15 @@ const guardEndChaseSet: Array<SubtitledSoundDesc> = [
     [require('url:./audio/guards/lousy day at work.mp3'), 'What a lousy day\nat work!'],
     [require('url:./audio/guards/i give up.mp3'), 'I give up...'],
     [require('url:./audio/guards/what do i do help me.mp3'), 'What do I do?\nHelp me, help me...'],
-    [require('url:./audio/guards/oh no he got away.mp3'), 'Oh no,\nhe got away!'],
     [require('url:./audio/guards/guard rant.mp3'), '(Guard rant)'],
+    // Lines that peg the thief as male:
+    /*
+    [require('url:./audio/guards/lost em.mp3'), 'Lost \'im!'],
+    [require('url:./audio/guards/where did he go.mp3'), 'Where did he go!?'],
+    [require('url:./audio/guards/drats lost him.mp3'), 'Drats!\nLost him!'],
+    [require('url:./audio/guards/not coming back.mp3'), 'He\'s not coming back!'],
+    [require('url:./audio/guards/oh no he got away.mp3'), 'Oh no,\nhe got away!'],
+    */
 ];
 
 const guardAwakesWarningSet: Array<SubtitledSoundDesc> = [
