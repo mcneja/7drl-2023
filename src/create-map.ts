@@ -109,7 +109,9 @@ function createGameMapRoughPlans(numMaps: number, totalLoot: number, rng: RNG, f
         ++iLevelFortressExtra;
     }
 
-    let iLevelWarrens = 4 + rng.randomInRange(2);
+    // Don't generate warrens levels yet; they aren't ready for prime time
+    let iLevelWarrens = numMaps;
+    // let iLevelWarrens = 4 + rng.randomInRange(2);
     if (iLevelWarrens >= iLevelMansion0) {
         ++iLevelWarrens;
     }
