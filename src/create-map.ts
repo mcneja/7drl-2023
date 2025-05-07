@@ -321,7 +321,7 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
         mirrorOffsetsLeftToRight(offsetX, offsetY);
     }
 
-    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && insideIsVerticallySymmetric(inside) && (!mirrorRoomsX || Math.random() < 0.5);
+    const mirrorRoomsY = (plan.numRoomsY & 1) === 1 && insideIsVerticallySymmetric(inside) && (!mirrorRoomsX || rng.random() < 0.5);
     if (mirrorRoomsY) {
         mirrorOffsetsBottomToTop(offsetX, offsetY);
     }
