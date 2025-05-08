@@ -4208,6 +4208,28 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
 
     renderer.addGlyph(0, 0, screenSizeInTilesX, 1, fontTileSet.background);
 
+    // Compute center status-bar content and length: Level number, turn count, and speed bonus
+
+    const msgLevel = (state.dailyRun ? '\x7fDaily Lvl ' : '\x7fLvl ') + (state.level + 1);
+
+    const parTurns = numTurnsParForCurrentMap(state);
+    let msgTimer = '\x8c\x8d' + state.turns + '/' + parTurns;
+    const colorTimer = state.turns>parTurns? colorPreset.lightRed : 
+                       state.turns>0.75*parTurns? colorPreset.lightYellow :
+                       colorPreset.lightGreen;
+
+    const ghosted = state.levelStats.numSpottings === 0;
+    if (!ghosted) {
+        msgTimer += '!';
+    }
+
+    const msgFPS = state.fpsInfo.enabled ? state.fpsInfo.msgFPS : '';
+
+    const pad = state.fpsInfo.enabled ? 2 : 1;
+    const centerLength = msgLevel.length + msgTimer.length + msgFPS.length + pad;
+
+    // Fill in left-justified part of status bar
+
     let leftSideX = 1;
 
     const playerUnderwater = state.gameMap.cells.atVec(state.player.pos).type == TerrainType.GroundWater && state.player.turnsRemainingUnderwater > 0;
@@ -4240,59 +4262,60 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     if (state.leapToggleActive) {
         putString(renderer, leftSideX, msgLeapToggle, colorPreset.lightGreen);
     }
-    leftSideX += msgLeapToggle.length;
+
+    // Set the leftSideX to a fixed value so if the health meter is animating it doesn't affect the center or right sections
+
+    leftSideX = state.player.healthMax + msgLeapToggle.length + 2;
+
+    // Fill in right-justified part of status bar
 
     let rightSideX = screenSizeInTilesX;
 
     const percentRevealed = Math.floor(state.gameMap.fractionRevealed() * 100);
-    if (percentRevealed < 100) {
-        // Mapping percentage
 
-        let msgSeen = '\x8e\x8fMap ' + percentRevealed + '%';
-        rightSideX -= msgSeen.length + 1;
-        putString(renderer, rightSideX, msgSeen, colorPreset.white);
-    } else if (state.lootStolen < state.lootAvailable || state.gameMode !== GameMode.Mansion) {
-        // Total loot
+    const msgKey = state.player.hasVaultKey ? '\x8aKey ' : '';
+    let msgSeen = '\x8e\x8fMap ' + percentRevealed + '% ';
+    let msgLoot = '\x8bLoot ' + state.lootStolen + '/' + ((percentRevealed < 100) ? '?' : state.lootAvailable) + ' ';
+    let msgEscape = (percentRevealed >= 100 && state.lootStolen >= state.lootAvailable && state.gameMode === GameMode.Mansion) ? '\x88\x89Escape! ' : '';
 
-        let msgLoot = '\x8bLoot ' + state.lootStolen + '/' + state.lootAvailable;
-        rightSideX -= msgLoot.length + 1;
-        putString(renderer, rightSideX, msgLoot, colorPreset.lightMagenta);
-    } else {
-        // Leave map
+    // Knock out loot and/or seen messages if there is not enough room on the status bar
 
-        let msg = '\x88\x89Escape!';
-        rightSideX -= msg.length + 1;
-        putString(renderer, rightSideX, msg, colorPreset.white);
+    const spaceAvailable = rightSideX - (leftSideX + centerLength + msgKey.length + 1);
+
+    if (msgSeen.length + msgLoot.length + msgEscape.length > spaceAvailable) {
+        if (percentRevealed < 100) {
+            msgLoot = '';
+        } else {
+            msgSeen = '';
+        }
     }
 
-    // Key possession
-
-    const msgKey = '\x8aKey';
-    if (state.player.hasVaultKey) {
-        rightSideX -= msgKey.length + 1;
-        putString(renderer, rightSideX, msgKey, colorPreset.lightCyan);
+    if (msgSeen.length + msgLoot.length + msgEscape.length > spaceAvailable) {
+        msgLoot = '';
+        msgSeen = '';
     }
 
-    // Level number, turn count, and speed bonus
-    const msgFPS = state.fpsInfo.enabled ? state.fpsInfo.msgFPS : '';
-
-    const msgLevel = (state.dailyRun ? '\x7fDaily Lvl ' : '\x7fLvl ') + (state.level + 1);
-
-    const parTurns = numTurnsParForCurrentMap(state);
-    let msgTimer = '\x8c\x8d' + state.turns + '/' + parTurns;
-    const colorTimer = state.turns>parTurns? colorPreset.lightRed : 
-                       state.turns>0.75*parTurns? colorPreset.lightYellow :
-                       colorPreset.lightGreen;
-
-    const ghosted = state.levelStats.numSpottings === 0;
-    if (!ghosted) {
-        msgTimer += '!';
+    if (msgSeen.length + msgLoot.length + msgEscape.length > spaceAvailable) {
+        msgEscape = '';
     }
 
-    leftSideX = state.player.healthMax + msgLeapToggle.length + 2;
+    // Display all of the right-aligned status messages
 
-    const pad = state.fpsInfo.enabled ? 2 : 1
-    const centeredX = (leftSideX + rightSideX - (msgLevel.length + msgTimer.length + msgFPS.length + pad)) / 2;
+    rightSideX -= msgLoot.length;
+    putString(renderer, rightSideX, msgLoot, colorPreset.lightMagenta);
+
+    rightSideX -= msgSeen.length;
+    putString(renderer, rightSideX, msgSeen, colorPreset.white);
+
+    rightSideX -= msgKey.length;
+    putString(renderer, rightSideX, msgKey, colorPreset.lightCyan);
+
+    rightSideX -= msgEscape.length;
+    putString(renderer, rightSideX, msgEscape, colorPreset.white);
+
+    // Place centered part of status bar
+
+    const centeredX = (leftSideX + rightSideX - centerLength) / 2;
     putString(renderer, centeredX, msgLevel, colorPreset.lightGray);
     putString(renderer, centeredX + msgLevel.length + 1, msgTimer, colorTimer);
     if(msgFPS!=='') {
