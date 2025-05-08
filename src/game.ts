@@ -2283,7 +2283,7 @@ export function postTurn(state: State) {
     }
 
     const numTurnsPar = numTurnsParForCurrentMap(state);
-    if (state.turns === Math.floor(0.75*numTurnsPar) || state.turns === numTurnsPar-10 && numTurnsPar>100) {
+    if (state.level > 0 && (state.turns === Math.floor(0.75*numTurnsPar) || state.turns === numTurnsPar-10 && numTurnsPar>100)) {
         state.popups.setNotification('\x8c\x8dTick tock!', state.player, 3, 5.0);
         state.sounds.clockTick.play(1.0);
     }
@@ -2308,7 +2308,7 @@ export function postTurn(state: State) {
             state.popups.setNotification('\x8c\x8dLate!\nVaults were cleared.', state.player, 3, 5.0);
             state.sounds.coinRattle.play(1.0);
             state.sounds.clockChime.play(0.5);
-        } else {
+        } else if (state.level > 0) {
             state.popups.setNotification('\x8c\x8dLate!', state.player, 3, 5.0);
             state.sounds.clockChime.play(1.0);
         }
