@@ -4276,7 +4276,7 @@ function renderBottomStatusBar(renderer: Renderer, screenSize: vec2, state: Stat
     const msgKey = state.player.hasVaultKey ? '\x8aKey ' : '';
     let msgSeen = '\x8e\x8fMap ' + percentRevealed + '% ';
     let msgLoot = '\x8bLoot ' + state.lootStolen + '/' + ((percentRevealed < 100) ? '?' : state.lootAvailable) + ' ';
-    let msgEscape = (percentRevealed >= 100 && state.lootStolen >= state.lootAvailable && state.gameMode === GameMode.Mansion) ? '\x88\x89Escape! ' : '';
+    let msgEscape = (state.finishedLevel && state.player.health > 0 && state.gameMode === GameMode.Mansion) ? '\x88\x89Escape! ' : '';
 
     // Knock out loot and/or seen messages if there is not enough room on the status bar
 
