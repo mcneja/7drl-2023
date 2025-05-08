@@ -427,7 +427,7 @@ class TouchController extends Controller {
         // Clear pressed status on any touch targets going away
 
         for (const [bname, b] of Object.entries(this.touchTargets)) {
-            if (!(bname in this.touchTargets)) {
+            if (!(bname in touchTargets)) {
                 this.controlStates[bname] = false;
             }
         }
