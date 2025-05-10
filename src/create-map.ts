@@ -4195,23 +4195,39 @@ function splitPatrolRoute(nodeAny: PatrolNode, pieceLength: number) {
 
 function posInDoor(pos: vec2, room0: Room, room1: Room, gameMap: GameMap) {
     for (const adj of room0.edges) {
-        if ((adj.roomLeft === room0 && adj.roomRight === room1) ||
-            (adj.roomLeft === room1 && adj.roomRight === room0)) {
-            const posAdj = vec2.create();
-            for (let i = 1; i < adj.length; ++i) {
-                vec2.scaleAndAdd(posAdj, adj.origin, adj.dir, i);
-                const terrainType = gameMap.cells.atVec(posAdj).type;
-                if (terrainType >= TerrainType.PortcullisNS && terrainType <= TerrainType.GardenDoorEW) {
-                    vec2.copy(pos, posAdj);
-                    return;
-                }
-                if (terrainType <= TerrainType.GroundTreasure) {
-                    vec2.copy(pos, posAdj);
-                    return;
-                }
+        if ((adj.roomLeft !== room0 || adj.roomRight !== room1) &&
+            (adj.roomLeft !== room1 || adj.roomRight !== room0)) {
+            continue;
+        }
+
+        // Search for a square along the adjacency with a doorway type
+
+        for (let i = 1; i < adj.length; ++i) {
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
+            const terrainType = gameMap.cells.atVec(pos).type;
+            if (terrainType >= TerrainType.PortcullisNS && terrainType <= TerrainType.GardenDoorEW) {
+                return;
             }
         }
+
+        // If that fails, search along the adjacencty for an open terrain square
+
+        for (let i = 1; i < adj.length; ++i) {
+            vec2.scaleAndAdd(pos, adj.origin, adj.dir, i);
+            const terrainType = gameMap.cells.atVec(pos).type;
+            if (terrainType <= TerrainType.GroundTreasure) {
+                return;
+            }
+        }
+
+        // If that fails, return a position in the middle of the adjacency
+
+        vec2.scaleAndAdd(pos, adj.origin, adj.dir, Math.floor(adj.length / 2));
+        return;
     }
+
+    // Should never hit this; we did not find an adjacency between room0 and room1
+
     vec2.zero(pos);
 }
 
