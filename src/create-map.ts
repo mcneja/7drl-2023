@@ -1551,13 +1551,6 @@ function computeAdjacencies(
 
                     groupAdjacencies(adj0, adj1);
 
-                    if (i !== j) {
-                        // Flip edge adj1 to point the opposite direction
-                        vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
-                        vec2.negate(adj1.dir, adj1.dir);
-                        [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
-                    }
-
                     i += 1;
                     j -= 1;
                 }
@@ -1715,11 +1708,6 @@ function computeAdjacencies(
                     let adj1 = row[(row.length - 1) - i];
 
                     groupAdjacencies(adj0, adj1);
-
-                    // Flip edge a1 to point the opposite direction
-                    vec2.scaleAndAdd(adj1.origin, adj1.origin, adj1.dir, adj1.length);
-                    vec2.negate(adj1.dir, adj1.dir);
-                    [adj1.roomLeft, adj1.roomRight] = [adj1.roomRight, adj1.roomLeft];
                 }
             }
         }
@@ -1823,9 +1811,13 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
             (adj.roomLeft.group !== adj.roomRight.group || rng.random() < 0.4));
     }
 
+    // Compute the outside perimeter length
+
+    const outsideWallLength = perimeterLength(adjacencies);
+
     // Create a door to the surrounding exterior.
 
-    const adjDoor = frontDoorAdjacency(adjacencies, rooms[0]);
+    const adjDoor = frontDoorAdjacency(adjacencies);
     if (adjDoor !== undefined) {
         adjDoor.door = true;
         adjDoor.doorType = DoorType.GateFront;
@@ -1837,11 +1829,11 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Occasionally create a back door to the exterior.
 
-    if (rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
-        const adjDoor = backDoorAdjacency(adjacencies, rooms[0]);
+    if (outsideWallLength > 80 || rng.random() < 0.2) {
+        const adjDoor = backDoorAdjacency(adjacencies);
         if (adjDoor !== undefined) {
             adjDoor.door = true;
-            adjDoor.doorType = (levelType !== LevelType.Fortress && (level < 3 || rng.random() < 0.75)) ? DoorType.GateBack : DoorType.Locked;
+            adjDoor.doorType = (levelType !== LevelType.Fortress && (level < 3 || rng.random() < 0.5)) ? DoorType.GateBack : DoorType.Locked;
 
             // Remove door wall from symmetry group
 
@@ -1851,14 +1843,26 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     // Also create side doors sometimes.
 
-    if (rng.randomInRange(levelType === LevelType.Mansion ? 20 : 30) < rooms.length) {
-        const adjDoor = sideDoorAdjacency(adjacencies, rooms[0]);
-        if (adjDoor !== undefined) {
-            const doorType = (levelType !== LevelType.Fortress && level < 3) ? DoorType.GateBack : DoorType.Locked;
+    if (outsideWallLength > 120 || rng.random() < 0.2) {
+        const doorType = (levelType !== LevelType.Fortress && level < 3) ? DoorType.GateBack : DoorType.Locked;
+        let numSideDoors = 0;
 
-            for (const adj of adjacencyGroup(adjDoor)) {
+        const adjDoorLeft = sideDoorAdjacencyLeft(adjacencies);
+        if (adjDoorLeft !== undefined) {
+            for (const adj of adjacencyGroup(adjDoorLeft)) {
                 adj.door = true;
                 adj.doorType = doorType;
+                ++numSideDoors;
+            }
+        }
+
+        if (numSideDoors < 2) {
+            const adjDoorRight = sideDoorAdjacencyRight(adjacencies);
+            if (adjDoorRight !== undefined) {
+                for (const adj of adjacencyGroup(adjDoorRight)) {
+                    adj.door = true;
+                    adj.doorType = doorType;
+                }
             }
         }
     }
@@ -1909,82 +1913,189 @@ function joinGroups(rooms: Array<Room>, groupFrom: number, groupTo: number) {
     }
 }
 
-function frontDoorAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room): Adjacency | undefined {
-    const adjs: Array<Adjacency> = [];
-
+function perimeterLength(adjacencies: Array<Adjacency>): number {
+    let p = 0;
     for (const adj of adjacencies) {
-        if (adj.dir[0] == 0) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
             continue;
         }
 
-        if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] < 0) {
-            adjs.push(adj);
-        } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] > 0) {
-            adjs.push(adj);
-        }
+        p += adj.length;
     }
-
-    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
-
-    if (adjs.length <= 0) {
-        return undefined;
-    }
-
-    return adjs[Math.floor(adjs.length / 2)];
+    return p;
 }
 
-function backDoorAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room): Adjacency | undefined {
-    const adjs: Array<Adjacency> = [];
+function frontDoorAdjacency(adjacencies: Array<Adjacency>): Adjacency | undefined {
+    let xMin = Infinity;
+    let xMax = -Infinity;
 
     for (const adj of adjacencies) {
-        if (adj.dir[0] == 0) {
+        xMin = Math.min(xMin, adj.origin[0]);
+        xMax = Math.max(xMax, adj.origin[0] + adj.dir[0] * (adj.length + 1));
+    }
+
+    const xMid = (xMin + xMax) / 2;
+
+    let adjClosest: Adjacency | undefined = undefined;
+
+    for (const adj of adjacencies) {
+        if (adj.dir[0] === 0) {
             continue;
         }
 
-        if (adj.roomLeft === roomExterior && adj.roomRight.roomType !== RoomType.Exterior && adj.dir[0] > 0) {
-            adjs.push(adj);
-        } else if (adj.roomLeft.roomType !== RoomType.Exterior && adj.roomRight === roomExterior && adj.dir[0] < 0) {
-            adjs.push(adj);
-        }
-    }
-
-    adjs.sort((adj0, adj1) => (adj0.origin[0] + adj0.dir[0] * adj0.length / 2) - (adj1.origin[0] + adj1.dir[0] * adj1.length / 2));
-
-    if (adjs.length <= 0) {
-        return undefined;
-    }
-
-    return adjs[Math.floor(adjs.length / 2)];
-}
-
-function sideDoorAdjacency(adjacencies: Array<Adjacency>, roomExterior: Room): Adjacency | undefined {
-    const adjs: Array<Adjacency> = [];
-
-    for (const adj of adjacencies) {
-        if (adj.dir[1] == 0) {
-            continue;
-        }
         if (adj.length < 3) {
             continue;
         }
-        if ((adj.length & 1) !== 0) {
+
+        if (adj.roomLeft.roomType === RoomType.Exterior) {
             continue;
         }
 
-        if ((adj.roomLeft === roomExterior) === (adj.roomRight === roomExterior)) {
+        if (adj.roomRight.roomType !== RoomType.Exterior) {
             continue;
         }
 
-        adjs.push(adj);
+        if (adj.origin[0] > xMid) {
+            continue;
+        }
+
+        if (adj.origin[0] + adj.dir[0] * adj.length <= xMid) {
+            continue;
+        }
+
+        if (adjClosest !== undefined && adj.origin[1] > adjClosest.origin[1]) {
+            continue;
+        }
+
+        adjClosest = adj;
     }
 
-    adjs.sort((adj0, adj1) => (adj0.origin[1] + adj0.dir[1] * adj0.length / 2) - (adj1.origin[1] + adj1.dir[1] * adj1.length / 2));
+    return adjClosest;
+}
 
-    if (adjs.length <= 0) {
-        return undefined;
+function backDoorAdjacency(adjacencies: Array<Adjacency>): Adjacency | undefined {
+    let xMin = Infinity;
+    let xMax = -Infinity;
+
+    for (const adj of adjacencies) {
+        xMin = Math.min(xMin, adj.origin[0]);
+        xMax = Math.max(xMax, adj.origin[0] + adj.dir[0] * (adj.length + 1));
     }
 
-    return adjs[Math.floor(adjs.length / 2)];
+    const xMid = (xMin + xMax) / 2;
+
+    let adjClosest: Adjacency | undefined = undefined;
+    let distClosest = Infinity;
+
+    for (const adj of adjacencies) {
+        if (adj.dir[0] === 0) {
+            continue;
+        }
+
+        if (adj.length < 3) {
+            continue;
+        }
+
+        if (adj.roomLeft.roomType !== RoomType.Exterior) {
+            continue;
+        }
+
+        if (adj.roomRight.roomType === RoomType.Exterior) {
+            continue;
+        }
+
+        const dist = Math.max(0, Math.max(xMid - (adj.origin[0] + adj.dir[0] * adj.length), adj.origin[0] - xMid));
+        if (dist < distClosest || (adjClosest !== undefined && dist === distClosest && adj.origin[1] > adjClosest.origin[1])) {
+            distClosest = dist;
+            adjClosest = adj;
+        }
+    }
+
+    return adjClosest;
+}
+
+function sideDoorAdjacencyLeft(adjacencies: Array<Adjacency>): Adjacency | undefined {
+    let yMin = Infinity;
+    let yMax = -Infinity;
+
+    for (const adj of adjacencies) {
+        yMin = Math.min(yMin, adj.origin[1]);
+        yMax = Math.max(yMax, adj.origin[1] + adj.dir[1] * (adj.length + 1));
+    }
+
+    const yMid = (yMin + yMax) / 2;
+
+    let adjClosest: Adjacency | undefined = undefined;
+    let distClosest = Infinity;
+
+    for (const adj of adjacencies) {
+        if (adj.dir[1] === 0) {
+            continue;
+        }
+
+        if (adj.length < 3) {
+            continue;
+        }
+
+        if (adj.roomLeft.roomType !== RoomType.Exterior) {
+            continue;
+        }
+
+        if (adj.roomRight.roomType === RoomType.Exterior) {
+            continue;
+        }
+
+        const dist = Math.max(0, Math.max(yMid - (adj.origin[1] + adj.dir[1] * (adj.length + 1)), adj.origin[1] - yMid));
+
+        if (dist < distClosest || (adjClosest !== undefined && dist === distClosest && adj.origin[0] < adjClosest.origin[0])) {
+            distClosest = dist;
+            adjClosest = adj;
+        }
+    }
+
+    return adjClosest;
+}
+
+function sideDoorAdjacencyRight(adjacencies: Array<Adjacency>): Adjacency | undefined {
+    let yMin = Infinity;
+    let yMax = -Infinity;
+
+    for (const adj of adjacencies) {
+        yMin = Math.min(yMin, adj.origin[1]);
+        yMax = Math.max(yMax, adj.origin[1] + adj.dir[1] * (adj.length + 1));
+    }
+
+    const yMid = (yMin + yMax) / 2;
+
+    let adjClosest: Adjacency | undefined = undefined;
+    let distClosest = Infinity;
+
+    for (const adj of adjacencies) {
+        if (adj.dir[1] === 0) {
+            continue;
+        }
+
+        if (adj.length < 3) {
+            continue;
+        }
+
+        if (adj.roomLeft.roomType === RoomType.Exterior) {
+            continue;
+        }
+
+        if (adj.roomRight.roomType !== RoomType.Exterior) {
+            continue;
+        }
+
+        const dist = Math.max(0, Math.max(yMid - (adj.origin[1] + adj.dir[1] * (adj.length + 1)), adj.origin[1] - yMid));
+
+        if (dist < distClosest || (adjClosest !== undefined && dist === distClosest && adj.origin[0] > adjClosest.origin[0])) {
+            distClosest = dist;
+            adjClosest = adj;
+        }
+    }
+
+    return adjClosest;
 }
 
 function numDoorsForRoom(room: Room): number {
@@ -4276,23 +4387,29 @@ function playerStartPositionFrontDoor(adjacencies: Array<Adjacency>, gameMap: Ga
     // Find lowest door to exterior
 
     let adjFrontDoor: Adjacency | undefined = undefined;
-    let yMin = 0;
 
     for (const adj of adjacencies) {
         if (!adj.door) {
             continue;
         }
 
-        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+        if (adj.dir[0] === 0) {
             continue;
         }
 
-        const y = adj.origin[1] + Math.max(0, adj.dir[1]) * adj.length;
-
-        if (adjFrontDoor === undefined || y < yMin) {
-            adjFrontDoor = adj;
-            yMin = y;
+        if (adj.roomLeft.roomType === RoomType.Exterior) {
+            continue;
         }
+
+        if (adj.roomRight.roomType !== RoomType.Exterior) {
+            continue;
+        }
+
+        if (adjFrontDoor !== undefined && adj.origin[1] > adjFrontDoor.origin[1]) {
+            continue;
+        }
+
+        adjFrontDoor = adj;
     }
 
     if (adjFrontDoor === undefined) {
