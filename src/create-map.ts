@@ -1845,24 +1845,20 @@ function connectRooms(rooms: Array<Room>, adjacencies: Array<Adjacency>, level: 
 
     if (outsideWallLength > 120 || rng.random() < 0.2) {
         const doorType = (levelType !== LevelType.Fortress && level < 3) ? DoorType.GateBack : DoorType.Locked;
-        let numSideDoors = 0;
 
         const adjDoorLeft = sideDoorAdjacencyLeft(adjacencies);
         if (adjDoorLeft !== undefined) {
             for (const adj of adjacencyGroup(adjDoorLeft)) {
                 adj.door = true;
                 adj.doorType = doorType;
-                ++numSideDoors;
             }
         }
 
-        if (numSideDoors < 2) {
-            const adjDoorRight = sideDoorAdjacencyRight(adjacencies);
-            if (adjDoorRight !== undefined) {
-                for (const adj of adjacencyGroup(adjDoorRight)) {
-                    adj.door = true;
-                    adj.doorType = doorType;
-                }
+        const adjDoorRight = sideDoorAdjacencyRight(adjacencies);
+        if (adjDoorRight !== undefined) {
+            for (const adj of adjacencyGroup(adjDoorRight)) {
+                adj.door = true;
+                adj.doorType = doorType;
             }
         }
     }
@@ -2059,7 +2055,11 @@ function sideDoorAdjacencyLeft(adjacencies: Array<Adjacency>): Adjacency | undef
 
         const dist = Math.max(0, Math.max(yMid - (adj.origin[1] + adj.dir[1] * (adj.length + 1)), adj.origin[1] - yMid));
 
-        if (dist < distClosest || (adjClosest !== undefined && dist === distClosest && adj.origin[0] < adjClosest.origin[0])) {
+        if (dist < distClosest ||
+            (adjClosest !== undefined &&
+             dist === distClosest &&
+             (adj.origin[0] < adjClosest.origin[0] ||
+              (adj.origin[0] === adjClosest.origin[0] && adj.origin[1] < adjClosest.origin[1])))) {
             distClosest = dist;
             adjClosest = adj;
         }
@@ -2105,7 +2105,11 @@ function sideDoorAdjacencyRight(adjacencies: Array<Adjacency>): Adjacency | unde
 
         const dist = Math.max(0, Math.max(yMid - (adj.origin[1] + adj.dir[1] * (adj.length + 1)), adj.origin[1] - yMid));
 
-        if (dist < distClosest || (adjClosest !== undefined && dist === distClosest && adj.origin[0] > adjClosest.origin[0])) {
+        if (dist < distClosest ||
+            (adjClosest !== undefined &&
+             dist === distClosest &&
+             (adj.origin[0] > adjClosest.origin[0] ||
+              (adj.origin[0] === adjClosest.origin[0] && adj.origin[1] < adjClosest.origin[1])))) {
             distClosest = dist;
             adjClosest = adj;
         }
