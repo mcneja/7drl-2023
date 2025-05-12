@@ -1930,6 +1930,10 @@ function frontDoorAdjacency(adjacencies: Array<Adjacency>): Adjacency | undefine
     let xMax = -Infinity;
 
     for (const adj of adjacencies) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+            continue;
+        }
+
         xMin = Math.min(xMin, adj.origin[0]);
         xMax = Math.max(xMax, adj.origin[0] + adj.dir[0] * (adj.length + 1));
     }
@@ -1978,6 +1982,10 @@ function backDoorAdjacency(adjacencies: Array<Adjacency>): Adjacency | undefined
     let xMax = -Infinity;
 
     for (const adj of adjacencies) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+            continue;
+        }
+
         xMin = Math.min(xMin, adj.origin[0]);
         xMax = Math.max(xMax, adj.origin[0] + adj.dir[0] * (adj.length + 1));
     }
@@ -2019,6 +2027,10 @@ function sideDoorAdjacencyLeft(adjacencies: Array<Adjacency>): Adjacency | undef
     let yMax = -Infinity;
 
     for (const adj of adjacencies) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+            continue;
+        }
+
         yMin = Math.min(yMin, adj.origin[1]);
         yMax = Math.max(yMax, adj.origin[1] + adj.dir[1] * (adj.length + 1));
     }
@@ -2061,6 +2073,10 @@ function sideDoorAdjacencyRight(adjacencies: Array<Adjacency>): Adjacency | unde
     let yMax = -Infinity;
 
     for (const adj of adjacencies) {
+        if ((adj.roomLeft.roomType === RoomType.Exterior) === (adj.roomRight.roomType === RoomType.Exterior)) {
+            continue;
+        }
+
         yMin = Math.min(yMin, adj.origin[1]);
         yMax = Math.max(yMax, adj.origin[1] + adj.dir[1] * (adj.length + 1));
     }
