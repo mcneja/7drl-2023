@@ -75,7 +75,6 @@ type Adjacency = {
 }
 
 type PatrolRoute = {
-    rooms: Array<Room>,
     path: Array<vec2>,
     minRoomDepth: number,
     maxRoomDepth: number,
@@ -403,7 +402,6 @@ function createGameMap(plan: GameMapRoughPlan): GameMap {
     // Additional decorations
 
     const outsidePatrolRoute: PatrolRoute = {
-        rooms: [rooms[0]],
         path: outerBuildingPerimeter(adjacencies, map),
         minRoomDepth: rooms[0].depth,
         maxRoomDepth: rooms[0].depth,
@@ -999,7 +997,7 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, need
                         for(let dx of [-1,1]) {
                             const pos0 = pos.add(new vec2(dx,0));
                             if(ttypes.includes(map.cells.atVec(pos0).type)) {
-                                patrolRoutes.push({rooms: [outsideVault], path:[pos0], minRoomDepth: outsideVault.depth, maxRoomDepth: outsideVault.depth});
+                                patrolRoutes.push({path:[pos0], minRoomDepth: outsideVault.depth, maxRoomDepth: outsideVault.depth});
                                 return;
                             }    
                         }
@@ -1008,7 +1006,7 @@ function addStationaryPatrols(level:number, map:GameMap, rooms:Array<Room>, need
                         for(let dy of [-1,1]) {
                             const pos0 = pos.add(new vec2(0,dy));
                             if(ttypes.includes(map.cells.atVec(pos0).type)) {
-                                patrolRoutes.push({rooms: [outsideVault], path:[pos0], minRoomDepth: outsideVault.depth, maxRoomDepth: outsideVault.depth});
+                                patrolRoutes.push({path:[pos0], minRoomDepth: outsideVault.depth, maxRoomDepth: outsideVault.depth});
                                 return;
                             }    
                         }
@@ -1130,7 +1128,7 @@ function addSeatedGuard(level: number, gameMap: GameMap, rooms: Array<Room>, nee
                 pos[0] < room.posMax[0] &&
                 pos[1] < room.posMax[1]) {
                 const i = rng.randomInRange(patrolRoutes.length + 1);
-                patrolRoutes.splice(i, 0, {rooms: [room], path: [vec2.clone(pos)], minRoomDepth: room.depth, maxRoomDepth: room.depth});
+                patrolRoutes.splice(i, 0, {path: [vec2.clone(pos)], minRoomDepth: room.depth, maxRoomDepth: room.depth});
                 return;
             }
         }
@@ -4097,7 +4095,7 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, gameMap: GameMap
         const roomsArray = Array.from(rooms);
         const minRoomDepth = roomsArray.reduce((minDepth, room) => Math.min(minDepth, room.depth), Infinity);
         const maxRoomDepth = roomsArray.reduce((maxDepth, room) => Math.max(maxDepth, room.depth), 0);
-        patrolRoutes.push({rooms: roomsArray, path: path, minRoomDepth: minRoomDepth, maxRoomDepth: maxRoomDepth});
+        patrolRoutes.push({path: path, minRoomDepth: minRoomDepth, maxRoomDepth: maxRoomDepth});
     }
 
     // Shuffle the patrol routes generated so far, since they were created by iterating over the rooms in order.
@@ -4110,13 +4108,11 @@ function generatePatrolPathsFromNodes(nodes: Array<PatrolNode>, gameMap: GameMap
 function appendOutsidePatrolRoutes(outsidePatrolRoute: PatrolRoute, patrolRoutes: Array<PatrolRoute>) {
     const patrolLength = outsidePatrolRoute.path.length;
     patrolRoutes.push({
-        rooms: outsidePatrolRoute.rooms,
         path: shiftedPathCopy(outsidePatrolRoute.path, Math.floor(patrolLength * 0.25)),
         minRoomDepth: outsidePatrolRoute.minRoomDepth,
         maxRoomDepth: outsidePatrolRoute.maxRoomDepth
     });
     patrolRoutes.push({
-        rooms: outsidePatrolRoute.rooms,
         path: shiftedPathCopy(outsidePatrolRoute.path, Math.floor(patrolLength * 0.75)),
         minRoomDepth: outsidePatrolRoute.minRoomDepth,
         maxRoomDepth: outsidePatrolRoute.maxRoomDepth
