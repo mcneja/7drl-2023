@@ -1,7 +1,7 @@
 import { vec2 } from './my-matrix';
 import { TileInfo } from './tilesets';
 import { Item, ItemType } from './game-map';
-var tween = require('tween-functions');
+import * as tween from 'tween-functions';
 
 export { Animator, SpriteAnimation, FrameAnimator, LightSourceAnimation, tween, LightState, TweenData };
 

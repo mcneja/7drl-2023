@@ -2,9 +2,9 @@ import * as colorPreset from './color-preset';
 import { Achievements } from './achievements';
 import { ItemType } from './game-map';
 
-const entityImageTileset31Color = require('url:./entitytiles31color.png');
-const terrainImageTileset31Color = require('url:./terraintiles31color.png');
-const imageTilesetFont = require('url:./font.png');
+import entityImageTileset31Color from './entitytiles31color.png';
+import terrainImageTileset31Color from './terraintiles31color.png';
+import imageTilesetFont from './font.png';
 
 export enum TextureType {
     Font,

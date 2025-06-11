@@ -2,8 +2,8 @@
     "compilerOptions": {
         "outDir": "./dist",
         "target": "es6",
-        "module": "NodeNext",
-        "moduleResolution": "NodeNext",
+        "module": "esnext",
+        "moduleResolution": "bundler",
         "strict": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
@@ -23,5 +23,6 @@
         "./src/types.ts",
         "./src/ui.ts",
         "./src/animation.ts",
+        "./src/types/assets.d.ts"
     ]
 }

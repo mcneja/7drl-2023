@@ -4,20 +4,19 @@
   "description": "Turn-based stealth in Merry Old England.",
   "source": "src/index.html",
   "scripts": {
-    "build": "parcel build src/index.html --public-url .",
     "check": "tsc --noEmit",
-    "start": "parcel src/index.html"
+    "dev": "vite",
+    "build": "vite build"
   },
   "devDependencies": {
-    "@parcel/packager-raw-url": "^2.8.3",
-    "@parcel/transformer-webmanifest": "^2.8.3",
     "@types/howler": "^2.2.7",
     "@types/node": "^18.11.18",
     "@types/seedrandom": "^3.0.5",
     "@types/tween-functions": "^1.2.0",
     "parcel": "latest",
     "process": "^0.11.10",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.4",
+    "vite": "^6.3.5"
   },
   "dependencies": {
     "howler": "^2.2.3",

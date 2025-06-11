@@ -3,524 +3,522 @@ import { shuffleArray } from './random';
 
 export { Howler };
 
-const victorySong = require('url:./audio/Minstrel_Dance.mp3');
-const levelRequirementJingle = require('url:./audio/level-requirement-1.mp3');
-const levelCompleteJingle = require('url:./audio/level-requirement-2.mp3');
-const gameOverJingle = require('url:./audio/lose-game-over.mp3');
-const easterEgg = require('url:./audio/Minstrel Dance Easter Egg.mp3');
-const footstepWood = require('url:./audio/footstep-wood.mp3');
-const footstepTile = require('url:./audio/footstep-tile.mp3');
-const footstepWater = require('url:./audio/footstep-water.mp3');
-const footstepGravel = require('url:./audio/footstep-gravel.mp3');
-const footstepGrass = require('url:./audio/footstep-grass.mp3');
+const victorySong = new URL('./audio/Minstrel_Dance.mp3', import.meta.url).href;
+const levelRequirementJingle = new URL('./audio/level-requirement-1.mp3', import.meta.url).href;
+const levelCompleteJingle = new URL('./audio/level-requirement-2.mp3', import.meta.url).href;
+const gameOverJingle = new URL('./audio/lose-game-over.mp3', import.meta.url).href;
+const easterEgg = new URL('./audio/Minstrel Dance Easter Egg.mp3', import.meta.url).href;
+const footstepWood = new URL('./audio/footstep-wood.mp3', import.meta.url).href;
+const footstepTile = new URL('./audio/footstep-tile.mp3', import.meta.url).href;
+const footstepWater = new URL('./audio/footstep-water.mp3', import.meta.url).href;
+const footstepGravel = new URL('./audio/footstep-gravel.mp3', import.meta.url).href;
+const footstepGrass = new URL('./audio/footstep-grass.mp3', import.meta.url).href;
 
 const footstepCreakSet =[
-    require('url:./audio/creak-7.mp3'),
-    require('url:./audio/creak-8.mp3'),
-    require('url:./audio/creak-9.mp3'),
-    require('url:./audio/creak-10.mp3'),
-    require('url:./audio/creak-11.mp3'),
-    require('url:./audio/creak-12.mp3'),
+    new URL('./audio/creak-7.mp3', import.meta.url).href,
+    new URL('./audio/creak-8.mp3', import.meta.url).href,
+    new URL('./audio/creak-9.mp3', import.meta.url).href,
+    new URL('./audio/creak-10.mp3', import.meta.url).href,
+    new URL('./audio/creak-11.mp3', import.meta.url).href,
+    new URL('./audio/creak-12.mp3', import.meta.url).href,
 ];
 
 const hitPlayerSet:Array<string> = [
-    require('url:./audio/hitting/hit16.mp3.flac'),
-    require('url:./audio/hitting/hit17.mp3.flac'),
-    require('url:./audio/hitting/hit18.mp3.flac'),
-    require('url:./audio/hitting/hit19.mp3.flac'),
-    require('url:./audio/hitting/hit20.mp3.flac'),
-    require('url:./audio/hitting/hit26.mp3.flac'),
-    require('url:./audio/hitting/hit27.mp3.flac'),
+    new URL('./audio/hitting/hit16.mp3.flac', import.meta.url).href,
+    new URL('./audio/hitting/hit17.mp3.flac', import.meta.url).href,
+    new URL('./audio/hitting/hit18.mp3.flac', import.meta.url).href,
+    new URL('./audio/hitting/hit19.mp3.flac', import.meta.url).href,
+    new URL('./audio/hitting/hit20.mp3.flac', import.meta.url).href,
+    new URL('./audio/hitting/hit26.mp3.flac', import.meta.url).href,
+    new URL('./audio/hitting/hit27.mp3.flac', import.meta.url).href,
 ];
 
 const hitGuardSet:Array<string> = [
-    require('url:./audio/hitting/hit26.mp3.flac'),
+    new URL('./audio/hitting/hit26.mp3.flac', import.meta.url).href,
 ];
 
 
 const coinRattleSet = [
-    require('url:./audio/coin-rattle.mp3'),
+    new URL('./audio/coin-rattle.mp3', import.meta.url).href,
 ]
 
 const coinSet = [
-    require('url:./audio/coin.mp3'),
-    require('url:./audio/coin-2.mp3'),
-    require('url:./audio/coin-3.mp3'),
-    require('url:./audio/coin-4.mp3'),    
-    require('url:./audio/coin-5.mp3'),    
+    new URL('./audio/coin.mp3', import.meta.url).href,
+    new URL('./audio/coin-2.mp3', import.meta.url).href,
+    new URL('./audio/coin-3.mp3', import.meta.url).href,
+    new URL('./audio/coin-4.mp3', import.meta.url).href,    
+    new URL('./audio/coin-5.mp3', import.meta.url).href,    
 ];
 
 const gruntSet = [
-    require('url:./audio/grunt.mp3'),
-    require('url:./audio/grunt-2.mp3'),
-    require('url:./audio/grunt-3.mp3'),
-    require('url:./audio/grunt-4.mp3'),    
-    require('url:./audio/grunt-5.mp3'),    
-    require('url:./audio/grunt-6.mp3'),    
-    require('url:./audio/grunt-7.mp3'),    
-    require('url:./audio/grunt-8.mp3'),    
+    new URL('./audio/grunt.mp3', import.meta.url).href,
+    new URL('./audio/grunt-2.mp3', import.meta.url).href,
+    new URL('./audio/grunt-3.mp3', import.meta.url).href,
+    new URL('./audio/grunt-4.mp3', import.meta.url).href,    
+    new URL('./audio/grunt-5.mp3', import.meta.url).href,    
+    new URL('./audio/grunt-6.mp3', import.meta.url).href,    
+    new URL('./audio/grunt-7.mp3', import.meta.url).href,    
+    new URL('./audio/grunt-8.mp3', import.meta.url).href,    
 ];
 
 const douseSet = [
-    require('url:./audio/douse.mp3'),
-    require('url:./audio/douse-2.mp3'),
-    require('url:./audio/douse-3.mp3'),
-    require('url:./audio/douse-4.mp3'),    
+    new URL('./audio/douse.mp3', import.meta.url).href,
+    new URL('./audio/douse-2.mp3', import.meta.url).href,
+    new URL('./audio/douse-3.mp3', import.meta.url).href,
+    new URL('./audio/douse-4.mp3', import.meta.url).href,    
 ];
 
 const clockChimeSet = [
-    require('url:./audio/chiming-clock-short.mp3'),
+    new URL('./audio/chiming-clock-short.mp3', import.meta.url).href,
 ];
 
 const clockTickSet = [
-    require('url:./audio/ticking-clock.mp3'),
+    new URL('./audio/ticking-clock.mp3', import.meta.url).href,
 ];
 
 const foodSet = [
-    require('url:./audio/eating.mp3'),
+    new URL('./audio/eating.mp3', import.meta.url).href,
 ]
 
 const grabKeySet = [
-    require('url:./audio/grab-key.mp3'),
-    require('url:./audio/grab-key-2.mp3'),
+    new URL('./audio/grab-key.mp3', import.meta.url).href,
+    new URL('./audio/grab-key-2.mp3', import.meta.url).href,
 ]
 
 const igniteSet = [
-    require('url:./audio/ignite.mp3'),
-    require('url:./audio/ignite-2.mp3'),
+    new URL('./audio/ignite.mp3', import.meta.url).href,
+    new URL('./audio/ignite-2.mp3', import.meta.url).href,
 ];
 
 const hideSet = [
-    require('url:./audio/hide.mp3'),
-    require('url:./audio/hide-2.mp3'),
-    require('url:./audio/hide-3.mp3'),
-    require('url:./audio/hide-4.mp3'),    
-    require('url:./audio/hide-5.mp3'),    
-    require('url:./audio/hide-6.mp3'),    
+    new URL('./audio/hide.mp3', import.meta.url).href,
+    new URL('./audio/hide-2.mp3', import.meta.url).href,
+    new URL('./audio/hide-3.mp3', import.meta.url).href,
+    new URL('./audio/hide-4.mp3', import.meta.url).href,    
+    new URL('./audio/hide-5.mp3', import.meta.url).href,    
+    new URL('./audio/hide-6.mp3', import.meta.url).href,    
 ];
 
 const gateSet = [
-    require('url:./audio/gate.mp3'),
-    require('url:./audio/gate-2.mp3'),
-    require('url:./audio/gate-3.mp3'),
-    require('url:./audio/gate-4.mp3'),    
-    require('url:./audio/gate-5.mp3'),    
+    new URL('./audio/gate.mp3', import.meta.url).href,
+    new URL('./audio/gate-2.mp3', import.meta.url).href,
+    new URL('./audio/gate-3.mp3', import.meta.url).href,
+    new URL('./audio/gate-4.mp3', import.meta.url).href,    
+    new URL('./audio/gate-5.mp3', import.meta.url).href,    
 ];
 
 const thumpSet = [
-    require('url:./audio/thump.mp3'),
+    new URL('./audio/thump.mp3', import.meta.url).href,
 ]
 
 const splashSet = [
-    require('url:./audio/splash1.mp3'),
-    require('url:./audio/splash2.mp3'),
+    new URL('./audio/splash1.mp3', import.meta.url).href,
+    new URL('./audio/splash2.mp3', import.meta.url).href,
 ]
 
 const waterAmbientSet = [
-    require('url:./audio/water-ambient.mp3'),
-    require('url:./audio/water-ambient-2.mp3'),
+    new URL('./audio/water-ambient.mp3', import.meta.url).href,
+    new URL('./audio/water-ambient-2.mp3', import.meta.url).href,
 ]
 
 const kitchenAmbientSet = [
-    require('url:./audio/fire.mp3'),
-    require('url:./audio/fire-and-boil.mp3'),
+    new URL('./audio/fire.mp3', import.meta.url).href,
+    new URL('./audio/fire-and-boil.mp3', import.meta.url).href,
 ]
 
 const outdoorAmbientSet = [
-    require('url:./audio/outdoor-ambient.mp3'),
-    require('url:./audio/outdoor-ambient-2.mp3'),
-    require('url:./audio/outdoor-ambient-3.mp3'),
-    require('url:./audio/outdoor-ambient-4.mp3'),
+    new URL('./audio/outdoor-ambient.mp3', import.meta.url).href,
+    new URL('./audio/outdoor-ambient-2.mp3', import.meta.url).href,
+    new URL('./audio/outdoor-ambient-3.mp3', import.meta.url).href,
+    new URL('./audio/outdoor-ambient-4.mp3', import.meta.url).href,
 ]
 
 const doorOpenSet = [
-    require('url:./audio/guard-door.mp3'),
+    new URL('./audio/guard-door.mp3', import.meta.url).href,
 ]
 
 const doorCloseSet = [
-    require('url:./audio/door-close.mp3'),
+    new URL('./audio/door-close.mp3', import.meta.url).href,
 ]
 
 const doorOpenLockedSet = [
-    require('url:./audio/door-unlock-and-open.mp3'),
+    new URL('./audio/door-unlock-and-open.mp3', import.meta.url).href,
 ]
 
 const doorCloseLockedSet = [
-    require('url:./audio/door-close-and-lock.mp3'),
+    new URL('./audio/door-close-and-lock.mp3', import.meta.url).href,
 ]
 
 const playerDoorOpenSet = [
-    require('url:./audio/player-door-open.mp3'),
+    new URL('./audio/player-door-open.mp3', import.meta.url).href,
 ]
 
 const playerDoorCloseSet = [
-    require('url:./audio/player-door-close.mp3'),
+    new URL('./audio/player-door-close.mp3', import.meta.url).href,
 ]
 
 const playerDoorOpenLockedSet = [
-    require('url:./audio/player-door-unlock-and-open.mp3'),
+    new URL('./audio/player-door-unlock-and-open.mp3', import.meta.url).href,
 ]
 
 const playerDoorCloseLockedSet = [
-    require('url:./audio/player-door-close-and-lock.mp3'),
+    new URL('./audio/player-door-close-and-lock.mp3', import.meta.url).href,
 ]
 
 const waterEnterSet = [
-    require('url:./audio/water-submerge.mp3'),
+    new URL('./audio/water-submerge.mp3', import.meta.url).href,
 ]
 
 const waterExitSet = [
-    require('url:./audio/water-exit.mp3'),
+    new URL('./audio/water-exit.mp3', import.meta.url).href,
 ]
 
 const jumpSet = [
-    require('url:./audio/jump.mp3'),
-    require('url:./audio/jump-2.mp3'),
-    // require('url:./audio/gotta jump.mp3'),
-    // require('url:./audio/gotta jump-2.mp3'),    
+    new URL('./audio/jump.mp3', import.meta.url).href,
+    new URL('./audio/jump-2.mp3', import.meta.url).href,
 ];
 
 const treasureAlarmSet = [
-    require('url:./audio/alarm.mp3'),
+    new URL('./audio/alarm.mp3', import.meta.url).href,
 ]
 
 const switchProgressSet = [
-    require('url:./audio/switch-progress.mp3'),
+    new URL('./audio/switch-progress.mp3', import.meta.url).href,
 ];
 
 const switchResetSet = [
-    require('url:./audio/switch-reset.mp3'),
+    new URL('./audio/switch-reset.mp3', import.meta.url).href,
 ];
 
 const switchSuccessSet = [
-    require('url:./audio/switch-success.mp3'),
+    new URL('./audio/switch-success.mp3', import.meta.url).href,
 ];
 
 const tooHighSet = [
-    require('url:./audio/too high.mp3'),
-    require('url:./audio/too high-2.mp3'),
+    new URL('./audio/too high.mp3', import.meta.url).href,
+    new URL('./audio/too high-2.mp3', import.meta.url).href,
 ];
 
 type SubtitledSoundDesc = [string, string];
 
 
 const guardSeeThiefSet:Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],    
-    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
-    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-2.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-3.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-4.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-5.mp3'), 'What was that?'],
-    [require('url:./audio/guards/who goes there.mp3'), 'Who goes there?'],
-    [require('url:./audio/guards/huh.mp3'), 'Huh?'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/wha.mp3'), 'Wha...'],
-    [require('url:./audio/guards/wait.mp3'), 'Wait!'],
-    [require('url:./audio/guards/who there.mp3'), 'Who\'s there?'],
-    [require('url:./audio/guards/what moved.mp3'), 'What moved?'],
-    [require('url:./audio/guards/what in the shadows.mp3'), 'What\'s that\nin the shadows?'],
-    [require('url:./audio/guards/shadow move.mp3'), 'Did that\nshadow move?'],
-    [require('url:./audio/guards/see something.mp3'), 'I see\nsomething!'],
-    [require('url:./audio/guards/hello.mp3'), 'Hello?'],
-    [require('url:./audio/guards/ugh.mp3'), 'Uhh...'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],    
+    [new URL('./audio/guards/hey.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-2.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/what was that.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-2.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-3.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-4.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-5.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/who goes there.mp3', import.meta.url).href, 'Who goes there?'],
+    [new URL('./audio/guards/huh.mp3', import.meta.url).href, 'Huh?'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/wha.mp3', import.meta.url).href, 'Wha...'],
+    [new URL('./audio/guards/wait.mp3', import.meta.url).href, 'Wait!'],
+    [new URL('./audio/guards/who there.mp3', import.meta.url).href, 'Who\'s there?'],
+    [new URL('./audio/guards/what moved.mp3', import.meta.url).href, 'What moved?'],
+    [new URL('./audio/guards/what in the shadows.mp3', import.meta.url).href, 'What\'s that\nin the shadows?'],
+    [new URL('./audio/guards/shadow move.mp3', import.meta.url).href, 'Did that\nshadow move?'],
+    [new URL('./audio/guards/see something.mp3', import.meta.url).href, 'I see\nsomething!'],
+    [new URL('./audio/guards/hello.mp3', import.meta.url).href, 'Hello?'],
+    [new URL('./audio/guards/ugh.mp3', import.meta.url).href, 'Uhh...'],
 ];
 
 // TODO: We don't have a guard rest state to attach these too.
 const guardRestSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
-    [require('url:./audio/guards/aww.mp3'), 'Aww...'],
-    [require('url:./audio/guards/quiet out.mp3'), 'Quiet out...'],
-    [require('url:./audio/guards/rest me bones.mp3'), 'Rest me old\nbones...'],
+    [new URL('./audio/guards/ahh.mp3', import.meta.url).href, 'Ahh...'],
+    [new URL('./audio/guards/aww.mp3', import.meta.url).href, 'Aww...'],
+    [new URL('./audio/guards/quiet out.mp3', import.meta.url).href, 'Quiet out...'],
+    [new URL('./audio/guards/rest me bones.mp3', import.meta.url).href, 'Rest me old\nbones...'],
 ];
 
 const guardFinishLookingSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
-    [require('url:./audio/guards/quiet out.mp3'), 'Quiet out\nthere...'],
-    [require('url:./audio/guards/jumpy.mp3'), 'Jumpy tonight...'],
-    [require('url:./audio/guards/jumpin shadows.mp3'), 'Jumpin\' at\nshadows!'],
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/oh well.mp3'), 'Oh well...'],
-    [require('url:./audio/guards/case of the jitters.mp3'), 'I\'ve got myself\na case of the\njitters...'],
-    [require('url:./audio/guards/must be seeing.mp3'), 'I must be\nseein\' things...'],
-    [require('url:./audio/guards/what in my coffee.mp3'), 'What\'d they put\nin my coffee?'],
-    [require('url:./audio/guards/coffee too strong.mp3'), 'Coffee must be\ntoo strong!'],
-    [require('url:./audio/guards/hmm nothing.mp3'), 'Hmm!\nNothing...'],
-    [require('url:./audio/guards/well I though I saw.mp3'), 'Well, I thought\nI saw something.'],
-    [require('url:./audio/guards/nothing.mp3'), 'Nothing...'],
-    [require('url:./audio/guards/hopefully nothing.mp3'), 'Hopefully\nnothing.'],
-    [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
-    [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/what was that.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/quiet out.mp3', import.meta.url).href, 'Quiet out\nthere...'],
+    [new URL('./audio/guards/jumpy.mp3', import.meta.url).href, 'Jumpy tonight...'],
+    [new URL('./audio/guards/jumpin shadows.mp3', import.meta.url).href, 'Jumpin\' at\nshadows!'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/oh well.mp3', import.meta.url).href, 'Oh well...'],
+    [new URL('./audio/guards/case of the jitters.mp3', import.meta.url).href, 'I\'ve got myself\na case of the\njitters...'],
+    [new URL('./audio/guards/must be seeing.mp3', import.meta.url).href, 'I must be\nseein\' things...'],
+    [new URL('./audio/guards/what in my coffee.mp3', import.meta.url).href, 'What\'d they put\nin my coffee?'],
+    [new URL('./audio/guards/coffee too strong.mp3', import.meta.url).href, 'Coffee must be\ntoo strong!'],
+    [new URL('./audio/guards/hmm nothing.mp3', import.meta.url).href, 'Hmm!\nNothing...'],
+    [new URL('./audio/guards/well I though I saw.mp3', import.meta.url).href, 'Well, I thought\nI saw something.'],
+    [new URL('./audio/guards/nothing.mp3', import.meta.url).href, 'Nothing...'],
+    [new URL('./audio/guards/hopefully nothing.mp3', import.meta.url).href, 'Hopefully\nnothing.'],
+    [new URL('./audio/guards/seeing things.mp3', import.meta.url).href, 'Seein\' things,\nI guess.'],
+    [new URL('./audio/guards/seeing things.mp3', import.meta.url).href, 'Seein\' things,\nI guess.'],
 ];
 
 const guardFinishLookingAtLitTorchSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
-    [require('url:./audio/guards/jumpy.mp3'), 'Jumpy tonight...'],
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/oh well.mp3'), 'Oh well...'],
-    [require('url:./audio/guards/case of the jitters.mp3'), 'I\'ve got myself\na case of the\njitters...'],
-    [require('url:./audio/guards/must be seeing.mp3'), 'I must be\nseein\' things...'],
-    [require('url:./audio/guards/what in my coffee.mp3'), 'What\'d they put\nin my coffee?'],
-    [require('url:./audio/guards/coffee too strong.mp3'), 'Coffee must be\ntoo strong!'],
-    [require('url:./audio/guards/hmm nothing.mp3'), 'Hmm!\nNothing...'],
-    [require('url:./audio/guards/nothing.mp3'), 'Nothing...'],
-    [require('url:./audio/guards/hopefully nothing.mp3'), 'Hopefully\nnothing.'],
-    [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
-    [require('url:./audio/guards/seeing things.mp3'), 'Seein\' things,\nI guess.'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/what was that.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/jumpy.mp3', import.meta.url).href, 'Jumpy tonight...'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/oh well.mp3', import.meta.url).href, 'Oh well...'],
+    [new URL('./audio/guards/case of the jitters.mp3', import.meta.url).href, 'I\'ve got myself\na case of the\njitters...'],
+    [new URL('./audio/guards/must be seeing.mp3', import.meta.url).href, 'I must be\nseein\' things...'],
+    [new URL('./audio/guards/what in my coffee.mp3', import.meta.url).href, 'What\'d they put\nin my coffee?'],
+    [new URL('./audio/guards/coffee too strong.mp3', import.meta.url).href, 'Coffee must be\ntoo strong!'],
+    [new URL('./audio/guards/hmm nothing.mp3', import.meta.url).href, 'Hmm!\nNothing...'],
+    [new URL('./audio/guards/nothing.mp3', import.meta.url).href, 'Nothing...'],
+    [new URL('./audio/guards/hopefully nothing.mp3', import.meta.url).href, 'Hopefully\nnothing.'],
+    [new URL('./audio/guards/seeing things.mp3', import.meta.url).href, 'Seein\' things,\nI guess.'],
+    [new URL('./audio/guards/seeing things.mp3', import.meta.url).href, 'Seein\' things,\nI guess.'],
 ];
 
 const guardHearThiefSet:Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/What.mp3'), 'What?'] ,   
-    [require('url:./audio/guards/what-2.mp3'), 'What?'] ,   
-    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
-    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-2.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-3.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-4.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-5.mp3'), 'What was that?'],
-    [require('url:./audio/guards/huh.mp3'), 'Huh?'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/wha.mp3'), 'Wha...'],
-    [require('url:./audio/guards/wait.mp3'), 'Wait!'],
-    [require('url:./audio/guards/who there.mp3'), 'Who\'s there?'],
-    [require('url:./audio/guards/hello.mp3'), 'Hello?'],
-    [require('url:./audio/guards/ugh.mp3'), 'Uhh...'],
-    [require('url:./audio/guards/hark.mp3'), 'Hark?'],
-    [require('url:./audio/guards/noise.mp3'), 'What was that noise?'],
-    [require('url:./audio/guards/noise.mp3'), 'What was that noise?'],
-    [require('url:./audio/guards/heard something.mp3'), 'I heard something...'],
-    [require('url:./audio/guards/heard something.mp3'), 'I heard something...'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'] ,   
+    [new URL('./audio/guards/what-2.mp3', import.meta.url).href, 'What?'] ,   
+    [new URL('./audio/guards/hey.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-2.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/what was that.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-2.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-3.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-4.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-5.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/huh.mp3', import.meta.url).href, 'Huh?'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/wha.mp3', import.meta.url).href, 'Wha...'],
+    [new URL('./audio/guards/wait.mp3', import.meta.url).href, 'Wait!'],
+    [new URL('./audio/guards/who there.mp3', import.meta.url).href, 'Who\'s there?'],
+    [new URL('./audio/guards/hello.mp3', import.meta.url).href, 'Hello?'],
+    [new URL('./audio/guards/ugh.mp3', import.meta.url).href, 'Uhh...'],
+    [new URL('./audio/guards/hark.mp3', import.meta.url).href, 'Hark?'],
+    [new URL('./audio/guards/noise.mp3', import.meta.url).href, 'What was that noise?'],
+    [new URL('./audio/guards/noise.mp3', import.meta.url).href, 'What was that noise?'],
+    [new URL('./audio/guards/heard something.mp3', import.meta.url).href, 'I heard something...'],
+    [new URL('./audio/guards/heard something.mp3', import.meta.url).href, 'I heard something...'],
 ];
 
 const guardFinishListeningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/jumpy.mp3'), 'Jumpy tonight...'],
-    [require('url:./audio/guards/oh well.mp3'), 'Oh well...'],
-    [require('url:./audio/guards/case of the jitters.mp3'), 'I\'ve got myself\na case of the\njitters...'],
-    [require('url:./audio/guards/what in my coffee.mp3'), 'What\'s in my\ncoffee today?'],
-    [require('url:./audio/guards/coffee too strong.mp3'), 'Coffee must be\ntoo strong!'],
-    [require('url:./audio/guards/hmm nothing.mp3'), 'Hmm!\nNothing...'],
-    [require('url:./audio/guards/cant hear now.mp3'), 'Well, I can\'t\nhear it now.'],
-    [require('url:./audio/guards/nothing.mp3'), 'Nothing...'],
-    [require('url:./audio/guards/hopefully nothing.mp3'), 'Hopefully\nnothing.'],
-    [require('url:./audio/guards/hearing things.mp3'), 'I must be\nhearing things.'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/jumpy.mp3', import.meta.url).href, 'Jumpy tonight...'],
+    [new URL('./audio/guards/oh well.mp3', import.meta.url).href, 'Oh well...'],
+    [new URL('./audio/guards/case of the jitters.mp3', import.meta.url).href, 'I\'ve got myself\na case of the\njitters...'],
+    [new URL('./audio/guards/what in my coffee.mp3', import.meta.url).href, 'What\'s in my\ncoffee today?'],
+    [new URL('./audio/guards/coffee too strong.mp3', import.meta.url).href, 'Coffee must be\ntoo strong!'],
+    [new URL('./audio/guards/hmm nothing.mp3', import.meta.url).href, 'Hmm!\nNothing...'],
+    [new URL('./audio/guards/cant hear now.mp3', import.meta.url).href, 'Well, I can\'t\nhear it now.'],
+    [new URL('./audio/guards/nothing.mp3', import.meta.url).href, 'Nothing...'],
+    [new URL('./audio/guards/hopefully nothing.mp3', import.meta.url).href, 'Hopefully\nnothing.'],
+    [new URL('./audio/guards/hearing things.mp3', import.meta.url).href, 'I must be\nhearing things.'],
 ];
 
 const guardInvestigateSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/noise again.mp3'), 'That noise\nagain?'],
-    [require('url:./audio/guards/someone there.mp3'), 'Someone\'s there!'],
-    [require('url:./audio/guards/who could that be.mp3'), 'Who could\nthat be?'],
-    [require('url:./audio/guards/better check it out.mp3'), 'Better check\nit out.'],
-    [require('url:./audio/guards/better be rats.mp3'), 'That better\nbe rats!'],
-    [require('url:./audio/guards/who that.mp3'), 'Who is that?'],
-    [require('url:./audio/guards/come out come out.mp3'), 'Come out, come out\nwherever you are!'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/hey.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-2.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/noise again.mp3', import.meta.url).href, 'That noise\nagain?'],
+    [new URL('./audio/guards/someone there.mp3', import.meta.url).href, 'Someone\'s there!'],
+    [new URL('./audio/guards/who could that be.mp3', import.meta.url).href, 'Who could\nthat be?'],
+    [new URL('./audio/guards/better check it out.mp3', import.meta.url).href, 'Better check\nit out.'],
+    [new URL('./audio/guards/better be rats.mp3', import.meta.url).href, 'That better\nbe rats!'],
+    [new URL('./audio/guards/who that.mp3', import.meta.url).href, 'Who is that?'],
+    [new URL('./audio/guards/come out come out.mp3', import.meta.url).href, 'Come out, come out\nwherever you are!'],
     // TODO: These ones would ideally only play after a player has been heard once before
-    // [require('url:./audio/guards/again.mp3'), 'Again!?'],
-    // [require('url:./audio/guards/there it is again.mp3'), 'There it\nis again.'],
-    // [require('url:./audio/guards/what keeps making those noises.mp3'), 'What keeps making\nthose noises?'],
+    // [new URL('./audio/guards/again.mp3', import.meta.url).href, 'Again!?'],
+    // [new URL('./audio/guards/there it is again.mp3', import.meta.url).href, 'There it\nis again.'],
+    // [new URL('./audio/guards/what keeps making those noises.mp3', import.meta.url).href, 'What keeps making\nthose noises?'],
 ];
 
 // TODO: When the thief has been chased, many of these lines will no longer seem appropriate
 // Perhaps need to disambiguate the state in some way 
 // (guardFinishedInvestgiateButUnseen gaurdFinishedInvestigateAndSeen or something)
 const guardFinishInvestigatingSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/jumpin shadows.mp3'), 'Jumpin\' at\nshadows!'],
-    [require('url:./audio/guards/jumpy.mp3'), 'Jumpy!'],
-    [require('url:./audio/guards/oh well.mp3'), 'Oh, well.'],
-    [require('url:./audio/guards/guess nothing.mp3'), 'Guess it was\nnothing.'],
-    [require('url:./audio/guards/wonder it was.mp3'), 'Wonder what it was.'],
-    [require('url:./audio/guards/back to post.mp3'), 'Back to my post.'],
-    [require('url:./audio/guards/quiet now.mp3'), 'All quiet now.'],
-    [require('url:./audio/guards/sure I heard something.mp3'), 'I\'m sure I\nheard something.'],
-    [require('url:./audio/guards/not there anymore.mp3'), 'Not there anymore.'],
-    [require('url:./audio/guards/probably nothing.mp3'), 'Probably nothing.'],
-    [require('url:./audio/guards/hmm nothing.mp3'), 'Hmm!\nNothing.'],
-    [require('url:./audio/guards/i dont know why i work here.mp3'), 'I don\'t know why\nI work here.'],
-    [require('url:./audio/guards/waste of my time.mp3'), 'Waste of my time.'],
-    [require('url:./audio/guards/why do I even try.mp3'), 'Why do I\neven try?'],
-    [require('url:./audio/guards/at least Im not on cleaning duty.mp3'), 'At least I\'m not\non cleaning duty.'],
-    [require('url:./audio/guards/at least my shift ends soon.mp3'), 'At least my\nshift ends soon.'],
-    [require('url:./audio/guards/what do you want me to do about it.mp3'), 'What do you\nwant me to\ndo about it?'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/jumpin shadows.mp3', import.meta.url).href, 'Jumpin\' at\nshadows!'],
+    [new URL('./audio/guards/jumpy.mp3', import.meta.url).href, 'Jumpy!'],
+    [new URL('./audio/guards/oh well.mp3', import.meta.url).href, 'Oh, well.'],
+    [new URL('./audio/guards/guess nothing.mp3', import.meta.url).href, 'Guess it was\nnothing.'],
+    [new URL('./audio/guards/wonder it was.mp3', import.meta.url).href, 'Wonder what it was.'],
+    [new URL('./audio/guards/back to post.mp3', import.meta.url).href, 'Back to my post.'],
+    [new URL('./audio/guards/quiet now.mp3', import.meta.url).href, 'All quiet now.'],
+    [new URL('./audio/guards/sure I heard something.mp3', import.meta.url).href, 'I\'m sure I\nheard something.'],
+    [new URL('./audio/guards/not there anymore.mp3', import.meta.url).href, 'Not there anymore.'],
+    [new URL('./audio/guards/probably nothing.mp3', import.meta.url).href, 'Probably nothing.'],
+    [new URL('./audio/guards/hmm nothing.mp3', import.meta.url).href, 'Hmm!\nNothing.'],
+    [new URL('./audio/guards/i dont know why i work here.mp3', import.meta.url).href, 'I don\'t know why\nI work here.'],
+    [new URL('./audio/guards/waste of my time.mp3', import.meta.url).href, 'Waste of my time.'],
+    [new URL('./audio/guards/why do I even try.mp3', import.meta.url).href, 'Why do I\neven try?'],
+    [new URL('./audio/guards/at least Im not on cleaning duty.mp3', import.meta.url).href, 'At least I\'m not\non cleaning duty.'],
+    [new URL('./audio/guards/at least my shift ends soon.mp3', import.meta.url).href, 'At least my\nshift ends soon.'],
+    [new URL('./audio/guards/what do you want me to do about it.mp3', import.meta.url).href, 'What do you\nwant me to\ndo about it?'],
 ];
 
 // TODO: If we split this group up for guards that are in the same room vs another room
 // we could use more of these
 const guardHearGuardSet: Array<SubtitledSoundDesc> = [ //Repond to guards that enter the chase set
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/coming.mp3'), 'Coming!'],
-    [require('url:./audio/guards/to arms.mp3'), 'To arms!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/coming.mp3', import.meta.url).href, 'Coming!'],
+    [new URL('./audio/guards/to arms.mp3', import.meta.url).href, 'To arms!'],
 ];
 
 const guardSeeUnlitTorchSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/torch-out.mp3'), 'That torch is out!'],
-    [require('url:./audio/guards/torch-out-2.mp3'), 'That light\nburned out!'],
-    [require('url:./audio/guards/too-dark.mp3'), 'It\'s too dark\nin here.'],
-    [require('url:./audio/guards/more-light.mp3'), 'Let\'s have\nmore light.'],
+    [new URL('./audio/guards/torch-out.mp3', import.meta.url).href, 'That torch is out!'],
+    [new URL('./audio/guards/torch-out-2.mp3', import.meta.url).href, 'That light\nburned out!'],
+    [new URL('./audio/guards/too-dark.mp3', import.meta.url).href, 'It\'s too dark\nin here.'],
+    [new URL('./audio/guards/more-light.mp3', import.meta.url).href, 'Let\'s have\nmore light.'],
 ]
 
 const guardFinishLightingTorchSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/that-better.mp3'), 'That\'s better.'],
-    [require('url:./audio/guards/there-we-go.mp3'), 'There we go.'],
-    [require('url:./audio/guards/where-was-i.mp3'), 'Now where was I?'],
+    [new URL('./audio/guards/that-better.mp3', import.meta.url).href, 'That\'s better.'],
+    [new URL('./audio/guards/there-we-go.mp3', import.meta.url).href, 'There we go.'],
+    [new URL('./audio/guards/where-was-i.mp3', import.meta.url).href, 'Now where was I?'],
 ]
 
 const guardChaseSet: Array<SubtitledSoundDesc> = [ //Yells a warning that will be heard by other guards
-    [require('url:./audio/guards/whistle.mp3'), '(Whistle)'],
-    [require('url:./audio/guards/whistle-2.mp3'), '(Whistle)'],
-    [require('url:./audio/guards/whistle-3.mp3'), '(Whistle)'],
-    [require('url:./audio/guards/get em.mp3'), 'Get \'em!'],
-    [require('url:./audio/guards/intruder.mp3'), 'Intruder!'],
-    [require('url:./audio/guards/oh no its a thief.mp3'), 'Oh no...\nIt\'s a thief!'],
-    [require('url:./audio/guards/we coming for you.mp3'), 'We\'re coming\nfor you!'],
-    [require('url:./audio/guards/coming for you.mp3'), 'Coming for you!'],
-    [require('url:./audio/guards/halt.mp3'), 'Halt!'],
-    [require('url:./audio/guards/see you.mp3'), 'We see you!'],
-    [require('url:./audio/guards/ill get you.mp3'), 'I\'ll get you!'],
-    [require('url:./audio/guards/a goner.mp3'), 'You\'re a goner!'],
-    [require('url:./audio/guards/just you wait.mp3'), 'Just you wait!'],
-    [require('url:./audio/guards/you wont get away.mp3'), 'You won\'t get away!'],
-    [require('url:./audio/guards/no you dont.mp3'), 'No you don\'t!'],
-    [require('url:./audio/guards/thief.mp3'), 'Thief!'],
-    [require('url:./audio/guards/thief-2.mp3'), 'Thief!'],
-    [require('url:./audio/guards/thief-3.mp3'), 'Thief!'],
-    [require('url:./audio/guards/after them.mp3'), 'After them!'],
-    [require('url:./audio/guards/what is thy business.mp3'), 'What is thy business\nwith this gold?'],
-    [require('url:./audio/guards/no mercy for the wicked.mp3'), 'No mercy for\nthe wicked!'],
+    [new URL('./audio/guards/whistle.mp3', import.meta.url).href, '(Whistle)'],
+    [new URL('./audio/guards/whistle-2.mp3', import.meta.url).href, '(Whistle)'],
+    [new URL('./audio/guards/whistle-3.mp3', import.meta.url).href, '(Whistle)'],
+    [new URL('./audio/guards/get em.mp3', import.meta.url).href, 'Get \'em!'],
+    [new URL('./audio/guards/intruder.mp3', import.meta.url).href, 'Intruder!'],
+    [new URL('./audio/guards/oh no its a thief.mp3', import.meta.url).href, 'Oh no...\nIt\'s a thief!'],
+    [new URL('./audio/guards/we coming for you.mp3', import.meta.url).href, 'We\'re coming\nfor you!'],
+    [new URL('./audio/guards/coming for you.mp3', import.meta.url).href, 'Coming for you!'],
+    [new URL('./audio/guards/halt.mp3', import.meta.url).href, 'Halt!'],
+    [new URL('./audio/guards/see you.mp3', import.meta.url).href, 'We see you!'],
+    [new URL('./audio/guards/ill get you.mp3', import.meta.url).href, 'I\'ll get you!'],
+    [new URL('./audio/guards/a goner.mp3', import.meta.url).href, 'You\'re a goner!'],
+    [new URL('./audio/guards/just you wait.mp3', import.meta.url).href, 'Just you wait!'],
+    [new URL('./audio/guards/you wont get away.mp3', import.meta.url).href, 'You won\'t get away!'],
+    [new URL('./audio/guards/no you dont.mp3', import.meta.url).href, 'No you don\'t!'],
+    [new URL('./audio/guards/thief.mp3', import.meta.url).href, 'Thief!'],
+    [new URL('./audio/guards/thief-2.mp3', import.meta.url).href, 'Thief!'],
+    [new URL('./audio/guards/thief-3.mp3', import.meta.url).href, 'Thief!'],
+    [new URL('./audio/guards/after them.mp3', import.meta.url).href, 'After them!'],
+    [new URL('./audio/guards/what is thy business.mp3', import.meta.url).href, 'What is thy business\nwith this gold?'],
+    [new URL('./audio/guards/no mercy for the wicked.mp3', import.meta.url).href, 'No mercy for\nthe wicked!'],
 ];
 
 const guardEndChaseSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/must have run.mp3'), 'Must have\nrun off...'],
-    [require('url:./audio/guards/oh well.mp3'), 'Oh, well...'],
-    [require('url:./audio/guards/where they go.mp3'), 'Where did they go?'],
-    [require('url:./audio/guards/his holiness.mp3'), 'His Holiness would\nnot be pleased!'],
-    [require('url:./audio/guards/the boss.mp3'), 'The boss will\nnot be pleased!'],
-    [require('url:./audio/guards/huff puff give up.mp3'), 'I give up!'],
-    [require('url:./audio/guards/gone.mp3'), 'Gone!'],
-    [require('url:./audio/guards/come back here.mp3'), 'Come back here!'],
-    [require('url:./audio/guards/rotten scoundrel.mp3'), 'Rotten scoundrel!'],
-    [require('url:./audio/guards/aargh.mp3'), 'Aargh!!'],
-    [require('url:./audio/guards/blast.mp3'), 'Blast!'],
-    [require('url:./audio/guards/dont come back.mp3'), 'Don\'t come back!'],
-    [require('url:./audio/guards/wont get away next time.mp3'), 'You won\'t\nget away\nnext time!'],
-    [require('url:./audio/guards/for his holiness.mp3'), 'For His Holiness!'],
-    [require('url:./audio/guards/lousy day at work.mp3'), 'What a lousy day\nat work!'],
-    [require('url:./audio/guards/i give up.mp3'), 'I give up...'],
-    [require('url:./audio/guards/what do i do help me.mp3'), 'What do I do?\nHelp me, help me...'],
-    [require('url:./audio/guards/guard rant.mp3'), '(Guard rant)'],
+    [new URL('./audio/guards/must have run.mp3', import.meta.url).href, 'Must have\nrun off...'],
+    [new URL('./audio/guards/oh well.mp3', import.meta.url).href, 'Oh, well...'],
+    [new URL('./audio/guards/where they go.mp3', import.meta.url).href, 'Where did they go?'],
+    [new URL('./audio/guards/his holiness.mp3', import.meta.url).href, 'His Holiness would\nnot be pleased!'],
+    [new URL('./audio/guards/the boss.mp3', import.meta.url).href, 'The boss will\nnot be pleased!'],
+    [new URL('./audio/guards/huff puff give up.mp3', import.meta.url).href, 'I give up!'],
+    [new URL('./audio/guards/gone.mp3', import.meta.url).href, 'Gone!'],
+    [new URL('./audio/guards/come back here.mp3', import.meta.url).href, 'Come back here!'],
+    [new URL('./audio/guards/rotten scoundrel.mp3', import.meta.url).href, 'Rotten scoundrel!'],
+    [new URL('./audio/guards/aargh.mp3', import.meta.url).href, 'Aargh!!'],
+    [new URL('./audio/guards/blast.mp3', import.meta.url).href, 'Blast!'],
+    [new URL('./audio/guards/dont come back.mp3', import.meta.url).href, 'Don\'t come back!'],
+    [new URL('./audio/guards/wont get away next time.mp3', import.meta.url).href, 'You won\'t\nget away\nnext time!'],
+    [new URL('./audio/guards/for his holiness.mp3', import.meta.url).href, 'For His Holiness!'],
+    [new URL('./audio/guards/lousy day at work.mp3', import.meta.url).href, 'What a lousy day\nat work!'],
+    [new URL('./audio/guards/i give up.mp3', import.meta.url).href, 'I give up...'],
+    [new URL('./audio/guards/what do i do help me.mp3', import.meta.url).href, 'What do I do?\nHelp me, help me...'],
+    [new URL('./audio/guards/guard rant.mp3', import.meta.url).href, '(Guard rant)'],
     // Lines that peg the thief as male:
     /*
-    [require('url:./audio/guards/lost em.mp3'), 'Lost \'im!'],
-    [require('url:./audio/guards/where did he go.mp3'), 'Where did he go!?'],
-    [require('url:./audio/guards/drats lost him.mp3'), 'Drats!\nLost him!'],
-    [require('url:./audio/guards/not coming back.mp3'), 'He\'s not coming back!'],
-    [require('url:./audio/guards/oh no he got away.mp3'), 'Oh no,\nhe got away!'],
+    [new URL('./audio/guards/lost em.mp3', import.meta.url).href, 'Lost \'im!'],
+    [new URL('./audio/guards/where did he go.mp3', import.meta.url).href, 'Where did he go!?'],
+    [new URL('./audio/guards/drats lost him.mp3', import.meta.url).href, 'Drats!\nLost him!'],
+    [new URL('./audio/guards/not coming back.mp3', import.meta.url).href, 'He\'s not coming back!'],
+    [new URL('./audio/guards/oh no he got away.mp3', import.meta.url).href, 'Oh no,\nhe got away!'],
     */
 ];
 
 const guardAwakesWarningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/someone-smacked-me.mp3'), 'Someone smacked me!'],
-    [require('url:./audio/guards/someone-hit-me.mp3'), 'Someone hit me!'],
-    [require('url:./audio/guards/who-hit-me.mp3'), 'Who hit me!?'],
-    [require('url:./audio/guards/devils-hit-me.mp3'), 'Which of you\ndevils hit me!?'],
+    [new URL('./audio/guards/someone-smacked-me.mp3', import.meta.url).href, 'Someone smacked me!'],
+    [new URL('./audio/guards/someone-hit-me.mp3', import.meta.url).href, 'Someone hit me!'],
+    [new URL('./audio/guards/who-hit-me.mp3', import.meta.url).href, 'Who hit me!?'],
+    [new URL('./audio/guards/devils-hit-me.mp3', import.meta.url).href, 'Which of you\ndevils hit me!?'],
 ]
 
 const guardDownWarningSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/have-guard-down.mp3'), 'We have a guard down!'],
-    [require('url:./audio/guards/man-down.mp3'), 'Man down!'],
-    [require('url:./audio/guards/guard-down.mp3'), 'Guard down!'],
+    [new URL('./audio/guards/have-guard-down.mp3', import.meta.url).href, 'We have a guard down!'],
+    [new URL('./audio/guards/man-down.mp3', import.meta.url).href, 'Man down!'],
+    [new URL('./audio/guards/guard-down.mp3', import.meta.url).href, 'Guard down!'],
 ]
 
 const guardStirringSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/ahh.mp3'), 'Ahh...'],
+    [new URL('./audio/guards/ahh.mp3', import.meta.url).href, 'Ahh...'],
 ]
 
 const guardWarningResponseSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/must-have-intruder.mp3'), 'We must have\nan intruder!'],
-    [require('url:./audio/guards/eye-out.mp3'), 'I will keep\nan eye out!'],
-    [require('url:./audio/guards/intruder.mp3'), 'Intruder!'],
+    [new URL('./audio/guards/must-have-intruder.mp3', import.meta.url).href, 'We must have\nan intruder!'],
+    [new URL('./audio/guards/eye-out.mp3', import.meta.url).href, 'I will keep\nan eye out!'],
+    [new URL('./audio/guards/intruder.mp3', import.meta.url).href, 'Intruder!'],
 ]
 
 const guardDamageSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/take that.mp3'), 'Take that!!'],
-    [require('url:./audio/guards/oof.mp3'), 'Oof!!'],
-    [require('url:./audio/guards/uh.mp3'), 'Ugg!!'],
-    [require('url:./audio/guards/ah.mp3'), 'Ahh!!'],
-    [require('url:./audio/guards/ah-2.mp3'), 'Ahh!!'],
-    [require('url:./audio/guards/ha ya.mp3'), 'Hi-yah!'],
-    [require('url:./audio/guards/ha ya-2.mp3'), 'Hi-yah!'],
-    [require('url:./audio/guards/ha ya-3.mp3'), 'Hi-yah!'],
+    [new URL('./audio/guards/take that.mp3', import.meta.url).href, 'Take that!!'],
+    [new URL('./audio/guards/oof.mp3', import.meta.url).href, 'Oof!!'],
+    [new URL('./audio/guards/uh.mp3', import.meta.url).href, 'Ugg!!'],
+    [new URL('./audio/guards/ah.mp3', import.meta.url).href, 'Ahh!!'],
+    [new URL('./audio/guards/ah-2.mp3', import.meta.url).href, 'Ahh!!'],
+    [new URL('./audio/guards/ha ya.mp3', import.meta.url).href, 'Hi-yah!'],
+    [new URL('./audio/guards/ha ya-2.mp3', import.meta.url).href, 'Hi-yah!'],
+    [new URL('./audio/guards/ha ya-3.mp3', import.meta.url).href, 'Hi-yah!'],
 ];
 
 const guardSeeTorchLitSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/Hmm.mp3'), 'Hmm...'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],    
-    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
-    [require('url:./audio/guards/what was that.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-2.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-3.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-4.mp3'), 'What was that?'],
-    [require('url:./audio/guards/what was that-5.mp3'), 'What was that?'],
-    [require('url:./audio/guards/who goes there.mp3'), 'Who goes there?'],
-    [require('url:./audio/guards/huh.mp3'), 'Huh?'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/wha.mp3'), 'Wha...'],
-    [require('url:./audio/guards/wait.mp3'), 'Wait!'],
-    [require('url:./audio/guards/who there.mp3'), 'Who\'s there?'],
-    [require('url:./audio/guards/hello.mp3'), 'Hello?'],
-    [require('url:./audio/guards/ugh.mp3'), 'Uhh...'],
+    [new URL('./audio/guards/Hmm.mp3', import.meta.url).href, 'Hmm...'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],    
+    [new URL('./audio/guards/hey.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-2.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/what was that.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-2.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-3.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-4.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/what was that-5.mp3', import.meta.url).href, 'What was that?'],
+    [new URL('./audio/guards/who goes there.mp3', import.meta.url).href, 'Who goes there?'],
+    [new URL('./audio/guards/huh.mp3', import.meta.url).href, 'Huh?'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/wha.mp3', import.meta.url).href, 'Wha...'],
+    [new URL('./audio/guards/wait.mp3', import.meta.url).href, 'Wait!'],
+    [new URL('./audio/guards/who there.mp3', import.meta.url).href, 'Who\'s there?'],
+    [new URL('./audio/guards/hello.mp3', import.meta.url).href, 'Hello?'],
+    [new URL('./audio/guards/ugh.mp3', import.meta.url).href, 'Uhh...'],
 ];
 
 const guardSeeTorchDousedSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/dont-stay-lit.mp3'), 'They don\'t\nstay lit!'],
-    [require('url:./audio/guards/paranoid.mp3'), 'That\'s enough to make\na guy paranoid!'],
-    [require('url:./audio/guards/should-relight.mp3'), 'Somebody should\nrelight that.'],
-    [require('url:./audio/guards/torch-burned.mp3'), 'That torch\nburned out.'],
-    [require('url:./audio/guards/light-burned.mp3'), 'That light\nburned out.'],
-    [require('url:./audio/guards/got-dark.mp3'), 'It got dark!'],
-    [require('url:./audio/guards/wish-torch.mp3'), 'Wish I had\na torch...'],
-    [require('url:./audio/guards/why-happen.mp3'), 'Why did that\nhappen?'],
+    [new URL('./audio/guards/dont-stay-lit.mp3', import.meta.url).href, 'They don\'t\nstay lit!'],
+    [new URL('./audio/guards/paranoid.mp3', import.meta.url).href, 'That\'s enough to make\na guy paranoid!'],
+    [new URL('./audio/guards/should-relight.mp3', import.meta.url).href, 'Somebody should\nrelight that.'],
+    [new URL('./audio/guards/torch-burned.mp3', import.meta.url).href, 'That torch\nburned out.'],
+    [new URL('./audio/guards/light-burned.mp3', import.meta.url).href, 'That light\nburned out.'],
+    [new URL('./audio/guards/got-dark.mp3', import.meta.url).href, 'It got dark!'],
+    [new URL('./audio/guards/wish-torch.mp3', import.meta.url).href, 'Wish I had\na torch...'],
+    [new URL('./audio/guards/why-happen.mp3', import.meta.url).href, 'Why did that\nhappen?'],
 ];
 
 const guardSpotStolenTreasureSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/huh.mp3'), 'Huh?'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
+    [new URL('./audio/guards/huh.mp3', import.meta.url).href, 'Huh?'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/hey.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-2.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
 ];
 
 const guardExamineStolenTreasureSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/someone-stole.mp3'), 'Someone stole\nthe Treasure!'],
-    [require('url:./audio/guards/its-missing.mp3'), 'It\'s missing!'],
-    [require('url:./audio/guards/who-took-it.mp3'), 'Who took it?'],
-    [require('url:./audio/guards/boss-wont-like.mp3'), 'The boss won\'t\nlike this!'],
+    [new URL('./audio/guards/someone-stole.mp3', import.meta.url).href, 'Someone stole\nthe Treasure!'],
+    [new URL('./audio/guards/its-missing.mp3', import.meta.url).href, 'It\'s missing!'],
+    [new URL('./audio/guards/who-took-it.mp3', import.meta.url).href, 'Who took it?'],
+    [new URL('./audio/guards/boss-wont-like.mp3', import.meta.url).href, 'The boss won\'t\nlike this!'],
 ];
 
 const guardSpotDownedGuardSet: Array<SubtitledSoundDesc> = [
-    [require('url:./audio/guards/huh.mp3'), 'Huh?'],
-    [require('url:./audio/guards/What.mp3'), 'What?'],
-    [require('url:./audio/guards/hey.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-2.mp3'), 'Hey!'],
-    [require('url:./audio/guards/hey-3.mp3'), 'Hey!'],
+    [new URL('./audio/guards/huh.mp3', import.meta.url).href, 'Huh?'],
+    [new URL('./audio/guards/What.mp3', import.meta.url).href, 'What?'],
+    [new URL('./audio/guards/hey.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-2.mp3', import.meta.url).href, 'Hey!'],
+    [new URL('./audio/guards/hey-3.mp3', import.meta.url).href, 'Hey!'],
 ];
 
 
