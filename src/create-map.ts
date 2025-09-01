@@ -6240,9 +6240,24 @@ function placeTreasure(map: GameMap, rooms: Array<Room>, rng: RNG) {
             }
         }
 
-        // If the treasure is supposed to be locked but we couldn't find any books to use for switches, remove the lock.
+        // Find a piece of furniture to put a clue note on.
 
-        if (availableBookSets.length === 0) {
+        const unusablePositions = new Set();
+        for (const item of map.items) {
+            if (item.type === ItemType.Coin || item.type === ItemType.Health || item.type === ItemType.Note) {
+                unusablePositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
+            }
+        }
+
+        let furniture = map.items.filter(item =>
+            (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
+            !unusablePositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
+        );
+
+        // If the treasure is supposed to be locked but we couldn't find any books to use for switches,
+        // or a place to put the hint note, remove the lock.
+
+        if (availableBookSets.length === 0 || furniture.length === 0) {
             map.items = map.items.filter(item => !(item.type === ItemType.TreasureLock && item.pos.equals(plinth.pos)));
             map.cells.atVec(plinth.pos).blocksPlayerMove = false;
             continue;
@@ -6265,30 +6280,16 @@ function placeTreasure(map: GameMap, rooms: Array<Room>, rng: RNG) {
             treasure.switches.push(vec2.clone(book.pos));
         }
 
-        // Find a piece of furniture to put a clue note on
+        // Pick a piece of furniture and put a clue note on it.
 
-        const unusablePositions = new Set();
-        for (const item of map.items) {
-            if (item.type === ItemType.Coin || item.type === ItemType.Health || item.type === ItemType.Note) {
-                unusablePositions.add(item.pos[0] * map.cells.sizeY + item.pos[1]);
-            }
-        }
-
-        let furniture = map.items.filter(item =>
-            (item.type === ItemType.DrawersShort || item.type === ItemType.DrawersTall || item.type === ItemType.Shelf) &&
-            !unusablePositions.has(item.pos[0] * map.cells.sizeY + item.pos[1])
-        );
-
-        if (furniture.length > 0) {
-            const pos = furniture[rng.randomInRange(furniture.length)].pos;
-            const note = {
-                pos: vec2.clone(pos),
-                type: ItemType.Note,
-                topLayer: itemLayers[ItemType.Note],
-            };
-            map.items.push(note);
-            map.bookTitle.set(note, clue);
-        }   
+        const pos = furniture[rng.randomInRange(furniture.length)].pos;
+        const note = {
+            pos: vec2.clone(pos),
+            type: ItemType.Note,
+            topLayer: itemLayers[ItemType.Note],
+        };
+        map.items.push(note);
+        map.bookTitle.set(note, clue);
     }
 
     // Sort the treasure locks to the end of the item list so they will render after the treasures
