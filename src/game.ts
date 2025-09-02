@@ -593,7 +593,8 @@ function collectLoot(state: State, pos: vec2, posFlyToward: vec2): boolean {
             for (const treasureInfo of state.gameMap.treasures) {
                 if (treasureInfo.posTreasure.equals(item.pos)) {
                     treasureInfo.stolen = true;
-                    if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress) {
+                    if (state.gameMapRoughPlans[state.level].levelType === LevelType.Fortress &&
+                        state.level === state.gameMapRoughPlans.length - 1) {
                         makeNoise(state.gameMap, state.player, state.popups, NoiseType.Alarm, 
                             pos[0]-state.player.pos[0], pos[1]-state.player.pos[1], state.sounds, 46, true);
                     }
